@@ -288,3 +288,15 @@ Uses `fetch('/api/email/send', ...)` with loading state via `useState`.
 5. Verify deduplication: same guardian linked to 2 students → only 1 email
 6. Verify skipped reporting: guardian with no email → appears in skipped list
 7. Verify audit log: bulk email sends appear in audit_log table
+
+---
+
+## Crossovers with other plans
+
+When this feature ships, three other plans in this folder need follow-up touches:
+
+1. **[offline-read-only-mode.md](offline-read-only-mode.md)** — the new `BulkEmailForm` (client component, Phase 5d) is the same shape as the 12 forms that plan disables when offline. Add it to the "Disable forms when offline" table: wire `useOnlineStatus`, render `<OfflineNotice />` near the submit button, and add `|| !isOnline` to the disabled prop.
+2. **[integration-tests.md](integration-tests.md)** — the e2e matrix in that plan predates bulk email and has no rows for the new admin "Bulk Email" tab or the `/api/email/send` route. Add specs covering tab visibility per role (admin/headteacher/secretary visible; teacher hidden), validation errors, dedup behaviour, and the audit-log side effect.
+3. **[update-edge-functions.md](update-edge-functions.md)** — the `/api/email/send` route handler uses Resend's Node SDK and so cannot move to Edge. Add a row to that plan's "Cannot move" table once this ships.
+
+These crossovers are noted here rather than duplicated into each other plan so the source of truth lives with the feature that introduces them.
