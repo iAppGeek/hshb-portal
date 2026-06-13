@@ -2,8 +2,14 @@ import { type Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { getStudentById, getAllGuardians, getAllClasses } from '@/db'
-import { canEditStudents } from '@/lib/permissions'
+import {
+  getStudentById,
+  getAllGuardians,
+  getAllClasses,
+  getDocumentsForStudent,
+} from '@/db'
+import { canEditStudents, canManageDocuments } from '@/lib/permissions'
+import DocumentsSection from '@/clientComponents/DocumentsSection'
 import type { StaffRole } from '@/types/next-auth'
 
 import EditStudentForm from './EditStudentForm'
@@ -24,10 +30,11 @@ export default async function EditStudentPage({
 
   const { id } = await params
 
-  const [student, guardians, classes] = await Promise.all([
+  const [student, guardians, classes, documents] = await Promise.all([
     getStudentById(id),
     getAllGuardians(),
     getAllClasses(),
+    getDocumentsForStudent(id),
   ])
 
   if (!student) {
@@ -41,7 +48,7 @@ export default async function EditStudentPage({
     .filter((id): id is string => Boolean(id))
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-2xl space-y-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">
           Edit Student: {student.last_name}, {student.first_name}
@@ -57,6 +64,13 @@ export default async function EditStudentPage({
         guardians={guardians}
         classes={classes as { id: string; name: string; year_group: string }[]}
         enrolledClassIds={enrolledClassIds}
+      />
+
+      <DocumentsSection
+        ownerType="student"
+        ownerId={id}
+        documents={documents}
+        canManage={canManageDocuments(role)}
       />
     </div>
   )

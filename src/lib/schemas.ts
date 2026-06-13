@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { getDocumentType } from './documentTypes'
+
 // ─── Reusable field schemas ──────────────────────────────────────────────────
 
 export const uuid = z.string().uuid()
@@ -161,6 +163,67 @@ export const createStaffSchema = z.object({
 })
 
 export const updateStaffSchema = createStaffSchema
+
+// ─── Documents & Records ─────────────────────────────────────────────────────
+
+export const ownerType = z.enum(['student', 'staff'])
+
+/** A `type` value must be a known catalog entry (src/lib/documentTypes.ts). */
+export const documentTypeValue = z
+  .string()
+  .refine((v) => getDocumentType(v) !== undefined, 'Unknown document type')
+
+/**
+ * Expiry is compulsory in the form but NULL-able in the DB. The form submits
+ * either the literal `'never'` (→ NULL = "Never") or a `YYYY-MM-DD` date; an
+ * empty/absent value is rejected so the user must consciously choose.
+ */
+export const expiresAtField = z
+  .string()
+  .refine(
+    (v) => v === 'never' || /^\d{4}-\d{2}-\d{2}$/.test(v),
+    'Choose an expiry date or select Never',
+  )
+  .transform((v): string | null => (v === 'never' ? null : v))
+
+/** One FIELD:VALUE pair of a record. */
+export const recordFieldSchema = z.object({
+  field: requiredString,
+  value: z.string().trim().default(''),
+})
+
+export const recordFieldsSchema = z
+  .array(recordFieldSchema)
+  .min(1, 'Add at least one field')
+
+/** Shared metadata envelope for every document/record kind. */
+const documentEnvelopeSchema = z.object({
+  owner_type: ownerType,
+  owner_id: uuid,
+  name: requiredString,
+  type: documentTypeValue,
+  expires_at: expiresAtField,
+  other: optionalString.optional(),
+})
+
+export const uploadDocumentSchema = documentEnvelopeSchema
+
+export const linkDocumentSchema = documentEnvelopeSchema.extend({
+  external_url: z.string().trim().url('Enter a valid URL'),
+})
+
+export const createRecordSchema = documentEnvelopeSchema.extend({
+  fields: recordFieldsSchema,
+})
+
+/** Edit only touches the envelope (+ a record's fields) — never bytes/source. */
+export const updateDocumentSchema = z.object({
+  name: requiredString,
+  type: documentTypeValue,
+  expires_at: expiresAtField,
+  other: optionalString.optional(),
+  fields: recordFieldsSchema.optional(),
+})
 
 const guardianNewSchema = z.object({
   mode: z.literal('new'),

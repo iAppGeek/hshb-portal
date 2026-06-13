@@ -3,7 +3,12 @@ import { render, screen } from '@testing-library/react'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { getStudentById, getAllGuardians, getAllClasses } from '@/db'
+import {
+  getStudentById,
+  getAllGuardians,
+  getAllClasses,
+  getDocumentsForStudent,
+} from '@/db'
 
 import EditStudentPage from './page'
 
@@ -15,6 +20,11 @@ vi.mock('@/db', () => ({
   getStudentById: vi.fn(),
   getAllGuardians: vi.fn(),
   getAllClasses: vi.fn(),
+  getDocumentsForStudent: vi.fn(),
+}))
+
+vi.mock('@/clientComponents/DocumentsSection', () => ({
+  default: () => <div>DocumentsSection</div>,
 }))
 
 vi.mock('next/navigation', () => ({
@@ -35,6 +45,7 @@ vi.mock('./EditStudentForm', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(getDocumentsForStudent).mockResolvedValue([])
 })
 
 const mockStudent = {

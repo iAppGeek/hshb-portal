@@ -61,3 +61,22 @@ INSERT INTO lesson_plans (id, class_id, lesson_date, description, created_by) VA
   ('70000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001',
    CURRENT_DATE, 'Introduction to addition and subtraction.',
    '00000000-0000-0000-0000-000000000002');
+
+-- ─── Documents & Records ──────────────────────────────────────────────────────
+-- A student-owned link, a staff-owned link, and a staff-owned record. Link docs
+-- need no storage backend, so they exercise the happy path in E2E directly.
+INSERT INTO documents (id, student_id, name, type, expires_at, source, external_url, created_by) VALUES
+  ('80000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001',
+   'Consent form', 'medical_consent', NULL, 'link', 'https://example.com/consent.pdf',
+   '00000000-0000-0000-0000-000000000001');
+
+INSERT INTO documents (id, staff_id, name, type, expires_at, source, external_url, created_by) VALUES
+  ('80000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000002',
+   'Teaching contract', 'contract', NULL, 'link', 'https://example.com/contract.pdf',
+   '00000000-0000-0000-0000-000000000001');
+
+INSERT INTO documents (id, staff_id, name, type, expires_at, source, fields, created_by) VALUES
+  ('80000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000002',
+   'DBS', 'dbs_check', NULL, 'record',
+   '[{"field":"Certificate No","value":"0012345678"},{"field":"Status","value":"Clear"}]'::jsonb,
+   '00000000-0000-0000-0000-000000000001');

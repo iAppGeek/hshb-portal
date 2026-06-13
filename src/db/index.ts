@@ -95,4 +95,21 @@ export {
   getStaffSignedInCount,
 } from './staff-attendance'
 export type { StaffAttendanceRow } from './staff-attendance'
+export {
+  getDocumentsForStudent,
+  getDocumentsForStaff,
+  getDeletedDocuments,
+  getDocumentById,
+  createDocument,
+  updateDocument,
+  softDeleteDocument,
+} from './documents'
+export type {
+  DocumentSource,
+  DocumentField,
+  DocumentRow,
+  DeletedDocumentRow,
+  CreateDocumentInput,
+  UpdateDocumentInput,
+} from './documents'
 export { logAuditEvent } from './audit-log'
