@@ -262,8 +262,9 @@ export const registrationSubmissionSchema = z.object({
   postcode: requiredString,
   allergies: optionalString,
   medical_details: optionalString,
-  collect_authorised: optionalString,
-  collect_password: optionalString,
+  // Only rendered on the form once an emergency contact is added.
+  collect_authorised: optionalString.optional(),
+  collect_password: optionalString.optional(),
   has_secondary: booleanFromString,
   has_contact1: booleanFromString,
   has_contact2: booleanFromString,

@@ -701,6 +701,12 @@ describe('registrationSubmissionSchema', () => {
     })
     expect(result.consent_photo_media).toBe(false)
   })
+
+  it('allows collection arrangement fields to be absent from the form', () => {
+    const { collect_authorised: _a, collect_password: _p, ...rest } = valid
+    const result = registrationSubmissionSchema.parse(rest)
+    expect(result.collect_authorised).toBeUndefined()
+  })
 })
 
 describe('approveRegistrationSchema', () => {
