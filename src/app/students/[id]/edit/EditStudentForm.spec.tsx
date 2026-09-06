@@ -60,6 +60,11 @@ const baseStudent = {
   additional_contact_1_relationship: null,
   additional_contact_2_id: null,
   additional_contact_2_relationship: null,
+  consent_privacy_notice: false,
+  consent_emergency_first_aid: false,
+  consent_photo_media: false,
+  consent_home_school: false,
+  consent_comms_email_sms: false,
   student_classes: [],
 }
 
@@ -117,5 +122,33 @@ describe('EditStudentForm', () => {
     }) as HTMLInputElement
     expect(checkbox1.checked).toBe(true)
     expect(checkbox2.checked).toBe(false)
+  })
+
+  it('renders consent checkboxes pre-checked from the student record', () => {
+    render(
+      <EditStudentForm
+        student={{
+          ...baseStudent,
+          consent_privacy_notice: true,
+          consent_emergency_first_aid: true,
+        }}
+        guardians={guardians}
+      />,
+    )
+
+    expect(
+      (
+        screen.getByRole('checkbox', {
+          name: 'Privacy notice',
+        }) as HTMLInputElement
+      ).checked,
+    ).toBe(true)
+    expect(
+      (
+        screen.getByRole('checkbox', {
+          name: 'Photo & media',
+        }) as HTMLInputElement
+      ).checked,
+    ).toBe(false)
   })
 })

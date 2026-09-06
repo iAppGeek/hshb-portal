@@ -268,6 +268,11 @@ type StudentInsert = {
   allergies?: string | null
   medical_details?: string | null
   notes?: string | null
+  consent_privacy_notice?: boolean
+  consent_emergency_first_aid?: boolean
+  consent_photo_media?: boolean
+  consent_home_school?: boolean
+  consent_comms_email_sms?: boolean
 }
 
 export async function createStudent(data: StudentInsert) {

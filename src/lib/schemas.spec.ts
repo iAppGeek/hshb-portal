@@ -581,6 +581,31 @@ describe('updateStudentSchema', () => {
     })
     expect(result.class_ids).toHaveLength(1)
   })
+
+  it('parses consent checkboxes, defaulting unticked ones to false', () => {
+    const result = updateStudentSchema.parse({
+      student_first_name: 'Anna',
+      student_last_name: 'Smith',
+      student_code: '',
+      student_date_of_birth: '',
+      address_guardian_id: 'primary',
+      student_address_line_1: '',
+      student_address_line_2: '',
+      student_city: '',
+      student_postcode: '',
+      student_allergies: '',
+      student_medical_details: '',
+      student_notes: '',
+      primary_relationship: 'Mother',
+      has_secondary: 'false',
+      has_contact1: 'false',
+      has_contact2: 'false',
+      class_ids: [],
+      consent_privacy_notice: 'on',
+    })
+    expect(result.consent_privacy_notice).toBe(true)
+    expect(result.consent_emergency_first_aid).toBe(false)
+  })
 })
 
 describe('registrationContactSchema', () => {

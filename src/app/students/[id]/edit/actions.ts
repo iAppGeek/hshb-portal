@@ -144,6 +144,11 @@ export async function updateStudentAction(
       additional_contact_2_relationship: contact2Id
         ? (d.contact2_relationship ?? null)
         : null,
+      consent_privacy_notice: d.consent_privacy_notice,
+      consent_emergency_first_aid: d.consent_emergency_first_aid,
+      consent_photo_media: d.consent_photo_media,
+      consent_home_school: d.consent_home_school,
+      consent_comms_email_sms: d.consent_comms_email_sms,
     })
 
     await updateStudentClasses(id, d.class_ids)

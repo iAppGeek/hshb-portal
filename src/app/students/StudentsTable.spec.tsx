@@ -81,6 +81,11 @@ const students = [
     additional_contact_2_id: null,
     additional_contact_2: null,
     additional_contact_2_relationship: null,
+    consent_privacy_notice: false,
+    consent_emergency_first_aid: false,
+    consent_photo_media: false,
+    consent_home_school: false,
+    consent_comms_email_sms: false,
   },
   {
     id: 'student-2',
@@ -128,6 +133,11 @@ const students = [
     additional_contact_2_id: null,
     additional_contact_2: null,
     additional_contact_2_relationship: null,
+    consent_privacy_notice: false,
+    consent_emergency_first_aid: false,
+    consent_photo_media: false,
+    consent_home_school: false,
+    consent_comms_email_sms: false,
   },
 ]
 

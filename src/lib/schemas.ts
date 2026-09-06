@@ -236,6 +236,11 @@ export const createStudentSchema = studentBaseSchema
 
 export const updateStudentSchema = studentBaseSchema.extend({
   class_ids: z.array(uuid).default([]),
+  consent_privacy_notice: checkbox,
+  consent_emergency_first_aid: checkbox,
+  consent_photo_media: checkbox,
+  consent_home_school: checkbox,
+  consent_comms_email_sms: checkbox,
 })
 
 export const registrationContactSchema = z.object({
