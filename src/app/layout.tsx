@@ -190,11 +190,12 @@ function SidebarLoadingSkeleton() {
   )
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const session = await auth()
   return (
     <html
       lang="en"
@@ -206,18 +207,22 @@ export default function RootLayout({
       <body
         className={clsx('flex min-h-full flex-col', 'bg-white text-slate-900')}
       >
-        <div className="flex min-h-screen bg-gray-100 print:min-h-0">
-          <PwaRegistrar />
-          <Suspense fallback={<SidebarLoadingSkeleton />}>
-            <AuthedSidebar />
-          </Suspense>
-          <main className="flex-1 overflow-auto px-4 py-6 pt-20 md:p-8">
-            <Suspense fallback={null}>
-              <AuthedNotificationBanner />
+        {session ? (
+          <div className="flex min-h-screen bg-gray-100 print:min-h-0">
+            <PwaRegistrar />
+            <Suspense fallback={<SidebarLoadingSkeleton />}>
+              <AuthedSidebar />
             </Suspense>
-            {children}
-          </main>
-        </div>
+            <main className="flex-1 overflow-auto px-4 py-6 pt-20 md:p-8">
+              <Suspense fallback={null}>
+                <AuthedNotificationBanner />
+              </Suspense>
+              {children}
+            </main>
+          </div>
+        ) : (
+          children
+        )}
         {process.env.NODE_ENV === 'production' && (
           <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID!} />
         )}
