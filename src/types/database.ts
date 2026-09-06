@@ -13,7 +13,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: '14.1'
+    PostgrestVersion: '14.5'
   }
   public: {
     Tables: {
@@ -356,6 +356,173 @@ export type Database = {
           },
         ]
       }
+      registration_submission_contacts: {
+        Row: {
+          address_line_1: string | null
+          address_line_2: string | null
+          city: string | null
+          contact_role: Database['public']['Enums']['contact_role']
+          created_at: string
+          email: string | null
+          first_name: string
+          id: string
+          last_name: string
+          phone: string
+          postcode: string | null
+          relationship: string | null
+          same_as_child_address: boolean
+          submission_id: string
+        }
+        Insert: {
+          address_line_1?: string | null
+          address_line_2?: string | null
+          city?: string | null
+          contact_role: Database['public']['Enums']['contact_role']
+          created_at?: string
+          email?: string | null
+          first_name: string
+          id?: string
+          last_name: string
+          phone: string
+          postcode?: string | null
+          relationship?: string | null
+          same_as_child_address?: boolean
+          submission_id: string
+        }
+        Update: {
+          address_line_1?: string | null
+          address_line_2?: string | null
+          city?: string | null
+          contact_role?: Database['public']['Enums']['contact_role']
+          created_at?: string
+          email?: string | null
+          first_name?: string
+          id?: string
+          last_name?: string
+          phone?: string
+          postcode?: string | null
+          relationship?: string | null
+          same_as_child_address?: boolean
+          submission_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'registration_submission_contacts_submission_id_fkey'
+            columns: ['submission_id']
+            isOneToOne: false
+            referencedRelation: 'registration_submissions'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      registration_submissions: {
+        Row: {
+          actioned_at: string | null
+          actioned_by: string | null
+          address_line_1: string
+          address_line_2: string | null
+          allergies: string | null
+          child_first_name: string
+          child_last_name: string
+          city: string
+          collect_authorised: string | null
+          collect_password: string | null
+          consent_comms_email_sms: boolean
+          consent_emergency_first_aid: boolean
+          consent_home_school: boolean
+          consent_photo_media: boolean
+          consent_privacy_notice: boolean
+          created_at: string
+          date_of_birth: string
+          declaration_name: string
+          id: string
+          linked_existing: boolean
+          medical_details: string | null
+          postcode: string
+          preferred_year_group: string | null
+          rejected_reason: string | null
+          status: Database['public']['Enums']['submission_status']
+          student_id: string | null
+          submitted_at: string
+          updated_at: string
+        }
+        Insert: {
+          actioned_at?: string | null
+          actioned_by?: string | null
+          address_line_1: string
+          address_line_2?: string | null
+          allergies?: string | null
+          child_first_name: string
+          child_last_name: string
+          city: string
+          collect_authorised?: string | null
+          collect_password?: string | null
+          consent_comms_email_sms?: boolean
+          consent_emergency_first_aid?: boolean
+          consent_home_school?: boolean
+          consent_photo_media?: boolean
+          consent_privacy_notice?: boolean
+          created_at?: string
+          date_of_birth: string
+          declaration_name: string
+          id?: string
+          linked_existing?: boolean
+          medical_details?: string | null
+          postcode: string
+          preferred_year_group?: string | null
+          rejected_reason?: string | null
+          status?: Database['public']['Enums']['submission_status']
+          student_id?: string | null
+          submitted_at?: string
+          updated_at?: string
+        }
+        Update: {
+          actioned_at?: string | null
+          actioned_by?: string | null
+          address_line_1?: string
+          address_line_2?: string | null
+          allergies?: string | null
+          child_first_name?: string
+          child_last_name?: string
+          city?: string
+          collect_authorised?: string | null
+          collect_password?: string | null
+          consent_comms_email_sms?: boolean
+          consent_emergency_first_aid?: boolean
+          consent_home_school?: boolean
+          consent_photo_media?: boolean
+          consent_privacy_notice?: boolean
+          created_at?: string
+          date_of_birth?: string
+          declaration_name?: string
+          id?: string
+          linked_existing?: boolean
+          medical_details?: string | null
+          postcode?: string
+          preferred_year_group?: string | null
+          rejected_reason?: string | null
+          status?: Database['public']['Enums']['submission_status']
+          student_id?: string | null
+          submitted_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'registration_submissions_actioned_by_fkey'
+            columns: ['actioned_by']
+            isOneToOne: false
+            referencedRelation: 'staff'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'registration_submissions_student_id_fkey'
+            columns: ['student_id']
+            isOneToOne: false
+            referencedRelation: 'students'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       staff: {
         Row: {
           contact_number: string | null
@@ -478,6 +645,11 @@ export type Database = {
           address_line_2: string | null
           allergies: string | null
           city: string | null
+          consent_comms_email_sms: boolean
+          consent_emergency_first_aid: boolean
+          consent_home_school: boolean
+          consent_photo_media: boolean
+          consent_privacy_notice: boolean
           created_at: string | null
           date_of_birth: string | null
           enrollment_date: string | null
@@ -505,6 +677,11 @@ export type Database = {
           address_line_2?: string | null
           allergies?: string | null
           city?: string | null
+          consent_comms_email_sms?: boolean
+          consent_emergency_first_aid?: boolean
+          consent_home_school?: boolean
+          consent_photo_media?: boolean
+          consent_privacy_notice?: boolean
           created_at?: string | null
           date_of_birth?: string | null
           enrollment_date?: string | null
@@ -532,6 +709,11 @@ export type Database = {
           address_line_2?: string | null
           allergies?: string | null
           city?: string | null
+          consent_comms_email_sms?: boolean
+          consent_emergency_first_aid?: boolean
+          consent_home_school?: boolean
+          consent_photo_media?: boolean
+          consent_privacy_notice?: boolean
           created_at?: string | null
           date_of_birth?: string | null
           enrollment_date?: string | null
@@ -635,6 +817,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_registration: {
+        Args: {
+          p_class_id?: string
+          p_existing_student_id?: string
+          p_staff_id: string
+          p_student_code?: string
+          p_submission_id: string
+        }
+        Returns: string
+      }
       get_attendance_summary: {
         Args: { p_date: string }
         Returns: {
@@ -657,7 +849,8 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      contact_role: 'primary' | 'secondary' | 'additional_1' | 'additional_2'
+      submission_status: 'pending' | 'actioned' | 'rejected'
     }
     CompositeTypes: {
       [_ in never]: never
@@ -784,6 +977,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      contact_role: ['primary', 'secondary', 'additional_1', 'additional_2'],
+      submission_status: ['pending', 'actioned', 'rejected'],
+    },
   },
 } as const
