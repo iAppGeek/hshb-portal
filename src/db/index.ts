@@ -22,7 +22,25 @@ export {
   enrollStudentInClasses,
   updateStudent,
   updateStudentClasses,
+  findStudentMatches,
+  getStudentsForLinking,
 } from './students'
+export type { StudentMatch } from './students'
+export {
+  createRegistrationSubmission,
+  getRegistrationSubmissions,
+  getPendingRegistrationCount,
+  getRegistrationSubmissionById,
+  approveRegistration,
+  rejectRegistration,
+  deleteRegistrationSubmission,
+} from './registrations'
+export type {
+  RegistrationStatus,
+  ContactRole,
+  RegistrationSummary,
+  RegistrationFull,
+} from './registrations'
 export {
   getGuardianCount,
   getAllGuardians,

@@ -15,6 +15,8 @@ import {
   enrollStudentInClasses,
   updateStudent,
   updateStudentClasses,
+  findStudentMatches,
+  getStudentsForLinking,
 } from './students'
 const mockFrom = vi.hoisted(() => vi.fn())
 
@@ -525,5 +527,92 @@ describe('updateStudentClasses', () => {
       updateStudentClasses('student-1', ['class-1']),
     ).rejects.toThrow('Delete error')
     expect(revalidateTag).not.toHaveBeenCalled()
+  })
+})
+
+describe('findStudentMatches', () => {
+  it('matches on last name plus DOB or first name, including inactive', async () => {
+    const mockLimit = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'student-1',
+          first_name: 'Anna',
+          last_name: 'Smith',
+          date_of_birth: '2015-06-01',
+          student_code: 'S001',
+          active: false,
+        },
+      ],
+    })
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        ilike: vi.fn().mockReturnValue({
+          or: vi.fn().mockReturnValue({ limit: mockLimit }),
+        }),
+      }),
+    })
+
+    const result = await findStudentMatches({
+      firstName: 'Anna',
+      lastName: 'Smith',
+      dateOfBirth: '2015-06-01',
+    })
+    expect(result).toHaveLength(1)
+    expect(mockLimit).toHaveBeenCalledWith(10)
+    expect(mockFrom).toHaveBeenCalledWith('students')
+  })
+
+  it('returns empty array when no matches found', async () => {
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        ilike: vi.fn().mockReturnValue({
+          or: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue({ data: null }),
+          }),
+        }),
+      }),
+    })
+
+    const result = await findStudentMatches({
+      firstName: 'Nobody',
+      lastName: 'Nomatch',
+      dateOfBirth: '2015-06-01',
+    })
+    expect(result).toEqual([])
+  })
+})
+
+describe('getStudentsForLinking', () => {
+  it('returns all students ordered by last name', async () => {
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        order: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'student-1',
+              first_name: 'Anna',
+              last_name: 'Smith',
+              date_of_birth: '2015-06-01',
+              student_code: 'S001',
+              active: true,
+            },
+          ],
+        }),
+      }),
+    })
+
+    const result = await getStudentsForLinking()
+    expect(result).toHaveLength(1)
+    expect(mockFrom).toHaveBeenCalledWith('students')
+  })
+
+  it('returns empty array when there are no students', async () => {
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        order: vi.fn().mockResolvedValue({ data: null }),
+      }),
+    })
+
+    expect(await getStudentsForLinking()).toEqual([])
   })
 })

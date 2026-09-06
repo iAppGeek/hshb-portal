@@ -208,6 +208,45 @@ export const getStudentById = unstable_cache(
   OPTS,
 )
 
+export type StudentMatch = {
+  id: string
+  first_name: string
+  last_name: string
+  date_of_birth: string | null
+  student_code: string | null
+  active: boolean
+}
+
+const STUDENT_MATCH_SELECT =
+  'id, first_name, last_name, date_of_birth, student_code, active'
+
+// Includes inactive students so returning children can be found and reactivated.
+export async function findStudentMatches({
+  firstName,
+  lastName,
+  dateOfBirth,
+}: {
+  firstName: string
+  lastName: string
+  dateOfBirth: string
+}): Promise<StudentMatch[]> {
+  const { data } = await supabase
+    .from('students')
+    .select(STUDENT_MATCH_SELECT)
+    .ilike('last_name', lastName)
+    .or(`date_of_birth.eq.${dateOfBirth},first_name.ilike.${firstName}`)
+    .limit(10)
+  return data ?? []
+}
+
+export async function getStudentsForLinking(): Promise<StudentMatch[]> {
+  const { data } = await supabase
+    .from('students')
+    .select(STUDENT_MATCH_SELECT)
+    .order('last_name')
+  return data ?? []
+}
+
 type StudentInsert = {
   first_name: string
   last_name: string
