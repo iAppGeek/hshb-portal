@@ -42,6 +42,11 @@ const ROUTE_RULES: RouteRule[] = [
     allowedRoles: ['admin'],
     redirectTo: '/students',
   },
+  {
+    route: '/registrations',
+    allowedRoles: ['admin', 'headteacher', 'secretary'],
+    redirectTo: '/dashboard',
+  },
 ]
 
 function getRoleFromProject(projectName: string): Role {

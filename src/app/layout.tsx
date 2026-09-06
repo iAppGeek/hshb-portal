@@ -15,6 +15,7 @@ import {
   ClockIcon,
   DocumentTextIcon,
   ArrowPathRoundedSquareIcon,
+  InboxIcon,
 } from '@heroicons/react/24/outline'
 
 import { auth, signOut } from '@/auth'
@@ -22,6 +23,7 @@ import logo from '@/images/logo.png'
 import {
   canAccessAdminTasks,
   canAccessReports,
+  canReviewRegistrations,
   receivesNotifications,
 } from '@/lib/permissions'
 import { roleLabels } from '@/lib/roleLabels'
@@ -108,6 +110,12 @@ const navItems = [
     href: '/incidents',
     label: 'Incidents',
     Icon: ExclamationTriangleIcon,
+  },
+  {
+    href: '/registrations',
+    label: 'Registrations',
+    Icon: InboxIcon,
+    filter: canReviewRegistrations,
   },
   {
     href: '/admin',

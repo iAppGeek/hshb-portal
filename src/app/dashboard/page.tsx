@@ -5,6 +5,7 @@ import {
   CalendarDaysIcon,
   ExclamationTriangleIcon,
   AcademicCapIcon,
+  InboxIcon,
 } from '@heroicons/react/24/outline'
 
 import { auth } from '@/auth'
@@ -18,9 +19,10 @@ import {
   getLessonPlanCountByDate,
   getAttendanceSummaryByDate,
   getStaffSignedInCount,
+  getPendingRegistrationCount,
 } from '@/db'
 import { todayInSchoolTz } from '@/lib/datetime'
-import { isTeacher } from '@/lib/permissions'
+import { isTeacher, canReviewRegistrations } from '@/lib/permissions'
 import { roleLabels } from '@/lib/roleLabels'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -44,6 +46,7 @@ export default async function DashboardPage() {
     lessonPlanCount,
     attendanceSummary,
     staffSignedInCount,
+    pendingRegistrationCount,
   ] = await Promise.all([
     teacherOnly
       ? getStudentsByTeacher(staffId!).then((s) => s.length)
@@ -56,6 +59,9 @@ export default async function DashboardPage() {
       ? Promise.resolve({} as Record<string, { presentCount: number }>)
       : getAttendanceSummaryByDate(today),
     teacherOnly ? Promise.resolve(null) : getStaffSignedInCount(today),
+    canReviewRegistrations(role)
+      ? getPendingRegistrationCount()
+      : Promise.resolve(null),
   ])
 
   const presentToday = Object.values(attendanceSummary).reduce(
@@ -224,6 +230,25 @@ export default async function DashboardPage() {
               </div>
             </Link>
           </>
+        )}
+
+        {pendingRegistrationCount !== null && (
+          <Link
+            href="/registrations"
+            className="group flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
+          >
+            <div className="rounded-lg bg-blue-50 p-3 transition group-hover:bg-blue-100">
+              <InboxIcon className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">
+                Pending registrations
+              </p>
+              <p className="mt-0.5 text-2xl font-bold text-gray-900">
+                {pendingRegistrationCount}
+              </p>
+            </div>
+          </Link>
         )}
       </div>
     </>
