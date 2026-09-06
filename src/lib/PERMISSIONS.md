@@ -30,10 +30,12 @@ Four roles exist: **teacher**, **admin**, **headteacher**, **secretary**.
 
 ## Feature Access
 
-| Feature                    | teacher | admin | headteacher | secretary |
-| -------------------------- | ------- | ----- | ----------- | --------- |
-| Access reports             | -       | Yes   | Yes         | Yes       |
-| Receive push notifications | -       | Yes   | Yes         | -         |
+| Feature                             | teacher | admin | headteacher | secretary |
+| ----------------------------------- | ------- | ----- | ----------- | --------- |
+| Access reports                      | -       | Yes   | Yes         | Yes       |
+| Receive push notifications          | -       | Yes   | Yes         | -         |
+| Review registrations                | -       | Yes   | Yes         | Yes       |
+| Approve/reject/delete registrations | -       | Yes   | -           | -         |
 
 ## Other Rules
 

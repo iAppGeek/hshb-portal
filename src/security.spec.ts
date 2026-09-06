@@ -8,6 +8,7 @@ const SECRET_VARS = [
   'AZURE_AD_CLIENT_SECRET',
   'SUPABASE_SERVICE_ROLE_KEY',
   'VAPID_PRIVATE_KEY',
+  'TURNSTILE_SECRET_KEY',
 ]
 
 const SERVER_ONLY_IMPORTS = ["from '@/db'", "from '@/auth'"]

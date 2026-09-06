@@ -62,6 +62,17 @@ export const booleanFromString = z
   .enum(['true', 'false'])
   .transform((v) => v === 'true')
 
+// Unticked checkboxes are absent from FormData; ticked ones send "on".
+export const checkbox = z
+  .string()
+  .optional()
+  .transform((v) => v === 'on' || v === 'true')
+
+export const requiredCheckbox = (message: string) =>
+  checkbox.refine((v) => v, message)
+
+export const submissionStatus = z.enum(['pending', 'actioned', 'rejected'])
+
 // ─── Domain schemas ──────────────────────────────────────────────────────────
 
 export const saveAttendanceSchema = z.object({
@@ -227,6 +238,56 @@ export const updateStudentSchema = studentBaseSchema.extend({
   class_ids: z.array(uuid).default([]),
 })
 
+export const registrationContactSchema = z.object({
+  first_name: requiredString,
+  last_name: requiredString,
+  relationship: optionalString,
+  phone: ukPhone, // guardians.phone is NOT NULL
+  email: optionalEmail,
+  same_as_child_address: checkbox,
+  address_line_1: optionalString,
+  address_line_2: optionalString,
+  city: optionalString,
+  postcode: optionalString,
+})
+
+export const registrationSubmissionSchema = z.object({
+  child_first_name: requiredString,
+  child_last_name: requiredString,
+  date_of_birth: isoDate,
+  preferred_year_group: optionalString,
+  address_line_1: requiredString, // NOT NULL in the table; makes students_address_source_check satisfiable
+  address_line_2: optionalString,
+  city: requiredString,
+  postcode: requiredString,
+  allergies: optionalString,
+  medical_details: optionalString,
+  collect_authorised: optionalString,
+  collect_password: optionalString,
+  has_secondary: booleanFromString,
+  has_contact1: booleanFromString,
+  has_contact2: booleanFromString,
+  consent_privacy_notice: requiredCheckbox(
+    'You must accept the privacy notice',
+  ),
+  consent_emergency_first_aid: requiredCheckbox(
+    'Emergency first aid consent is required',
+  ),
+  consent_photo_media: checkbox,
+  consent_home_school: checkbox,
+  consent_comms_email_sms: checkbox,
+  declaration_name: requiredString,
+  turnstile_token: requiredString,
+})
+
+export const approveRegistrationSchema = z.object({
+  student_code: optionalString,
+  class_id: optionalString.pipe(uuid.nullable()),
+  existing_student_id: optionalString.pipe(uuid.nullable()),
+})
+
+export const rejectRegistrationSchema = z.object({ reason: requiredString })
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 export type ActionResult = { error: string } | void
@@ -274,5 +335,26 @@ export function extractGuardianFields(
       (formData.get(`${prefix}_address_line_2`) as string) ?? undefined,
     city: (formData.get(`${prefix}_city`) as string) ?? undefined,
     postcode: (formData.get(`${prefix}_postcode`) as string) ?? undefined,
+  }
+}
+
+// Mirrors extractGuardianFields: reads `${prefix}_first_name` … `${prefix}_postcode`
+export function extractRegistrationContact(
+  formData: FormData,
+  prefix: string,
+): Record<string, unknown> {
+  return {
+    first_name: (formData.get(`${prefix}_first_name`) as string) ?? '',
+    last_name: (formData.get(`${prefix}_last_name`) as string) ?? '',
+    relationship: (formData.get(`${prefix}_relationship`) as string) ?? '',
+    phone: (formData.get(`${prefix}_phone`) as string) ?? '',
+    email: (formData.get(`${prefix}_email`) as string) ?? '',
+    same_as_child_address:
+      (formData.get(`${prefix}_same_as_child_address`) as string | null) ??
+      undefined,
+    address_line_1: (formData.get(`${prefix}_address_line_1`) as string) ?? '',
+    address_line_2: (formData.get(`${prefix}_address_line_2`) as string) ?? '',
+    city: (formData.get(`${prefix}_city`) as string) ?? '',
+    postcode: (formData.get(`${prefix}_postcode`) as string) ?? '',
   }
 }

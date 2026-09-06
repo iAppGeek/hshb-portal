@@ -13,6 +13,9 @@ import {
   incidentType,
   attendanceStatus,
   booleanFromString,
+  checkbox,
+  requiredCheckbox,
+  submissionStatus,
   createClassSchema,
   updateClassSchema,
   updateGuardianSchema,
@@ -25,8 +28,13 @@ import {
   createStudentSchema,
   updateStudentSchema,
   guardianSchema,
+  registrationContactSchema,
+  registrationSubmissionSchema,
+  approveRegistrationSchema,
+  rejectRegistrationSchema,
   extractFormFields,
   extractGuardianFields,
+  extractRegistrationContact,
 } from './schemas'
 
 // ─── Field schemas ───────────────────────────────────────────────────────────
@@ -185,6 +193,48 @@ describe('booleanFromString', () => {
 
   it('rejects non-boolean strings', () => {
     expect(() => booleanFromString.parse('yes')).toThrow()
+  })
+})
+
+describe('checkbox', () => {
+  it('treats "on" as checked', () => {
+    expect(checkbox.parse('on')).toBe(true)
+  })
+
+  it('treats "true" as checked', () => {
+    expect(checkbox.parse('true')).toBe(true)
+  })
+
+  it('treats undefined (unticked, absent from FormData) as unchecked', () => {
+    expect(checkbox.parse(undefined)).toBe(false)
+  })
+
+  it('treats any other value as unchecked', () => {
+    expect(checkbox.parse('off')).toBe(false)
+  })
+})
+
+describe('requiredCheckbox', () => {
+  it('accepts a ticked box', () => {
+    expect(requiredCheckbox('Required').parse('on')).toBe(true)
+  })
+
+  it('rejects an unticked box', () => {
+    expect(() => requiredCheckbox('Required').parse(undefined)).toThrow(
+      'Required',
+    )
+  })
+})
+
+describe('submissionStatus', () => {
+  it('accepts valid statuses', () => {
+    expect(submissionStatus.parse('pending')).toBe('pending')
+    expect(submissionStatus.parse('actioned')).toBe('actioned')
+    expect(submissionStatus.parse('rejected')).toBe('rejected')
+  })
+
+  it('rejects unknown statuses', () => {
+    expect(() => submissionStatus.parse('archived')).toThrow()
   })
 })
 
@@ -533,6 +583,167 @@ describe('updateStudentSchema', () => {
   })
 })
 
+describe('registrationContactSchema', () => {
+  const valid = {
+    first_name: 'Petra',
+    last_name: 'Pending',
+    relationship: 'Mother',
+    phone: '07700 900000',
+    email: 'petra@example.com',
+    same_as_child_address: 'on',
+    address_line_1: '',
+    address_line_2: '',
+    city: '',
+    postcode: '',
+  }
+
+  it('accepts valid contact data', () => {
+    const result = registrationContactSchema.parse(valid)
+    expect(result.first_name).toBe('Petra')
+    expect(result.same_as_child_address).toBe(true)
+  })
+
+  it('accepts an empty email', () => {
+    const result = registrationContactSchema.parse({ ...valid, email: '' })
+    expect(result.email).toBeNull()
+  })
+
+  it('rejects a malformed email', () => {
+    expect(() =>
+      registrationContactSchema.parse({ ...valid, email: 'not-an-email' }),
+    ).toThrow()
+  })
+
+  it('rejects missing required fields', () => {
+    expect(() =>
+      registrationContactSchema.parse({ ...valid, first_name: '' }),
+    ).toThrow()
+    expect(() =>
+      registrationContactSchema.parse({ ...valid, last_name: '' }),
+    ).toThrow()
+    expect(() =>
+      registrationContactSchema.parse({ ...valid, phone: '' }),
+    ).toThrow()
+  })
+})
+
+describe('registrationSubmissionSchema', () => {
+  const valid = {
+    child_first_name: 'Seed',
+    child_last_name: 'Pending',
+    date_of_birth: '2020-01-15',
+    preferred_year_group: 'Year 1',
+    address_line_1: '1 Seed St',
+    address_line_2: '',
+    city: 'London',
+    postcode: 'N1 2AA',
+    allergies: '',
+    medical_details: '',
+    collect_authorised: '',
+    collect_password: '',
+    has_secondary: 'false',
+    has_contact1: 'false',
+    has_contact2: 'false',
+    consent_privacy_notice: 'on',
+    consent_emergency_first_aid: 'on',
+    consent_photo_media: 'on',
+    consent_home_school: 'on',
+    consent_comms_email_sms: 'on',
+    declaration_name: 'Petra Pending',
+    turnstile_token: 'token123',
+  }
+
+  it('accepts a valid submission', () => {
+    const result = registrationSubmissionSchema.parse(valid)
+    expect(result.child_first_name).toBe('Seed')
+    expect(result.consent_privacy_notice).toBe(true)
+  })
+
+  it('rejects missing child, address or declaration fields', () => {
+    expect(() =>
+      registrationSubmissionSchema.parse({ ...valid, child_first_name: '' }),
+    ).toThrow()
+    expect(() =>
+      registrationSubmissionSchema.parse({ ...valid, address_line_1: '' }),
+    ).toThrow()
+    expect(() =>
+      registrationSubmissionSchema.parse({ ...valid, city: '' }),
+    ).toThrow()
+    expect(() =>
+      registrationSubmissionSchema.parse({ ...valid, postcode: '' }),
+    ).toThrow()
+    expect(() =>
+      registrationSubmissionSchema.parse({ ...valid, declaration_name: '' }),
+    ).toThrow()
+  })
+
+  it('rejects when either required consent is unticked', () => {
+    expect(() =>
+      registrationSubmissionSchema.parse({
+        ...valid,
+        consent_privacy_notice: undefined,
+      }),
+    ).toThrow('privacy notice')
+    expect(() =>
+      registrationSubmissionSchema.parse({
+        ...valid,
+        consent_emergency_first_aid: undefined,
+      }),
+    ).toThrow('Emergency first aid')
+  })
+
+  it('allows optional consents to be unticked', () => {
+    const result = registrationSubmissionSchema.parse({
+      ...valid,
+      consent_photo_media: undefined,
+      consent_home_school: undefined,
+      consent_comms_email_sms: undefined,
+    })
+    expect(result.consent_photo_media).toBe(false)
+  })
+})
+
+describe('approveRegistrationSchema', () => {
+  it('turns empty strings into nulls', () => {
+    const result = approveRegistrationSchema.parse({
+      student_code: '',
+      class_id: '',
+      existing_student_id: '',
+    })
+    expect(result.student_code).toBeNull()
+    expect(result.class_id).toBeNull()
+    expect(result.existing_student_id).toBeNull()
+  })
+
+  it('accepts valid values', () => {
+    const result = approveRegistrationSchema.parse({
+      student_code: 'S001',
+      class_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+      existing_student_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+    })
+    expect(result.student_code).toBe('S001')
+  })
+
+  it('rejects an invalid uuid', () => {
+    expect(() =>
+      approveRegistrationSchema.parse({
+        student_code: '',
+        class_id: 'not-a-uuid',
+        existing_student_id: '',
+      }),
+    ).toThrow()
+  })
+})
+
+describe('rejectRegistrationSchema', () => {
+  it('requires a reason', () => {
+    expect(() => rejectRegistrationSchema.parse({ reason: '' })).toThrow()
+    expect(rejectRegistrationSchema.parse({ reason: 'Duplicate' }).reason).toBe(
+      'Duplicate',
+    )
+  })
+})
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 describe('extractFormFields', () => {
@@ -593,5 +804,38 @@ describe('extractGuardianFields', () => {
       expect(result.first_name).toBe('Maria')
       expect(result.email).toBe('maria@test.com')
     }
+  })
+})
+
+describe('extractRegistrationContact', () => {
+  it('maps prefixed fields for a given prefix', () => {
+    const fd = new FormData()
+    fd.append('secondary_first_name', 'Gary')
+    fd.append('secondary_last_name', 'Guardian')
+    fd.append('secondary_relationship', 'Father')
+    fd.append('secondary_phone', '07700 900001')
+    fd.append('secondary_email', 'gary@example.com')
+    fd.append('secondary_same_as_child_address', 'on')
+
+    const result = extractRegistrationContact(fd, 'secondary')
+    expect(result).toEqual({
+      first_name: 'Gary',
+      last_name: 'Guardian',
+      relationship: 'Father',
+      phone: '07700 900001',
+      email: 'gary@example.com',
+      same_as_child_address: 'on',
+      address_line_1: '',
+      address_line_2: '',
+      city: '',
+      postcode: '',
+    })
+  })
+
+  it('defaults missing fields to empty strings', () => {
+    const fd = new FormData()
+    const result = extractRegistrationContact(fd, 'contact1')
+    expect(result.first_name).toBe('')
+    expect(result.same_as_child_address).toBeUndefined()
   })
 })

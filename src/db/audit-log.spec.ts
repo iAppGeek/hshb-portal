@@ -102,6 +102,43 @@ describe('logAuditEvent', () => {
     consoleSpy.mockRestore()
   })
 
+  it('accepts registration workflow actions', async () => {
+    logAuditEvent({
+      staffId: null,
+      action: 'registration_submitted',
+      entity: 'registration_submission',
+      entityId: 'sub-1',
+    })
+
+    await vi.waitFor(() => {
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          staff_id: null,
+          action: 'registration_submitted',
+        }),
+      )
+    })
+
+    logAuditEvent({
+      staffId: 'staff-1',
+      action: 'registration_approved',
+      entity: 'registration_submission',
+      entityId: 'sub-1',
+    })
+    logAuditEvent({
+      staffId: 'staff-1',
+      action: 'registration_rejected',
+      entity: 'registration_submission',
+      entityId: 'sub-1',
+    })
+    logAuditEvent({
+      staffId: 'staff-1',
+      action: 'registration_deleted',
+      entity: 'registration_submission',
+      entityId: 'sub-1',
+    })
+  })
+
   it('does not throw when insert rejects', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     mockInsert.mockRejectedValue(new Error('Network error'))
