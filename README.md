@@ -35,6 +35,7 @@ Copy `.env.local.example` to `.env.local` and fill in the values. The example fi
 - **`AZURE_AD_*`** — Microsoft Entra ID app registration (Azure portal → App registrations → HSHB Portal)
 - **`SUPABASE_SERVICE_ROLE_KEY`** — Supabase dashboard → Project Settings → API. Server-only; never expose to the browser
 - **`VAPID_*` keys** — generate with `npx web-push generate-vapid-keys`
+- **`NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY`** — Cloudflare Turnstile, gates the public `/register` form. Cloudflare dashboard → Turnstile → add a site. Local dev/E2E/CI use Cloudflare's published always-pass test keys (`1x00000000000000000000AA` / `1x0000000000000000000000000000000AA`); production needs real keys for the `portal.hshb.org.uk` hostname
 
 ### Run the database
 
@@ -101,6 +102,8 @@ npm run fix:all
 ```
 src/
   app/             # Next.js App Router pages, layouts, API routes, server actions
+  app/register/    # Public parent registration form (no auth) — see plans/parent-registration-form.md
+  app/registrations/ # Admin inbox — review/approve/reject registration submissions
   auth/            # NextAuth v5 config + helpers
   clientComponents/# Shared client components (have 'use client')
   components/      # Shared server components
@@ -142,6 +145,8 @@ Active plans live in [plans/](plans/):
 - [integration-tests.md](plans/integration-tests.md) — Playwright E2E coverage matrix (Phase 1 shipped; rest is a pending backlog)
 - [offline-read-only-mode.md](plans/offline-read-only-mode.md) — PWA offline UX + service worker work
 - [update-edge-functions.md](plans/update-edge-functions.md) — Netlify Edge runtime audit for EU latency
+- [parent-registration-form.md](plans/parent-registration-form.md) — public `/register` form, staging tables, admin approval workflow
+- [parent-consent-link.md](plans/parent-consent-link.md) — planned follow-up: consent-refresh links for returning families
 
 ## Related repository
 
