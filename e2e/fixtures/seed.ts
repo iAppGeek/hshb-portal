@@ -66,12 +66,16 @@ export async function deleteLessonPlansByClassAndDate(
 }
 
 // Inserts a pending registration submission with a primary contact, for
-// review/approval E2E tests. Give child_last_name a project-unique suffix.
+// review/approval E2E tests. Give child_last_name (and contact_last_name /
+// contact_email, since approve_registration de-dupes guardians by email) a
+// project-unique suffix so parallel projects don't share a guardian row.
 export async function createRegistrationSubmission(
   overrides: {
     child_first_name?: string
     child_last_name?: string
     date_of_birth?: string
+    contact_last_name?: string
+    contact_email?: string
   } = {},
 ): Promise<{ id: string }> {
   const { data: submission, error } = await db
@@ -95,9 +99,9 @@ export async function createRegistrationSubmission(
     submission_id: submission.id,
     contact_role: 'primary',
     first_name: 'E2E',
-    last_name: 'Parent',
+    last_name: overrides.contact_last_name ?? 'Parent',
     phone: '07700 900000',
-    email: 'e2e.parent@example.com',
+    email: overrides.contact_email ?? 'e2e.parent@example.com',
   })
 
   return submission

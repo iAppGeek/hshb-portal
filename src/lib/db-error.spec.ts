@@ -75,6 +75,18 @@ describe('getUserFriendlyDbError', () => {
     })
   })
 
+  describe('P0001 — raised exception', () => {
+    it('returns the exception message verbatim', () => {
+      const err = {
+        code: 'P0001',
+        message: 'Student code "S001" is already in use',
+      }
+      expect(getUserFriendlyDbError(err, FALLBACK)).toBe(
+        'Student code "S001" is already in use',
+      )
+    })
+  })
+
   describe('unknown or non-DB errors', () => {
     it('returns fallback for unknown error code', () => {
       const err = { code: '42P01', message: 'relation does not exist' }
