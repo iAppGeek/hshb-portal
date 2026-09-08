@@ -99,6 +99,21 @@ describe('applyPhotoOptOutAction', () => {
     consoleSpy.mockRestore()
   })
 
+  it('returns an error when the session has no staff record', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { staffId: undefined, role: 'admin' },
+    } as never)
+
+    const result = await applyPhotoOptOutAction(
+      REQUEST_ID,
+      makeFormData({ student_id: STUDENT_ID }),
+    )
+    expect(result).toEqual({
+      error: 'Your account is not linked to a staff record',
+    })
+    expect(applyPhotoOptOut).not.toHaveBeenCalled()
+  })
+
   it('applies, audits, and redirects on success', async () => {
     vi.mocked(applyPhotoOptOut).mockResolvedValue(STUDENT_ID)
 
@@ -133,6 +148,21 @@ describe('rejectPhotoOptOutAction', () => {
       makeFormData({ reason: 'Cannot match' }),
     )
     expect(result).toEqual({ error: 'Not authorised' })
+    expect(rejectPhotoOptOut).not.toHaveBeenCalled()
+  })
+
+  it('returns an error when the session has no staff record', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { staffId: undefined, role: 'admin' },
+    } as never)
+
+    const result = await rejectPhotoOptOutAction(
+      REQUEST_ID,
+      makeFormData({ reason: 'Cannot match' }),
+    )
+    expect(result).toEqual({
+      error: 'Your account is not linked to a staff record',
+    })
     expect(rejectPhotoOptOut).not.toHaveBeenCalled()
   })
 

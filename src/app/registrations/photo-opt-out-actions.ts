@@ -29,7 +29,8 @@ export async function applyPhotoOptOutAction(
   if (!session) return { error: 'Not authenticated' }
   const role = session.user.role as StaffRole
   if (!canApproveRegistrations(role)) return { error: 'Not authorised' }
-  const staffId = session.user.staffId ?? null
+  const staffId = session.user.staffId
+  if (!staffId) return { error: 'Your account is not linked to a staff record' }
 
   const parsed = applyPhotoOptOutSchema.safeParse(extractFormFields(formData))
   if (!parsed.success) return { error: parsed.error.issues[0].message }
@@ -37,7 +38,7 @@ export async function applyPhotoOptOutAction(
   try {
     await applyPhotoOptOut({
       requestId: id,
-      staffId: staffId!,
+      staffId,
       studentId: parsed.data.student_id,
     })
 
@@ -71,7 +72,8 @@ export async function rejectPhotoOptOutAction(
   if (!session) return { error: 'Not authenticated' }
   const role = session.user.role as StaffRole
   if (!canApproveRegistrations(role)) return { error: 'Not authorised' }
-  const staffId = session.user.staffId ?? null
+  const staffId = session.user.staffId
+  if (!staffId) return { error: 'Your account is not linked to a staff record' }
 
   const parsed = rejectPhotoOptOutSchema.safeParse(extractFormFields(formData))
   if (!parsed.success) return { error: parsed.error.issues[0].message }
@@ -79,7 +81,7 @@ export async function rejectPhotoOptOutAction(
   try {
     await rejectPhotoOptOut({
       requestId: id,
-      staffId: staffId!,
+      staffId,
       reason: parsed.data.reason,
     })
 

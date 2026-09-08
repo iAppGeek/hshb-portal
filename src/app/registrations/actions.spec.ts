@@ -174,6 +174,21 @@ describe('approveRegistrationAction', () => {
     )
   })
 
+  it('returns an error when the session has no staff record', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { staffId: undefined, role: 'admin' },
+    } as never)
+
+    const result = await approveRegistrationAction(
+      SUBMISSION_ID,
+      makeFormData(validFields),
+    )
+    expect(result).toEqual({
+      error: 'Your account is not linked to a staff record',
+    })
+    expect(approveRegistration).not.toHaveBeenCalled()
+  })
+
   it('forwards reuseGuardians: false when the checkbox is unticked', async () => {
     vi.mocked(approveRegistration).mockResolvedValue(STUDENT_ID)
     const { reuse_guardians: _reuseGuardians, ...withoutReuse } = validFields
@@ -213,6 +228,21 @@ describe('rejectRegistrationAction', () => {
       makeFormData({ reason: '' }),
     )
     expect(result?.error).toBeDefined()
+    expect(rejectRegistration).not.toHaveBeenCalled()
+  })
+
+  it('returns an error when the session has no staff record', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { staffId: undefined, role: 'admin' },
+    } as never)
+
+    const result = await rejectRegistrationAction(
+      SUBMISSION_ID,
+      makeFormData({ reason: 'Duplicate' }),
+    )
+    expect(result).toEqual({
+      error: 'Your account is not linked to a staff record',
+    })
     expect(rejectRegistration).not.toHaveBeenCalled()
   })
 

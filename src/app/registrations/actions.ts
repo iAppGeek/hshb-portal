@@ -29,7 +29,8 @@ export async function approveRegistrationAction(
   if (!session) return { error: 'Not authenticated' }
   const role = session.user.role as StaffRole
   if (!canApproveRegistrations(role)) return { error: 'Not authorised' }
-  const staffId = session.user.staffId ?? null
+  const staffId = session.user.staffId
+  if (!staffId) return { error: 'Your account is not linked to a staff record' }
 
   const parsed = approveRegistrationSchema.safeParse(
     extractFormFields(formData),
@@ -40,7 +41,7 @@ export async function approveRegistrationAction(
   try {
     studentId = await approveRegistration({
       submissionId: id,
-      staffId: staffId!,
+      staffId,
       studentCode: parsed.data.student_code,
       classId: parsed.data.class_id,
       existingStudentId: parsed.data.existing_student_id,
@@ -83,7 +84,8 @@ export async function rejectRegistrationAction(
   if (!session) return { error: 'Not authenticated' }
   const role = session.user.role as StaffRole
   if (!canApproveRegistrations(role)) return { error: 'Not authorised' }
-  const staffId = session.user.staffId ?? null
+  const staffId = session.user.staffId
+  if (!staffId) return { error: 'Your account is not linked to a staff record' }
 
   const parsed = rejectRegistrationSchema.safeParse(extractFormFields(formData))
   if (!parsed.success) return { error: parsed.error.issues[0].message }
@@ -91,7 +93,7 @@ export async function rejectRegistrationAction(
   try {
     await rejectRegistration({
       submissionId: id,
-      staffId: staffId!,
+      staffId,
       reason: parsed.data.reason,
     })
 
