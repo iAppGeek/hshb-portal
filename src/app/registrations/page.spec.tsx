@@ -3,7 +3,12 @@ import { render, screen } from '@testing-library/react'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { getRegistrationSubmissions } from '@/db'
+import {
+  getRegistrationSubmissions,
+  getPhotoOptOuts,
+  getStudentsForLinking,
+  findStudentMatches,
+} from '@/db'
 
 import RegistrationsPage from './page'
 
@@ -13,6 +18,9 @@ vi.mock('@/auth', () => ({
 
 vi.mock('@/db', () => ({
   getRegistrationSubmissions: vi.fn(),
+  getPhotoOptOuts: vi.fn(),
+  getStudentsForLinking: vi.fn(),
+  findStudentMatches: vi.fn(),
 }))
 
 vi.mock('next/navigation', () => ({
@@ -31,8 +39,21 @@ vi.mock('./RegistrationsTable', () => ({
   ),
 }))
 
+vi.mock('./ShareLinksBar', () => ({
+  default: () => <div data-testid="share-links" />,
+}))
+
+vi.mock('./PhotoOptOutSection', () => ({
+  default: ({ requests }: { requests: unknown[] }) => (
+    <div>PhotoOptOutSection count={requests.length}</div>
+  ),
+}))
+
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(getPhotoOptOuts).mockResolvedValue([])
+  vi.mocked(getStudentsForLinking).mockResolvedValue([])
+  vi.mocked(findStudentMatches).mockResolvedValue([])
 })
 
 describe('RegistrationsPage', () => {
@@ -62,7 +83,7 @@ describe('RegistrationsPage', () => {
     expect(redirect).toHaveBeenCalledWith('/dashboard')
   })
 
-  it('defaults to the pending status for admin', async () => {
+  it('defaults to the pending status for admin and shows the share links bar', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as never)
@@ -72,6 +93,7 @@ describe('RegistrationsPage', () => {
 
     expect(getRegistrationSubmissions).toHaveBeenCalledWith('pending')
     expect(screen.getByTestId('tabs').textContent).toBe('pending')
+    expect(screen.getByTestId('share-links')).toBeTruthy()
   })
 
   it('passes the requested status through and renders rows', async () => {
@@ -101,5 +123,51 @@ describe('RegistrationsPage', () => {
     render(await RegistrationsPage({ searchParams: Promise.resolve({}) }))
 
     expect(screen.getByText('No registrations found.')).toBeTruthy()
+  })
+
+  it('fetches student-matching data for admin but not for secretary', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as never)
+    vi.mocked(getRegistrationSubmissions).mockResolvedValue([])
+    vi.mocked(getPhotoOptOuts).mockResolvedValue([
+      {
+        id: 'opt-1',
+        status: 'pending',
+        child_first_name: 'Alice',
+        child_last_name: 'Student',
+        date_of_birth: '2015-06-01',
+      },
+    ] as never)
+
+    render(await RegistrationsPage({ searchParams: Promise.resolve({}) }))
+
+    expect(getStudentsForLinking).toHaveBeenCalled()
+    expect(findStudentMatches).toHaveBeenCalledWith({
+      firstName: 'Alice',
+      lastName: 'Student',
+      dateOfBirth: '2015-06-01',
+    })
+  })
+
+  it('does not fetch student-matching data for secretary', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'secretary', staffId: 'staff-5' },
+    } as never)
+    vi.mocked(getRegistrationSubmissions).mockResolvedValue([])
+    vi.mocked(getPhotoOptOuts).mockResolvedValue([
+      {
+        id: 'opt-1',
+        status: 'pending',
+        child_first_name: 'Alice',
+        child_last_name: 'Student',
+        date_of_birth: '2015-06-01',
+      },
+    ] as never)
+
+    render(await RegistrationsPage({ searchParams: Promise.resolve({}) }))
+
+    expect(getStudentsForLinking).not.toHaveBeenCalled()
+    expect(findStudentMatches).not.toHaveBeenCalled()
   })
 })

@@ -115,3 +115,12 @@ export async function deleteRegistrationSubmissionsByChildLastName(
     .delete()
     .eq('child_last_name', lastName)
 }
+
+export async function deletePhotoOptOutsByChildLastName(
+  lastName: string,
+): Promise<void> {
+  await db
+    .from('photo_consent_opt_outs')
+    .delete()
+    .eq('child_last_name', lastName)
+}
