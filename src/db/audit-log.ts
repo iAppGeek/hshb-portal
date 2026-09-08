@@ -16,6 +16,7 @@ type AuditAction =
   | 'photo_opt_out_applied'
   | 'photo_opt_out_rejected'
   | 'photo_opt_out_deleted'
+  | 'submissions_purged'
 
 type AuditEntry = {
   staffId: string | null

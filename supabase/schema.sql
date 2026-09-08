@@ -800,3 +800,26 @@ BEGIN
   RETURN v_id;
 END;
 $$ LANGUAGE plpgsql;
+
+-- ─── purge_actioned_submissions RPC ──────────────────────────────────────────
+-- Data minimisation: once a registration or opt-out has been actioned, its
+-- personal data lives on the student record. Remove the staging rows after a
+-- retention window. Returns the number of rows removed across both tables.
+CREATE OR REPLACE FUNCTION purge_actioned_submissions(
+  p_older_than_days INT DEFAULT 90
+) RETURNS INT AS $$
+DECLARE
+  v_reg INT;
+  v_opt INT;
+BEGIN
+  DELETE FROM registration_submissions
+   WHERE status = 'actioned' AND actioned_at < NOW() - (p_older_than_days || ' days')::INTERVAL;
+  GET DIAGNOSTICS v_reg = ROW_COUNT;
+
+  DELETE FROM photo_consent_opt_outs
+   WHERE status = 'actioned' AND actioned_at < NOW() - (p_older_than_days || ' days')::INTERVAL;
+  GET DIAGNOSTICS v_opt = ROW_COUNT;
+
+  RETURN v_reg + v_opt;
+END;
+$$ LANGUAGE plpgsql;

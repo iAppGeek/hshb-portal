@@ -5,7 +5,10 @@ type Tab = {
   label: string
 }
 
-const TABS: Tab[] = [{ id: 'class-migration', label: 'Class Migration' }]
+const TABS: Tab[] = [
+  { id: 'class-migration', label: 'Class Migration' },
+  { id: 'registration-retention', label: 'Registration Retention' },
+]
 
 type Props = {
   currentTab: string

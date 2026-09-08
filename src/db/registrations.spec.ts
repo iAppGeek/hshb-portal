@@ -9,6 +9,7 @@ import {
   approveRegistration,
   rejectRegistration,
   deleteRegistrationSubmission,
+  purgeActionedSubmissions,
 } from './registrations'
 
 const mockFrom = vi.hoisted(() => vi.fn())
@@ -275,5 +276,43 @@ describe('deleteRegistrationSubmission', () => {
     await expect(deleteRegistrationSubmission('sub-1')).rejects.toThrow(
       'cannot be deleted',
     )
+  })
+})
+
+describe('purgeActionedSubmissions', () => {
+  it('passes the day count and returns the rpc number', async () => {
+    mockRpc.mockResolvedValue({ data: 5, error: null })
+
+    const result = await purgeActionedSubmissions(30)
+
+    expect(result).toBe(5)
+    expect(mockRpc).toHaveBeenCalledWith('purge_actioned_submissions', {
+      p_older_than_days: 30,
+    })
+    expect(revalidateTag).toHaveBeenCalledWith('registrations', 'max')
+    expect(revalidateTag).toHaveBeenCalledWith('photo-opt-outs', 'max')
+  })
+
+  it('defaults to 90 days when not given', async () => {
+    mockRpc.mockResolvedValue({ data: 0, error: null })
+
+    await purgeActionedSubmissions()
+
+    expect(mockRpc).toHaveBeenCalledWith('purge_actioned_submissions', {
+      p_older_than_days: 90,
+    })
+  })
+
+  it('returns 0 when data is null', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null })
+
+    const result = await purgeActionedSubmissions()
+    expect(result).toBe(0)
+  })
+
+  it('throws the rpc error', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: new Error('rpc failed') })
+
+    await expect(purgeActionedSubmissions()).rejects.toThrow('rpc failed')
   })
 })

@@ -148,6 +148,8 @@ Active plans live in [plans/](plans/):
 - [parent-registration-form.md](plans/parent-registration-form.md) — public `/register` form, staging tables, admin approval workflow
 - [parent-consent-link.md](plans/parent-consent-link.md) — planned follow-up: consent-refresh links for returning families
 
+Actioned submissions are retained for 90 days, then removed via Admin Tasks → Purge actioned registrations.
+
 ## Related repository
 
 The public marketing site at [hshb.org.uk](https://www.hshb.org.uk) lives in a separate repo, [iAppGeek/hshb](https://github.com/iAppGeek/hshb). The two repos share no runtime dependencies.

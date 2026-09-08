@@ -27,4 +27,11 @@ describe('AdminTabBar', () => {
     expect(link.className).not.toContain('bg-white')
     expect(link.className).toContain('text-gray-500')
   })
+
+  it('renders the Registration Retention tab', () => {
+    render(<AdminTabBar currentTab="registration-retention" />)
+    const link = screen.getByRole('link', { name: 'Registration Retention' })
+    expect(link.getAttribute('href')).toBe('/admin?tab=registration-retention')
+    expect(link.className).toContain('bg-white')
+  })
 })

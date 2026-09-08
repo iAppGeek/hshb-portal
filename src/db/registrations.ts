@@ -1,5 +1,6 @@
 import { unstable_cache, revalidateTag } from 'next/cache'
 
+import { SUBMISSION_RETENTION_DAYS } from '@/lib/registration'
 import type { Database, Enums, Json, Tables } from '@/types/database'
 
 import { supabase } from './client'
@@ -173,4 +174,19 @@ export async function deleteRegistrationSubmission(id: string): Promise<void> {
   if (!data?.length)
     throw new Error('Submission not found or cannot be deleted once actioned')
   revalidateTag('registrations', 'max')
+}
+
+// Data minimisation: once actioned, a submission's personal data lives on the
+// student record, so the staging row can be purged after the retention
+// window. Also purges actioned photo opt-out requests.
+export async function purgeActionedSubmissions(
+  olderThanDays: number = SUBMISSION_RETENTION_DAYS,
+): Promise<number> {
+  const { data, error } = await supabase.rpc('purge_actioned_submissions', {
+    p_older_than_days: olderThanDays,
+  })
+  if (error) throw error
+  revalidateTag('registrations', 'max')
+  revalidateTag('photo-opt-outs', 'max')
+  return (data as number) ?? 0
 }
