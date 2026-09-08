@@ -14,6 +14,13 @@ vi.mock('@/db', () => ({
 
 vi.mock('@/lib/turnstile', () => ({
   verifyTurnstileToken: vi.fn(),
+  omitTurnstileToken: <T extends { turnstile_token: string }>(
+    data: T,
+  ): Omit<T, 'turnstile_token'> => {
+    const rest: Partial<T> = { ...data }
+    delete rest.turnstile_token
+    return rest as Omit<T, 'turnstile_token'>
+  },
 }))
 
 vi.mock('@/lib/request-ip', () => ({

@@ -10,7 +10,7 @@ import {
   extractFormFields,
   type ActionResult,
 } from '@/lib/schemas'
-import { verifyTurnstileToken } from '@/lib/turnstile'
+import { verifyTurnstileToken, omitTurnstileToken } from '@/lib/turnstile'
 
 export async function submitPhotoOptOutAction(
   formData: FormData,
@@ -28,8 +28,7 @@ export async function submitPhotoOptOutAction(
     return { error: 'Verification failed. Please try again.' }
 
   try {
-    const { turnstile_token: _turnstileToken, ...rest } = parsed.data
-    const { id } = await createPhotoOptOut(rest)
+    const { id } = await createPhotoOptOut(omitTurnstileToken(parsed.data))
     logAuditEvent({
       staffId: null,
       action: 'photo_opt_out_submitted',

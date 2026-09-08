@@ -28,3 +28,14 @@ export async function verifyTurnstileToken(
     return false
   }
 }
+
+// Public form actions parse turnstile_token for verification, then must not
+// pass it on to the insert. Destructuring it into an unused binding trips
+// @typescript-eslint/no-unused-vars; this omits it without binding a name.
+export function omitTurnstileToken<T extends { turnstile_token: string }>(
+  data: T,
+): Omit<T, 'turnstile_token'> {
+  const rest: Partial<T> = { ...data }
+  delete rest.turnstile_token
+  return rest as Omit<T, 'turnstile_token'>
+}

@@ -13,7 +13,7 @@ import {
   extractRegistrationContact,
   type ActionResult,
 } from '@/lib/schemas'
-import { verifyTurnstileToken } from '@/lib/turnstile'
+import { verifyTurnstileToken, omitTurnstileToken } from '@/lib/turnstile'
 
 type ParsedSubmission = z.infer<typeof registrationSubmissionSchema>
 
@@ -22,9 +22,8 @@ function toInsert(data: ParsedSubmission) {
     has_secondary: _hasSecondary,
     has_contact1: _hasContact1,
     has_contact2: _hasContact2,
-    turnstile_token: _turnstileToken,
     ...rest
-  } = data
+  } = omitTurnstileToken(data)
   return rest
 }
 

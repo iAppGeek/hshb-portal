@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-import { verifyTurnstileToken } from './turnstile'
+import { verifyTurnstileToken, omitTurnstileToken } from './turnstile'
 
 describe('verifyTurnstileToken', () => {
   beforeEach(() => {
@@ -119,5 +119,16 @@ describe('verifyTurnstileToken', () => {
 
       expect(await verifyTurnstileToken('token')).toBe(true)
     })
+  })
+})
+
+describe('omitTurnstileToken', () => {
+  it('removes turnstile_token and keeps the other fields', () => {
+    const result = omitTurnstileToken({
+      declaration_name: 'Gary',
+      turnstile_token: 'test-token',
+    })
+    expect(result).toEqual({ declaration_name: 'Gary' })
+    expect(result).not.toHaveProperty('turnstile_token')
   })
 })
