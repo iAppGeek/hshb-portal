@@ -38,7 +38,17 @@ import {
   extractFormFields,
   extractGuardianFields,
   extractRegistrationContact,
+  SHORT_TEXT_MAX,
+  ADDRESS_TEXT_MAX,
+  LONG_TEXT_MAX,
+  PHONE_MAX,
+  EMAIL_MAX,
 } from './schemas'
+
+function makeEmailOfLength(length: number): string {
+  const domain = '@example.com'
+  return 'a'.repeat(length - domain.length) + domain
+}
 
 // ─── Field schemas ───────────────────────────────────────────────────────────
 
@@ -653,6 +663,69 @@ describe('registrationContactSchema', () => {
       registrationContactSchema.parse({ ...valid, phone: '' }),
     ).toThrow()
   })
+
+  it('enforces length limits on short text and address fields', () => {
+    const okName = 'A'.repeat(SHORT_TEXT_MAX)
+    const tooLongName = 'A'.repeat(SHORT_TEXT_MAX + 1)
+    expect(() =>
+      registrationContactSchema.parse({ ...valid, first_name: okName }),
+    ).not.toThrow()
+    expect(() =>
+      registrationContactSchema.parse({ ...valid, first_name: tooLongName }),
+    ).toThrow('characters or fewer')
+
+    const okRelationship = 'A'.repeat(SHORT_TEXT_MAX)
+    const tooLongRelationship = 'A'.repeat(SHORT_TEXT_MAX + 1)
+    expect(() =>
+      registrationContactSchema.parse({
+        ...valid,
+        relationship: okRelationship,
+      }),
+    ).not.toThrow()
+    expect(() =>
+      registrationContactSchema.parse({
+        ...valid,
+        relationship: tooLongRelationship,
+      }),
+    ).toThrow('characters or fewer')
+
+    const okAddress = 'A'.repeat(ADDRESS_TEXT_MAX)
+    const tooLongAddress = 'A'.repeat(ADDRESS_TEXT_MAX + 1)
+    expect(() =>
+      registrationContactSchema.parse({
+        ...valid,
+        address_line_1: okAddress,
+      }),
+    ).not.toThrow()
+    expect(() =>
+      registrationContactSchema.parse({
+        ...valid,
+        address_line_1: tooLongAddress,
+      }),
+    ).toThrow('characters or fewer')
+  })
+
+  it('enforces the phone length limit', () => {
+    const okPhone = '0'.repeat(PHONE_MAX)
+    const tooLongPhone = '0'.repeat(PHONE_MAX + 1)
+    expect(() =>
+      registrationContactSchema.parse({ ...valid, phone: okPhone }),
+    ).not.toThrow()
+    expect(() =>
+      registrationContactSchema.parse({ ...valid, phone: tooLongPhone }),
+    ).toThrow('characters or fewer')
+  })
+
+  it('enforces the email length limit', () => {
+    const okEmail = makeEmailOfLength(EMAIL_MAX)
+    const tooLongEmail = makeEmailOfLength(EMAIL_MAX + 1)
+    expect(() =>
+      registrationContactSchema.parse({ ...valid, email: okEmail }),
+    ).not.toThrow()
+    expect(() =>
+      registrationContactSchema.parse({ ...valid, email: tooLongEmail }),
+    ).toThrow('characters or fewer')
+  })
 })
 
 describe('registrationSubmissionSchema', () => {
@@ -735,6 +808,66 @@ describe('registrationSubmissionSchema', () => {
     const result = registrationSubmissionSchema.parse(rest)
     expect(result.collect_authorised).toBeUndefined()
   })
+
+  it('enforces length limits on short text and address fields', () => {
+    const okShort = 'A'.repeat(SHORT_TEXT_MAX)
+    const tooLongShort = 'A'.repeat(SHORT_TEXT_MAX + 1)
+    expect(() =>
+      registrationSubmissionSchema.parse({
+        ...valid,
+        child_first_name: okShort,
+      }),
+    ).not.toThrow()
+    expect(() =>
+      registrationSubmissionSchema.parse({
+        ...valid,
+        child_first_name: tooLongShort,
+      }),
+    ).toThrow('characters or fewer')
+
+    const okAddress = 'A'.repeat(ADDRESS_TEXT_MAX)
+    const tooLongAddress = 'A'.repeat(ADDRESS_TEXT_MAX + 1)
+    expect(() =>
+      registrationSubmissionSchema.parse({
+        ...valid,
+        address_line_1: okAddress,
+      }),
+    ).not.toThrow()
+    expect(() =>
+      registrationSubmissionSchema.parse({
+        ...valid,
+        address_line_1: tooLongAddress,
+      }),
+    ).toThrow('characters or fewer')
+  })
+
+  it('enforces length limits on long text fields', () => {
+    const okLong = 'A'.repeat(LONG_TEXT_MAX)
+    const tooLongLong = 'A'.repeat(LONG_TEXT_MAX + 1)
+    expect(() =>
+      registrationSubmissionSchema.parse({ ...valid, allergies: okLong }),
+    ).not.toThrow()
+    expect(() =>
+      registrationSubmissionSchema.parse({ ...valid, allergies: tooLongLong }),
+    ).toThrow('characters or fewer')
+  })
+
+  it('enforces a 2048-character limit on the turnstile token', () => {
+    const okToken = 'a'.repeat(2048)
+    const tooLongToken = 'a'.repeat(2049)
+    expect(() =>
+      registrationSubmissionSchema.parse({
+        ...valid,
+        turnstile_token: okToken,
+      }),
+    ).not.toThrow()
+    expect(() =>
+      registrationSubmissionSchema.parse({
+        ...valid,
+        turnstile_token: tooLongToken,
+      }),
+    ).toThrow()
+  })
 })
 
 describe('approveRegistrationSchema', () => {
@@ -803,6 +936,39 @@ describe('photoOptOutSchema', () => {
     ).toThrow()
     expect(() =>
       photoOptOutSchema.parse({ ...valid, date_of_birth: '' }),
+    ).toThrow()
+  })
+
+  it('enforces length limits on short text fields', () => {
+    const okShort = 'A'.repeat(SHORT_TEXT_MAX)
+    const tooLongShort = 'A'.repeat(SHORT_TEXT_MAX + 1)
+    expect(() =>
+      photoOptOutSchema.parse({ ...valid, child_first_name: okShort }),
+    ).not.toThrow()
+    expect(() =>
+      photoOptOutSchema.parse({ ...valid, child_first_name: tooLongShort }),
+    ).toThrow('characters or fewer')
+  })
+
+  it('enforces the length limit on notes', () => {
+    const okLong = 'A'.repeat(LONG_TEXT_MAX)
+    const tooLongLong = 'A'.repeat(LONG_TEXT_MAX + 1)
+    expect(() =>
+      photoOptOutSchema.parse({ ...valid, notes: okLong }),
+    ).not.toThrow()
+    expect(() =>
+      photoOptOutSchema.parse({ ...valid, notes: tooLongLong }),
+    ).toThrow('characters or fewer')
+  })
+
+  it('enforces a 2048-character limit on the turnstile token', () => {
+    const okToken = 'a'.repeat(2048)
+    const tooLongToken = 'a'.repeat(2049)
+    expect(() =>
+      photoOptOutSchema.parse({ ...valid, turnstile_token: okToken }),
+    ).not.toThrow()
+    expect(() =>
+      photoOptOutSchema.parse({ ...valid, turnstile_token: tooLongToken }),
     ).toThrow()
   })
 })

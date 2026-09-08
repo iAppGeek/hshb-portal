@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
+import { SHORT_TEXT_MAX } from '@/lib/schemas'
+
 import { submitPhotoOptOutAction } from './actions'
 import PhotoOptOutForm from './PhotoOptOutForm'
 
@@ -26,6 +28,15 @@ function renderForm() {
 }
 
 describe('PhotoOptOutForm', () => {
+  it('limits child_first_name to SHORT_TEXT_MAX characters', () => {
+    const { container } = renderForm()
+
+    const input = container.querySelector(
+      'input[name="child_first_name"]',
+    ) as HTMLInputElement
+    expect(input.maxLength).toBe(SHORT_TEXT_MAX)
+  })
+
   it('renders both sections', () => {
     renderForm()
 

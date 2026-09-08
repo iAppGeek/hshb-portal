@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 
 import TurnstileWidget from '@/clientComponents/TurnstileWidget'
+import { SHORT_TEXT_MAX, LONG_TEXT_MAX } from '@/lib/schemas'
 
 import { submitPhotoOptOutAction } from './actions'
 
@@ -32,8 +33,18 @@ export default function PhotoOptOutForm({ turnstileSiteKey }: Props) {
           Child&apos;s details
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="First name" name="child_first_name" required />
-          <Field label="Last name" name="child_last_name" required />
+          <Field
+            label="First name"
+            name="child_first_name"
+            required
+            maxLength={SHORT_TEXT_MAX}
+          />
+          <Field
+            label="Last name"
+            name="child_last_name"
+            required
+            maxLength={SHORT_TEXT_MAX}
+          />
           <Field
             label="Date of birth"
             name="date_of_birth"
@@ -53,10 +64,12 @@ export default function PhotoOptOutForm({ turnstileSiteKey }: Props) {
             name="declaration_name"
             required
             hint="Typing your name here acts as your signature"
+            maxLength={SHORT_TEXT_MAX}
           />
           <TextArea
             label="Anything else we should know? (optional)"
             name="notes"
+            maxLength={LONG_TEXT_MAX}
           />
         </div>
 
@@ -88,12 +101,14 @@ function Field({
   type = 'text',
   required = false,
   hint,
+  maxLength,
 }: {
   label: string
   name: string
   type?: string
   required?: boolean
   hint?: string
+  maxLength?: number
 }) {
   return (
     <div>
@@ -106,6 +121,7 @@ function Field({
         name={name}
         type={type}
         required={required}
+        maxLength={maxLength}
         className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
       />
       {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
@@ -113,7 +129,15 @@ function Field({
   )
 }
 
-function TextArea({ label, name }: { label: string; name: string }) {
+function TextArea({
+  label,
+  name,
+  maxLength,
+}: {
+  label: string
+  name: string
+  maxLength?: number
+}) {
   return (
     <div>
       <label htmlFor={name} className="block text-sm font-medium text-gray-700">
@@ -123,6 +147,7 @@ function TextArea({ label, name }: { label: string; name: string }) {
         id={name}
         name={name}
         rows={3}
+        maxLength={maxLength}
         className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
       />
     </div>

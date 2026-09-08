@@ -73,6 +73,49 @@ export const requiredCheckbox = (message: string) =>
 
 export const submissionStatus = z.enum(['pending', 'actioned', 'rejected'])
 
+export const SHORT_TEXT_MAX = 100
+export const ADDRESS_TEXT_MAX = 200
+export const LONG_TEXT_MAX = 2000
+export const PHONE_MAX = 20
+export const EMAIL_MAX = 254
+
+const tooLong = (max: number): string => `Must be ${max} characters or fewer`
+
+export const shortText = requiredString.max(
+  SHORT_TEXT_MAX,
+  tooLong(SHORT_TEXT_MAX),
+)
+export const optionalShortText = z
+  .string()
+  .trim()
+  .max(SHORT_TEXT_MAX, tooLong(SHORT_TEXT_MAX))
+  .transform((v) => v || null)
+  .nullable()
+export const optionalAddressText = z
+  .string()
+  .trim()
+  .max(ADDRESS_TEXT_MAX, tooLong(ADDRESS_TEXT_MAX))
+  .transform((v) => v || null)
+  .nullable()
+export const addressText = requiredString.max(
+  ADDRESS_TEXT_MAX,
+  tooLong(ADDRESS_TEXT_MAX),
+)
+export const optionalLongText = z
+  .string()
+  .trim()
+  .max(LONG_TEXT_MAX, tooLong(LONG_TEXT_MAX))
+  .transform((v) => v || null)
+  .nullable()
+export const boundedUkPhone = ukPhone.max(PHONE_MAX, tooLong(PHONE_MAX))
+export const boundedOptionalEmail = z
+  .string()
+  .trim()
+  .max(EMAIL_MAX, tooLong(EMAIL_MAX))
+  .transform((v) => v || null)
+  .nullable()
+  .pipe(z.string().email('Invalid email').nullable())
+
 // ─── Domain schemas ──────────────────────────────────────────────────────────
 
 export const saveAttendanceSchema = z.object({
@@ -244,32 +287,32 @@ export const updateStudentSchema = studentBaseSchema.extend({
 })
 
 export const registrationContactSchema = z.object({
-  first_name: requiredString,
-  last_name: requiredString,
-  relationship: optionalString,
-  phone: ukPhone, // guardians.phone is NOT NULL
-  email: optionalEmail,
+  first_name: shortText,
+  last_name: shortText,
+  relationship: optionalShortText,
+  phone: boundedUkPhone, // guardians.phone is NOT NULL
+  email: boundedOptionalEmail,
   same_as_child_address: checkbox,
-  address_line_1: optionalString,
-  address_line_2: optionalString,
-  city: optionalString,
-  postcode: optionalString,
+  address_line_1: optionalAddressText,
+  address_line_2: optionalAddressText,
+  city: optionalAddressText,
+  postcode: optionalAddressText,
 })
 
 export const registrationSubmissionSchema = z.object({
-  child_first_name: requiredString,
-  child_last_name: requiredString,
+  child_first_name: shortText,
+  child_last_name: shortText,
   date_of_birth: isoDate,
-  preferred_year_group: optionalString,
-  address_line_1: requiredString, // NOT NULL in the table; makes students_address_source_check satisfiable
-  address_line_2: optionalString,
-  city: requiredString,
-  postcode: requiredString,
-  allergies: optionalString,
-  medical_details: optionalString,
+  preferred_year_group: optionalShortText,
+  address_line_1: addressText, // NOT NULL in the table; makes students_address_source_check satisfiable
+  address_line_2: optionalAddressText,
+  city: addressText,
+  postcode: addressText,
+  allergies: optionalLongText,
+  medical_details: optionalLongText,
   // Only rendered on the form once an emergency contact is added.
-  collect_authorised: optionalString.optional(),
-  collect_password: optionalString.optional(),
+  collect_authorised: optionalLongText.optional(),
+  collect_password: optionalLongText.optional(),
   has_secondary: booleanFromString,
   has_contact1: booleanFromString,
   has_contact2: booleanFromString,
@@ -282,8 +325,8 @@ export const registrationSubmissionSchema = z.object({
   consent_photo_media: checkbox,
   consent_home_school: checkbox,
   consent_comms_email_sms: checkbox,
-  declaration_name: requiredString,
-  turnstile_token: requiredString,
+  declaration_name: shortText,
+  turnstile_token: requiredString.max(2048),
 })
 
 export const approveRegistrationSchema = z.object({
@@ -297,12 +340,12 @@ export const rejectRegistrationSchema = z.object({ reason: requiredString })
 // ─── Photo consent opt-out ────────────────────────────────────────────────────
 
 export const photoOptOutSchema = z.object({
-  child_first_name: requiredString,
-  child_last_name: requiredString,
+  child_first_name: shortText,
+  child_last_name: shortText,
   date_of_birth: isoDate,
-  declaration_name: requiredString,
-  notes: optionalString,
-  turnstile_token: requiredString,
+  declaration_name: shortText,
+  notes: optionalLongText,
+  turnstile_token: requiredString.max(2048),
 })
 
 export const applyPhotoOptOutSchema = z.object({
