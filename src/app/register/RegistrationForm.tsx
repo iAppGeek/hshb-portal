@@ -186,9 +186,11 @@ export default function RegistrationForm({
           <Checkbox name="consent_emergency_first_aid" required>
             I consent to emergency first aid being given to my child if needed
           </Checkbox>
-          <Checkbox name="consent_photo_media">
+          <Checkbox name="consent_photo_media" defaultChecked>
             I consent to my child&apos;s photo being used on social media, the
-            school website and promotional material
+            school website and promotional material. Untick this box if you
+            don&apos;t want this — you can also withdraw consent at any time via
+            the school office.
           </Checkbox>
           <Checkbox name="consent_home_school">
             I agree to the home–school agreement
@@ -354,10 +356,12 @@ function TextArea({ label, name }: { label: string; name: string }) {
 function Checkbox({
   name,
   required = false,
+  defaultChecked = false,
   children,
 }: {
   name: string
   required?: boolean
+  defaultChecked?: boolean
   children: React.ReactNode
 }) {
   return (
@@ -366,6 +370,7 @@ function Checkbox({
         type="checkbox"
         name={name}
         required={required}
+        defaultChecked={defaultChecked}
         className="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
       />
       <span>
