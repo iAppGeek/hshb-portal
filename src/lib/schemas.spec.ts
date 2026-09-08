@@ -16,6 +16,7 @@ import {
   checkbox,
   requiredCheckbox,
   submissionStatus,
+  registrationStatusFilter,
   createClassSchema,
   updateClassSchema,
   updateGuardianSchema,
@@ -248,6 +249,21 @@ describe('submissionStatus', () => {
 
   it('rejects unknown statuses', () => {
     expect(() => submissionStatus.parse('archived')).toThrow()
+  })
+})
+
+describe('registrationStatusFilter', () => {
+  it('defaults to pending for undefined, nonsense, or empty string', () => {
+    expect(registrationStatusFilter.parse(undefined)).toBe('pending')
+    expect(registrationStatusFilter.parse('nonsense')).toBe('pending')
+    expect(registrationStatusFilter.parse('')).toBe('pending')
+  })
+
+  it('passes through the four valid values', () => {
+    expect(registrationStatusFilter.parse('pending')).toBe('pending')
+    expect(registrationStatusFilter.parse('actioned')).toBe('actioned')
+    expect(registrationStatusFilter.parse('rejected')).toBe('rejected')
+    expect(registrationStatusFilter.parse('all')).toBe('all')
   })
 })
 

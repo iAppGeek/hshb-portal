@@ -73,6 +73,10 @@ export const requiredCheckbox = (message: string) =>
 
 export const submissionStatus = z.enum(['pending', 'actioned', 'rejected'])
 
+export const registrationStatusFilter = z
+  .enum(['pending', 'actioned', 'rejected', 'all'])
+  .catch('pending')
+
 export const SHORT_TEXT_MAX = 100
 export const ADDRESS_TEXT_MAX = 200
 export const LONG_TEXT_MAX = 2000

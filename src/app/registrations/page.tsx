@@ -13,6 +13,7 @@ import {
   canReviewRegistrations,
   canApproveRegistrations,
 } from '@/lib/permissions'
+import { registrationStatusFilter } from '@/lib/schemas'
 import type { StaffRole } from '@/types/next-auth'
 
 import EmptyState from '../_components/EmptyState'
@@ -24,8 +25,6 @@ import RegistrationsTable from './RegistrationsTable'
 import ShareLinksBar from './ShareLinksBar'
 
 export const metadata: Metadata = { title: 'Registrations' }
-
-const DEFAULT_STATUS = 'pending'
 
 export default async function RegistrationsPage({
   searchParams,
@@ -39,13 +38,12 @@ export default async function RegistrationsPage({
     redirect('/dashboard')
   }
 
-  const { status = DEFAULT_STATUS } = await searchParams
+  const params = await searchParams
+  const status = registrationStatusFilter.parse(params.status)
   const isAdmin = canApproveRegistrations(role)
 
   const [registrations, photoOptOuts, studentsForLinking] = await Promise.all([
-    getRegistrationSubmissions(
-      status as 'pending' | 'actioned' | 'rejected' | 'all',
-    ),
+    getRegistrationSubmissions(status),
     getPhotoOptOuts('all'),
     isAdmin ? getStudentsForLinking() : Promise.resolve([]),
   ])

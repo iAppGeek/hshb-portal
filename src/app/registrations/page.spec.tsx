@@ -171,6 +171,21 @@ describe('RegistrationsPage', () => {
     expect(findStudentMatches).not.toHaveBeenCalled()
   })
 
+  it('falls back to pending when the status param is invalid', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as never)
+    vi.mocked(getRegistrationSubmissions).mockResolvedValue([])
+
+    render(
+      await RegistrationsPage({
+        searchParams: Promise.resolve({ status: 'nonsense' }),
+      }),
+    )
+
+    expect(getRegistrationSubmissions).toHaveBeenCalledWith('pending')
+  })
+
   it('still renders when findStudentMatches rejects', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
