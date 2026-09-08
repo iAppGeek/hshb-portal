@@ -42,13 +42,13 @@ describe('RegistrationForm', () => {
     expect(screen.getByText('Declaration')).toBeTruthy()
   })
 
-  it('defaults the photo & media consent to ticked', () => {
+  it('photo consent checkbox is unchecked by default', () => {
     renderForm()
 
     const photoConsent = screen.getByRole('checkbox', {
       name: /I consent to my child's photo being used/,
     }) as HTMLInputElement
-    expect(photoConsent.checked).toBe(true)
+    expect(photoConsent).not.toBeChecked()
   })
 
   it('reveals and removes the optional secondary parent/carer section', () => {

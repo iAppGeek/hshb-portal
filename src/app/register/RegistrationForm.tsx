@@ -186,11 +186,10 @@ export default function RegistrationForm({
           <Checkbox name="consent_emergency_first_aid" required>
             I consent to emergency first aid being given to my child if needed
           </Checkbox>
-          <Checkbox name="consent_photo_media" defaultChecked>
+          <Checkbox name="consent_photo_media">
             I consent to my child&apos;s photo being used on social media, the
-            school website and promotional material. Untick this box if you
-            don&apos;t want this — you can also withdraw consent at any time via
-            the school office.
+            school website and promotional material. You can withdraw this at
+            any time via the school office.
           </Checkbox>
           <Checkbox name="consent_home_school">
             I agree to the home–school agreement

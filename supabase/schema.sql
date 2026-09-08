@@ -629,10 +629,11 @@ $$ LANGUAGE sql STABLE;
 -- ─── Photo consent opt-outs (public form staging area) ────────────────────────
 -- A public, unauthenticated form (/register/photo-opt-out) for an existing
 -- family to withdraw photo/media consent without redoing the full registration.
--- The public form defaults consent_photo_media to ticked, so this is the
--- explicit opt-out path. Staged here (never writes to students directly) so an
--- admin can match the request to the right student before it's applied —
--- mirrors registration_submissions' review-then-act model.
+-- The public form leaves photo consent unticked by default; this form is for
+-- families who consented at registration and later withdraw. Staged here
+-- (never writes to students directly) so an admin can match the request to
+-- the right student before it's applied — mirrors registration_submissions'
+-- review-then-act model.
 
 CREATE TYPE photo_opt_out_status AS ENUM ('pending', 'actioned', 'rejected');
 
