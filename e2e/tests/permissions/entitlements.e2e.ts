@@ -9,7 +9,7 @@ type RouteRule = {
 }
 
 // Guardian seed ID from supabase/seed.sql
-const GUARDIAN_ID = '20000000-0000-0000-0000-000000000001'
+const GUARDIAN_ID = '20000000-0000-4000-8000-000000000001'
 
 const ROUTE_RULES: RouteRule[] = [
   {
@@ -50,7 +50,7 @@ const ROUTE_RULES: RouteRule[] = [
 ]
 
 // Student-owned link document from supabase/seed.sql (no storage backend needed).
-const SEEDED_DOC_ID = '80000000-0000-0000-0000-000000000001'
+const SEEDED_DOC_ID = '80000000-0000-4000-8000-000000000001'
 
 function getRoleFromProject(projectName: string): Role {
   const role = projectName.split(':')[1]

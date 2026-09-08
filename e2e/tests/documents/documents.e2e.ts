@@ -5,16 +5,28 @@ import { db } from '../../fixtures/seed'
 test.use({ storageState: 'e2e/.auth/admin.json' })
 
 // Seeded owners from supabase/seed.sql
-const STUDENT_ID = '30000000-0000-0000-0000-000000000001' // Alice Student
-const STAFF_ID = '00000000-0000-0000-0000-000000000002' // Tom Teacher
-
-const LINK_NAME = 'E2E Link Doc'
-const RECORD_NAME = 'E2E Record Doc'
+const STUDENT_ID = '30000000-0000-4000-8000-000000000001' // Alice Student
+const STAFF_ID = '00000000-0000-4000-8000-000000000002' // Tom Teacher
 
 test.describe('Documents & Records', () => {
+  // Project-unique names: this spec runs under all 8 role/viewport projects in
+  // parallel against the same seeded student, so fixed names would let one
+  // project's afterEach cleanup delete another project's still-running rows.
+  let LINK_NAME: string
+  let RECORD_NAME: string
+
+  test.beforeEach(({}, testInfo) => {
+    const suffix = testInfo.project.name.replace(/[^a-z0-9]/gi, '')
+    LINK_NAME = `E2E Link Doc ${suffix}`
+    RECORD_NAME = `E2E Record Doc ${suffix}`
+  })
+
   test.afterEach(async () => {
     // Hard-remove anything this spec created (link/record docs are backend-free).
-    await db.from('documents').delete().like('name', 'E2E %')
+    await db
+      .from('documents')
+      .delete()
+      .in('name', [LINK_NAME, `${LINK_NAME} v2`, RECORD_NAME])
   })
 
   test('admin can add, edit and soft-delete documents on a student', async ({
@@ -51,7 +63,7 @@ test.describe('Documents & Records', () => {
     await section.locator('input[name="name"]').fill(RECORD_NAME)
     await section.getByLabel('Never').check()
     await section.getByLabel('Field 1 value').fill('E2E-123')
-    await section.getByRole('button', { name: 'Add' }).click()
+    await section.getByRole('button', { name: 'Add', exact: true }).click()
     await expect(section.getByText(RECORD_NAME)).toBeVisible()
     await expect(section.getByText('Certificate No:')).toBeVisible()
     // Records have no View link
@@ -74,7 +86,9 @@ test.describe('Documents & Records', () => {
       .getByRole('button', { name: 'Delete' })
       .click()
     const dialog = page.getByRole('dialog')
-    await expect(dialog).toBeVisible()
+    await expect(
+      dialog.getByRole('heading', { name: 'Delete document' }),
+    ).toBeVisible()
     await dialog.getByRole('button', { name: 'Confirm' }).click()
     await expect(section.getByText(RECORD_NAME)).toHaveCount(0)
 
@@ -87,6 +101,6 @@ test.describe('Documents & Records', () => {
     await page.goto(`/staff/${STAFF_ID}/edit`)
     const section = page.getByTestId('documents-section')
     await expect(section.getByText('Teaching contract')).toBeVisible()
-    await expect(section.getByText('DBS')).toBeVisible()
+    await expect(section.getByText('DBS', { exact: true })).toBeVisible()
   })
 })
