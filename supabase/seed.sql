@@ -76,3 +76,9 @@ INSERT INTO registration_submissions (id, status, child_first_name, child_last_n
 INSERT INTO registration_submission_contacts (id, submission_id, contact_role, first_name, last_name, phone, email) VALUES
   ('81000000-0000-0000-0000-000000000001', '80000000-0000-0000-0000-000000000001', 'primary', 'Petra', 'Pending', '07722000001', 'petra.pending@example.com'),
   ('81000000-0000-0000-0000-000000000002', '80000000-0000-0000-0000-000000000002', 'primary', 'Rhonda', 'Rejected', '07722000002', 'rhonda.rejected@example.com');
+
+-- ─── Photo Consent Opt-Outs ─────────────────────────────────────────────────────
+-- One pending request for Alice Student, so the admin review UI has a row on
+-- first `supabase db reset`. E2E tests create their own rows.
+INSERT INTO photo_consent_opt_outs (id, status, child_first_name, child_last_name, date_of_birth, declaration_name) VALUES
+  ('82000000-0000-0000-0000-000000000001', 'pending', 'Alice', 'Student', '2015-06-01', 'Gary AliceGuardian');

@@ -321,6 +321,72 @@ export type Database = {
           },
         ]
       }
+      photo_consent_opt_outs: {
+        Row: {
+          actioned_at: string | null
+          actioned_by: string | null
+          child_first_name: string
+          child_last_name: string
+          created_at: string
+          date_of_birth: string
+          declaration_name: string
+          id: string
+          notes: string | null
+          rejected_reason: string | null
+          status: Database['public']['Enums']['photo_opt_out_status']
+          student_id: string | null
+          submitted_at: string
+          updated_at: string
+        }
+        Insert: {
+          actioned_at?: string | null
+          actioned_by?: string | null
+          child_first_name: string
+          child_last_name: string
+          created_at?: string
+          date_of_birth: string
+          declaration_name: string
+          id?: string
+          notes?: string | null
+          rejected_reason?: string | null
+          status?: Database['public']['Enums']['photo_opt_out_status']
+          student_id?: string | null
+          submitted_at?: string
+          updated_at?: string
+        }
+        Update: {
+          actioned_at?: string | null
+          actioned_by?: string | null
+          child_first_name?: string
+          child_last_name?: string
+          created_at?: string
+          date_of_birth?: string
+          declaration_name?: string
+          id?: string
+          notes?: string | null
+          rejected_reason?: string | null
+          status?: Database['public']['Enums']['photo_opt_out_status']
+          student_id?: string | null
+          submitted_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'photo_consent_opt_outs_actioned_by_fkey'
+            columns: ['actioned_by']
+            isOneToOne: false
+            referencedRelation: 'staff'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'photo_consent_opt_outs_student_id_fkey'
+            columns: ['student_id']
+            isOneToOne: false
+            referencedRelation: 'students'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       push_subscriptions: {
         Row: {
           auth: string
@@ -817,6 +883,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_photo_opt_out: {
+        Args: { p_request_id: string; p_staff_id: string; p_student_id: string }
+        Returns: string
+      }
       approve_registration: {
         Args: {
           p_class_id?: string
@@ -850,6 +920,7 @@ export type Database = {
     }
     Enums: {
       contact_role: 'primary' | 'secondary' | 'additional_1' | 'additional_2'
+      photo_opt_out_status: 'pending' | 'actioned' | 'rejected'
       submission_status: 'pending' | 'actioned' | 'rejected'
     }
     CompositeTypes: {
@@ -979,6 +1050,7 @@ export const Constants = {
   public: {
     Enums: {
       contact_role: ['primary', 'secondary', 'additional_1', 'additional_2'],
+      photo_opt_out_status: ['pending', 'actioned', 'rejected'],
       submission_status: ['pending', 'actioned', 'rejected'],
     },
   },
