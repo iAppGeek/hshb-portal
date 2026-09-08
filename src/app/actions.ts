@@ -2,7 +2,11 @@
 
 import { revalidateTag } from 'next/cache'
 
-export async function revalidateAllCaches() {
+import { auth } from '@/auth'
+
+export async function revalidateAllCaches(): Promise<void> {
+  const session = await auth()
+  if (!session) return
   revalidateTag('students', 'max')
   revalidateTag('classes', 'max')
   revalidateTag('staff', 'max')

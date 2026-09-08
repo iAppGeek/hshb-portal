@@ -94,6 +94,20 @@ describe('Client components', () => {
   })
 })
 
+describe('Server actions', () => {
+  it("call await auth() unless they're in the public /register tree", () => {
+    for (const file of allFiles) {
+      const content = stripTypeImports(readFileSync(file, 'utf-8'))
+      if (!content.trimStart().startsWith("'use server'")) continue
+      if (file.includes(join('app', 'register') + '/')) continue
+      expect(
+        content,
+        `${file} is a server action outside the public /register tree and must call await auth()`,
+      ).toContain('await auth()')
+    }
+  })
+})
+
 describe('Supabase client', () => {
   it('uses service role key, not anon key', () => {
     const client = readFileSync(join(srcDir, 'db/client.ts'), 'utf-8')
