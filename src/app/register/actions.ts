@@ -5,6 +5,7 @@ import type { z } from 'zod'
 
 import { createRegistrationSubmission, logAuditEvent } from '@/db'
 import { getUserFriendlyDbError } from '@/lib/db-error'
+import { getClientIp } from '@/lib/request-ip'
 import {
   registrationSubmissionSchema,
   registrationContactSchema,
@@ -57,7 +58,8 @@ export async function submitRegistrationAction(
     contacts.push({ contact_role: role, ...c.data })
   }
 
-  if (!(await verifyTurnstileToken(parsed.data.turnstile_token)))
+  const ip = await getClientIp()
+  if (!(await verifyTurnstileToken(parsed.data.turnstile_token, ip)))
     return { error: 'Verification failed. Please try again.' }
 
   try {

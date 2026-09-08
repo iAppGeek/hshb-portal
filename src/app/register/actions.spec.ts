@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { redirect } from 'next/navigation'
 
 import { createRegistrationSubmission, logAuditEvent } from '@/db'
+import { getClientIp } from '@/lib/request-ip'
 import { verifyTurnstileToken } from '@/lib/turnstile'
 
 import { submitRegistrationAction } from './actions'
@@ -13,6 +14,10 @@ vi.mock('@/db', () => ({
 
 vi.mock('@/lib/turnstile', () => ({
   verifyTurnstileToken: vi.fn(),
+}))
+
+vi.mock('@/lib/request-ip', () => ({
+  getClientIp: vi.fn(),
 }))
 
 vi.mock('next/navigation', () => ({
@@ -63,6 +68,7 @@ beforeEach(() => {
   process.env.TURNSTILE_SECRET_KEY = 'test-secret'
   vi.mocked(verifyTurnstileToken).mockResolvedValue(true)
   vi.mocked(createRegistrationSubmission).mockResolvedValue({ id: 'sub-1' })
+  vi.mocked(getClientIp).mockResolvedValue('203.0.113.1')
 })
 
 afterEach(() => {
@@ -164,5 +170,14 @@ describe('submitRegistrationAction', () => {
       entityId: 'sub-1',
     })
     expect(redirect).toHaveBeenCalledWith('/register/success')
+  })
+
+  it('verifies the Turnstile token with the client IP', async () => {
+    await submitRegistrationAction(makeFormData(baseFields))
+
+    expect(verifyTurnstileToken).toHaveBeenCalledWith(
+      'test-token',
+      '203.0.113.1',
+    )
   })
 })

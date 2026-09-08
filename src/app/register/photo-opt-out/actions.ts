@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 
 import { createPhotoOptOut, logAuditEvent } from '@/db'
 import { getUserFriendlyDbError } from '@/lib/db-error'
+import { getClientIp } from '@/lib/request-ip'
 import {
   photoOptOutSchema,
   extractFormFields,
@@ -22,7 +23,8 @@ export async function submitPhotoOptOutAction(
   const parsed = photoOptOutSchema.safeParse(extractFormFields(formData))
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
-  if (!(await verifyTurnstileToken(parsed.data.turnstile_token)))
+  const ip = await getClientIp()
+  if (!(await verifyTurnstileToken(parsed.data.turnstile_token, ip)))
     return { error: 'Verification failed. Please try again.' }
 
   try {

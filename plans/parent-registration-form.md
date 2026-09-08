@@ -918,7 +918,7 @@ Each phase: `npm run fix:all` after substantive edits, `npm run pipeline:check` 
 Deliberately cut in the complexity review (6 Sep 2026), easy to add later:
 
 - **Reviewer in-place corrections** — an `updateRegistrationSubmission` with contact upsert, a correction schema, and an edit mode on the review page. Add if the office finds post-approval fixes on the student/guardian pages too slow.
-- **Per-IP rate limiting** — a `source_ip` column and a count-before-insert. Add if Turnstile alone proves insufficient.
+- **Per-IP rate limiting** — a `source_ip` column and a count-before-insert. Add if Turnstile alone proves insufficient. Needs a shared store: Netlify functions have no shared memory across invocations, so an in-process counter won't work — this would need an external store (e.g. Upstash Redis) or a database-backed counter. Turnstile's single-use tokens (now sent with `remoteip`, and optionally hostname-checked via `TURNSTILE_EXPECTED_HOSTNAME`) remain the throttle until this is built.
 - **Sidebar pending badge** — count in the root layout + `PortalSidebar` prop. The dashboard tile covers the need.
 - **Per-field inline errors on the public form** — would need a JSON route or a richer `ActionResult`. HTML attributes plus first-error messages match the staff forms.
 

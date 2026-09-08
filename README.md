@@ -35,7 +35,7 @@ Copy `.env.local.example` to `.env.local` and fill in the values. The example fi
 - **`AZURE_AD_*`** — Microsoft Entra ID app registration (Azure portal → App registrations → HSHB Portal)
 - **`SUPABASE_SERVICE_ROLE_KEY`** — Supabase dashboard → Project Settings → API. Server-only; never expose to the browser
 - **`VAPID_*` keys** — generate with `npx web-push generate-vapid-keys`
-- **`NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY`** — Cloudflare Turnstile, gates the public `/register` form. Cloudflare dashboard → Turnstile → add a site. Local dev/E2E/CI use Cloudflare's published always-pass test keys (`1x00000000000000000000AA` / `1x0000000000000000000000000000000AA`); production needs real keys for the `portal.hshb.org.uk` hostname
+- **`NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY`** — Cloudflare Turnstile, gates the public `/register` form. Cloudflare dashboard → Turnstile → add a site. Local dev/E2E/CI use Cloudflare's published always-pass test keys (`1x00000000000000000000AA` / `1x0000000000000000000000000000000AA`); production needs real keys for the `portal.hshb.org.uk` hostname. Set `TURNSTILE_EXPECTED_HOSTNAME=portal.hshb.org.uk` in production only, to reject tokens verified against another origin — leave it unset locally/CI since the test keys don't return a real hostname
 
 ### Run the database
 
