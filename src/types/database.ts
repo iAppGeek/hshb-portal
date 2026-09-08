@@ -893,6 +893,10 @@ export type Database = {
         }
         Returns: string
       }
+      create_registration_submission: {
+        Args: { p_contacts: Json; p_submission: Json }
+        Returns: string
+      }
       find_guardian_matches: {
         Args: { p_email: string; p_last_name: string; p_phone: string }
         Returns: {

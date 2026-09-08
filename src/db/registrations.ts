@@ -1,6 +1,6 @@
 import { unstable_cache, revalidateTag } from 'next/cache'
 
-import type { Database, Enums, Tables } from '@/types/database'
+import type { Database, Enums, Json, Tables } from '@/types/database'
 
 import { supabase } from './client'
 
@@ -33,27 +33,20 @@ type CreateRegistrationInput = {
   >[]
 }
 
+// Inserts the submission and its contacts via a single RPC so the two writes
+// are atomic — the inbox can never contain a submission without a primary
+// contact, even if a later write in the request were to fail.
 export async function createRegistrationSubmission({
   submission,
   contacts,
 }: CreateRegistrationInput): Promise<{ id: string }> {
-  const { data, error } = await supabase
-    .from('registration_submissions')
-    .insert(submission)
-    .select('id')
-    .single()
+  const { data, error } = await supabase.rpc('create_registration_submission', {
+    p_submission: submission as Json,
+    p_contacts: contacts as Json,
+  })
   if (error) throw error
-
-  const { error: contactsError } = await supabase
-    .from('registration_submission_contacts')
-    .insert(contacts.map((c) => ({ ...c, submission_id: data.id })))
-  if (contactsError) {
-    await supabase.from('registration_submissions').delete().eq('id', data.id)
-    throw contactsError
-  }
-
   revalidateTag('registrations', 'max')
-  return { id: data.id }
+  return { id: data as string }
 }
 
 export const getRegistrationSubmissions = unstable_cache(

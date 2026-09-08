@@ -28,16 +28,8 @@ beforeEach(() => {
 })
 
 describe('createRegistrationSubmission', () => {
-  it('inserts the submission then its contacts', async () => {
-    const mockSubmissionInsert = vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        single: vi.fn().mockResolvedValue({ data: { id: 'sub-1' } }),
-      }),
-    })
-    const mockContactsInsert = vi.fn().mockResolvedValue({ error: null })
-    mockFrom
-      .mockReturnValueOnce({ insert: mockSubmissionInsert })
-      .mockReturnValueOnce({ insert: mockContactsInsert })
+  it('calls the rpc with p_submission and p_contacts and returns the id', async () => {
+    mockRpc.mockResolvedValue({ data: 'sub-1', error: null })
 
     const result = await createRegistrationSubmission({
       submission: { child_first_name: 'Seed' } as never,
@@ -45,56 +37,33 @@ describe('createRegistrationSubmission', () => {
     })
 
     expect(result).toEqual({ id: 'sub-1' })
-    expect(mockContactsInsert).toHaveBeenCalledWith([
-      { contact_role: 'primary', first_name: 'Petra', submission_id: 'sub-1' },
-    ])
+    expect(mockRpc).toHaveBeenCalledWith('create_registration_submission', {
+      p_submission: { child_first_name: 'Seed' },
+      p_contacts: [{ contact_role: 'primary', first_name: 'Petra' }],
+    })
+  })
+
+  it('revalidates the registrations tag', async () => {
+    mockRpc.mockResolvedValue({ data: 'sub-1', error: null })
+
+    await createRegistrationSubmission({
+      submission: { child_first_name: 'Seed' } as never,
+      contacts: [],
+    })
+
     expect(revalidateTag).toHaveBeenCalledWith('registrations', 'max')
   })
 
-  it('deletes the submission and rethrows when the contacts insert fails', async () => {
-    const mockSubmissionInsert = vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        single: vi.fn().mockResolvedValue({ data: { id: 'sub-1' } }),
-      }),
-    })
-    const mockContactsInsert = vi
-      .fn()
-      .mockResolvedValue({ error: new Error('contacts failed') })
-    const mockDelete = vi.fn().mockReturnValue({
-      eq: vi.fn().mockResolvedValue({ error: null }),
-    })
-    mockFrom
-      .mockReturnValueOnce({ insert: mockSubmissionInsert })
-      .mockReturnValueOnce({ insert: mockContactsInsert })
-      .mockReturnValueOnce({ delete: mockDelete })
-
-    await expect(
-      createRegistrationSubmission({
-        submission: { child_first_name: 'Seed' } as never,
-        contacts: [],
-      }),
-    ).rejects.toThrow('contacts failed')
-    expect(mockDelete).toHaveBeenCalled()
-    expect(revalidateTag).not.toHaveBeenCalled()
-  })
-
-  it('throws when the submission insert fails', async () => {
-    mockFrom.mockReturnValueOnce({
-      insert: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          single: vi
-            .fn()
-            .mockResolvedValue({ error: new Error('insert failed') }),
-        }),
-      }),
-    })
+  it('throws the rpc error', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: new Error('rpc failed') })
 
     await expect(
       createRegistrationSubmission({
         submission: {} as never,
         contacts: [],
       }),
-    ).rejects.toThrow('insert failed')
+    ).rejects.toThrow('rpc failed')
+    expect(revalidateTag).not.toHaveBeenCalled()
   })
 })
 

@@ -753,3 +753,50 @@ BEGIN
   RETURN v_found;
 END;
 $$ LANGUAGE plpgsql;
+
+-- ─── create_registration_submission RPC ──────────────────────────────────────
+-- Inserts a submission and its contacts in one transaction so the inbox can
+-- never contain a submission without a primary contact.
+CREATE OR REPLACE FUNCTION create_registration_submission(
+  p_submission JSONB,
+  p_contacts   JSONB
+) RETURNS UUID AS $$
+DECLARE
+  v_id UUID;
+BEGIN
+  INSERT INTO registration_submissions (
+    child_first_name, child_last_name, date_of_birth, preferred_year_group,
+    address_line_1, address_line_2, city, postcode,
+    allergies, medical_details, collect_authorised, collect_password,
+    consent_privacy_notice, consent_emergency_first_aid, consent_photo_media,
+    consent_home_school, consent_comms_email_sms, declaration_name
+  )
+  SELECT
+    s.child_first_name, s.child_last_name, s.date_of_birth, s.preferred_year_group,
+    s.address_line_1, s.address_line_2, s.city, s.postcode,
+    s.allergies, s.medical_details, s.collect_authorised, s.collect_password,
+    COALESCE(s.consent_privacy_notice, FALSE), COALESCE(s.consent_emergency_first_aid, FALSE),
+    COALESCE(s.consent_photo_media, FALSE), COALESCE(s.consent_home_school, FALSE),
+    COALESCE(s.consent_comms_email_sms, FALSE), s.declaration_name
+  FROM jsonb_populate_record(NULL::registration_submissions, p_submission) AS s
+  RETURNING id INTO v_id;
+
+  INSERT INTO registration_submission_contacts (
+    submission_id, contact_role, first_name, last_name, relationship, phone, email,
+    same_as_child_address, address_line_1, address_line_2, city, postcode
+  )
+  SELECT
+    v_id, c.contact_role, c.first_name, c.last_name, c.relationship, c.phone, c.email,
+    COALESCE(c.same_as_child_address, TRUE), c.address_line_1, c.address_line_2, c.city, c.postcode
+  FROM jsonb_populate_recordset(NULL::registration_submission_contacts, p_contacts) AS c;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM registration_submission_contacts
+    WHERE submission_id = v_id AND contact_role = 'primary'
+  ) THEN
+    RAISE EXCEPTION 'A primary parent/carer is required';
+  END IF;
+
+  RETURN v_id;
+END;
+$$ LANGUAGE plpgsql;
