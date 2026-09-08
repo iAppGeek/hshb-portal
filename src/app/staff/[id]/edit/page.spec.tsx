@@ -13,6 +13,11 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/db', () => ({
   getStaffById: vi.fn(),
+  getDocumentsForStaff: vi.fn(),
+}))
+
+vi.mock('@/clientComponents/DocumentsSection', () => ({
+  default: () => <div>DocumentsSection</div>,
 }))
 
 vi.mock('./EditStaffForm', () => ({
@@ -28,7 +33,7 @@ vi.mock('./EditStaffForm', () => ({
 }))
 
 import { auth } from '@/auth'
-import { getStaffById } from '@/db'
+import { getStaffById, getDocumentsForStaff } from '@/db'
 
 import EditStaffPage from './page'
 
@@ -46,6 +51,7 @@ const mockStaff = {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(getStaffById).mockResolvedValue(mockStaff as any)
+  vi.mocked(getDocumentsForStaff).mockResolvedValue([])
 })
 
 const params = Promise.resolve({ id: 'staff-1' })

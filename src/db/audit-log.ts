@@ -2,7 +2,13 @@ import type { Json } from '@/types/database'
 
 import { supabase } from './client'
 
-type AuditAction = 'create' | 'update' | 'delete' | 'sign_in' | 'sign_out'
+type AuditAction =
+  | 'create'
+  | 'update'
+  | 'delete'
+  | 'view'
+  | 'sign_in'
+  | 'sign_out'
 
 type AuditEntry = {
   staffId: string | null

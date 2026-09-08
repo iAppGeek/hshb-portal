@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react'
 import { type Metadata } from 'next'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 
 import { auth } from '@/auth'
 import { canAccessAdminTasks } from '@/lib/permissions'
@@ -34,6 +35,12 @@ export default async function AdminPage({
         <p className="mt-1 text-sm text-gray-500">
           Administrative tools for managing the school year.
         </p>
+        <Link
+          href="/documents/deleted"
+          className="mt-2 inline-block text-sm font-medium text-blue-600 hover:text-blue-800"
+        >
+          View deleted documents
+        </Link>
       </div>
 
       <AdminTabBar currentTab={tab} />

@@ -19,6 +19,8 @@ Four roles exist: **teacher**, **admin**, **headteacher**, **secretary**.
 | Edit lesson plans       | Yes     | Yes   | Yes         | -         |
 | Update attendance       | Yes     | Yes   | Yes         | -         |
 | Manage staff attendance | -       | Yes   | Yes         | -         |
+| View documents          | -       | Yes   | -           | -         |
+| Manage documents        | -       | Yes   | -           | -         |
 
 ## Data Visibility
 
@@ -48,4 +50,7 @@ Four roles exist: **teacher**, **admin**, **headteacher**, **secretary**.
 - Teachers and secretaries can sign themselves in/out but cannot sign in/out other staff.
 - Admins and headteachers can sign in/out any staff member.
 - Secretaries can save new attendance but cannot update existing attendance records.
+- Documents/records (per student & staff) are admin-only for now. `canViewDocuments` is kept
+  separate from `canManageDocuments` so view-only access can be widened to other roles later
+  (e.g. headteacher) with a one-line change, without granting upload/delete.
 - All permission functions are defined in `permissions.ts` alongside this file.

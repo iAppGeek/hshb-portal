@@ -9,7 +9,7 @@ type RouteRule = {
 }
 
 // Guardian seed ID from supabase/seed.sql
-const GUARDIAN_ID = '20000000-0000-0000-0000-000000000001'
+const GUARDIAN_ID = '20000000-0000-4000-8000-000000000001'
 
 const ROUTE_RULES: RouteRule[] = [
   {
@@ -42,7 +42,15 @@ const ROUTE_RULES: RouteRule[] = [
     allowedRoles: ['admin'],
     redirectTo: '/students',
   },
+  {
+    route: '/documents/deleted',
+    allowedRoles: ['admin'],
+    redirectTo: '/dashboard',
+  },
 ]
+
+// Student-owned link document from supabase/seed.sql (no storage backend needed).
+const SEEDED_DOC_ID = '80000000-0000-4000-8000-000000000001'
 
 function getRoleFromProject(projectName: string): Role {
   const role = projectName.split(':')[1]
@@ -73,3 +81,24 @@ for (const { route, allowedRoles, redirectTo } of ROUTE_RULES) {
     })
   })
 }
+
+// The document download route is an API handler (403, not a redirect), so it
+// needs status-based assertions rather than the URL-based RouteRule above.
+test.describe('Route: /api/documents/[id]/download', () => {
+  test('admin gets a redirect to the file; other roles are forbidden', async ({
+    page,
+  }, testInfo) => {
+    const role = getRoleFromProject(testInfo.project.name)
+    const res = await page.request.get(
+      `/api/documents/${SEEDED_DOC_ID}/download`,
+      { maxRedirects: 0 },
+    )
+    if (role === 'admin') {
+      // 302 redirect to the external_url of the seeded link document
+      expect(res.status()).toBe(302)
+      expect(res.headers()['location']).toContain('https://')
+    } else {
+      expect(res.status()).toBe(403)
+    }
+  })
+})

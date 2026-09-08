@@ -54,6 +54,16 @@ export function canEditTimetables(role: StaffRole): boolean {
   return role === 'admin' || role === 'headteacher'
 }
 
+// View is separated from manage so view-only access can be widened to other
+// roles later with a one-line change, without granting upload/delete.
+export function canViewDocuments(role: StaffRole): boolean {
+  return role === 'admin' // widen later, e.g. || role === 'headteacher'
+}
+
+export function canManageDocuments(role: StaffRole): boolean {
+  return role === 'admin' // upload + delete; stays admin-only
+}
+
 export function canCreateLessonPlans(role: StaffRole): boolean {
   return role === 'teacher' || role === 'admin' || role === 'headteacher'
 }
