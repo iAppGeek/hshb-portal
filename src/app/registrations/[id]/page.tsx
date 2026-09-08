@@ -7,6 +7,7 @@ import {
   findStudentMatches,
   getStudentsForLinking,
   getAllClasses,
+  type StudentMatch,
 } from '@/db'
 import {
   canReviewRegistrations,
@@ -45,6 +46,12 @@ export default async function RegistrationDetailPage({
           firstName: submission.child_first_name,
           lastName: submission.child_last_name,
           dateOfBirth: submission.date_of_birth,
+        }).catch((err: unknown) => {
+          console.error(
+            '[RegistrationDetailPage] findStudentMatches failed:',
+            err,
+          )
+          return [] as StudentMatch[]
         })
       : Promise.resolve([]),
     isAdmin ? getStudentsForLinking() : Promise.resolve([]),

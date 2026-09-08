@@ -59,6 +59,9 @@ export default async function RegistrationsPage({
           firstName: r.child_first_name,
           lastName: r.child_last_name,
           dateOfBirth: r.date_of_birth,
+        }).catch((err: unknown) => {
+          console.error('[RegistrationsPage] findStudentMatches failed:', err)
+          return [] as StudentMatch[]
         }),
       ),
     )

@@ -19,6 +19,7 @@ import {
   getStudentsForLinking,
 } from './students'
 const mockFrom = vi.hoisted(() => vi.fn())
+const mockRpc = vi.hoisted(() => vi.fn())
 
 vi.mock('next/cache', () => ({
   unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
@@ -26,7 +27,7 @@ vi.mock('next/cache', () => ({
 }))
 
 vi.mock('./client', () => ({
-  supabase: { from: mockFrom },
+  supabase: { from: mockFrom, rpc: mockRpc },
 }))
 
 beforeEach(() => {
@@ -531,8 +532,8 @@ describe('updateStudentClasses', () => {
 })
 
 describe('findStudentMatches', () => {
-  it('matches on last name plus DOB or first name, including inactive', async () => {
-    const mockLimit = vi.fn().mockResolvedValue({
+  it('passes the three args through to the rpc', async () => {
+    mockRpc.mockResolvedValue({
       data: [
         {
           id: 'student-1',
@@ -543,13 +544,7 @@ describe('findStudentMatches', () => {
           active: false,
         },
       ],
-    })
-    mockFrom.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        ilike: vi.fn().mockReturnValue({
-          or: vi.fn().mockReturnValue({ limit: mockLimit }),
-        }),
-      }),
+      error: null,
     })
 
     const result = await findStudentMatches({
@@ -558,20 +553,15 @@ describe('findStudentMatches', () => {
       dateOfBirth: '2015-06-01',
     })
     expect(result).toHaveLength(1)
-    expect(mockLimit).toHaveBeenCalledWith(10)
-    expect(mockFrom).toHaveBeenCalledWith('students')
+    expect(mockRpc).toHaveBeenCalledWith('find_student_matches', {
+      p_first_name: 'Anna',
+      p_last_name: 'Smith',
+      p_date_of_birth: '2015-06-01',
+    })
   })
 
-  it('returns empty array when no matches found', async () => {
-    mockFrom.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        ilike: vi.fn().mockReturnValue({
-          or: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue({ data: null }),
-          }),
-        }),
-      }),
-    })
+  it('returns empty array when data is null', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null })
 
     const result = await findStudentMatches({
       firstName: 'Nobody',
@@ -579,6 +569,18 @@ describe('findStudentMatches', () => {
       dateOfBirth: '2015-06-01',
     })
     expect(result).toEqual([])
+  })
+
+  it('throws the rpc error', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: new Error('rpc failed') })
+
+    await expect(
+      findStudentMatches({
+        firstName: 'Nobody',
+        lastName: 'Nomatch',
+        dateOfBirth: '2015-06-01',
+      }),
+    ).rejects.toThrow('rpc failed')
   })
 })
 

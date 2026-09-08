@@ -170,4 +170,25 @@ describe('RegistrationsPage', () => {
     expect(getStudentsForLinking).not.toHaveBeenCalled()
     expect(findStudentMatches).not.toHaveBeenCalled()
   })
+
+  it('still renders when findStudentMatches rejects', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as never)
+    vi.mocked(getRegistrationSubmissions).mockResolvedValue([])
+    vi.mocked(getPhotoOptOuts).mockResolvedValue([
+      {
+        id: 'opt-1',
+        status: 'pending',
+        child_first_name: 'Alice',
+        child_last_name: 'Student',
+        date_of_birth: '2015-06-01',
+      },
+    ] as never)
+    vi.mocked(findStudentMatches).mockRejectedValue(new Error('rpc failed'))
+
+    render(await RegistrationsPage({ searchParams: Promise.resolve({}) }))
+
+    expect(screen.getByText('PhotoOptOutSection count=1')).toBeTruthy()
+  })
 })

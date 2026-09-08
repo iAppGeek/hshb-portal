@@ -139,4 +139,24 @@ describe('RegistrationDetailPage', () => {
     expect(getAllClasses).not.toHaveBeenCalled()
     expect(screen.getByTestId('review').textContent).toBe('matches=0 linking=0')
   })
+
+  it('still renders with no matches when findStudentMatches rejects', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin' },
+    } as never)
+    vi.mocked(getRegistrationSubmissionById).mockResolvedValue(
+      submission as never,
+    )
+    vi.mocked(findStudentMatches).mockRejectedValue(new Error('rpc failed'))
+    vi.mocked(getStudentsForLinking).mockResolvedValue([])
+    vi.mocked(getAllClasses).mockResolvedValue([])
+
+    render(
+      await RegistrationDetailPage({
+        params: Promise.resolve({ id: 'sub-1' }),
+      }),
+    )
+
+    expect(screen.getByTestId('review').textContent).toBe('matches=0 linking=0')
+  })
 })

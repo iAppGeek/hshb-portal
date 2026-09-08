@@ -10,11 +10,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: '14.5'
-  }
   public: {
     Tables: {
       attendance: {
@@ -725,7 +720,7 @@ export type Database = {
           medical_details: string | null
           notes: string | null
           postcode: string | null
-          primary_guardian_id: string | null
+          primary_guardian_id: string
           primary_guardian_relationship: string | null
           secondary_guardian_id: string | null
           secondary_guardian_relationship: string | null
@@ -757,7 +752,7 @@ export type Database = {
           medical_details?: string | null
           notes?: string | null
           postcode?: string | null
-          primary_guardian_id?: string | null
+          primary_guardian_id: string
           primary_guardian_relationship?: string | null
           secondary_guardian_id?: string | null
           secondary_guardian_relationship?: string | null
@@ -789,7 +784,7 @@ export type Database = {
           medical_details?: string | null
           notes?: string | null
           postcode?: string | null
-          primary_guardian_id?: string | null
+          primary_guardian_id?: string
           primary_guardian_relationship?: string | null
           secondary_guardian_id?: string | null
           secondary_guardian_relationship?: string | null
@@ -896,6 +891,21 @@ export type Database = {
           p_submission_id: string
         }
         Returns: string
+      }
+      find_student_matches: {
+        Args: {
+          p_date_of_birth: string
+          p_first_name: string
+          p_last_name: string
+        }
+        Returns: {
+          active: boolean
+          date_of_birth: string
+          first_name: string
+          id: string
+          last_name: string
+          student_code: string
+        }[]
       }
       get_attendance_summary: {
         Args: { p_date: string }

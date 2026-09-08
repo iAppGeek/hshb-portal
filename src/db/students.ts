@@ -221,6 +221,8 @@ const STUDENT_MATCH_SELECT =
   'id, first_name, last_name, date_of_birth, student_code, active'
 
 // Includes inactive students so returning children can be found and reactivated.
+// Uses a parameterised RPC rather than a string-built PostgREST filter, since
+// firstName and lastName originate from the public registration form.
 export async function findStudentMatches({
   firstName,
   lastName,
@@ -230,13 +232,13 @@ export async function findStudentMatches({
   lastName: string
   dateOfBirth: string
 }): Promise<StudentMatch[]> {
-  const { data } = await supabase
-    .from('students')
-    .select(STUDENT_MATCH_SELECT)
-    .ilike('last_name', lastName)
-    .or(`date_of_birth.eq.${dateOfBirth},first_name.ilike.${firstName}`)
-    .limit(10)
-  return data ?? []
+  const { data, error } = await supabase.rpc('find_student_matches', {
+    p_first_name: firstName,
+    p_last_name: lastName,
+    p_date_of_birth: dateOfBirth,
+  })
+  if (error) throw error
+  return (data ?? []) as StudentMatch[]
 }
 
 export async function getStudentsForLinking(): Promise<StudentMatch[]> {
