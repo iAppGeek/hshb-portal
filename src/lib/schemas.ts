@@ -294,6 +294,23 @@ export const approveRegistrationSchema = z.object({
 
 export const rejectRegistrationSchema = z.object({ reason: requiredString })
 
+// ─── Photo consent opt-out ────────────────────────────────────────────────────
+
+export const photoOptOutSchema = z.object({
+  child_first_name: requiredString,
+  child_last_name: requiredString,
+  date_of_birth: isoDate,
+  declaration_name: requiredString,
+  notes: optionalString,
+  turnstile_token: requiredString,
+})
+
+export const applyPhotoOptOutSchema = z.object({
+  student_id: uuid,
+})
+
+export const rejectPhotoOptOutSchema = z.object({ reason: requiredString })
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 export type ActionResult = { error: string } | void

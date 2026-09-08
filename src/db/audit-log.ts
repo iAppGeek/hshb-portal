@@ -12,6 +12,10 @@ type AuditAction =
   | 'registration_approved'
   | 'registration_rejected'
   | 'registration_deleted'
+  | 'photo_opt_out_submitted'
+  | 'photo_opt_out_applied'
+  | 'photo_opt_out_rejected'
+  | 'photo_opt_out_deleted'
 
 type AuditEntry = {
   staffId: string | null

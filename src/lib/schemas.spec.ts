@@ -32,6 +32,9 @@ import {
   registrationSubmissionSchema,
   approveRegistrationSchema,
   rejectRegistrationSchema,
+  photoOptOutSchema,
+  applyPhotoOptOutSchema,
+  rejectPhotoOptOutSchema,
   extractFormFields,
   extractGuardianFields,
   extractRegistrationContact,
@@ -772,6 +775,58 @@ describe('rejectRegistrationSchema', () => {
     expect(rejectRegistrationSchema.parse({ reason: 'Duplicate' }).reason).toBe(
       'Duplicate',
     )
+  })
+})
+
+describe('photoOptOutSchema', () => {
+  const valid = {
+    child_first_name: 'Alice',
+    child_last_name: 'Student',
+    date_of_birth: '2015-06-01',
+    declaration_name: 'Gary AliceGuardian',
+    notes: '',
+    turnstile_token: 'token123',
+  }
+
+  it('accepts a valid opt-out request', () => {
+    const result = photoOptOutSchema.parse(valid)
+    expect(result.child_first_name).toBe('Alice')
+    expect(result.notes).toBeNull()
+  })
+
+  it('rejects missing required fields', () => {
+    expect(() =>
+      photoOptOutSchema.parse({ ...valid, child_first_name: '' }),
+    ).toThrow()
+    expect(() =>
+      photoOptOutSchema.parse({ ...valid, declaration_name: '' }),
+    ).toThrow()
+    expect(() =>
+      photoOptOutSchema.parse({ ...valid, date_of_birth: '' }),
+    ).toThrow()
+  })
+})
+
+describe('applyPhotoOptOutSchema', () => {
+  it('requires a valid student uuid', () => {
+    expect(
+      applyPhotoOptOutSchema.parse({
+        student_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+      }).student_id,
+    ).toBe('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11')
+    expect(() =>
+      applyPhotoOptOutSchema.parse({ student_id: 'not-a-uuid' }),
+    ).toThrow()
+    expect(() => applyPhotoOptOutSchema.parse({ student_id: '' })).toThrow()
+  })
+})
+
+describe('rejectPhotoOptOutSchema', () => {
+  it('requires a reason', () => {
+    expect(() => rejectPhotoOptOutSchema.parse({ reason: '' })).toThrow()
+    expect(
+      rejectPhotoOptOutSchema.parse({ reason: 'Cannot match child' }).reason,
+    ).toBe('Cannot match child')
   })
 })
 

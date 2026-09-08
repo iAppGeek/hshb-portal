@@ -42,6 +42,16 @@ export type {
   RegistrationFull,
 } from './registrations'
 export {
+  createPhotoOptOut,
+  getPhotoOptOuts,
+  getPendingPhotoOptOutCount,
+  getPhotoOptOutById,
+  applyPhotoOptOut,
+  rejectPhotoOptOut,
+  deletePhotoOptOut,
+} from './photoOptOuts'
+export type { PhotoOptOutStatus, PhotoOptOutRow } from './photoOptOuts'
+export {
   getGuardianCount,
   getAllGuardians,
   createGuardian,
