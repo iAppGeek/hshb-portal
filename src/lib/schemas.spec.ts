@@ -900,6 +900,25 @@ describe('approveRegistrationSchema', () => {
       }),
     ).toThrow()
   })
+
+  it('defaults reuse_guardians to false when absent', () => {
+    const result = approveRegistrationSchema.parse({
+      student_code: '',
+      class_id: '',
+      existing_student_id: '',
+    })
+    expect(result.reuse_guardians).toBe(false)
+  })
+
+  it('parses "on" as true for reuse_guardians', () => {
+    const result = approveRegistrationSchema.parse({
+      student_code: '',
+      class_id: '',
+      existing_student_id: '',
+      reuse_guardians: 'on',
+    })
+    expect(result.reuse_guardians).toBe(true)
+  })
 })
 
 describe('rejectRegistrationSchema', () => {

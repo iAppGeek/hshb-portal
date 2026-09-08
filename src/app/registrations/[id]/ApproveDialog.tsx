@@ -19,6 +19,7 @@ type Props = {
   matches: StudentMatch[]
   studentsForLinking: StudentMatch[]
   classes: ClassOption[]
+  hasGuardianMatches: boolean
   onClose: () => void
 }
 
@@ -45,6 +46,7 @@ export default function ApproveDialog({
   matches,
   studentsForLinking,
   classes,
+  hasGuardianMatches,
   onClose,
 }: Props) {
   const [mode, setMode] = useState<'create' | 'link'>('create')
@@ -218,6 +220,24 @@ export default function ApproveDialog({
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label className="flex cursor-pointer items-start gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  name="reuse_guardians"
+                  defaultChecked
+                  className="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
+                />
+                Reuse matching guardian records (updates their phone and address
+                from this submission)
+              </label>
+              {!hasGuardianMatches && (
+                <p className="mt-1 text-xs text-gray-400">
+                  No existing guardians match this submission.
+                </p>
+              )}
             </div>
 
             {error && <p className="text-sm text-red-600">{error}</p>}

@@ -234,4 +234,111 @@ test.describe('Registration review', () => {
       .eq('id', id)
     expect(data).toEqual([])
   })
+
+  test('shows a guardian match warning and reuses the guardian on approve', async ({
+    page,
+  }) => {
+    childLastName = `ReviewReuse${suffix}`
+    const seedEmail = `e2e.${suffix}.reuse@example.com`
+
+    const { data: seedGuardian } = await db
+      .from('guardians')
+      .insert({
+        first_name: 'Seed',
+        last_name: `Guardian${suffix}`,
+        phone: '07700 900333',
+        email: seedEmail,
+        address_line_1: 'Old Guardian Address',
+        city: 'Oldtown',
+        postcode: 'OL2 2AA',
+      })
+      .select('id')
+      .single()
+
+    const { id } = await createRegistrationSubmission({
+      child_last_name: childLastName,
+      contact_last_name: `Parent${suffix}`,
+      contact_email: seedEmail,
+    })
+
+    await page.goto(`/registrations/${id}`)
+    await expect(page.getByText(/Matches existing guardian/)).toBeVisible()
+
+    await page.getByRole('button', { name: 'Approve & save student' }).click()
+    // "Reuse matching guardian records" is checked by default.
+    await page.getByRole('button', { name: 'Approve' }).click()
+
+    await expect(page).toHaveURL(/\/students\/.+\/edit/)
+
+    const { data: submission } = await db
+      .from('registration_submissions')
+      .select('student_id')
+      .eq('id', id)
+      .single()
+
+    const { data: student } = await db
+      .from('students')
+      .select('primary_guardian_id')
+      .eq('id', submission!.student_id)
+      .single()
+    expect(student?.primary_guardian_id).toBe(seedGuardian!.id)
+
+    const { data: updatedGuardian } = await db
+      .from('guardians')
+      .select('phone, address_line_1')
+      .eq('id', seedGuardian!.id)
+      .single()
+    expect(updatedGuardian?.phone).toBe('07700 900000')
+    expect(updatedGuardian?.address_line_1).toBe('1 Fixture St')
+  })
+
+  test('creates a new guardian when reuse is unticked despite a match', async ({
+    page,
+  }) => {
+    childLastName = `ReviewNoReuse${suffix}`
+    const seedEmail = `e2e.${suffix}.noreuse@example.com`
+
+    const { data: seedGuardian } = await db
+      .from('guardians')
+      .insert({
+        first_name: 'Seed',
+        last_name: `Guardian${suffix}`,
+        phone: '07700 900444',
+        email: seedEmail,
+      })
+      .select('id')
+      .single()
+
+    const { id } = await createRegistrationSubmission({
+      child_last_name: childLastName,
+      contact_last_name: `Parent${suffix}`,
+      contact_email: seedEmail,
+    })
+
+    await page.goto(`/registrations/${id}`)
+    await expect(page.getByText(/Matches existing guardian/)).toBeVisible()
+
+    await page.getByRole('button', { name: 'Approve & save student' }).click()
+    await page
+      .getByRole('checkbox', { name: /Reuse matching guardian records/ })
+      .uncheck()
+    await page.getByRole('button', { name: 'Approve' }).click()
+
+    await expect(page).toHaveURL(/\/students\/.+\/edit/)
+
+    const { data: submission } = await db
+      .from('registration_submissions')
+      .select('student_id')
+      .eq('id', id)
+      .single()
+
+    const { data: student } = await db
+      .from('students')
+      .select('primary_guardian_id')
+      .eq('id', submission!.student_id)
+      .single()
+    expect(student?.primary_guardian_id).not.toBe(seedGuardian!.id)
+
+    await db.from('guardians').delete().eq('id', student!.primary_guardian_id)
+  })
 })

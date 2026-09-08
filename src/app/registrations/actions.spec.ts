@@ -56,6 +56,7 @@ describe('approveRegistrationAction', () => {
     student_code: '',
     class_id: CLASS_ID,
     existing_student_id: '',
+    reuse_guardians: 'on',
   }
 
   it('returns error when not authenticated', async () => {
@@ -132,6 +133,7 @@ describe('approveRegistrationAction', () => {
       studentCode: null,
       classId: CLASS_ID,
       existingStudentId: null,
+      reuseGuardians: true,
     })
     expect(logAuditEvent).toHaveBeenCalledWith({
       staffId: STAFF_ID,
@@ -142,6 +144,7 @@ describe('approveRegistrationAction', () => {
         studentId: STUDENT_ID,
         linkedExisting: false,
         classId: CLASS_ID,
+        reuseGuardians: true,
       },
     })
     expect(revalidatePath).toHaveBeenCalledWith('/registrations')
@@ -167,6 +170,24 @@ describe('approveRegistrationAction', () => {
     expect(logAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         details: expect.objectContaining({ linkedExisting: true }),
+      }),
+    )
+  })
+
+  it('forwards reuseGuardians: false when the checkbox is unticked', async () => {
+    vi.mocked(approveRegistration).mockResolvedValue(STUDENT_ID)
+    const { reuse_guardians: _reuseGuardians, ...withoutReuse } = validFields
+
+    await expect(
+      approveRegistrationAction(SUBMISSION_ID, makeFormData(withoutReuse)),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(approveRegistration).toHaveBeenCalledWith(
+      expect.objectContaining({ reuseGuardians: false }),
+    )
+    expect(logAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: expect.objectContaining({ reuseGuardians: false }),
       }),
     )
   })

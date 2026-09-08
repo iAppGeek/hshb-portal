@@ -44,6 +44,7 @@ export async function approveRegistrationAction(
       studentCode: parsed.data.student_code,
       classId: parsed.data.class_id,
       existingStudentId: parsed.data.existing_student_id,
+      reuseGuardians: parsed.data.reuse_guardians,
     })
 
     logAuditEvent({
@@ -55,6 +56,7 @@ export async function approveRegistrationAction(
         studentId,
         linkedExisting: parsed.data.existing_student_id !== null,
         classId: parsed.data.class_id,
+        reuseGuardians: parsed.data.reuse_guardians,
       },
     })
     revalidatePath('/registrations')

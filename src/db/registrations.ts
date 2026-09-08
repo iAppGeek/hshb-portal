@@ -116,6 +116,7 @@ type ApproveRegistrationInput = {
   studentCode: string | null
   classId: string | null
   existingStudentId: string | null
+  reuseGuardians: boolean
 }
 
 export async function approveRegistration({
@@ -124,6 +125,7 @@ export async function approveRegistration({
   studentCode,
   classId,
   existingStudentId,
+  reuseGuardians,
 }: ApproveRegistrationInput): Promise<string> {
   const { data, error } = await supabase.rpc('approve_registration', {
     p_submission_id: submissionId,
@@ -131,6 +133,7 @@ export async function approveRegistration({
     p_student_code: studentCode ?? undefined,
     p_class_id: classId ?? undefined,
     p_existing_student_id: existingStudentId ?? undefined,
+    p_reuse_guardians: reuseGuardians,
   } as Database['public']['Functions']['approve_registration']['Args'])
   if (error) throw error
   revalidateTag('registrations', 'max')

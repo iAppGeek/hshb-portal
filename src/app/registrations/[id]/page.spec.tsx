@@ -8,6 +8,7 @@ import {
   findStudentMatches,
   getStudentsForLinking,
   getAllClasses,
+  findGuardianMatches,
 } from '@/db'
 
 import RegistrationDetailPage from './page'
@@ -19,6 +20,7 @@ vi.mock('@/db', () => ({
   findStudentMatches: vi.fn(),
   getStudentsForLinking: vi.fn(),
   getAllClasses: vi.fn(),
+  findGuardianMatches: vi.fn(),
 }))
 
 vi.mock('next/navigation', () => ({ redirect: vi.fn() }))
@@ -27,12 +29,16 @@ vi.mock('./RegistrationReview', () => ({
   default: ({
     matches,
     studentsForLinking,
+    guardianMatchesByContact,
   }: {
     matches: unknown[]
     studentsForLinking: unknown[]
+    guardianMatchesByContact: Record<string, unknown[]>
   }) => (
     <div data-testid="review">
-      matches={matches.length} linking={studentsForLinking.length}
+      matches={matches.length} linking={studentsForLinking.length}{' '}
+      guardianMatches=
+      {Object.values(guardianMatchesByContact ?? {}).flat().length}
     </div>
   ),
 }))
@@ -47,6 +53,7 @@ const submission = {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(findGuardianMatches).mockResolvedValue([])
 })
 
 describe('RegistrationDetailPage', () => {
@@ -117,7 +124,9 @@ describe('RegistrationDetailPage', () => {
       lastName: 'Pending',
       dateOfBirth: '2020-01-15',
     })
-    expect(screen.getByTestId('review').textContent).toBe('matches=1 linking=1')
+    expect(screen.getByTestId('review').textContent).toContain(
+      'matches=1 linking=1',
+    )
   })
 
   it('does not fetch matches or linking candidates for non-admin reviewers', async () => {
@@ -137,7 +146,81 @@ describe('RegistrationDetailPage', () => {
     expect(findStudentMatches).not.toHaveBeenCalled()
     expect(getStudentsForLinking).not.toHaveBeenCalled()
     expect(getAllClasses).not.toHaveBeenCalled()
-    expect(screen.getByTestId('review').textContent).toBe('matches=0 linking=0')
+    expect(screen.getByTestId('review').textContent).toContain(
+      'matches=0 linking=0',
+    )
+  })
+
+  it('fetches guardian matches per contact for admin', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin' },
+    } as never)
+    vi.mocked(getRegistrationSubmissionById).mockResolvedValue({
+      ...submission,
+      contacts: [
+        { id: 'contact-1', email: 'a@example.com', phone: '1', last_name: 'A' },
+        { id: 'contact-2', email: null, phone: '2', last_name: 'B' },
+      ],
+    } as never)
+    vi.mocked(findStudentMatches).mockResolvedValue([])
+    vi.mocked(getStudentsForLinking).mockResolvedValue([])
+    vi.mocked(getAllClasses).mockResolvedValue([])
+    vi.mocked(findGuardianMatches).mockResolvedValueOnce([
+      {
+        id: 'guardian-1',
+        first_name: 'A',
+        last_name: 'A',
+        phone: '1',
+        email: 'a@example.com',
+        matched_on: 'email',
+      },
+    ] as never)
+
+    render(
+      await RegistrationDetailPage({
+        params: Promise.resolve({ id: 'sub-1' }),
+      }),
+    )
+
+    expect(findGuardianMatches).toHaveBeenCalledWith({
+      email: 'a@example.com',
+      phone: '1',
+      lastName: 'A',
+    })
+    expect(findGuardianMatches).toHaveBeenCalledWith({
+      email: null,
+      phone: '2',
+      lastName: 'B',
+    })
+    expect(screen.getByTestId('review').textContent).toContain(
+      'guardianMatches=1',
+    )
+  })
+
+  it('still renders with no matches when findGuardianMatches rejects', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin' },
+    } as never)
+    vi.mocked(getRegistrationSubmissionById).mockResolvedValue({
+      ...submission,
+      contacts: [
+        { id: 'contact-1', email: 'a@example.com', phone: '1', last_name: 'A' },
+      ],
+    } as never)
+    vi.mocked(findStudentMatches).mockResolvedValue([])
+    vi.mocked(getStudentsForLinking).mockResolvedValue([])
+    vi.mocked(getAllClasses).mockResolvedValue([])
+    vi.mocked(findGuardianMatches).mockRejectedValue(new Error('rpc failed'))
+
+    render(
+      await RegistrationDetailPage({
+        params: Promise.resolve({ id: 'sub-1' }),
+      }),
+    )
+
+    expect(screen.getByTestId('review').textContent).toContain(
+      'guardianMatches=0',
+    )
   })
 
   it('still renders with no matches when findStudentMatches rejects', async () => {
@@ -157,6 +240,8 @@ describe('RegistrationDetailPage', () => {
       }),
     )
 
-    expect(screen.getByTestId('review').textContent).toBe('matches=0 linking=0')
+    expect(screen.getByTestId('review').textContent).toContain(
+      'matches=0 linking=0',
+    )
   })
 })

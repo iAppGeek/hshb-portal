@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 
-import type { RegistrationFull } from '@/db'
+import type { RegistrationFull, GuardianMatch } from '@/db'
 
 import { deleteRegistrationAction } from '../actions'
 
@@ -83,6 +83,7 @@ const baseSubmission: RegistrationFull = {
 function renderReview(
   overrides: Partial<typeof baseSubmission> = {},
   role = 'admin',
+  guardianMatchesByContact: Record<string, GuardianMatch[]> = {},
 ) {
   return render(
     <RegistrationReview
@@ -91,6 +92,7 @@ function renderReview(
       matches={[]}
       studentsForLinking={[]}
       classes={[]}
+      guardianMatchesByContact={guardianMatchesByContact}
     />,
   )
 }
@@ -166,5 +168,26 @@ describe('RegistrationReview', () => {
   it('shows the rejected reason when present', () => {
     renderReview({ status: 'rejected', rejected_reason: 'Duplicate' })
     expect(screen.getByText('Duplicate')).toBeTruthy()
+  })
+
+  it('shows an amber guardian match note when a contact has a match', () => {
+    renderReview({}, 'admin', {
+      'contact-1': [
+        {
+          id: 'guardian-1',
+          first_name: 'Petra',
+          last_name: 'Existing',
+          phone: '07700 900000',
+          email: 'petra@example.com',
+          matched_on: 'email',
+        },
+      ],
+    })
+    expect(screen.getByText(/Matches existing guardian/)).toBeTruthy()
+  })
+
+  it('does not show a guardian match note when there are no matches', () => {
+    renderReview()
+    expect(screen.queryByText(/Matches existing guardian/)).toBeNull()
   })
 })

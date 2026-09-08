@@ -333,6 +333,7 @@ export const approveRegistrationSchema = z.object({
   student_code: optionalString,
   class_id: optionalString.pipe(uuid.nullable()),
   existing_student_id: optionalString.pipe(uuid.nullable()),
+  reuse_guardians: checkbox,
 })
 
 export const rejectRegistrationSchema = z.object({ reason: requiredString })

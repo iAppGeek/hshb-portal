@@ -58,11 +58,13 @@ export {
   getGuardianById,
   getStudentsByGuardian,
   updateGuardian,
+  findGuardianMatches,
 } from './guardians'
 export type {
   GuardianSummary,
   GuardianFull,
   GuardianStudentLink,
+  GuardianMatch,
 } from './guardians'
 export {
   getAllClasses,

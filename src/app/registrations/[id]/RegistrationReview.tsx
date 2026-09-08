@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 
 import type { RegistrationFull, ContactRole, StudentMatch } from '@/db'
+import type { GuardianMatch } from '@/db'
 import Tooltip from '@/components/Tooltip'
 import { formatDateInSchoolTz, formatDateTimeInSchoolTz } from '@/lib/datetime'
 import { canApproveRegistrations } from '@/lib/permissions'
@@ -22,6 +23,7 @@ type Props = {
   matches: StudentMatch[]
   studentsForLinking: StudentMatch[]
   classes: ClassOption[]
+  guardianMatchesByContact: Record<string, GuardianMatch[]>
 }
 
 const CONTACT_LABELS: Record<ContactRole, string> = {
@@ -44,6 +46,7 @@ export default function RegistrationReview({
   matches,
   studentsForLinking,
   classes,
+  guardianMatchesByContact,
 }: Props) {
   const [showApprove, setShowApprove] = useState(false)
   const [showReject, setShowReject] = useState(false)
@@ -112,6 +115,7 @@ export default function RegistrationReview({
       {CONTACT_ORDER.map((contactRole) => {
         const contact = contactsByRole.get(contactRole)
         if (!contact) return null
+        const guardianMatches = guardianMatchesByContact[contact.id] ?? []
         return (
           <Section key={contactRole} title={CONTACT_LABELS[contactRole]}>
             <Field
@@ -136,6 +140,21 @@ export default function RegistrationReview({
                       .join(', ') || '—'
               }
             />
+            {guardianMatches.map((m) => (
+              <div
+                key={m.id}
+                className="col-span-full rounded-lg bg-amber-50 p-3 text-sm text-amber-800"
+              >
+                Matches existing guardian{' '}
+                <strong>
+                  {m.first_name} {m.last_name}
+                </strong>{' '}
+                ({m.phone}
+                {m.email ? `, ${m.email}` : ''}) by {m.matched_on}. Approving
+                with &quot;reuse&quot; on will link the student to that record
+                and update its phone and address.
+              </div>
+            ))}
           </Section>
         )
       })}
@@ -293,6 +312,9 @@ export default function RegistrationReview({
           matches={matches}
           studentsForLinking={studentsForLinking}
           classes={classes}
+          hasGuardianMatches={Object.values(guardianMatchesByContact).some(
+            (m) => m.length > 0,
+          )}
           onClose={() => setShowApprove(false)}
         />
       )}

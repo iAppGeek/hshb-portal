@@ -461,24 +461,57 @@ ALTER TABLE registration_submissions         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE registration_submission_contacts ENABLE ROW LEVEL SECURITY;
 -- No policies: same deny-all-except-service-role model as every other table.
 
+-- ─── find_guardian_matches RPC ───────────────────────────────────────────────
+-- Same rule approve_registration uses to de-dupe: case-insensitive email, else
+-- digits-only phone + case-insensitive last name. Surfaced on the review page
+-- so an admin can see which contacts would be linked to an existing guardian.
+CREATE OR REPLACE FUNCTION find_guardian_matches(
+  p_email     TEXT,
+  p_phone     TEXT,
+  p_last_name TEXT
+) RETURNS TABLE (
+  id         UUID,
+  first_name TEXT,
+  last_name  TEXT,
+  phone      TEXT,
+  email      TEXT,
+  matched_on TEXT
+) AS $$
+  SELECT g.id, g.first_name, g.last_name, g.phone, g.email, 'email'::TEXT
+  FROM guardians g
+  WHERE p_email IS NOT NULL AND LOWER(g.email) = LOWER(p_email)
+  UNION ALL
+  SELECT g.id, g.first_name, g.last_name, g.phone, g.email, 'phone'::TEXT
+  FROM guardians g
+  WHERE regexp_replace(g.phone, '\D', '', 'g') = regexp_replace(p_phone, '\D', '', 'g')
+    AND LOWER(g.last_name) = LOWER(p_last_name)
+    AND NOT (p_email IS NOT NULL AND LOWER(g.email) = LOWER(p_email))
+  LIMIT 5;
+$$ LANGUAGE sql STABLE;
+
 -- ─── approve_registration RPC ─────────────────────────────────────────────────
 -- Creates (or updates/links a returning) student, resolves/de-dupes guardians,
 -- copies consent flags, enrols in a class, and marks the submission actioned —
 -- all atomically. Modelled on migrate_class(). No SECURITY DEFINER / role check:
 -- the calling server action has already verified the session role.
+-- p_reuse_guardians lets an admin decline to link to an existing guardian even
+-- when the de-dupe rule matches; when reusing, the guardian's phone and
+-- address are refreshed from this submission.
 
 CREATE OR REPLACE FUNCTION approve_registration(
   p_submission_id       UUID,
   p_staff_id            UUID,
   p_student_code        TEXT DEFAULT NULL,
   p_class_id            UUID DEFAULT NULL,
-  p_existing_student_id UUID DEFAULT NULL     -- NULL = create; set = link/update returning child
+  p_existing_student_id UUID DEFAULT NULL,    -- NULL = create; set = link/update returning child
+  p_reuse_guardians     BOOLEAN DEFAULT TRUE
 ) RETURNS UUID AS $$
 DECLARE
   v_sub        registration_submissions%ROWTYPE;
   v_con        registration_submission_contacts%ROWTYPE;
   v_student_id UUID;
   v_gid        UUID;
+  v_reused     BOOLEAN;
   v_primary UUID; v_secondary UUID; v_add1 UUID; v_add2 UUID;
   v_rel_primary TEXT; v_rel_secondary TEXT; v_rel_add1 TEXT; v_rel_add2 TEXT;
 BEGIN
@@ -488,21 +521,25 @@ BEGIN
     RAISE EXCEPTION 'Submission not found or already actioned';
   END IF;
 
-  -- Resolve each contact to a guardian row. De-dup: case-insensitive email match,
-  -- else digits-only phone + case-insensitive last name. Otherwise insert.
+  -- Resolve each contact to a guardian row. De-dup (when p_reuse_guardians):
+  -- case-insensitive email match, else digits-only phone + case-insensitive
+  -- last name. Otherwise insert.
   FOR v_con IN
     SELECT * FROM registration_submission_contacts WHERE submission_id = p_submission_id
   LOOP
     v_gid := NULL;
-    IF v_con.email IS NOT NULL THEN
+    IF p_reuse_guardians AND v_con.email IS NOT NULL THEN
       SELECT id INTO v_gid FROM guardians WHERE LOWER(email) = LOWER(v_con.email) LIMIT 1;
     END IF;
-    IF v_gid IS NULL THEN
+    IF p_reuse_guardians AND v_gid IS NULL THEN
       SELECT id INTO v_gid FROM guardians
        WHERE regexp_replace(phone, '\D', '', 'g') = regexp_replace(v_con.phone, '\D', '', 'g')
          AND LOWER(last_name) = LOWER(v_con.last_name)
        LIMIT 1;
     END IF;
+
+    v_reused := (v_gid IS NOT NULL);
+
     IF v_gid IS NULL THEN
       INSERT INTO guardians (first_name, last_name, phone, email,
                              address_line_1, address_line_2, city, postcode)
@@ -512,6 +549,19 @@ BEGIN
         CASE WHEN v_con.same_as_child_address THEN v_sub.city           ELSE v_con.city           END,
         CASE WHEN v_con.same_as_child_address THEN v_sub.postcode       ELSE v_con.postcode       END)
       RETURNING id INTO v_gid;
+    END IF;
+
+    IF v_reused AND p_reuse_guardians THEN
+      -- Reused guardian: the parent's latest submission is the newest statement
+      -- of their contact details, so refresh phone and address.
+      UPDATE guardians SET
+        phone          = v_con.phone,
+        email          = COALESCE(v_con.email, email),
+        address_line_1 = CASE WHEN v_con.same_as_child_address THEN v_sub.address_line_1 ELSE COALESCE(v_con.address_line_1, address_line_1) END,
+        address_line_2 = CASE WHEN v_con.same_as_child_address THEN v_sub.address_line_2 ELSE COALESCE(v_con.address_line_2, address_line_2) END,
+        city           = CASE WHEN v_con.same_as_child_address THEN v_sub.city           ELSE COALESCE(v_con.city, city)           END,
+        postcode       = CASE WHEN v_con.same_as_child_address THEN v_sub.postcode       ELSE COALESCE(v_con.postcode, postcode)   END
+      WHERE id = v_gid;
     END IF;
 
     CASE v_con.contact_role

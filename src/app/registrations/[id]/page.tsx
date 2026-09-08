@@ -7,7 +7,9 @@ import {
   findStudentMatches,
   getStudentsForLinking,
   getAllClasses,
+  findGuardianMatches,
   type StudentMatch,
+  type GuardianMatch,
 } from '@/db'
 import {
   canReviewRegistrations,
@@ -58,6 +60,28 @@ export default async function RegistrationDetailPage({
     isAdmin ? getAllClasses() : Promise.resolve([]),
   ])
 
+  const guardianMatchesByContact: Record<string, GuardianMatch[]> = {}
+  if (isAdmin) {
+    const results = await Promise.all(
+      submission.contacts.map((c) =>
+        findGuardianMatches({
+          email: c.email,
+          phone: c.phone,
+          lastName: c.last_name,
+        }).catch((err: unknown) => {
+          console.error(
+            '[RegistrationDetailPage] findGuardianMatches failed:',
+            err,
+          )
+          return [] as GuardianMatch[]
+        }),
+      ),
+    )
+    submission.contacts.forEach((c, i) => {
+      guardianMatchesByContact[c.id] = results[i]
+    })
+  }
+
   return (
     <RegistrationReview
       submission={submission}
@@ -65,6 +89,7 @@ export default async function RegistrationDetailPage({
       matches={matches}
       studentsForLinking={studentsForLinking}
       classes={classes}
+      guardianMatchesByContact={guardianMatchesByContact}
     />
   )
 }

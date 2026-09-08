@@ -48,6 +48,7 @@ describe('ApproveDialog', () => {
         matches={[]}
         studentsForLinking={studentsForLinking}
         classes={classes}
+        hasGuardianMatches={false}
         onClose={vi.fn()}
       />,
     )
@@ -67,6 +68,7 @@ describe('ApproveDialog', () => {
         matches={[studentsForLinking[0]]}
         studentsForLinking={studentsForLinking}
         classes={classes}
+        hasGuardianMatches={false}
         onClose={vi.fn()}
       />,
     )
@@ -84,6 +86,7 @@ describe('ApproveDialog', () => {
         matches={[]}
         studentsForLinking={studentsForLinking}
         classes={classes}
+        hasGuardianMatches={false}
         onClose={vi.fn()}
       />,
     )
@@ -107,6 +110,7 @@ describe('ApproveDialog', () => {
         matches={[]}
         studentsForLinking={studentsForLinking}
         classes={classes}
+        hasGuardianMatches={false}
         onClose={vi.fn()}
       />,
     )
@@ -125,6 +129,7 @@ describe('ApproveDialog', () => {
         matches={[]}
         studentsForLinking={studentsForLinking}
         classes={classes}
+        hasGuardianMatches={false}
         onClose={vi.fn()}
       />,
     )
@@ -150,6 +155,7 @@ describe('ApproveDialog', () => {
         matches={[studentsForLinking[0]]}
         studentsForLinking={studentsForLinking}
         classes={classes}
+        hasGuardianMatches={false}
         onClose={vi.fn()}
       />,
     )
@@ -177,6 +183,7 @@ describe('ApproveDialog', () => {
         matches={[]}
         studentsForLinking={studentsForLinking}
         classes={classes}
+        hasGuardianMatches={false}
         onClose={vi.fn()}
       />,
     )
@@ -190,6 +197,42 @@ describe('ApproveDialog', () => {
     })
   })
 
+  it('shows the reuse guardians checkbox, checked by default', () => {
+    render(
+      <ApproveDialog
+        submissionId="sub-1"
+        matches={[]}
+        studentsForLinking={studentsForLinking}
+        classes={classes}
+        hasGuardianMatches={true}
+        onClose={vi.fn()}
+      />,
+    )
+    const checkbox = screen.getByRole('checkbox', {
+      name: /Reuse matching guardian records/,
+    }) as HTMLInputElement
+    expect(checkbox.checked).toBe(true)
+    expect(
+      screen.queryByText('No existing guardians match this submission.'),
+    ).toBeNull()
+  })
+
+  it('shows a hint when no guardians match', () => {
+    render(
+      <ApproveDialog
+        submissionId="sub-1"
+        matches={[]}
+        studentsForLinking={studentsForLinking}
+        classes={classes}
+        hasGuardianMatches={false}
+        onClose={vi.fn()}
+      />,
+    )
+    expect(
+      screen.getByText('No existing guardians match this submission.'),
+    ).toBeTruthy()
+  })
+
   it('calls onClose when Cancel is clicked', () => {
     const onClose = vi.fn()
     render(
@@ -198,6 +241,7 @@ describe('ApproveDialog', () => {
         matches={[]}
         studentsForLinking={studentsForLinking}
         classes={classes}
+        hasGuardianMatches={false}
         onClose={onClose}
       />,
     )

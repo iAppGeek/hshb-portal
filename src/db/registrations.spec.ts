@@ -203,6 +203,7 @@ describe('approveRegistration', () => {
       studentCode: 'S001',
       classId: 'class-1',
       existingStudentId: null,
+      reuseGuardians: true,
     })
 
     expect(result).toBe('student-1')
@@ -212,6 +213,7 @@ describe('approveRegistration', () => {
       p_student_code: 'S001',
       p_class_id: 'class-1',
       p_existing_student_id: undefined,
+      p_reuse_guardians: true,
     })
     expect(revalidateTag).toHaveBeenCalledWith('registrations', 'max')
     expect(revalidateTag).toHaveBeenCalledWith('students', 'max')
@@ -228,6 +230,7 @@ describe('approveRegistration', () => {
         studentCode: null,
         classId: null,
         existingStudentId: null,
+        reuseGuardians: true,
       }),
     ).rejects.toThrow('rpc failed')
   })

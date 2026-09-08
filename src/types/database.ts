@@ -886,11 +886,23 @@ export type Database = {
         Args: {
           p_class_id?: string
           p_existing_student_id?: string
+          p_reuse_guardians?: boolean
           p_staff_id: string
           p_student_code?: string
           p_submission_id: string
         }
         Returns: string
+      }
+      find_guardian_matches: {
+        Args: { p_email: string; p_last_name: string; p_phone: string }
+        Returns: {
+          email: string
+          first_name: string
+          id: string
+          last_name: string
+          matched_on: string
+          phone: string
+        }[]
       }
       find_student_matches: {
         Args: {
