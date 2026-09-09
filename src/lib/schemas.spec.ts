@@ -336,6 +336,35 @@ describe('updateGuardianSchema', () => {
     expect(result.occupation).toBeNull()
   })
 
+  // The guardian edit page is the fourth way an occupation reaches the column,
+  // and `guardians.occupation` is bare TEXT — so the bound has to hold here too
+  // or this page becomes a hole in the 100-character contract.
+  it('enforces the short-text limit on occupation', () => {
+    const base = {
+      first_name: 'Maria',
+      last_name: 'Smith',
+      phone: '07700 900000',
+      email: '',
+      address_line_1: '',
+      address_line_2: '',
+      city: '',
+      postcode: '',
+      notes: '',
+    }
+    expect(() =>
+      updateGuardianSchema.parse({
+        ...base,
+        occupation: 'A'.repeat(SHORT_TEXT_MAX),
+      }),
+    ).not.toThrow()
+    expect(() =>
+      updateGuardianSchema.parse({
+        ...base,
+        occupation: 'A'.repeat(SHORT_TEXT_MAX + 1),
+      }),
+    ).toThrow('characters or fewer')
+  })
+
   it('accepts valid guardian data', () => {
     const result = updateGuardianSchema.parse({
       first_name: 'Maria',

@@ -82,7 +82,7 @@ export default function RegistrationForm({
             name="date_of_birth"
             type="date"
             required
-            autoComplete="bday"
+            autoComplete="section-child bday"
           />
           <Field
             label="English (mainstream) school"

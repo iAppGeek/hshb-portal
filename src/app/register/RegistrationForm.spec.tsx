@@ -88,7 +88,11 @@ describe('RegistrationForm', () => {
       expect(autoCompleteOf(container, 'child_last_name')).toBe(
         'section-child family-name',
       )
-      expect(autoCompleteOf(container, 'date_of_birth')).toBe('bday')
+      // Sectioned like its siblings: an unscoped `bday` joins the browser's
+      // default profile and fills the birthday of the adult filling the form.
+      expect(autoCompleteOf(container, 'date_of_birth')).toBe(
+        'section-child bday',
+      )
       expect(autoCompleteOf(container, 'address_line_1')).toBe(
         'section-child address-line1',
       )

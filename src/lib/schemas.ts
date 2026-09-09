@@ -165,7 +165,7 @@ export const updateGuardianSchema = z.object({
   // Optional here: this page edits a guardian in isolation and cannot tell
   // whether they are a parent or an emergency contact — that role lives on the
   // student→guardian link, and one person can be both.
-  occupation: optionalString,
+  occupation: optionalShortText,
   address_line_1: optionalString,
   address_line_2: optionalString,
   city: optionalString,
