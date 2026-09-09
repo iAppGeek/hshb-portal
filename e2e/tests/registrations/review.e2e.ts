@@ -25,9 +25,9 @@ test.describe('Registration review', () => {
       .from('guardians')
       .delete()
       .in('last_name', [
-        `Parent${suffix}`,
-        `Guardian${suffix}`,
-        `Holder${suffix}`,
+        `Parent${childLastName}`,
+        `Guardian${childLastName}`,
+        `Holder${childLastName}`,
       ])
   })
 
@@ -35,7 +35,7 @@ test.describe('Registration review', () => {
     childLastName = `ReviewTodo${suffix}`
     const { id } = await createRegistrationSubmission({
       child_last_name: childLastName,
-      contact_last_name: `Parent${suffix}`,
+      contact_last_name: `Parent${childLastName}`,
       contact_email: `e2e.${suffix}.todo@example.com`,
     })
 
@@ -53,7 +53,7 @@ test.describe('Registration review', () => {
     childLastName = `ReviewNew${suffix}`
     const { id } = await createRegistrationSubmission({
       child_last_name: childLastName,
-      contact_last_name: `Parent${suffix}`,
+      contact_last_name: `Parent${childLastName}`,
       contact_email: `e2e.${suffix}.new@example.com`,
     })
 
@@ -90,7 +90,7 @@ test.describe('Registration review', () => {
     childLastName = `ReviewDeleteActioned${suffix}`
     const { id } = await createRegistrationSubmission({
       child_last_name: childLastName,
-      contact_last_name: `Parent${suffix}`,
+      contact_last_name: `Parent${childLastName}`,
       contact_email: `e2e.${suffix}.deleteactioned@example.com`,
     })
 
@@ -137,7 +137,7 @@ test.describe('Registration review', () => {
       .from('guardians')
       .insert({
         first_name: 'Existing',
-        last_name: `Guardian${suffix}`,
+        last_name: `Guardian${childLastName}`,
         phone: '07700 900111',
       })
       .select('id')
@@ -161,7 +161,7 @@ test.describe('Registration review', () => {
     const { id } = await createRegistrationSubmission({
       child_last_name: childLastName,
       date_of_birth: dob,
-      contact_last_name: `Parent${suffix}`,
+      contact_last_name: `Parent${childLastName}`,
       contact_email: `e2e.${suffix}.link@example.com`,
     })
 
@@ -201,7 +201,7 @@ test.describe('Registration review', () => {
       .from('guardians')
       .insert({
         first_name: 'Code',
-        last_name: `Holder${suffix}`,
+        last_name: `Holder${childLastName}`,
         phone: '07700 900222',
       })
       .select('id')
@@ -209,7 +209,7 @@ test.describe('Registration review', () => {
 
     await db.from('students').insert({
       first_name: 'Existing',
-      last_name: `Holder${suffix}`,
+      last_name: `Holder${childLastName}`,
       student_code: dupCode,
       address_line_1: '1 X St',
       city: 'X',
@@ -219,7 +219,7 @@ test.describe('Registration review', () => {
 
     const { id } = await createRegistrationSubmission({
       child_last_name: childLastName,
-      contact_last_name: `Parent${suffix}`,
+      contact_last_name: `Parent${childLastName}`,
       contact_email: `e2e.${suffix}.dup@example.com`,
     })
 
@@ -251,7 +251,7 @@ test.describe('Registration review', () => {
     childLastName = `ReviewReject${suffix}`
     const { id } = await createRegistrationSubmission({
       child_last_name: childLastName,
-      contact_last_name: `Parent${suffix}`,
+      contact_last_name: `Parent${childLastName}`,
       contact_email: `e2e.${suffix}.reject@example.com`,
     })
 
@@ -262,14 +262,28 @@ test.describe('Registration review', () => {
     await dialog.getByRole('button', { name: 'Reject' }).click()
 
     await expect(page).toHaveURL(/\/registrations\?status=rejected/)
-    await expect(page.getByText(new RegExp(childLastName))).toBeVisible()
 
-    await page.getByText(new RegExp(childLastName)).click()
+    // Assert the outcome on the row itself rather than by reading it back off
+    // the inbox list. getRegistrationSubmissions is an unstable_cache read
+    // shared by every browser hitting this one dev server, so under the 8
+    // parallel projects the list is routinely a revalidation behind — the
+    // same staleness the sibling test at the top of this file documents.
+    const { data: rejected } = await db
+      .from('registration_submissions')
+      .select('status, rejected_reason, actioned_by, actioned_at')
+      .eq('id', id)
+      .single()
+    expect(rejected?.status).toBe('rejected')
+    expect(rejected?.rejected_reason).toBe('Duplicate')
+    expect(rejected?.actioned_by).not.toBeNull()
+    expect(rejected?.actioned_at).not.toBeNull()
+
+    // Delete from the detail page, addressed by id for the same reason.
+    await page.goto(`/registrations/${id}`)
     await page.getByRole('button', { name: 'Delete' }).click()
     await page.getByRole('button', { name: 'Confirm delete' }).click()
 
     await expect(page).toHaveURL(/\/registrations\?status=rejected/)
-    await expect(page.getByText(new RegExp(childLastName))).not.toBeVisible()
 
     const { data } = await db
       .from('registration_submissions')
@@ -288,7 +302,7 @@ test.describe('Registration review', () => {
       .from('guardians')
       .insert({
         first_name: 'Seed',
-        last_name: `Guardian${suffix}`,
+        last_name: `Guardian${childLastName}`,
         phone: '07700 900333',
         email: seedEmail,
         address_line_1: 'Old Guardian Address',
@@ -300,7 +314,7 @@ test.describe('Registration review', () => {
 
     const { id } = await createRegistrationSubmission({
       child_last_name: childLastName,
-      contact_last_name: `Parent${suffix}`,
+      contact_last_name: `Parent${childLastName}`,
       contact_email: seedEmail,
     })
 
@@ -360,7 +374,7 @@ test.describe('Registration review', () => {
       .from('guardians')
       .insert({
         first_name: 'Seed',
-        last_name: `Guardian${suffix}`,
+        last_name: `Guardian${childLastName}`,
         phone: '07700 900444',
         email: seedEmail,
       })
@@ -369,7 +383,7 @@ test.describe('Registration review', () => {
 
     const { id } = await createRegistrationSubmission({
       child_last_name: childLastName,
-      contact_last_name: `Parent${suffix}`,
+      contact_last_name: `Parent${childLastName}`,
       contact_email: seedEmail,
     })
 
