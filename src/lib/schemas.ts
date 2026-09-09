@@ -62,6 +62,64 @@ export const booleanFromString = z
   .enum(['true', 'false'])
   .transform((v) => v === 'true')
 
+// Unticked checkboxes are absent from FormData; ticked ones send "on".
+export const checkbox = z
+  .string()
+  .optional()
+  .transform((v) => v === 'on' || v === 'true')
+
+export const requiredCheckbox = (message: string) =>
+  checkbox.refine((v) => v, message)
+
+export const submissionStatus = z.enum(['pending', 'actioned', 'rejected'])
+
+export const registrationStatusFilter = z
+  .enum(['pending', 'actioned', 'rejected', 'all'])
+  .catch('pending')
+
+export const SHORT_TEXT_MAX = 100
+export const ADDRESS_TEXT_MAX = 200
+export const LONG_TEXT_MAX = 2000
+export const PHONE_MAX = 20
+export const EMAIL_MAX = 254
+
+const tooLong = (max: number): string => `Must be ${max} characters or fewer`
+
+export const shortText = requiredString.max(
+  SHORT_TEXT_MAX,
+  tooLong(SHORT_TEXT_MAX),
+)
+export const optionalShortText = z
+  .string()
+  .trim()
+  .max(SHORT_TEXT_MAX, tooLong(SHORT_TEXT_MAX))
+  .transform((v) => v || null)
+  .nullable()
+export const optionalAddressText = z
+  .string()
+  .trim()
+  .max(ADDRESS_TEXT_MAX, tooLong(ADDRESS_TEXT_MAX))
+  .transform((v) => v || null)
+  .nullable()
+export const addressText = requiredString.max(
+  ADDRESS_TEXT_MAX,
+  tooLong(ADDRESS_TEXT_MAX),
+)
+export const optionalLongText = z
+  .string()
+  .trim()
+  .max(LONG_TEXT_MAX, tooLong(LONG_TEXT_MAX))
+  .transform((v) => v || null)
+  .nullable()
+export const boundedUkPhone = ukPhone.max(PHONE_MAX, tooLong(PHONE_MAX))
+export const boundedOptionalEmail = z
+  .string()
+  .trim()
+  .max(EMAIL_MAX, tooLong(EMAIL_MAX))
+  .transform((v) => v || null)
+  .nullable()
+  .pipe(z.string().email('Invalid email').nullable())
+
 // ─── Domain schemas ──────────────────────────────────────────────────────────
 
 export const saveAttendanceSchema = z.object({
@@ -225,7 +283,81 @@ export const createStudentSchema = studentBaseSchema
 
 export const updateStudentSchema = studentBaseSchema.extend({
   class_ids: z.array(uuid).default([]),
+  consent_privacy_notice: checkbox,
+  consent_emergency_first_aid: checkbox,
+  consent_photo_media: checkbox,
+  consent_home_school: checkbox,
+  consent_comms_email_sms: checkbox,
 })
+
+export const registrationContactSchema = z.object({
+  first_name: shortText,
+  last_name: shortText,
+  relationship: optionalShortText,
+  phone: boundedUkPhone, // guardians.phone is NOT NULL
+  email: boundedOptionalEmail,
+  same_as_child_address: checkbox,
+  address_line_1: optionalAddressText,
+  address_line_2: optionalAddressText,
+  city: optionalAddressText,
+  postcode: optionalAddressText,
+})
+
+export const registrationSubmissionSchema = z.object({
+  child_first_name: shortText,
+  child_last_name: shortText,
+  date_of_birth: isoDate,
+  preferred_year_group: optionalShortText,
+  address_line_1: addressText, // NOT NULL in the table; makes students_address_source_check satisfiable
+  address_line_2: optionalAddressText,
+  city: addressText,
+  postcode: addressText,
+  allergies: optionalLongText,
+  medical_details: optionalLongText,
+  // Only rendered on the form once an emergency contact is added.
+  collect_authorised: optionalLongText.optional(),
+  collect_password: optionalLongText.optional(),
+  has_secondary: booleanFromString,
+  has_contact1: booleanFromString,
+  has_contact2: booleanFromString,
+  consent_privacy_notice: requiredCheckbox(
+    'You must accept the privacy notice',
+  ),
+  consent_emergency_first_aid: requiredCheckbox(
+    'Emergency first aid consent is required',
+  ),
+  consent_photo_media: checkbox,
+  consent_home_school: checkbox,
+  consent_comms_email_sms: checkbox,
+  declaration_name: shortText,
+  turnstile_token: requiredString.max(2048),
+})
+
+export const approveRegistrationSchema = z.object({
+  student_code: optionalString,
+  class_id: optionalString.pipe(uuid.nullable()),
+  existing_student_id: optionalString.pipe(uuid.nullable()),
+  reuse_guardians: checkbox,
+})
+
+export const rejectRegistrationSchema = z.object({ reason: requiredString })
+
+// ─── Photo consent opt-out ────────────────────────────────────────────────────
+
+export const photoOptOutSchema = z.object({
+  child_first_name: shortText,
+  child_last_name: shortText,
+  date_of_birth: isoDate,
+  declaration_name: shortText,
+  notes: optionalLongText,
+  turnstile_token: requiredString.max(2048),
+})
+
+export const applyPhotoOptOutSchema = z.object({
+  student_id: uuid,
+})
+
+export const rejectPhotoOptOutSchema = z.object({ reason: requiredString })
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -274,5 +406,26 @@ export function extractGuardianFields(
       (formData.get(`${prefix}_address_line_2`) as string) ?? undefined,
     city: (formData.get(`${prefix}_city`) as string) ?? undefined,
     postcode: (formData.get(`${prefix}_postcode`) as string) ?? undefined,
+  }
+}
+
+// Mirrors extractGuardianFields: reads `${prefix}_first_name` … `${prefix}_postcode`
+export function extractRegistrationContact(
+  formData: FormData,
+  prefix: string,
+): Record<string, unknown> {
+  return {
+    first_name: (formData.get(`${prefix}_first_name`) as string) ?? '',
+    last_name: (formData.get(`${prefix}_last_name`) as string) ?? '',
+    relationship: (formData.get(`${prefix}_relationship`) as string) ?? '',
+    phone: (formData.get(`${prefix}_phone`) as string) ?? '',
+    email: (formData.get(`${prefix}_email`) as string) ?? '',
+    same_as_child_address:
+      (formData.get(`${prefix}_same_as_child_address`) as string | null) ??
+      undefined,
+    address_line_1: (formData.get(`${prefix}_address_line_1`) as string) ?? '',
+    address_line_2: (formData.get(`${prefix}_address_line_2`) as string) ?? '',
+    city: (formData.get(`${prefix}_city`) as string) ?? '',
+    postcode: (formData.get(`${prefix}_postcode`) as string) ?? '',
   }
 }

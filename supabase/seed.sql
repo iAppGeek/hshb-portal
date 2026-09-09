@@ -61,3 +61,24 @@ INSERT INTO lesson_plans (id, class_id, lesson_date, description, created_by) VA
   ('70000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001',
    CURRENT_DATE, 'Introduction to addition and subtraction.',
    '00000000-0000-0000-0000-000000000002');
+
+-- ─── Registration Submissions ──────────────────────────────────────────────────
+-- One pending (with a primary contact) and one rejected, so the inbox has rows
+-- on first `supabase db reset`. E2E tests create their own rows and only read these.
+INSERT INTO registration_submissions (id, status, child_first_name, child_last_name, date_of_birth,
+                      address_line_1, city, postcode, consent_privacy_notice,
+                      consent_emergency_first_aid, declaration_name, rejected_reason) VALUES
+  ('80000000-0000-0000-0000-000000000001', 'pending', 'Seed', 'Pending', '2020-01-15',
+   '1 Seed St', 'London', 'N1 2AA', TRUE, TRUE, 'Petra Pending', NULL),
+  ('80000000-0000-0000-0000-000000000002', 'rejected', 'Seed', 'Rejected', '2020-02-20',
+   '2 Seed St', 'London', 'N1 2AB', TRUE, TRUE, 'Rhonda Rejected', 'Duplicate');
+
+INSERT INTO registration_submission_contacts (id, submission_id, contact_role, first_name, last_name, phone, email) VALUES
+  ('81000000-0000-0000-0000-000000000001', '80000000-0000-0000-0000-000000000001', 'primary', 'Petra', 'Pending', '07722000001', 'petra.pending@example.com'),
+  ('81000000-0000-0000-0000-000000000002', '80000000-0000-0000-0000-000000000002', 'primary', 'Rhonda', 'Rejected', '07722000002', 'rhonda.rejected@example.com');
+
+-- ─── Photo Consent Opt-Outs ─────────────────────────────────────────────────────
+-- One pending request for Alice Student, so the admin review UI has a row on
+-- first `supabase db reset`. E2E tests create their own rows.
+INSERT INTO photo_consent_opt_outs (id, status, child_first_name, child_last_name, date_of_birth, declaration_name) VALUES
+  ('82000000-0000-0000-0000-000000000001', 'pending', 'Alice', 'Student', '2015-06-01', 'Gary AliceGuardian');

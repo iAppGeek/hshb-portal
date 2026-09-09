@@ -96,6 +96,14 @@ export function canAccessAdminTasks(role: StaffRole): boolean {
   return role === 'admin'
 }
 
+export function canReviewRegistrations(role: StaffRole): boolean {
+  return role === 'admin' || role === 'headteacher' || role === 'secretary'
+}
+
+export function canApproveRegistrations(role: StaffRole): boolean {
+  return role === 'admin' // creates/updates a student — same bar as canCreateStudents
+}
+
 // ── Data classification ─────────────────────────────────────────────────────
 
 export function isTeachingStaff(role: StaffRole): boolean {

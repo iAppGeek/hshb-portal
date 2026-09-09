@@ -208,6 +208,47 @@ export const getStudentById = unstable_cache(
   OPTS,
 )
 
+export type StudentMatch = {
+  id: string
+  first_name: string
+  last_name: string
+  date_of_birth: string | null
+  student_code: string | null
+  active: boolean
+}
+
+const STUDENT_MATCH_SELECT =
+  'id, first_name, last_name, date_of_birth, student_code, active'
+
+// Includes inactive students so returning children can be found and reactivated.
+// Uses a parameterised RPC rather than a string-built PostgREST filter, since
+// firstName and lastName originate from the public registration form.
+export async function findStudentMatches({
+  firstName,
+  lastName,
+  dateOfBirth,
+}: {
+  firstName: string
+  lastName: string
+  dateOfBirth: string
+}): Promise<StudentMatch[]> {
+  const { data, error } = await supabase.rpc('find_student_matches', {
+    p_first_name: firstName,
+    p_last_name: lastName,
+    p_date_of_birth: dateOfBirth,
+  })
+  if (error) throw error
+  return (data ?? []) as StudentMatch[]
+}
+
+export async function getStudentsForLinking(): Promise<StudentMatch[]> {
+  const { data } = await supabase
+    .from('students')
+    .select(STUDENT_MATCH_SELECT)
+    .order('last_name')
+  return data ?? []
+}
+
 type StudentInsert = {
   first_name: string
   last_name: string
@@ -229,6 +270,11 @@ type StudentInsert = {
   allergies?: string | null
   medical_details?: string | null
   notes?: string | null
+  consent_privacy_notice?: boolean
+  consent_emergency_first_aid?: boolean
+  consent_photo_media?: boolean
+  consent_home_school?: boolean
+  consent_comms_email_sms?: boolean
 }
 
 export async function createStudent(data: StudentInsert) {

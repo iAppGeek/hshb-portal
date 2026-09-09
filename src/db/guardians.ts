@@ -1,5 +1,7 @@
 import { revalidateTag } from 'next/cache'
 
+import type { Database } from '@/types/database'
+
 import { supabase } from './client'
 
 type GuardianInsert = {
@@ -91,4 +93,33 @@ export async function updateGuardian(id: string, data: GuardianInsert) {
     .eq('id', id)
   if (error) throw error
   revalidateTag('students', 'max')
+}
+
+export type GuardianMatch = {
+  id: string
+  first_name: string
+  last_name: string
+  phone: string
+  email: string | null
+  matched_on: 'email' | 'phone'
+}
+
+// Mirrors the de-dup rule approve_registration uses, surfaced so an admin can
+// see which contacts on a submission would be linked to an existing guardian.
+export async function findGuardianMatches({
+  email,
+  phone,
+  lastName,
+}: {
+  email: string | null
+  phone: string
+  lastName: string
+}): Promise<GuardianMatch[]> {
+  const { data, error } = await supabase.rpc('find_guardian_matches', {
+    p_email: email ?? undefined,
+    p_phone: phone,
+    p_last_name: lastName,
+  } as Database['public']['Functions']['find_guardian_matches']['Args'])
+  if (error) throw error
+  return (data ?? []) as GuardianMatch[]
 }

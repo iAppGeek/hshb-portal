@@ -10,6 +10,8 @@ type RouteRule = {
 
 // Guardian seed ID from supabase/seed.sql
 const GUARDIAN_ID = '20000000-0000-0000-0000-000000000001'
+// Pending registration submission seed ID from supabase/seed.sql
+const PENDING_REGISTRATION_ID = '80000000-0000-0000-0000-000000000001'
 
 const ROUTE_RULES: RouteRule[] = [
   {
@@ -41,6 +43,16 @@ const ROUTE_RULES: RouteRule[] = [
     route: `/guardians/${GUARDIAN_ID}/edit`,
     allowedRoles: ['admin'],
     redirectTo: '/students',
+  },
+  {
+    route: '/registrations',
+    allowedRoles: ['admin', 'headteacher', 'secretary'],
+    redirectTo: '/dashboard',
+  },
+  {
+    route: `/registrations/${PENDING_REGISTRATION_ID}`,
+    allowedRoles: ['admin', 'headteacher', 'secretary'],
+    redirectTo: '/dashboard',
   },
 ]
 

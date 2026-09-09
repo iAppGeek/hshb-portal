@@ -64,4 +64,26 @@ describe('middleware', () => {
     middleware(...makeReq('/reports', { user: { role: 'headteacher' } }))
     expect(mockRedirect).not.toHaveBeenCalled()
   })
+
+  it('allows unauthenticated access to /register', () => {
+    middleware(...makeReq('/register'))
+    expect(mockRedirect).not.toHaveBeenCalled()
+  })
+
+  it('allows unauthenticated access to /register/success', () => {
+    middleware(...makeReq('/register/success'))
+    expect(mockRedirect).not.toHaveBeenCalled()
+  })
+
+  it('allows authenticated access to /register', () => {
+    middleware(...makeReq('/register', { user: { role: 'admin' } }))
+    expect(mockRedirect).not.toHaveBeenCalled()
+  })
+
+  it('redirects unauthenticated user away from /registrations (exact-prefix check)', () => {
+    middleware(...makeReq('/registrations'))
+    expect(mockRedirect).toHaveBeenCalledWith(
+      new URL('/login', 'http://localhost:3000'),
+    )
+  })
 })

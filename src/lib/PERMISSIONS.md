@@ -30,10 +30,12 @@ Four roles exist: **teacher**, **admin**, **headteacher**, **secretary**.
 
 ## Feature Access
 
-| Feature                    | teacher | admin | headteacher | secretary |
-| -------------------------- | ------- | ----- | ----------- | --------- |
-| Access reports             | -       | Yes   | Yes         | Yes       |
-| Receive push notifications | -       | Yes   | Yes         | -         |
+| Feature                             | teacher | admin | headteacher | secretary |
+| ----------------------------------- | ------- | ----- | ----------- | --------- |
+| Access reports                      | -       | Yes   | Yes         | Yes       |
+| Receive push notifications          | -       | Yes   | Yes         | -         |
+| Review registrations                | -       | Yes   | Yes         | Yes       |
+| Approve/reject/delete registrations | -       | Yes   | -           | -         |
 
 ## Other Rules
 
@@ -41,6 +43,10 @@ Four roles exist: **teacher**, **admin**, **headteacher**, **secretary**.
 | ---------------------- | ------- | ----- | ----------- | --------- |
 | Shows on sign-in sheet | Yes     | -     | Yes         | Yes       |
 | Is teaching staff      | Yes     | -     | Yes         | -         |
+
+- Every server action must call `await auth()` itself. The proxy allowlist for
+  `/register` means middleware cannot be relied on as the only gate.
+  `src/security.spec.ts` enforces this.
 
 ## Notes
 

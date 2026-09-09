@@ -18,6 +18,9 @@ vi.mock('./_tabs/class-migration/ClassMigrationTab', () => ({
     </div>
   )),
 }))
+vi.mock('./_tabs/registration-retention/RegistrationRetentionTab', () => ({
+  default: vi.fn(() => <div data-testid="registration-retention-tab" />),
+}))
 
 import { auth } from '@/auth'
 
@@ -96,5 +99,16 @@ describe('AdminPage', () => {
     )
 
     expect(screen.queryByTestId('class-migration-tab')).toBeNull()
+    expect(screen.queryByTestId('registration-retention-tab')).toBeNull()
+  })
+
+  it('renders the registration-retention tab for admin', async () => {
+    render(
+      await AdminPage({
+        searchParams: Promise.resolve({ tab: 'registration-retention' }),
+      }),
+    )
+
+    expect(screen.getByTestId('registration-retention-tab')).toBeTruthy()
   })
 })
