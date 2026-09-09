@@ -52,6 +52,10 @@ export default function AddStudentForm({ guardians }: Props) {
             type="date"
           />
           <Field label="Student code" name="student_code" />
+          <Field
+            label="English (mainstream) school"
+            name="student_english_school_name"
+          />
         </div>
 
         <div className="mt-4">

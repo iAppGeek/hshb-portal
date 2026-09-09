@@ -507,6 +507,7 @@ export type Database = {
           created_at: string
           date_of_birth: string
           declaration_name: string
+          english_school_name: string | null
           id: string
           linked_existing: boolean
           medical_details: string | null
@@ -537,6 +538,7 @@ export type Database = {
           created_at?: string
           date_of_birth: string
           declaration_name: string
+          english_school_name?: string | null
           id?: string
           linked_existing?: boolean
           medical_details?: string | null
@@ -567,6 +569,7 @@ export type Database = {
           created_at?: string
           date_of_birth?: string
           declaration_name?: string
+          english_school_name?: string | null
           id?: string
           linked_existing?: boolean
           medical_details?: string | null
@@ -724,6 +727,7 @@ export type Database = {
           consent_privacy_notice: boolean
           created_at: string | null
           date_of_birth: string | null
+          english_school_name: string | null
           enrollment_date: string | null
           first_name: string
           id: string
@@ -756,6 +760,7 @@ export type Database = {
           consent_privacy_notice?: boolean
           created_at?: string | null
           date_of_birth?: string | null
+          english_school_name?: string | null
           enrollment_date?: string | null
           first_name: string
           id?: string
@@ -788,6 +793,7 @@ export type Database = {
           consent_privacy_notice?: boolean
           created_at?: string | null
           date_of_birth?: string | null
+          english_school_name?: string | null
           enrollment_date?: string | null
           first_name?: string
           id?: string

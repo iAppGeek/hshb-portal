@@ -70,6 +70,8 @@ CREATE TABLE students (
   first_name              TEXT NOT NULL,
   last_name               TEXT NOT NULL,
   date_of_birth           DATE,
+  -- Optional for admin data entry; required on the public registration form
+  english_school_name     TEXT,
   -- Student's own address (nullable when address_guardian_id is set)
   address_line_1          TEXT,
   address_line_2          TEXT,
@@ -386,6 +388,7 @@ CREATE TABLE registration_submissions (
   child_last_name       TEXT NOT NULL,
   date_of_birth         DATE NOT NULL,
   preferred_year_group  TEXT,                       -- parent's placement hint; not copied to students
+  english_school_name   TEXT,                       -- required on the form, nullable here
 
   -- Home address (NOT NULL here, so students_address_source_check is always satisfiable on approval)
   address_line_1        TEXT NOT NULL,
@@ -622,7 +625,7 @@ BEGIN
 
   IF p_existing_student_id IS NULL THEN
     INSERT INTO students (
-      student_code, first_name, last_name, date_of_birth,
+      student_code, first_name, last_name, date_of_birth, english_school_name,
       address_line_1, address_line_2, city, postcode, address_guardian_id,
       allergies, medical_details,
       consent_privacy_notice, consent_emergency_first_aid, consent_photo_media,
@@ -633,6 +636,7 @@ BEGIN
       additional_contact_2_id, additional_contact_2_relationship)
     VALUES (
       p_student_code, v_sub.child_first_name, v_sub.child_last_name, v_sub.date_of_birth,
+      v_sub.english_school_name,
       v_sub.address_line_1, v_sub.address_line_2, v_sub.city, v_sub.postcode, NULL,
       v_sub.allergies, v_sub.medical_details,
       v_sub.consent_privacy_notice, v_sub.consent_emergency_first_aid, v_sub.consent_photo_media,
@@ -653,6 +657,7 @@ BEGIN
       first_name    = v_sub.child_first_name,
       last_name     = v_sub.child_last_name,
       date_of_birth = v_sub.date_of_birth,
+      english_school_name = v_sub.english_school_name,
       address_line_1 = v_sub.address_line_1, address_line_2 = v_sub.address_line_2,
       city = v_sub.city, postcode = v_sub.postcode, address_guardian_id = NULL,
       allergies = v_sub.allergies, medical_details = v_sub.medical_details,
@@ -674,17 +679,17 @@ BEGIN
     FROM (
       SELECT t.k, t.o, t.n FROM students s,
         UNNEST(
-          ARRAY['first_name','last_name','date_of_birth','address_line_1','address_line_2','city','postcode',
+          ARRAY['first_name','last_name','date_of_birth','english_school_name','address_line_1','address_line_2','city','postcode',
                 'allergies','medical_details','student_code',
                 'primary_guardian_id','secondary_guardian_id','additional_contact_1_id','additional_contact_2_id',
                 'consent_privacy_notice','consent_emergency_first_aid','consent_photo_media','consent_home_school','consent_comms_email_sms',
                 'active'],
-          ARRAY[v_old_s.first_name, v_old_s.last_name, v_old_s.date_of_birth::TEXT, v_old_s.address_line_1, v_old_s.address_line_2, v_old_s.city, v_old_s.postcode,
+          ARRAY[v_old_s.first_name, v_old_s.last_name, v_old_s.date_of_birth::TEXT, v_old_s.english_school_name, v_old_s.address_line_1, v_old_s.address_line_2, v_old_s.city, v_old_s.postcode,
                 v_old_s.allergies, v_old_s.medical_details, v_old_s.student_code,
                 v_old_s.primary_guardian_id::TEXT, v_old_s.secondary_guardian_id::TEXT, v_old_s.additional_contact_1_id::TEXT, v_old_s.additional_contact_2_id::TEXT,
                 v_old_s.consent_privacy_notice::TEXT, v_old_s.consent_emergency_first_aid::TEXT, v_old_s.consent_photo_media::TEXT, v_old_s.consent_home_school::TEXT, v_old_s.consent_comms_email_sms::TEXT,
                 v_old_s.active::TEXT],
-          ARRAY[s.first_name, s.last_name, s.date_of_birth::TEXT, s.address_line_1, s.address_line_2, s.city, s.postcode,
+          ARRAY[s.first_name, s.last_name, s.date_of_birth::TEXT, s.english_school_name, s.address_line_1, s.address_line_2, s.city, s.postcode,
                 s.allergies, s.medical_details, s.student_code,
                 s.primary_guardian_id::TEXT, s.secondary_guardian_id::TEXT, s.additional_contact_1_id::TEXT, s.additional_contact_2_id::TEXT,
                 s.consent_privacy_notice::TEXT, s.consent_emergency_first_aid::TEXT, s.consent_photo_media::TEXT, s.consent_home_school::TEXT, s.consent_comms_email_sms::TEXT,
@@ -841,6 +846,7 @@ DECLARE
 BEGIN
   INSERT INTO registration_submissions (
     child_first_name, child_last_name, date_of_birth, preferred_year_group,
+    english_school_name,
     address_line_1, address_line_2, city, postcode,
     allergies, medical_details, collect_authorised, collect_password,
     consent_privacy_notice, consent_emergency_first_aid, consent_photo_media,
@@ -848,6 +854,7 @@ BEGIN
   )
   SELECT
     s.child_first_name, s.child_last_name, s.date_of_birth, s.preferred_year_group,
+    s.english_school_name,
     s.address_line_1, s.address_line_2, s.city, s.postcode,
     s.allergies, s.medical_details, s.collect_authorised, s.collect_password,
     COALESCE(s.consent_privacy_notice, FALSE), COALESCE(s.consent_emergency_first_aid, FALSE),

@@ -97,6 +97,28 @@ describe('StudentDetailsModal', () => {
     expect(screen.getByText('07700 900000')).toBeTruthy()
   })
 
+  it('renders the English school name', () => {
+    render(
+      <StudentDetailsModal
+        student={{ ...baseStudent, english_school_name: 'St Marys Primary' }}
+        role="admin"
+        onClose={onClose}
+      />,
+    )
+    expect(screen.getByText('St Marys Primary')).toBeTruthy()
+  })
+
+  it('falls back to a dash when no English school is recorded', () => {
+    render(
+      <StudentDetailsModal
+        student={{ ...baseStudent, english_school_name: null }}
+        role="admin"
+        onClose={onClose}
+      />,
+    )
+    expect(screen.getByText('English (mainstream) school')).toBeTruthy()
+  })
+
   it('renders the primary guardian occupation', () => {
     render(
       <StudentDetailsModal

@@ -254,6 +254,7 @@ type StudentInsert = {
   last_name: string
   student_code?: string | null
   date_of_birth?: string | null
+  english_school_name?: string | null
   address_guardian_id?: string | null
   address_line_1?: string | null
   address_line_2?: string | null

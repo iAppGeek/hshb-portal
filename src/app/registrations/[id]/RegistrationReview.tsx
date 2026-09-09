@@ -103,6 +103,10 @@ export default function RegistrationReview({
           label="Year group preference"
           value={submission.preferred_year_group ?? '—'}
         />
+        <Field
+          label="English (mainstream) school"
+          value={submission.english_school_name ?? '—'}
+        />
       </Section>
 
       <Section title="Home address">

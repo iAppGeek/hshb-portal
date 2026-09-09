@@ -43,6 +43,7 @@ const baseFields = {
   child_first_name: 'Seed',
   child_last_name: 'Pending',
   date_of_birth: '2020-01-15',
+  english_school_name: 'St Marys Primary',
   preferred_year_group: 'Year 1',
   address_line_1: '1 Seed St',
   address_line_2: '',
@@ -112,6 +113,24 @@ describe('submitRegistrationAction', () => {
       contact_role: 'primary',
       occupation: 'Nurse',
     })
+  })
+
+  it('carries the English school name into the submission', async () => {
+    await submitRegistrationAction(makeFormData(baseFields))
+
+    const call = vi.mocked(createRegistrationSubmission).mock.calls[0][0]
+    expect(call.submission).toMatchObject({
+      english_school_name: 'St Marys Primary',
+    })
+  })
+
+  it('rejects a blank English school name', async () => {
+    const result = await submitRegistrationAction(
+      makeFormData({ ...baseFields, english_school_name: '' }),
+    )
+
+    expect(result?.error).toBeDefined()
+    expect(createRegistrationSubmission).not.toHaveBeenCalled()
   })
 
   it('rejects a blank occupation for the primary parent/carer', async () => {

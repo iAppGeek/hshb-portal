@@ -35,6 +35,7 @@ export type StudentForModal = {
   id: string
   first_name: string
   last_name: string
+  english_school_name?: string | null
   address_guardian_id: string | null
   address_guardian?: AddressSource | null
   address_line_1: string | null
@@ -222,6 +223,13 @@ export default function StudentDetailsModal({ student, role, onClose }: Props) {
                     .filter(Boolean)
                     .join(', ')
                 : 'None'}
+            </p>
+          </section>
+
+          <section className="border-t border-gray-100 pt-4">
+            <h3 className={SECTION_H}>English (mainstream) school</h3>
+            <p className="text-sm text-gray-600">
+              {student.english_school_name ?? '—'}
             </p>
           </section>
 

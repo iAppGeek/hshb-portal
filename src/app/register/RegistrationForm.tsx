@@ -81,6 +81,13 @@ export default function RegistrationForm({
             type="date"
             required
           />
+          <Field
+            label="English (mainstream) school"
+            name="english_school_name"
+            required
+            maxLength={SHORT_TEXT_MAX}
+            hint="The school your child attends during the week"
+          />
           <div>
             <label
               htmlFor="preferred_year_group"

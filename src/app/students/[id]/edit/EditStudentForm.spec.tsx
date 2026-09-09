@@ -44,6 +44,7 @@ const baseStudent = {
   last_name: 'Papadopoulos',
   student_code: 'S001',
   date_of_birth: null,
+  english_school_name: 'St Marys Primary',
   address_guardian_id: null,
   address_line_1: '1 Main Street',
   address_line_2: null,
@@ -77,6 +78,17 @@ describe('EditStudentForm', () => {
     expect(
       (screen.getByDisplayValue('Papadopoulos') as HTMLInputElement).name,
     ).toBe('student_last_name')
+  })
+
+  it('pre-fills the English school field and leaves it optional', () => {
+    const { container } = render(
+      <EditStudentForm student={baseStudent} guardians={guardians} />,
+    )
+    const input = container.querySelector(
+      'input[name="student_english_school_name"]',
+    ) as HTMLInputElement
+    expect(input.value).toBe('St Marys Primary')
+    expect(input.required).toBe(false)
   })
 
   it('shows Edit guardian link when a guardian is pre-selected', () => {

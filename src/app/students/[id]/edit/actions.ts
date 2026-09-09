@@ -125,6 +125,7 @@ export async function updateStudentAction(
       last_name: d.student_last_name,
       student_code: d.student_code,
       date_of_birth: d.student_date_of_birth,
+      english_school_name: d.student_english_school_name,
       address_guardian_id: addressGuardianId,
       address_line_1: addressGuardianId ? null : d.student_address_line_1,
       address_line_2: addressGuardianId ? null : d.student_address_line_2,

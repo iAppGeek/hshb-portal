@@ -29,6 +29,9 @@ test.describe('Public registration form', () => {
       await page.getByLabel('First name').first().fill('Petra')
       await page.getByLabel('Last name').first().fill(childLastName)
       await page.getByLabel('Date of birth').fill('2020-01-15')
+      await page
+        .locator('input[name="english_school_name"]')
+        .fill('St Marys Primary')
       await page.getByLabel('Address line 1').fill('1 Test Street')
       await page.getByLabel('City').fill('London')
       await page.getByLabel('Postcode').fill('N1 1AA')
@@ -53,11 +56,12 @@ test.describe('Public registration form', () => {
       const { data } = await db
         .from('registration_submissions')
         .select(
-          'id, child_last_name, registration_submission_contacts(contact_role, occupation)',
+          'id, child_last_name, english_school_name, registration_submission_contacts(contact_role, occupation)',
         )
         .eq('child_last_name', childLastName)
         .single()
       expect(data).not.toBeNull()
+      expect(data?.english_school_name).toBe('St Marys Primary')
       expect(data?.registration_submission_contacts).toHaveLength(1)
       expect(data?.registration_submission_contacts[0].contact_role).toBe(
         'primary',
@@ -87,6 +91,9 @@ test.describe('Public registration form', () => {
       await page.getByLabel('First name').first().fill('Petra')
       await page.getByLabel('Last name').first().fill(childLastName)
       await page.getByLabel('Date of birth').fill('2020-01-15')
+      await page
+        .locator('input[name="english_school_name"]')
+        .fill('St Marys Primary')
       await page.getByLabel('Address line 1').fill('1 Test Street')
       await page.getByLabel('City').fill('London')
       await page.getByLabel('Postcode').fill('N1 1AA')
@@ -160,6 +167,9 @@ test.describe('Public registration form', () => {
     await page.getByLabel('First name').first().fill('Petra')
     await page.getByLabel('Last name').first().fill('NoConsent')
     await page.getByLabel('Date of birth').fill('2020-01-15')
+    await page
+      .locator('input[name="english_school_name"]')
+      .fill('St Marys Primary')
     await page.getByLabel('Address line 1').fill('1 Test Street')
     await page.getByLabel('City').fill('London')
     await page.getByLabel('Postcode').fill('N1 1AA')

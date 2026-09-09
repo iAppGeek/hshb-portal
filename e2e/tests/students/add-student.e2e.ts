@@ -56,13 +56,15 @@ test.describe('Add student', () => {
     // Verify student was saved with address_guardian_id set and own address null
     const { data: student } = await db
       .from('students')
-      .select('address_guardian_id, address_line_1')
+      .select('address_guardian_id, address_line_1, english_school_name')
       .eq('first_name', STUDENT_FIRST)
       .eq('last_name', STUDENT_LAST)
       .single()
 
     expect(student?.address_guardian_id).not.toBeNull()
     expect(student?.address_line_1).toBeNull()
+    // Optional for admin data entry, unlike the public registration form.
+    expect(student?.english_school_name).toBeNull()
 
     const { data: guardian } = await db
       .from('guardians')

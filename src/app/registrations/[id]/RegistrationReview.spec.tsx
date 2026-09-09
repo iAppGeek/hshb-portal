@@ -39,6 +39,7 @@ const baseSubmission: RegistrationFull = {
   child_last_name: 'Pending',
   date_of_birth: '2020-01-15',
   preferred_year_group: 'Year 1',
+  english_school_name: 'St Marys Primary',
   address_line_1: '1 Seed St',
   address_line_2: null,
   city: 'London',
@@ -201,6 +202,12 @@ describe('RegistrationReview', () => {
       ],
     })
     expect(screen.getByText(/Matches existing guardian/)).toBeTruthy()
+  })
+
+  it('shows the English school name', () => {
+    renderReview()
+    expect(screen.getByText('English (mainstream) school')).toBeTruthy()
+    expect(screen.getByText('St Marys Primary')).toBeTruthy()
   })
 
   it("shows the contact's occupation", () => {

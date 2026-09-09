@@ -73,6 +73,15 @@ describe('RegistrationForm', () => {
     expect(input.maxLength).toBe(SHORT_TEXT_MAX)
   })
 
+  it('requires the English school name', () => {
+    const { container } = renderForm()
+    const input = container.querySelector(
+      'input[name="english_school_name"]',
+    ) as HTMLInputElement
+    expect(input.required).toBe(true)
+    expect(input.maxLength).toBe(SHORT_TEXT_MAX)
+  })
+
   // Occupation is asked of every contact but only required of parents/carers.
   it('requires an occupation for parents/carers but not emergency contacts', () => {
     const { container } = renderForm()

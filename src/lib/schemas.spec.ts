@@ -601,6 +601,7 @@ describe('createStudentSchema', () => {
     student_last_name: 'Smith',
     student_code: 'S001',
     student_date_of_birth: '2015-06-01',
+    student_english_school_name: 'St Marys Primary',
     address_guardian_id: '',
     student_address_line_1: '123 High Street',
     student_address_line_2: '',
@@ -620,6 +621,7 @@ describe('createStudentSchema', () => {
     student_last_name: 'Smith',
     student_code: '',
     student_date_of_birth: '',
+    student_english_school_name: '',
     address_guardian_id: 'primary',
     student_address_line_1: '',
     student_address_line_2: '',
@@ -639,6 +641,14 @@ describe('createStudentSchema', () => {
     expect(result.student_first_name).toBe('Anna')
     expect(result.address_guardian_id).toBeNull()
     expect(result.student_address_line_1).toBe('123 High Street')
+  })
+
+  it('accepts a blank english school name and stores it as null', () => {
+    const result = createStudentSchema.parse({
+      ...validWithOwnAddress,
+      student_english_school_name: '',
+    })
+    expect(result.student_english_school_name).toBeNull()
   })
 
   it('accepts student with guardian address reference', () => {
@@ -676,6 +686,7 @@ describe('updateStudentSchema', () => {
       student_last_name: 'Smith',
       student_code: '',
       student_date_of_birth: '',
+      student_english_school_name: '',
       address_guardian_id: 'primary',
       student_address_line_1: '',
       student_address_line_2: '',
@@ -699,6 +710,7 @@ describe('updateStudentSchema', () => {
       student_last_name: 'Smith',
       student_code: '',
       student_date_of_birth: '',
+      student_english_school_name: '',
       address_guardian_id: 'primary',
       student_address_line_1: '',
       student_address_line_2: '',
@@ -891,6 +903,7 @@ describe('registrationSubmissionSchema', () => {
     child_last_name: 'Pending',
     date_of_birth: '2020-01-15',
     preferred_year_group: 'Year 1',
+    english_school_name: 'St Marys Primary',
     address_line_1: '1 Seed St',
     address_line_2: '',
     city: 'London',
@@ -948,6 +961,28 @@ describe('registrationSubmissionSchema', () => {
         consent_emergency_first_aid: undefined,
       }),
     ).toThrow('Emergency first aid')
+  })
+
+  // Required on the public form; the admin schemas keep it optional because
+  // there is a backlog of students whose English school is unknown.
+  it('rejects a missing english_school_name', () => {
+    const { english_school_name: _omitted, ...withoutSchool } = valid
+    expect(() => registrationSubmissionSchema.parse(withoutSchool)).toThrow()
+  })
+
+  it('rejects a blank english_school_name', () => {
+    expect(() =>
+      registrationSubmissionSchema.parse({ ...valid, english_school_name: '' }),
+    ).toThrow()
+  })
+
+  it('enforces the english_school_name length limit', () => {
+    expect(() =>
+      registrationSubmissionSchema.parse({
+        ...valid,
+        english_school_name: 'A'.repeat(SHORT_TEXT_MAX + 1),
+      }),
+    ).toThrow()
   })
 
   it('allows optional consents to be unticked', () => {

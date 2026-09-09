@@ -19,6 +19,7 @@ type StudentData = {
   last_name: string
   student_code: string | null
   date_of_birth: string | null
+  english_school_name: string | null
   address_guardian_id: string | null
   address_line_1: string | null
   address_line_2: string | null
@@ -129,6 +130,11 @@ export default function EditStudentForm({
             label="Student code"
             name="student_code"
             defaultValue={student.student_code ?? undefined}
+          />
+          <Field
+            label="English (mainstream) school"
+            name="student_english_school_name"
+            defaultValue={student.english_school_name ?? undefined}
           />
         </div>
 

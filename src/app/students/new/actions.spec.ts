@@ -50,6 +50,7 @@ const baseFields = {
   student_first_name: 'Anna',
   student_last_name: 'Smith',
   student_code: '',
+  student_english_school_name: 'St Marys Primary',
   student_date_of_birth: '',
   address_guardian_id: '',
   student_address_line_1: '1 Main Street',
@@ -132,6 +133,31 @@ describe('createStudentAction', () => {
     )
     expect(revalidatePath).toHaveBeenCalledWith('/students')
     expect(redirect).toHaveBeenCalledWith('/students')
+  })
+
+  it('passes the English school name through to createStudent', async () => {
+    vi.mocked(createGuardian).mockResolvedValue({ id: GUARDIAN_1 } as any)
+    vi.mocked(createStudent).mockResolvedValue({ id: STUDENT_ID } as any)
+
+    await createStudentAction(makeFormData(baseFields))
+
+    expect(createStudent).toHaveBeenCalledWith(
+      expect.objectContaining({ english_school_name: 'St Marys Primary' }),
+    )
+  })
+
+  it('creates a student without an English school name', async () => {
+    vi.mocked(createGuardian).mockResolvedValue({ id: GUARDIAN_1 } as any)
+    vi.mocked(createStudent).mockResolvedValue({ id: STUDENT_ID } as any)
+
+    const result = await createStudentAction(
+      makeFormData({ ...baseFields, student_english_school_name: '' }),
+    )
+
+    expect(result).toBeUndefined()
+    expect(createStudent).toHaveBeenCalledWith(
+      expect.objectContaining({ english_school_name: null }),
+    )
   })
 
   it('passes the primary guardian occupation through to createGuardian', async () => {

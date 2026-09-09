@@ -270,6 +270,9 @@ const studentBaseSchema = z
     student_last_name: requiredString,
     student_code: optionalString,
     student_date_of_birth: optionalString,
+    // Optional for admin data entry: there is a backlog of existing students
+    // whose English school is unknown. Required on the public form.
+    student_english_school_name: optionalShortText,
     address_guardian_id: optionalString,
     student_address_line_1: optionalString.optional(),
     student_address_line_2: optionalString.optional(),
@@ -340,6 +343,7 @@ export const registrationSubmissionSchema = z.object({
   child_last_name: shortText,
   date_of_birth: isoDate,
   preferred_year_group: optionalShortText,
+  english_school_name: shortText,
   address_line_1: addressText, // NOT NULL in the table; makes students_address_source_check satisfiable
   address_line_2: optionalAddressText,
   city: addressText,

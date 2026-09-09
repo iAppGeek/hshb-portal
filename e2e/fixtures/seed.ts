@@ -85,6 +85,7 @@ export async function createRegistrationSubmission(
       child_first_name: overrides.child_first_name ?? 'E2E',
       child_last_name: overrides.child_last_name ?? 'Fixture',
       date_of_birth: overrides.date_of_birth ?? '2020-01-01',
+      english_school_name: 'Fixture Primary',
       address_line_1: '1 Fixture St',
       city: 'London',
       postcode: 'N1 1AA',

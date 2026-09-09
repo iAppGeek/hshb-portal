@@ -336,10 +336,11 @@ test.describe('Registration review', () => {
 
     const { data: student } = await db
       .from('students')
-      .select('primary_guardian_id')
+      .select('primary_guardian_id, english_school_name')
       .eq('id', submission!.student_id)
       .single()
     expect(student?.primary_guardian_id).toBe(seedGuardian!.id)
+    expect(student?.english_school_name).toBe('Fixture Primary')
 
     const { data: updatedGuardian } = await db
       .from('guardians')
