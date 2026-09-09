@@ -7,6 +7,7 @@ import type { RegistrationFull, ContactRole, StudentMatch } from '@/db'
 import type { GuardianMatch } from '@/db'
 import Tooltip from '@/components/Tooltip'
 import { formatDateInSchoolTz, formatDateTimeInSchoolTz } from '@/lib/datetime'
+import { guardianReuseDiff, type FieldDiff } from '@/lib/guardianDiff'
 import { canApproveRegistrations } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -39,6 +40,15 @@ const CONTACT_ORDER: ContactRole[] = [
   'additional_1',
   'additional_2',
 ]
+
+const GUARDIAN_FIELD_LABELS: Record<string, string> = {
+  phone: 'Phone',
+  email: 'Email',
+  address_line_1: 'Address line 1',
+  address_line_2: 'Address line 2',
+  city: 'City',
+  postcode: 'Postcode',
+}
 
 export default function RegistrationReview({
   submission,
@@ -140,21 +150,42 @@ export default function RegistrationReview({
                       .join(', ') || '—'
               }
             />
-            {guardianMatches.map((m) => (
-              <div
-                key={m.id}
-                className="col-span-full rounded-lg bg-amber-50 p-3 text-sm text-amber-800"
-              >
-                Matches existing guardian{' '}
-                <strong>
-                  {m.first_name} {m.last_name}
-                </strong>{' '}
-                ({m.phone}
-                {m.email ? `, ${m.email}` : ''}) by {m.matched_on}. Approving
-                with &quot;reuse&quot; on will link the student to that record
-                and update its phone and address.
-              </div>
-            ))}
+            {guardianMatches.map((m) => {
+              const diff = guardianReuseDiff(m, contact, submission)
+              return (
+                <div
+                  key={m.id}
+                  className="col-span-full rounded-lg bg-amber-50 p-3 text-sm text-amber-800"
+                >
+                  Matches existing guardian{' '}
+                  <strong>
+                    {m.first_name} {m.last_name}
+                  </strong>{' '}
+                  ({m.phone}
+                  {m.email ? `, ${m.email}` : ''}) by {m.matched_on}. Approving
+                  with &quot;reuse&quot; on will link the student to that record
+                  and update its phone and address.
+                  {diff.length === 0 ? (
+                    <p className="mt-2 text-xs text-amber-700">
+                      No contact details will change.
+                    </p>
+                  ) : (
+                    <dl className="mt-2 space-y-1 text-xs">
+                      {diff.map((d: FieldDiff) => (
+                        <div key={d.field} className="flex gap-1">
+                          <dt className="font-medium">
+                            {GUARDIAN_FIELD_LABELS[d.field]}:
+                          </dt>
+                          <dd>
+                            {d.old ?? '(empty)'} → {d.new ?? '(empty)'}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                </div>
+              )
+            })}
           </Section>
         )
       })}

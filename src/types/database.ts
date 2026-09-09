@@ -900,12 +900,16 @@ export type Database = {
       find_guardian_matches: {
         Args: { p_email: string; p_last_name: string; p_phone: string }
         Returns: {
+          address_line_1: string
+          address_line_2: string
+          city: string
           email: string
           first_name: string
           id: string
           last_name: string
           matched_on: string
           phone: string
+          postcode: string
         }[]
       }
       find_student_matches: {

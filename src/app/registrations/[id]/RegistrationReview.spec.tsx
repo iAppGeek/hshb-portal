@@ -190,11 +190,56 @@ describe('RegistrationReview', () => {
           last_name: 'Existing',
           phone: '07700 900000',
           email: 'petra@example.com',
+          address_line_1: null,
+          address_line_2: null,
+          city: null,
+          postcode: null,
           matched_on: 'email',
         },
       ],
     })
     expect(screen.getByText(/Matches existing guardian/)).toBeTruthy()
+  })
+
+  it('lists the phone field change under the guardian match note', () => {
+    renderReview({}, 'admin', {
+      'contact-1': [
+        {
+          id: 'guardian-1',
+          first_name: 'Petra',
+          last_name: 'Existing',
+          phone: '07700 900333',
+          email: 'petra@example.com',
+          address_line_1: '1 Seed St',
+          address_line_2: null,
+          city: 'London',
+          postcode: 'N1 2AA',
+          matched_on: 'email',
+        },
+      ],
+    })
+    expect(screen.getByText('Phone:')).toBeTruthy()
+    expect(screen.getByText('07700 900333 → 07700 900000')).toBeTruthy()
+  })
+
+  it('shows no contact details will change for an identical match', () => {
+    renderReview({}, 'admin', {
+      'contact-1': [
+        {
+          id: 'guardian-1',
+          first_name: 'Petra',
+          last_name: 'Existing',
+          phone: '07700 900000',
+          email: 'petra@example.com',
+          address_line_1: '1 Seed St',
+          address_line_2: null,
+          city: 'London',
+          postcode: 'N1 2AA',
+          matched_on: 'email',
+        },
+      ],
+    })
+    expect(screen.getByText('No contact details will change.')).toBeTruthy()
   })
 
   it('does not show a guardian match note when there are no matches', () => {

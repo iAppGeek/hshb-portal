@@ -101,6 +101,10 @@ export type GuardianMatch = {
   last_name: string
   phone: string
   email: string | null
+  address_line_1: string | null
+  address_line_2: string | null
+  city: string | null
+  postcode: string | null
   matched_on: 'email' | 'phone'
 }
 

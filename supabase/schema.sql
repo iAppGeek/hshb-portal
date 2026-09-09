@@ -470,18 +470,24 @@ CREATE OR REPLACE FUNCTION find_guardian_matches(
   p_phone     TEXT,
   p_last_name TEXT
 ) RETURNS TABLE (
-  id         UUID,
-  first_name TEXT,
-  last_name  TEXT,
-  phone      TEXT,
-  email      TEXT,
-  matched_on TEXT
+  id             UUID,
+  first_name     TEXT,
+  last_name      TEXT,
+  phone          TEXT,
+  email          TEXT,
+  address_line_1 TEXT,
+  address_line_2 TEXT,
+  city           TEXT,
+  postcode       TEXT,
+  matched_on     TEXT
 ) AS $$
-  SELECT g.id, g.first_name, g.last_name, g.phone, g.email, 'email'::TEXT
+  SELECT g.id, g.first_name, g.last_name, g.phone, g.email,
+    g.address_line_1, g.address_line_2, g.city, g.postcode, 'email'::TEXT
   FROM guardians g
   WHERE p_email IS NOT NULL AND LOWER(g.email) = LOWER(p_email)
   UNION ALL
-  SELECT g.id, g.first_name, g.last_name, g.phone, g.email, 'phone'::TEXT
+  SELECT g.id, g.first_name, g.last_name, g.phone, g.email,
+    g.address_line_1, g.address_line_2, g.city, g.postcode, 'phone'::TEXT
   FROM guardians g
   WHERE regexp_replace(g.phone, '\D', '', 'g') = regexp_replace(p_phone, '\D', '', 'g')
     AND LOWER(g.last_name) = LOWER(p_last_name)
