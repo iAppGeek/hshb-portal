@@ -10,6 +10,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: '14.5'
+  }
   public: {
     Tables: {
       attendance: {
@@ -900,16 +905,12 @@ export type Database = {
       find_guardian_matches: {
         Args: { p_email: string; p_last_name: string; p_phone: string }
         Returns: {
-          address_line_1: string
-          address_line_2: string
-          city: string
           email: string
           first_name: string
           id: string
           last_name: string
           matched_on: string
           phone: string
-          postcode: string
         }[]
       }
       find_student_matches: {
