@@ -526,6 +526,11 @@ Import `Json` from `@/types/database` in the existing import line. Keep `CreateR
 
 ## Task 7: Retention: purge actioned submissions from Admin Tasks
 
+**Reverted.** See `plans/registration-retention-and-audit.md` — retention is
+manual: actioned submissions stay until an admin deletes them by hand. The
+purge RPC, the Admin Tasks retention tab, and the `.neq('status', 'actioned')`
+delete guards described below have been removed.
+
 **Problem.** Submissions and opt-out requests hold child medical details,
 addresses and collection passwords. Actioned rows can never be deleted
 (`deleteRegistrationSubmission` and `deletePhotoOptOut` both guard with

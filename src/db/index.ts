@@ -34,7 +34,6 @@ export {
   approveRegistration,
   rejectRegistration,
   deleteRegistrationSubmission,
-  purgeActionedSubmissions,
 } from './registrations'
 export type {
   RegistrationStatus,

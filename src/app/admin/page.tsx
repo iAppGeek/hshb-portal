@@ -8,7 +8,6 @@ import type { StaffRole } from '@/types/next-auth'
 
 import AdminTabBar from './_components/AdminTabBar'
 import ClassMigrationTab from './_tabs/class-migration/ClassMigrationTab'
-import RegistrationRetentionTab from './_tabs/registration-retention/RegistrationRetentionTab'
 
 export const metadata: Metadata = { title: 'Admin Tasks' }
 
@@ -42,7 +41,6 @@ export default async function AdminPage({
       {tab === 'class-migration' && (
         <ClassMigrationTab sourceClassId={sourceClassId} />
       )}
-      {tab === 'registration-retention' && <RegistrationRetentionTab />}
     </div>
   )
 }

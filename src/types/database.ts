@@ -943,10 +943,6 @@ export type Database = {
         }
         Returns: Json
       }
-      purge_actioned_submissions: {
-        Args: { p_older_than_days?: number }
-        Returns: number
-      }
     }
     Enums: {
       contact_role: 'primary' | 'secondary' | 'additional_1' | 'additional_2'

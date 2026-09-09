@@ -148,7 +148,7 @@ Active plans live in [plans/](plans/):
 - [parent-registration-form.md](plans/parent-registration-form.md) — public `/register` form, staging tables, admin approval workflow
 - [parent-consent-link.md](plans/parent-consent-link.md) — planned follow-up: consent-refresh links for returning families
 
-Actioned submissions are retained for 90 days, then removed via Admin Tasks → Purge actioned registrations.
+Actioned submissions and opt-out requests are kept until an admin deletes them from the review page. There is no automatic purge.
 
 ## Related repository
 
