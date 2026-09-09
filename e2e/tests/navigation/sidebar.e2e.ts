@@ -6,6 +6,8 @@ type Role = 'admin' | 'headteacher' | 'teacher' | 'secretary'
 const REPORTS_ROLES: Role[] = ['admin', 'headteacher', 'secretary']
 // Roles that receive push notifications (notification slot rendered)
 const NOTIFICATION_ROLES: Role[] = ['admin', 'headteacher']
+// Roles that can review registrations
+const REGISTRATIONS_ROLES: Role[] = ['admin', 'headteacher', 'secretary']
 
 function getRoleFromProject(projectName: string): Role {
   return projectName.split(':')[1] as Role
@@ -67,6 +69,27 @@ test.describe('Sidebar navigation', () => {
       await expect(reportsButton).toBeVisible()
     } else {
       await expect(reportsButton).not.toBeVisible()
+    }
+  })
+
+  test('Registrations nav item is visible for admin, headteacher, secretary — hidden for teacher', async ({
+    page,
+    isMobile,
+  }, testInfo) => {
+    const role = getRoleFromProject(testInfo.project.name)
+
+    if (isMobile) {
+      await page.getByRole('button', { name: 'Open navigation' }).click()
+    }
+
+    const registrationsButton = page
+      .getByRole('button', { name: 'Registrations' })
+      .first()
+
+    if (REGISTRATIONS_ROLES.includes(role)) {
+      await expect(registrationsButton).toBeVisible()
+    } else {
+      await expect(registrationsButton).not.toBeVisible()
     }
   })
 

@@ -8,6 +8,7 @@ import {
   getGuardianById,
   getStudentsByGuardian,
   updateGuardian,
+  findGuardianMatches,
 } from './guardians'
 
 beforeEach(() => {
@@ -15,13 +16,14 @@ beforeEach(() => {
 })
 
 const mockFrom = vi.hoisted(() => vi.fn())
+const mockRpc = vi.hoisted(() => vi.fn())
 
 vi.mock('next/cache', () => ({
   revalidateTag: vi.fn(),
 }))
 
 vi.mock('./client', () => ({
-  supabase: { from: mockFrom },
+  supabase: { from: mockFrom, rpc: mockRpc },
 }))
 
 describe('getGuardianCount', () => {
@@ -246,5 +248,59 @@ describe('updateGuardian', () => {
       }),
     ).rejects.toThrow('DB error')
     expect(revalidateTag).not.toHaveBeenCalled()
+  })
+})
+
+describe('findGuardianMatches', () => {
+  it('passes args through to the rpc', async () => {
+    mockRpc.mockResolvedValue({
+      data: [
+        {
+          id: 'guardian-1',
+          first_name: 'Maria',
+          last_name: 'Smith',
+          phone: '07700 900000',
+          email: 'maria@example.com',
+          matched_on: 'email',
+        },
+      ],
+      error: null,
+    })
+
+    const result = await findGuardianMatches({
+      email: 'maria@example.com',
+      phone: '07700 900000',
+      lastName: 'Smith',
+    })
+
+    expect(result).toHaveLength(1)
+    expect(mockRpc).toHaveBeenCalledWith('find_guardian_matches', {
+      p_email: 'maria@example.com',
+      p_phone: '07700 900000',
+      p_last_name: 'Smith',
+    })
+  })
+
+  it('returns empty array when data is null', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null })
+
+    const result = await findGuardianMatches({
+      email: null,
+      phone: '07700 900000',
+      lastName: 'Smith',
+    })
+    expect(result).toEqual([])
+  })
+
+  it('throws the rpc error', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: new Error('rpc failed') })
+
+    await expect(
+      findGuardianMatches({
+        email: null,
+        phone: '07700 900000',
+        lastName: 'Smith',
+      }),
+    ).rejects.toThrow('rpc failed')
   })
 })

@@ -55,6 +55,11 @@ export type StudentForModal = {
   additional_contact_2: AdditionalContact | null
   additional_contact_2_relationship: string | null
   medical_details: string | null
+  consent_privacy_notice: boolean
+  consent_emergency_first_aid: boolean
+  consent_photo_media: boolean
+  consent_home_school: boolean
+  consent_comms_email_sms: boolean
   student_classes: Array<{
     class: {
       id: string
@@ -236,6 +241,31 @@ export default function StudentDetailsModal({ student, role, onClose }: Props) {
                 <h3 className={SECTION_H}>Notes</h3>
                 <p className="text-sm text-gray-600">{student.notes ?? '—'}</p>
               </section>
+              <section className="border-t border-gray-100 pt-4">
+                <h3 className={SECTION_H}>Consents</h3>
+                <dl className="space-y-1 text-sm text-gray-600">
+                  <ConsentRow
+                    label="Privacy notice"
+                    value={student.consent_privacy_notice}
+                  />
+                  <ConsentRow
+                    label="Emergency first aid"
+                    value={student.consent_emergency_first_aid}
+                  />
+                  <ConsentRow
+                    label="Photo & media"
+                    value={student.consent_photo_media}
+                  />
+                  <ConsentRow
+                    label="Home–school agreement"
+                    value={student.consent_home_school}
+                  />
+                  <ConsentRow
+                    label="Email & SMS"
+                    value={student.consent_comms_email_sms}
+                  />
+                </dl>
+              </section>
             </>
           )}
         </div>
@@ -306,6 +336,15 @@ function PersonCard({
           postcode={postcode ?? null}
         />
       )}
+    </div>
+  )
+}
+
+function ConsentRow({ label, value }: { label: string; value: boolean }) {
+  return (
+    <div className="flex items-center justify-between">
+      <dt>{label}</dt>
+      <dd className="font-medium text-gray-900">{value ? 'Yes' : 'No'}</dd>
     </div>
   )
 }

@@ -24,6 +24,8 @@ jobs:
       AZURE_AD_CLIENT_ID: ci-placeholder
       AZURE_AD_CLIENT_SECRET: ci-placeholder
       AZURE_AD_TENANT_ID: ci-placeholder
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
+      TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
 
     steps:
       - name: Checkout

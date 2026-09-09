@@ -15,6 +15,7 @@ vi.mock('@/db', () => ({
   getLessonPlanCountByDate: vi.fn(),
   getAttendanceSummaryByDate: vi.fn(),
   getStaffSignedInCount: vi.fn(),
+  getPendingRegistrationCount: vi.fn(),
 }))
 
 vi.mock('next/link', () => ({
@@ -33,6 +34,7 @@ vi.mock('@heroicons/react/24/outline', () => ({
   ExclamationTriangleIcon: () => <svg />,
   BookOpenIcon: () => <svg />,
   AcademicCapIcon: () => <svg />,
+  InboxIcon: () => <svg />,
 }))
 
 import { auth } from '@/auth'
@@ -46,6 +48,7 @@ import {
   getLessonPlanCountByDate,
   getAttendanceSummaryByDate,
   getStaffSignedInCount,
+  getPendingRegistrationCount,
 } from '@/db'
 
 import DashboardPage from './page'
@@ -65,6 +68,7 @@ function mockAdmin() {
   vi.mocked(getLessonPlanCountByDate).mockResolvedValue(0)
   vi.mocked(getAttendanceSummaryByDate).mockResolvedValue({})
   vi.mocked(getStaffSignedInCount).mockResolvedValue(0)
+  vi.mocked(getPendingRegistrationCount).mockResolvedValue(0)
 }
 
 function mockTeacher() {
@@ -221,6 +225,7 @@ describe('DashboardPage', () => {
     vi.mocked(getLessonPlanCountByDate).mockResolvedValue(0)
     vi.mocked(getAttendanceSummaryByDate).mockResolvedValue({})
     vi.mocked(getStaffSignedInCount).mockResolvedValue(0)
+    vi.mocked(getPendingRegistrationCount).mockResolvedValue(0)
 
     render(await DashboardPage())
     expect(screen.getByText('Total Students')).toBeTruthy()
@@ -228,5 +233,27 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Total Teachers')).toBeTruthy()
     expect(screen.getByText('Total Incidents')).toBeTruthy()
     expect(screen.getByText('Lessons planned today')).toBeTruthy()
+    expect(screen.getByText('Pending registrations')).toBeTruthy()
+  })
+
+  it('shows the pending registrations tile with its count for admin', async () => {
+    mockAdmin()
+    vi.mocked(getPendingRegistrationCount).mockResolvedValue(7)
+
+    render(await DashboardPage())
+
+    expect(screen.getByText('Pending registrations')).toBeTruthy()
+    expect(screen.getByText('7')).toBeTruthy()
+    const link = screen.getByText('Pending registrations').closest('a')
+    expect(link?.getAttribute('href')).toBe('/registrations')
+  })
+
+  it('hides the pending registrations tile for teacher', async () => {
+    mockTeacher()
+
+    render(await DashboardPage())
+
+    expect(screen.queryByText('Pending registrations')).toBeNull()
+    expect(getPendingRegistrationCount).not.toHaveBeenCalled()
   })
 })

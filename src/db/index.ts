@@ -22,7 +22,37 @@ export {
   enrollStudentInClasses,
   updateStudent,
   updateStudentClasses,
+  findStudentMatches,
+  getStudentsForLinking,
 } from './students'
+export type { StudentMatch } from './students'
+export {
+  createRegistrationSubmission,
+  getRegistrationSubmissions,
+  getPendingRegistrationCount,
+  getRegistrationSubmissionById,
+  approveRegistration,
+  rejectRegistration,
+  deleteRegistrationSubmission,
+} from './registrations'
+export type {
+  RegistrationStatus,
+  ContactRole,
+  RegistrationSummary,
+  RegistrationFull,
+  GuardianChange,
+  ApproveRegistrationResult,
+} from './registrations'
+export {
+  createPhotoOptOut,
+  getPhotoOptOuts,
+  getPendingPhotoOptOutCount,
+  getPhotoOptOutById,
+  applyPhotoOptOut,
+  rejectPhotoOptOut,
+  deletePhotoOptOut,
+} from './photoOptOuts'
+export type { PhotoOptOutStatus, PhotoOptOutRow } from './photoOptOuts'
 export {
   getGuardianCount,
   getAllGuardians,
@@ -30,11 +60,13 @@ export {
   getGuardianById,
   getStudentsByGuardian,
   updateGuardian,
+  findGuardianMatches,
 } from './guardians'
 export type {
   GuardianSummary,
   GuardianFull,
   GuardianStudentLink,
+  GuardianMatch,
 } from './guardians'
 export {
   getAllClasses,

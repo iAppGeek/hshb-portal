@@ -18,7 +18,6 @@ vi.mock('./_tabs/class-migration/ClassMigrationTab', () => ({
     </div>
   )),
 }))
-
 import { auth } from '@/auth'
 
 import AdminPage from './page'

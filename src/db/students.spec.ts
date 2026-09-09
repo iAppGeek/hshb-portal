@@ -15,8 +15,11 @@ import {
   enrollStudentInClasses,
   updateStudent,
   updateStudentClasses,
+  findStudentMatches,
+  getStudentsForLinking,
 } from './students'
 const mockFrom = vi.hoisted(() => vi.fn())
+const mockRpc = vi.hoisted(() => vi.fn())
 
 vi.mock('next/cache', () => ({
   unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
@@ -24,7 +27,7 @@ vi.mock('next/cache', () => ({
 }))
 
 vi.mock('./client', () => ({
-  supabase: { from: mockFrom },
+  supabase: { from: mockFrom, rpc: mockRpc },
 }))
 
 beforeEach(() => {
@@ -525,5 +528,93 @@ describe('updateStudentClasses', () => {
       updateStudentClasses('student-1', ['class-1']),
     ).rejects.toThrow('Delete error')
     expect(revalidateTag).not.toHaveBeenCalled()
+  })
+})
+
+describe('findStudentMatches', () => {
+  it('passes the three args through to the rpc', async () => {
+    mockRpc.mockResolvedValue({
+      data: [
+        {
+          id: 'student-1',
+          first_name: 'Anna',
+          last_name: 'Smith',
+          date_of_birth: '2015-06-01',
+          student_code: 'S001',
+          active: false,
+        },
+      ],
+      error: null,
+    })
+
+    const result = await findStudentMatches({
+      firstName: 'Anna',
+      lastName: 'Smith',
+      dateOfBirth: '2015-06-01',
+    })
+    expect(result).toHaveLength(1)
+    expect(mockRpc).toHaveBeenCalledWith('find_student_matches', {
+      p_first_name: 'Anna',
+      p_last_name: 'Smith',
+      p_date_of_birth: '2015-06-01',
+    })
+  })
+
+  it('returns empty array when data is null', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null })
+
+    const result = await findStudentMatches({
+      firstName: 'Nobody',
+      lastName: 'Nomatch',
+      dateOfBirth: '2015-06-01',
+    })
+    expect(result).toEqual([])
+  })
+
+  it('throws the rpc error', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: new Error('rpc failed') })
+
+    await expect(
+      findStudentMatches({
+        firstName: 'Nobody',
+        lastName: 'Nomatch',
+        dateOfBirth: '2015-06-01',
+      }),
+    ).rejects.toThrow('rpc failed')
+  })
+})
+
+describe('getStudentsForLinking', () => {
+  it('returns all students ordered by last name', async () => {
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        order: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'student-1',
+              first_name: 'Anna',
+              last_name: 'Smith',
+              date_of_birth: '2015-06-01',
+              student_code: 'S001',
+              active: true,
+            },
+          ],
+        }),
+      }),
+    })
+
+    const result = await getStudentsForLinking()
+    expect(result).toHaveLength(1)
+    expect(mockFrom).toHaveBeenCalledWith('students')
+  })
+
+  it('returns empty array when there are no students', async () => {
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        order: vi.fn().mockResolvedValue({ data: null }),
+      }),
+    })
+
+    expect(await getStudentsForLinking()).toEqual([])
   })
 })

@@ -23,6 +23,8 @@ import {
   receivesNotifications,
   isTeachingStaff,
   showsOnSignInSheet,
+  canReviewRegistrations,
+  canApproveRegistrations,
   TEACHING_ROLES,
   NOTIFICATION_ROLES,
 } from './permissions'
@@ -73,6 +75,12 @@ const table: [string, (role: StaffRole) => boolean, StaffRole[]][] = [
     showsOnSignInSheet,
     ['teacher', 'headteacher', 'secretary'],
   ],
+  [
+    'canReviewRegistrations',
+    canReviewRegistrations,
+    ['admin', 'headteacher', 'secretary'],
+  ],
+  ['canApproveRegistrations', canApproveRegistrations, ['admin']],
 ]
 
 describe('permissions', () => {

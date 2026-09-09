@@ -4,11 +4,18 @@ import { auth } from '@/auth'
 import { canAccessReports } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
+const PUBLIC_PATHS = ['/register']
+
 export const proxy = auth((req) => {
   const { pathname } = req.nextUrl
   const isLoggedIn = !!req.auth
   const isLoginPage = pathname === '/login'
   const isReportsPage = pathname.startsWith('/reports')
+  const isPublicPath = PUBLIC_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  )
+
+  if (isPublicPath) return // form, its success page, and the server-action POST to /register
 
   if (!isLoginPage && !isLoggedIn) {
     return NextResponse.redirect(new URL('/login', req.url))

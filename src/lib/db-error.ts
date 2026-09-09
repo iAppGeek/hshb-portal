@@ -40,6 +40,11 @@ export function getUserFriendlyDbError(err: unknown, fallback: string): string {
       return 'A required field is missing.'
     case '23514':
       return 'A value does not meet the required conditions.'
+    case 'P0001':
+      // Postgres's generic RAISE EXCEPTION code — used for our own
+      // intentionally user-facing messages raised inside RPCs (e.g.
+      // approve_registration, migrate_class), safe to show verbatim.
+      return err.message
     default:
       return fallback
   }

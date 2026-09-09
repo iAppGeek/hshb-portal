@@ -117,6 +117,35 @@ describe('updateStudentAction', () => {
     expect(redirect).toHaveBeenCalledWith('/students')
   })
 
+  it('forwards the submitted consent booleans to updateStudent', async () => {
+    vi.mocked(updateStudent).mockResolvedValue(undefined)
+    vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
+    vi.mocked(redirect).mockImplementation(() => {
+      throw new Error('NEXT_REDIRECT')
+    })
+
+    const fields = {
+      ...baseFields,
+      consent_privacy_notice: 'on',
+      consent_emergency_first_aid: 'on',
+    }
+
+    await expect(
+      updateStudentAction(STUDENT_ID, makeFormData(fields)),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(updateStudent).toHaveBeenCalledWith(
+      STUDENT_ID,
+      expect.objectContaining({
+        consent_privacy_notice: true,
+        consent_emergency_first_aid: true,
+        consent_photo_media: false,
+        consent_home_school: false,
+        consent_comms_email_sms: false,
+      }),
+    )
+  })
+
   it('updates class enrollments with submitted class ids', async () => {
     vi.mocked(updateStudent).mockResolvedValue(undefined)
     vi.mocked(updateStudentClasses).mockResolvedValue(undefined)

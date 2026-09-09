@@ -56,6 +56,11 @@ const baseStudent = {
   additional_contact_2_id: null,
   additional_contact_2: null,
   additional_contact_2_relationship: null,
+  consent_privacy_notice: false,
+  consent_emergency_first_aid: false,
+  consent_photo_media: false,
+  consent_home_school: false,
+  consent_comms_email_sms: false,
   student_classes: [] as Array<{
     class: {
       id: string
@@ -353,6 +358,38 @@ describe('StudentDetailsModal', () => {
     )
     expect(screen.queryByText(/^Notes$/i)).toBeNull()
     expect(screen.queryByText('Hidden notes')).toBeNull()
+  })
+
+  it('shows the Consents section as Yes/No for admin', () => {
+    render(
+      <StudentDetailsModal
+        student={{
+          ...baseStudent,
+          consent_privacy_notice: true,
+          consent_emergency_first_aid: true,
+          consent_photo_media: false,
+          consent_home_school: false,
+          consent_comms_email_sms: true,
+        }}
+        role="admin"
+        onClose={onClose}
+      />,
+    )
+    expect(screen.getByText('Consents')).toBeTruthy()
+    expect(screen.getByText('Privacy notice')).toBeTruthy()
+    expect(screen.getAllByText('Yes')).toHaveLength(3)
+    expect(screen.getAllByText('No')).toHaveLength(2)
+  })
+
+  it('does not show the Consents section for teacher', () => {
+    render(
+      <StudentDetailsModal
+        student={{ ...baseStudent, consent_privacy_notice: true }}
+        role="teacher"
+        onClose={onClose}
+      />,
+    )
+    expect(screen.queryByText('Consents')).toBeNull()
   })
 
   it('calls onClose when the close button is clicked', () => {

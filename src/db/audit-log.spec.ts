@@ -102,6 +102,80 @@ describe('logAuditEvent', () => {
     consoleSpy.mockRestore()
   })
 
+  it('accepts registration workflow actions', async () => {
+    logAuditEvent({
+      staffId: null,
+      action: 'registration_submitted',
+      entity: 'registration_submission',
+      entityId: 'sub-1',
+    })
+
+    await vi.waitFor(() => {
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          staff_id: null,
+          action: 'registration_submitted',
+        }),
+      )
+    })
+
+    logAuditEvent({
+      staffId: 'staff-1',
+      action: 'registration_approved',
+      entity: 'registration_submission',
+      entityId: 'sub-1',
+    })
+    logAuditEvent({
+      staffId: 'staff-1',
+      action: 'registration_rejected',
+      entity: 'registration_submission',
+      entityId: 'sub-1',
+    })
+    logAuditEvent({
+      staffId: 'staff-1',
+      action: 'registration_deleted',
+      entity: 'registration_submission',
+      entityId: 'sub-1',
+    })
+  })
+
+  it('accepts photo opt-out workflow actions', async () => {
+    logAuditEvent({
+      staffId: null,
+      action: 'photo_opt_out_submitted',
+      entity: 'photo_consent_opt_out',
+      entityId: 'req-1',
+    })
+
+    await vi.waitFor(() => {
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          staff_id: null,
+          action: 'photo_opt_out_submitted',
+        }),
+      )
+    })
+
+    logAuditEvent({
+      staffId: 'staff-1',
+      action: 'photo_opt_out_applied',
+      entity: 'photo_consent_opt_out',
+      entityId: 'req-1',
+    })
+    logAuditEvent({
+      staffId: 'staff-1',
+      action: 'photo_opt_out_rejected',
+      entity: 'photo_consent_opt_out',
+      entityId: 'req-1',
+    })
+    logAuditEvent({
+      staffId: 'staff-1',
+      action: 'photo_opt_out_deleted',
+      entity: 'photo_consent_opt_out',
+      entityId: 'req-1',
+    })
+  })
+
   it('does not throw when insert rejects', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     mockInsert.mockRejectedValue(new Error('Network error'))

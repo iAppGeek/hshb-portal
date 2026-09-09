@@ -35,6 +35,11 @@ type StudentData = {
   additional_contact_1_relationship: string | null
   additional_contact_2_id: string | null
   additional_contact_2_relationship: string | null
+  consent_privacy_notice: boolean
+  consent_emergency_first_aid: boolean
+  consent_photo_media: boolean
+  consent_home_school: boolean
+  consent_comms_email_sms: boolean
 }
 
 type Props = {
@@ -320,6 +325,40 @@ export default function EditStudentForm({
           </div>
         </FormSection>
       )}
+
+      {/* ── Consents ─────────────────────────────────────────────────── */}
+      <FormSection title="Consents">
+        <p className="mb-3 text-xs text-gray-500">
+          Tick only what the parent has signed for.
+        </p>
+        <div className="space-y-2">
+          <ConsentCheckbox
+            name="consent_privacy_notice"
+            label="Privacy notice"
+            defaultChecked={student.consent_privacy_notice}
+          />
+          <ConsentCheckbox
+            name="consent_emergency_first_aid"
+            label="Emergency first aid"
+            defaultChecked={student.consent_emergency_first_aid}
+          />
+          <ConsentCheckbox
+            name="consent_photo_media"
+            label="Photo & media"
+            defaultChecked={student.consent_photo_media}
+          />
+          <ConsentCheckbox
+            name="consent_home_school"
+            label="Home–school agreement"
+            defaultChecked={student.consent_home_school}
+          />
+          <ConsentCheckbox
+            name="consent_comms_email_sms"
+            label="Email & SMS"
+            defaultChecked={student.consent_comms_email_sms}
+          />
+        </div>
+      </FormSection>
 
       {/* ── Actions ─────────────────────────────────────────────────── */}
       <div className="flex items-center gap-4">
@@ -620,5 +659,27 @@ function Field({
         className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
       />
     </div>
+  )
+}
+
+function ConsentCheckbox({
+  name,
+  label,
+  defaultChecked,
+}: {
+  name: string
+  label: string
+  defaultChecked: boolean
+}) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+      <input
+        type="checkbox"
+        name={name}
+        defaultChecked={defaultChecked}
+        className="rounded text-blue-600 focus:ring-blue-500"
+      />
+      {label}
+    </label>
   )
 }

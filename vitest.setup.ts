@@ -9,6 +9,11 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
   }
 }
 
+// jsdom doesn't implement scrollIntoView.
+if (typeof Element.prototype.scrollIntoView !== 'function') {
+  Element.prototype.scrollIntoView = () => {}
+}
+
 // vitest's coverage runner passes --localstorage-file to jsdom without a valid
 // path, which leaves window.localStorage as a broken stub with no methods.
 // Provide a real in-memory implementation so every test file has a working localStorage.
