@@ -68,18 +68,21 @@ export default function RegistrationForm({
             name="child_first_name"
             required
             maxLength={SHORT_TEXT_MAX}
+            autoComplete="section-child given-name"
           />
           <Field
             label="Last name"
             name="child_last_name"
             required
             maxLength={SHORT_TEXT_MAX}
+            autoComplete="section-child family-name"
           />
           <Field
             label="Date of birth"
             name="date_of_birth"
             type="date"
             required
+            autoComplete="bday"
           />
           <Field
             label="English (mainstream) school"
@@ -119,22 +122,26 @@ export default function RegistrationForm({
             name="address_line_1"
             required
             maxLength={ADDRESS_TEXT_MAX}
+            autoComplete="section-child address-line1"
           />
           <Field
             label="Address line 2"
             name="address_line_2"
             maxLength={ADDRESS_TEXT_MAX}
+            autoComplete="section-child address-line2"
           />
           <Field
             label="City"
             name="city"
             required
             maxLength={ADDRESS_TEXT_MAX}
+            autoComplete="section-child address-level2"
           />
           <Field
             label="Postcode"
             name="postcode"
             required
+            autoComplete="section-child postal-code"
             maxLength={ADDRESS_TEXT_MAX}
           />
         </div>
@@ -285,6 +292,7 @@ export default function RegistrationForm({
           name="declaration_name"
           required
           hint="Typing your name here acts as your signature"
+          autoComplete="section-declaration name"
           maxLength={SHORT_TEXT_MAX}
         />
         {turnstileSiteKey && (
@@ -337,6 +345,9 @@ function ContactFields({
   defaultSameAddress?: boolean
 }) {
   const [sameAddress, setSameAddress] = useState(defaultSameAddress)
+  // Scope autofill per contact so the browser offers each person separately
+  // rather than filling the same profile into all four blocks.
+  const section = `section-${prefix}`
 
   return (
     <>
@@ -346,12 +357,14 @@ function ContactFields({
           name={`${prefix}_first_name`}
           required
           maxLength={SHORT_TEXT_MAX}
+          autoComplete={`${section} given-name`}
         />
         <Field
           label="Last name"
           name={`${prefix}_last_name`}
           required
           maxLength={SHORT_TEXT_MAX}
+          autoComplete={`${section} family-name`}
         />
         <Field
           label="Relationship to child"
@@ -370,6 +383,7 @@ function ContactFields({
           type="tel"
           required
           maxLength={PHONE_MAX}
+          autoComplete={`${section} tel`}
         />
         <Field
           label="Email"
@@ -377,6 +391,7 @@ function ContactFields({
           type="email"
           required={requireEmail}
           maxLength={EMAIL_MAX}
+          autoComplete={`${section} email`}
         />
       </div>
       <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm text-gray-700">
@@ -395,21 +410,25 @@ function ContactFields({
             label="Address line 1"
             name={`${prefix}_address_line_1`}
             maxLength={ADDRESS_TEXT_MAX}
+            autoComplete={`${section} address-line1`}
           />
           <Field
             label="Address line 2"
             name={`${prefix}_address_line_2`}
             maxLength={ADDRESS_TEXT_MAX}
+            autoComplete={`${section} address-line2`}
           />
           <Field
             label="City"
             name={`${prefix}_city`}
             maxLength={ADDRESS_TEXT_MAX}
+            autoComplete={`${section} address-level2`}
           />
           <Field
             label="Postcode"
             name={`${prefix}_postcode`}
             maxLength={ADDRESS_TEXT_MAX}
+            autoComplete={`${section} postal-code`}
           />
         </div>
       )}
@@ -467,6 +486,7 @@ function Field({
   required = false,
   hint,
   maxLength,
+  autoComplete,
 }: {
   label: string
   name: string
@@ -474,6 +494,7 @@ function Field({
   required?: boolean
   hint?: string
   maxLength?: number
+  autoComplete?: string
 }) {
   return (
     <div>
@@ -487,6 +508,7 @@ function Field({
         type={type}
         required={required}
         maxLength={maxLength}
+        autoComplete={autoComplete}
         className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
       />
       {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}

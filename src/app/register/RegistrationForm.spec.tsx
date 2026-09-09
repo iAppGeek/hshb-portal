@@ -73,6 +73,98 @@ describe('RegistrationForm', () => {
     expect(input.maxLength).toBe(SHORT_TEXT_MAX)
   })
 
+  describe('browser autofill', () => {
+    const autoCompleteOf = (container: HTMLElement, name: string) =>
+      container
+        .querySelector(`input[name="${name}"]`)
+        ?.getAttribute('autocomplete')
+
+    it('tags the child name and address with WHATWG autofill tokens', () => {
+      const { container } = renderForm()
+
+      expect(autoCompleteOf(container, 'child_first_name')).toBe(
+        'section-child given-name',
+      )
+      expect(autoCompleteOf(container, 'child_last_name')).toBe(
+        'section-child family-name',
+      )
+      expect(autoCompleteOf(container, 'date_of_birth')).toBe('bday')
+      expect(autoCompleteOf(container, 'address_line_1')).toBe(
+        'section-child address-line1',
+      )
+      // UK split address: address-level2 is the town/city and there is no
+      // county field, so address-level1 is deliberately absent.
+      expect(autoCompleteOf(container, 'city')).toBe(
+        'section-child address-level2',
+      )
+      expect(autoCompleteOf(container, 'postcode')).toBe(
+        'section-child postal-code',
+      )
+    })
+
+    it('tags each contact with name, phone and email tokens', () => {
+      const { container } = renderForm()
+
+      expect(autoCompleteOf(container, 'primary_first_name')).toBe(
+        'section-primary given-name',
+      )
+      expect(autoCompleteOf(container, 'primary_last_name')).toBe(
+        'section-primary family-name',
+      )
+      expect(autoCompleteOf(container, 'primary_phone')).toBe(
+        'section-primary tel',
+      )
+      expect(autoCompleteOf(container, 'primary_email')).toBe(
+        'section-primary email',
+      )
+    })
+
+    // The guard against the browser filling one person into every block.
+    it('gives each contact block a distinct autofill section', () => {
+      const { container } = renderForm()
+
+      fireEvent.click(
+        screen.getByRole('button', { name: '+ Add a second parent/carer' }),
+      )
+      fireEvent.click(
+        screen.getByRole('button', { name: '+ Add an emergency contact' }),
+      )
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: '+ Add a second emergency contact',
+        }),
+      )
+
+      const sections = ['primary', 'secondary', 'contact1', 'contact2'].map(
+        (prefix) => autoCompleteOf(container, `${prefix}_first_name`),
+      )
+
+      expect(sections).toEqual([
+        'section-primary given-name',
+        'section-secondary given-name',
+        'section-contact1 given-name',
+        'section-contact2 given-name',
+      ])
+      expect(new Set(sections).size).toBe(4)
+    })
+
+    it('keeps the declaration out of the contact sections', () => {
+      const { container } = renderForm()
+      expect(autoCompleteOf(container, 'declaration_name')).toBe(
+        'section-declaration name',
+      )
+    })
+
+    // No meaningful WHATWG token exists for these, and a wrong one is worse
+    // than none: organization-title would invite employer autofill.
+    it('leaves fields with no meaningful token untagged', () => {
+      const { container } = renderForm()
+      expect(autoCompleteOf(container, 'primary_relationship')).toBeNull()
+      expect(autoCompleteOf(container, 'primary_occupation')).toBeNull()
+      expect(autoCompleteOf(container, 'english_school_name')).toBeNull()
+    })
+  })
+
   it('requires the English school name', () => {
     const { container } = renderForm()
     const input = container.querySelector(
