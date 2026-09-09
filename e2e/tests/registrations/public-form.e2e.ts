@@ -29,6 +29,9 @@ test.describe('Public registration form', () => {
       await page.getByLabel('First name').first().fill('Petra')
       await page.getByLabel('Last name').first().fill(childLastName)
       await page.getByLabel('Date of birth').fill('2020-01-15')
+      await page
+        .locator('input[name="english_school_name"]')
+        .fill('St Marys Primary')
       await page.getByLabel('Address line 1').fill('1 Test Street')
       await page.getByLabel('City').fill('London')
       await page.getByLabel('Postcode').fill('N1 1AA')
@@ -36,6 +39,7 @@ test.describe('Public registration form', () => {
       await page.getByLabel('First name').nth(1).fill('Gary')
       await page.getByLabel('Last name').nth(1).fill('Guardian')
       await page.getByLabel('Phone').fill('07700 900000')
+      await page.locator('input[name="primary_occupation"]').fill('Bus driver')
 
       await page.getByLabel(/I have read and accept the school's/).check()
       await page.getByLabel(/I consent to emergency first aid/).check()
@@ -52,14 +56,18 @@ test.describe('Public registration form', () => {
       const { data } = await db
         .from('registration_submissions')
         .select(
-          'id, child_last_name, registration_submission_contacts(contact_role)',
+          'id, child_last_name, english_school_name, registration_submission_contacts(contact_role, occupation)',
         )
         .eq('child_last_name', childLastName)
         .single()
       expect(data).not.toBeNull()
+      expect(data?.english_school_name).toBe('St Marys Primary')
       expect(data?.registration_submission_contacts).toHaveLength(1)
       expect(data?.registration_submission_contacts[0].contact_role).toBe(
         'primary',
+      )
+      expect(data?.registration_submission_contacts[0].occupation).toBe(
+        'Bus driver',
       )
     })
   })
@@ -83,6 +91,9 @@ test.describe('Public registration form', () => {
       await page.getByLabel('First name').first().fill('Petra')
       await page.getByLabel('Last name').first().fill(childLastName)
       await page.getByLabel('Date of birth').fill('2020-01-15')
+      await page
+        .locator('input[name="english_school_name"]')
+        .fill('St Marys Primary')
       await page.getByLabel('Address line 1').fill('1 Test Street')
       await page.getByLabel('City').fill('London')
       await page.getByLabel('Postcode').fill('N1 1AA')
@@ -90,6 +101,7 @@ test.describe('Public registration form', () => {
       await page.getByLabel('First name').nth(1).fill('Gary')
       await page.getByLabel('Last name').nth(1).fill('Guardian')
       await page.getByLabel('Phone').first().fill('07700 900000')
+      await page.locator('input[name="primary_occupation"]').fill('Bus driver')
 
       await page
         .getByRole('button', { name: '+ Add a second parent/carer' })
@@ -98,6 +110,9 @@ test.describe('Public registration form', () => {
       await page.getByLabel('First name').nth(2).fill('Gina')
       await page.getByLabel('Last name').nth(2).fill('Guardian')
       await page.getByLabel('Phone').nth(1).fill('07700 900001')
+      await page
+        .locator('input[name="secondary_occupation"]')
+        .fill('Pharmacist')
 
       await page
         .getByRole('button', { name: '+ Add an emergency contact' })
@@ -120,7 +135,7 @@ test.describe('Public registration form', () => {
       const { data } = await db
         .from('registration_submissions')
         .select(
-          'id, child_last_name, registration_submission_contacts(contact_role)',
+          'id, child_last_name, registration_submission_contacts(contact_role, occupation)',
         )
         .eq('child_last_name', childLastName)
         .single()
@@ -130,6 +145,17 @@ test.describe('Public registration form', () => {
           .map((c) => c.contact_role)
           .sort(),
       ).toEqual(['additional_1', 'primary', 'secondary'])
+
+      const byRole = new Map(
+        data?.registration_submission_contacts.map((c) => [
+          c.contact_role,
+          c.occupation,
+        ]),
+      )
+      expect(byRole.get('primary')).toBe('Bus driver')
+      expect(byRole.get('secondary')).toBe('Pharmacist')
+      // Emergency contacts are not asked for an occupation.
+      expect(byRole.get('additional_1')).toBeNull()
     })
   })
 
@@ -141,12 +167,16 @@ test.describe('Public registration form', () => {
     await page.getByLabel('First name').first().fill('Petra')
     await page.getByLabel('Last name').first().fill('NoConsent')
     await page.getByLabel('Date of birth').fill('2020-01-15')
+    await page
+      .locator('input[name="english_school_name"]')
+      .fill('St Marys Primary')
     await page.getByLabel('Address line 1').fill('1 Test Street')
     await page.getByLabel('City').fill('London')
     await page.getByLabel('Postcode').fill('N1 1AA')
     await page.getByLabel('First name').nth(1).fill('Gary')
     await page.getByLabel('Last name').nth(1).fill('Guardian')
     await page.getByLabel('Phone').fill('07700 900000')
+    await page.locator('input[name="primary_occupation"]').fill('Bus driver')
     await page.getByLabel('Your full name').fill('Gary Guardian')
     // Deliberately leave both required consents unticked.
 

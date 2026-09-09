@@ -162,6 +162,10 @@ export const updateGuardianSchema = z.object({
   last_name: requiredString,
   phone: ukPhone,
   email: optionalEmail,
+  // Optional here: this page edits a guardian in isolation and cannot tell
+  // whether they are a parent or an emergency contact — that role lives on the
+  // student→guardian link, and one person can be both.
+  occupation: optionalShortText,
   address_line_1: optionalString,
   address_line_2: optionalString,
   city: optionalString,
@@ -220,7 +224,7 @@ export const createStaffSchema = z.object({
 
 export const updateStaffSchema = createStaffSchema
 
-const guardianNewSchema = z.object({
+const guardianNewBase = z.object({
   mode: z.literal('new'),
   first_name: requiredString,
   last_name: requiredString,
@@ -237,8 +241,26 @@ const guardianExistingSchema = z.object({
   existing_id: uuid,
 })
 
+// Occupation is required of parents/carers but not of emergency contacts, so
+// the caller picks the variant matching the slot being filled. Only the 'new'
+// branch carries it — reusing an existing guardian never re-collects details.
+const guardianNewSchema = guardianNewBase.extend({
+  occupation: optionalShortText.optional(),
+})
+
+const guardianNewWithOccupationSchema = guardianNewBase.extend({
+  occupation: shortText,
+})
+
+/** Emergency contact slots — occupation optional. */
 export const guardianSchema = z.discriminatedUnion('mode', [
   guardianNewSchema,
+  guardianExistingSchema,
+])
+
+/** Primary and secondary parent/carer slots — occupation required. */
+export const guardianSchemaWithOccupation = z.discriminatedUnion('mode', [
+  guardianNewWithOccupationSchema,
   guardianExistingSchema,
 ])
 
@@ -248,6 +270,9 @@ const studentBaseSchema = z
     student_last_name: requiredString,
     student_code: optionalString,
     student_date_of_birth: optionalString,
+    // Optional for admin data entry: there is a backlog of existing students
+    // whose English school is unknown. Required on the public form.
+    student_english_school_name: optionalShortText,
     address_guardian_id: optionalString,
     student_address_line_1: optionalString.optional(),
     student_address_line_2: optionalString.optional(),
@@ -290,7 +315,7 @@ export const updateStudentSchema = studentBaseSchema.extend({
   consent_comms_email_sms: checkbox,
 })
 
-export const registrationContactSchema = z.object({
+const registrationContactBase = z.object({
   first_name: shortText,
   last_name: shortText,
   relationship: optionalShortText,
@@ -303,11 +328,22 @@ export const registrationContactSchema = z.object({
   postcode: optionalAddressText,
 })
 
+/** Emergency contact blocks — occupation optional. */
+export const registrationContactSchema = registrationContactBase.extend({
+  occupation: optionalShortText,
+})
+
+/** Primary and secondary parent/carer blocks — occupation required. */
+export const registrationParentContactSchema = registrationContactBase.extend({
+  occupation: shortText,
+})
+
 export const registrationSubmissionSchema = z.object({
   child_first_name: shortText,
   child_last_name: shortText,
   date_of_birth: isoDate,
   preferred_year_group: optionalShortText,
+  english_school_name: shortText,
   address_line_1: addressText, // NOT NULL in the table; makes students_address_source_check satisfiable
   address_line_2: optionalAddressText,
   city: addressText,
@@ -400,6 +436,7 @@ export function extractGuardianFields(
     last_name: (formData.get(`${prefix}_last_name`) as string) ?? '',
     phone: (formData.get(`${prefix}_phone`) as string) ?? '',
     email: (formData.get(`${prefix}_email`) as string) ?? undefined,
+    occupation: (formData.get(`${prefix}_occupation`) as string) ?? undefined,
     address_line_1:
       (formData.get(`${prefix}_address_line_1`) as string) ?? undefined,
     address_line_2:
@@ -420,6 +457,7 @@ export function extractRegistrationContact(
     relationship: (formData.get(`${prefix}_relationship`) as string) ?? '',
     phone: (formData.get(`${prefix}_phone`) as string) ?? '',
     email: (formData.get(`${prefix}_email`) as string) ?? '',
+    occupation: (formData.get(`${prefix}_occupation`) as string) ?? '',
     same_as_child_address:
       (formData.get(`${prefix}_same_as_child_address`) as string | null) ??
       undefined,

@@ -305,6 +305,7 @@ test.describe('Registration review', () => {
         last_name: `Guardian${childLastName}`,
         phone: '07700 900333',
         email: seedEmail,
+        occupation: 'Old Occupation',
         address_line_1: 'Old Guardian Address',
         city: 'Oldtown',
         postcode: 'OL2 2AA',
@@ -335,18 +336,22 @@ test.describe('Registration review', () => {
 
     const { data: student } = await db
       .from('students')
-      .select('primary_guardian_id')
+      .select('primary_guardian_id, english_school_name')
       .eq('id', submission!.student_id)
       .single()
     expect(student?.primary_guardian_id).toBe(seedGuardian!.id)
+    expect(student?.english_school_name).toBe('Fixture Primary')
 
     const { data: updatedGuardian } = await db
       .from('guardians')
-      .select('phone, address_line_1')
+      .select('phone, address_line_1, occupation')
       .eq('id', seedGuardian!.id)
       .single()
     expect(updatedGuardian?.phone).toBe('07700 900000')
     expect(updatedGuardian?.address_line_1).toBe('1 Fixture St')
+    // The submission's occupation is the newest statement of it, so approval
+    // refreshes the stored value (the fixture supplies 'Engineer').
+    expect(updatedGuardian?.occupation).toBe('Engineer')
 
     const { data: auditRow } = await db
       .from('audit_log')

@@ -76,6 +76,7 @@ export async function createRegistrationSubmission(
     date_of_birth?: string
     contact_last_name?: string
     contact_email?: string
+    contact_occupation?: string
   } = {},
 ): Promise<{ id: string }> {
   const { data: submission, error } = await db
@@ -84,6 +85,7 @@ export async function createRegistrationSubmission(
       child_first_name: overrides.child_first_name ?? 'E2E',
       child_last_name: overrides.child_last_name ?? 'Fixture',
       date_of_birth: overrides.date_of_birth ?? '2020-01-01',
+      english_school_name: 'Fixture Primary',
       address_line_1: '1 Fixture St',
       city: 'London',
       postcode: 'N1 1AA',
@@ -102,6 +104,7 @@ export async function createRegistrationSubmission(
     last_name: overrides.contact_last_name ?? 'Parent',
     phone: '07700 900000',
     email: overrides.contact_email ?? 'e2e.parent@example.com',
+    occupation: overrides.contact_occupation ?? 'Engineer',
   })
 
   return submission

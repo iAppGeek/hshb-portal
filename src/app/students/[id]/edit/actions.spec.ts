@@ -52,6 +52,7 @@ const baseFields: Record<string, string> = {
   student_first_name: 'Anna',
   student_last_name: 'Smith',
   student_code: 'S001',
+  student_english_school_name: 'St Marys Primary',
   student_date_of_birth: '',
   address_guardian_id: '',
   student_address_line_1: '1 Main Street',
@@ -180,6 +181,7 @@ describe('updateStudentAction', () => {
       primary_last_name: 'Doe',
       primary_phone: '07700 900000',
       primary_email: 'jane@example.com',
+      primary_occupation: 'Teacher',
     }
 
     await expect(
@@ -190,6 +192,7 @@ describe('updateStudentAction', () => {
       expect.objectContaining({
         first_name: 'Jane',
         last_name: 'Doe',
+        occupation: 'Teacher',
       }),
     )
     expect(updateStudent).toHaveBeenCalledWith(

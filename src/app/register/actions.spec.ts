@@ -43,6 +43,7 @@ const baseFields = {
   child_first_name: 'Seed',
   child_last_name: 'Pending',
   date_of_birth: '2020-01-15',
+  english_school_name: 'St Marys Primary',
   preferred_year_group: 'Year 1',
   address_line_1: '1 Seed St',
   address_line_2: '',
@@ -67,6 +68,7 @@ const baseFields = {
   primary_relationship: 'Mother',
   primary_phone: '07700 900000',
   primary_email: 'petra@example.com',
+  primary_occupation: 'Nurse',
   primary_same_as_child_address: 'on',
 }
 
@@ -103,6 +105,65 @@ describe('submitRegistrationAction', () => {
     expect(createRegistrationSubmission).not.toHaveBeenCalled()
   })
 
+  it('carries the parent occupation into the submitted contacts', async () => {
+    await submitRegistrationAction(makeFormData(baseFields))
+
+    const call = vi.mocked(createRegistrationSubmission).mock.calls[0][0]
+    expect(call.contacts[0]).toMatchObject({
+      contact_role: 'primary',
+      occupation: 'Nurse',
+    })
+  })
+
+  it('carries the English school name into the submission', async () => {
+    await submitRegistrationAction(makeFormData(baseFields))
+
+    const call = vi.mocked(createRegistrationSubmission).mock.calls[0][0]
+    expect(call.submission).toMatchObject({
+      english_school_name: 'St Marys Primary',
+    })
+  })
+
+  it('rejects a blank English school name', async () => {
+    const result = await submitRegistrationAction(
+      makeFormData({ ...baseFields, english_school_name: '' }),
+    )
+
+    expect(result?.error).toBeDefined()
+    expect(createRegistrationSubmission).not.toHaveBeenCalled()
+  })
+
+  it('rejects a blank occupation for the primary parent/carer', async () => {
+    const result = await submitRegistrationAction(
+      makeFormData({ ...baseFields, primary_occupation: '' }),
+    )
+
+    expect(result?.error).toBeDefined()
+    expect(createRegistrationSubmission).not.toHaveBeenCalled()
+  })
+
+  // Emergency contacts are not asked for an occupation.
+  it('accepts an emergency contact without an occupation', async () => {
+    await submitRegistrationAction(
+      makeFormData({
+        ...baseFields,
+        has_contact1: 'true',
+        contact1_first_name: 'Uncle',
+        contact1_last_name: 'Bob',
+        contact1_phone: '07700 900002',
+        contact1_occupation: '',
+        contact1_same_as_child_address: 'on',
+      }),
+    )
+
+    const call = vi.mocked(createRegistrationSubmission).mock.calls[0][0]
+    expect(call.contacts).toHaveLength(2)
+    expect(call.contacts[1]).toMatchObject({
+      contact_role: 'additional_1',
+      occupation: null,
+    })
+  })
+
   it('only parses optional contacts when their has_* flag is true', async () => {
     await submitRegistrationAction(
       makeFormData({
@@ -111,6 +172,7 @@ describe('submitRegistrationAction', () => {
         secondary_first_name: 'Gary',
         secondary_last_name: 'Guardian',
         secondary_phone: '07700 900001',
+        secondary_occupation: 'Chef',
         secondary_same_as_child_address: 'on',
       }),
     )

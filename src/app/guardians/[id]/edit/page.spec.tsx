@@ -42,6 +42,7 @@ const mockGuardian = {
   last_name: 'Smith',
   phone: '07700 900000',
   email: 'maria@example.com',
+  occupation: 'Teacher',
   address_line_1: null,
   address_line_2: null,
   city: null,

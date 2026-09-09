@@ -19,10 +19,12 @@ INSERT INTO classes (id, name, year_group, room_number, teacher_id, academic_yea
   ('10000000-0000-0000-0000-000000000003', 'Gamma', 'Year 3', 'R3', '00000000-0000-0000-0000-000000000004', '2025-26');
 
 -- ─── Guardians ────────────────────────────────────────────────────────────────
-INSERT INTO guardians (id, first_name, last_name, phone, email) VALUES
-  ('20000000-0000-0000-0000-000000000001', 'Gary',  'AliceGuardian', '07711000001', 'gary.alice@example.com'),
-  ('20000000-0000-0000-0000-000000000002', 'Grace', 'BobGuardian',   '07711000002', 'grace.bob@example.com'),
-  ('20000000-0000-0000-0000-000000000003', 'Greg',  'CarolGuardian', '07711000003', 'greg.carol@example.com');
+-- Greg deliberately has no occupation: the column is nullable and existing rows
+-- predate it, so the UI must cope with it being absent.
+INSERT INTO guardians (id, first_name, last_name, phone, email, occupation) VALUES
+  ('20000000-0000-0000-0000-000000000001', 'Gary',  'AliceGuardian', '07711000001', 'gary.alice@example.com', 'Bus driver'),
+  ('20000000-0000-0000-0000-000000000002', 'Grace', 'BobGuardian',   '07711000002', 'grace.bob@example.com',  'Pharmacist'),
+  ('20000000-0000-0000-0000-000000000003', 'Greg',  'CarolGuardian', '07711000003', 'greg.carol@example.com', NULL);
 
 -- ─── Students ─────────────────────────────────────────────────────────────────
 -- Alice + Bob in Alpha, Carol in Beta
@@ -73,9 +75,9 @@ INSERT INTO registration_submissions (id, status, child_first_name, child_last_n
   ('80000000-0000-0000-0000-000000000002', 'rejected', 'Seed', 'Rejected', '2020-02-20',
    '2 Seed St', 'London', 'N1 2AB', TRUE, TRUE, 'Rhonda Rejected', 'Duplicate');
 
-INSERT INTO registration_submission_contacts (id, submission_id, contact_role, first_name, last_name, phone, email) VALUES
-  ('81000000-0000-0000-0000-000000000001', '80000000-0000-0000-0000-000000000001', 'primary', 'Petra', 'Pending', '07722000001', 'petra.pending@example.com'),
-  ('81000000-0000-0000-0000-000000000002', '80000000-0000-0000-0000-000000000002', 'primary', 'Rhonda', 'Rejected', '07722000002', 'rhonda.rejected@example.com');
+INSERT INTO registration_submission_contacts (id, submission_id, contact_role, first_name, last_name, phone, email, occupation) VALUES
+  ('81000000-0000-0000-0000-000000000001', '80000000-0000-0000-0000-000000000001', 'primary', 'Petra', 'Pending', '07722000001', 'petra.pending@example.com', 'Software engineer'),
+  ('81000000-0000-0000-0000-000000000002', '80000000-0000-0000-0000-000000000002', 'primary', 'Rhonda', 'Rejected', '07722000002', 'rhonda.rejected@example.com', 'Accountant');
 
 -- ─── Photo Consent Opt-Outs ─────────────────────────────────────────────────────
 -- One pending request for Alice Student, so the admin review UI has a row on

@@ -52,6 +52,10 @@ export default function AddStudentForm({ guardians }: Props) {
             type="date"
           />
           <Field label="Student code" name="student_code" />
+          <Field
+            label="English (mainstream) school"
+            name="student_english_school_name"
+          />
         </div>
 
         <div className="mt-4">
@@ -112,6 +116,7 @@ export default function AddStudentForm({ guardians }: Props) {
           showAddress
           requireAddress={addressMode === 'guardian'}
           requireEmail
+          requireOccupation
         />
       </FormSection>
 
@@ -125,6 +130,7 @@ export default function AddStudentForm({ guardians }: Props) {
             prefix="secondary"
             guardians={guardians}
             showAddress
+            requireOccupation
           />
         </FormSection>
       ) : (
@@ -221,12 +227,14 @@ function GuardianSelector({
   showAddress = false,
   requireAddress = false,
   requireEmail = false,
+  requireOccupation = false,
 }: {
   prefix: string
   guardians: GuardianSummary[]
   showAddress?: boolean
   requireAddress?: boolean
   requireEmail?: boolean
+  requireOccupation?: boolean
 }) {
   const [mode, setMode] = useState<'new' | 'existing'>('new')
   const [search, setSearch] = useState('')
@@ -330,6 +338,7 @@ function GuardianSelector({
           showAddress={showAddress}
           requireAddress={requireAddress}
           requireEmail={requireEmail}
+          requireOccupation={requireOccupation}
         />
       )}
     </>
@@ -369,11 +378,13 @@ function GuardianFields({
   showAddress = false,
   requireAddress = false,
   requireEmail = false,
+  requireOccupation = false,
 }: {
   prefix: string
   showAddress?: boolean
   requireAddress?: boolean
   requireEmail?: boolean
+  requireOccupation?: boolean
 }) {
   return (
     <>
@@ -391,6 +402,11 @@ function GuardianFields({
           label="Relationship to student"
           name={`${prefix}_relationship`}
           required
+        />
+        <Field
+          label="Occupation"
+          name={`${prefix}_occupation`}
+          required={requireOccupation}
         />
       </div>
       {showAddress && (

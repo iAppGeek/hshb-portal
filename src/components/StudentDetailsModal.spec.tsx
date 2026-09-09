@@ -24,6 +24,7 @@ const primaryGuardian = {
   last_name: 'Papadopoulos',
   phone: '07700 900000',
   email: 'maria@example.com',
+  occupation: 'Teacher',
   address_line_1: '1 Main Street',
   address_line_2: null,
   city: 'London',
@@ -94,6 +95,54 @@ describe('StudentDetailsModal', () => {
     expect(screen.getByText('Maria Papadopoulos')).toBeTruthy()
     expect(screen.getByText('maria@example.com')).toBeTruthy()
     expect(screen.getByText('07700 900000')).toBeTruthy()
+  })
+
+  it('renders the English school name', () => {
+    render(
+      <StudentDetailsModal
+        student={{ ...baseStudent, english_school_name: 'St Marys Primary' }}
+        role="admin"
+        onClose={onClose}
+      />,
+    )
+    expect(screen.getByText('St Marys Primary')).toBeTruthy()
+  })
+
+  it('falls back to a dash when no English school is recorded', () => {
+    render(
+      <StudentDetailsModal
+        student={{ ...baseStudent, english_school_name: null }}
+        role="admin"
+        onClose={onClose}
+      />,
+    )
+    expect(screen.getByText('English (mainstream) school')).toBeTruthy()
+  })
+
+  it('renders the primary guardian occupation', () => {
+    render(
+      <StudentDetailsModal
+        student={baseStudent}
+        role="admin"
+        onClose={onClose}
+      />,
+    )
+    expect(screen.getByText('Teacher')).toBeTruthy()
+  })
+
+  // The column is nullable and existing guardians predate it.
+  it('omits the occupation when the guardian has none on record', () => {
+    render(
+      <StudentDetailsModal
+        student={{
+          ...baseStudent,
+          primary_guardian: { ...primaryGuardian, occupation: null },
+        }}
+        role="admin"
+        onClose={onClose}
+      />,
+    )
+    expect(screen.queryByText('Teacher')).toBeNull()
   })
 
   it('renders primary guardian relationship', () => {
@@ -180,6 +229,7 @@ describe('StudentDetailsModal', () => {
             last_name: 'Papadopoulos',
             phone: '07700 900001',
             email: 'george@example.com',
+            occupation: 'Teacher',
             address_line_1: null,
             address_line_2: null,
             city: null,
@@ -497,6 +547,7 @@ describe('StudentDetailsModal', () => {
             last_name: 'Papadopoulos',
             phone: '07700 900001',
             email: null,
+            occupation: 'Teacher',
             address_line_1: null,
             address_line_2: null,
             city: null,

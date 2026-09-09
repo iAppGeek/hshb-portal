@@ -35,6 +35,7 @@ const baseFields = {
   last_name: 'Smith',
   phone: '07700 900000',
   email: 'maria@example.com',
+  occupation: 'Teacher',
   address_line_1: '1 Main Street',
   address_line_2: '',
   city: 'London',
@@ -110,7 +111,7 @@ describe('updateGuardianAction', () => {
       throw new Error('NEXT_REDIRECT')
     })
 
-    const fields = { ...baseFields, email: '', notes: '' }
+    const fields = { ...baseFields, email: '', notes: '', occupation: '' }
 
     await expect(
       updateGuardianAction('guardian-1', makeFormData(fields)),
@@ -121,6 +122,9 @@ describe('updateGuardianAction', () => {
       expect.objectContaining({
         email: null,
         notes: null,
+        // Optional here: this page cannot tell a parent from an emergency
+        // contact, so it must never block an unrelated edit.
+        occupation: null,
       }),
     )
   })

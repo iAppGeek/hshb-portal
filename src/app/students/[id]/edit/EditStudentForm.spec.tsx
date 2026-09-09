@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 
 vi.mock('next/link', () => ({
   default: ({
@@ -44,6 +44,7 @@ const baseStudent = {
   last_name: 'Papadopoulos',
   student_code: 'S001',
   date_of_birth: null,
+  english_school_name: 'St Marys Primary',
   address_guardian_id: null,
   address_line_1: '1 Main Street',
   address_line_2: null,
@@ -79,6 +80,17 @@ describe('EditStudentForm', () => {
     ).toBe('student_last_name')
   })
 
+  it('pre-fills the English school field and leaves it optional', () => {
+    const { container } = render(
+      <EditStudentForm student={baseStudent} guardians={guardians} />,
+    )
+    const input = container.querySelector(
+      'input[name="student_english_school_name"]',
+    ) as HTMLInputElement
+    expect(input.value).toBe('St Marys Primary')
+    expect(input.required).toBe(false)
+  })
+
   it('shows Edit guardian link when a guardian is pre-selected', () => {
     render(<EditStudentForm student={baseStudent} guardians={guardians} />)
     const link = screen.getByRole('link', { name: 'Edit guardian' })
@@ -93,6 +105,28 @@ describe('EditStudentForm', () => {
       />,
     )
     expect(screen.queryByRole('link', { name: 'Edit guardian' })).toBeNull()
+  })
+
+  // A pre-selected guardian renders in "existing" mode, which collects no
+  // details, so this exercises the "new guardian" branch.
+  it('requires an occupation for guardians but not additional contacts', () => {
+    const { container } = render(
+      <EditStudentForm
+        student={{ ...baseStudent, primary_guardian_id: null }}
+        guardians={guardians}
+      />,
+    )
+    fireEvent.click(screen.getByText('+ Add secondary guardian'))
+    fireEvent.click(screen.getByText('+ Add additional contact'))
+
+    const occupation = (prefix: string) =>
+      container.querySelector(
+        `input[name="${prefix}_occupation"]`,
+      ) as HTMLInputElement
+
+    expect(occupation('primary').required).toBe(true)
+    expect(occupation('secondary').required).toBe(true)
+    expect(occupation('contact1').required).toBe(false)
   })
 
   it('shows Save changes and Cancel buttons', () => {

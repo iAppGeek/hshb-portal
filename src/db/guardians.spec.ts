@@ -115,6 +115,29 @@ describe('createGuardian', () => {
     expect(revalidateTag).toHaveBeenCalledWith('students', 'max')
   })
 
+  it('sends occupation through to the insert', async () => {
+    const insert = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({
+          data: { id: 'guardian-1' },
+          error: null,
+        }),
+      }),
+    })
+    mockFrom.mockReturnValue({ insert })
+
+    await createGuardian({
+      first_name: 'Maria',
+      last_name: 'Papadopoulos',
+      phone: '07700 900000',
+      occupation: 'Teacher',
+    })
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({ occupation: 'Teacher' }),
+    )
+  })
+
   it('throws when the database returns an error', async () => {
     mockFrom.mockReturnValue({
       insert: vi.fn().mockReturnValue({
@@ -141,6 +164,7 @@ describe('getGuardianById', () => {
       last_name: 'Smith',
       phone: '07700 900000',
       email: 'maria@example.com',
+      occupation: 'Teacher',
       address_line_1: null,
       address_line_2: null,
       city: null,
@@ -158,6 +182,21 @@ describe('getGuardianById', () => {
     const result = await getGuardianById('guardian-1')
     expect(result).toEqual(mockGuardian)
     expect(mockFrom).toHaveBeenCalledWith('guardians')
+  })
+
+  // The select list is explicit, so a new column must be named or it is
+  // silently absent from every screen that reads this row.
+  it('selects the occupation column', async () => {
+    const select = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({ data: null }),
+      }),
+    })
+    mockFrom.mockReturnValue({ select })
+
+    await getGuardianById('guardian-1')
+
+    expect(select).toHaveBeenCalledWith(expect.stringContaining('occupation'))
   })
 
   it('returns null when guardian not found', async () => {

@@ -165,6 +165,7 @@ export type Database = {
           id: string
           last_name: string
           notes: string | null
+          occupation: string | null
           phone: string
           postcode: string | null
           updated_at: string | null
@@ -179,6 +180,7 @@ export type Database = {
           id?: string
           last_name: string
           notes?: string | null
+          occupation?: string | null
           phone: string
           postcode?: string | null
           updated_at?: string | null
@@ -193,6 +195,7 @@ export type Database = {
           id?: string
           last_name?: string
           notes?: string | null
+          occupation?: string | null
           phone?: string
           postcode?: string | null
           updated_at?: string | null
@@ -433,6 +436,7 @@ export type Database = {
           first_name: string
           id: string
           last_name: string
+          occupation: string | null
           phone: string
           postcode: string | null
           relationship: string | null
@@ -449,6 +453,7 @@ export type Database = {
           first_name: string
           id?: string
           last_name: string
+          occupation?: string | null
           phone: string
           postcode?: string | null
           relationship?: string | null
@@ -465,6 +470,7 @@ export type Database = {
           first_name?: string
           id?: string
           last_name?: string
+          occupation?: string | null
           phone?: string
           postcode?: string | null
           relationship?: string | null
@@ -501,6 +507,7 @@ export type Database = {
           created_at: string
           date_of_birth: string
           declaration_name: string
+          english_school_name: string | null
           id: string
           linked_existing: boolean
           medical_details: string | null
@@ -531,6 +538,7 @@ export type Database = {
           created_at?: string
           date_of_birth: string
           declaration_name: string
+          english_school_name?: string | null
           id?: string
           linked_existing?: boolean
           medical_details?: string | null
@@ -561,6 +569,7 @@ export type Database = {
           created_at?: string
           date_of_birth?: string
           declaration_name?: string
+          english_school_name?: string | null
           id?: string
           linked_existing?: boolean
           medical_details?: string | null
@@ -718,6 +727,7 @@ export type Database = {
           consent_privacy_notice: boolean
           created_at: string | null
           date_of_birth: string | null
+          english_school_name: string | null
           enrollment_date: string | null
           first_name: string
           id: string
@@ -750,6 +760,7 @@ export type Database = {
           consent_privacy_notice?: boolean
           created_at?: string | null
           date_of_birth?: string | null
+          english_school_name?: string | null
           enrollment_date?: string | null
           first_name: string
           id?: string
@@ -782,6 +793,7 @@ export type Database = {
           consent_privacy_notice?: boolean
           created_at?: string | null
           date_of_birth?: string | null
+          english_school_name?: string | null
           enrollment_date?: string | null
           first_name?: string
           id?: string
@@ -905,12 +917,17 @@ export type Database = {
       find_guardian_matches: {
         Args: { p_email: string; p_last_name: string; p_phone: string }
         Returns: {
+          address_line_1: string
+          address_line_2: string
+          city: string
           email: string
           first_name: string
           id: string
           last_name: string
           matched_on: string
+          occupation: string
           phone: string
+          postcode: string
         }[]
       }
       find_student_matches: {

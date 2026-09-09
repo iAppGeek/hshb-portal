@@ -39,6 +39,7 @@ const baseSubmission: RegistrationFull = {
   child_last_name: 'Pending',
   date_of_birth: '2020-01-15',
   preferred_year_group: 'Year 1',
+  english_school_name: 'St Marys Primary',
   address_line_1: '1 Seed St',
   address_line_2: null,
   city: 'London',
@@ -70,6 +71,7 @@ const baseSubmission: RegistrationFull = {
       relationship: 'Mother',
       phone: '07700 900000',
       email: 'petra@example.com',
+      occupation: 'Nurse',
       same_as_child_address: true,
       address_line_1: null,
       address_line_2: null,
@@ -194,11 +196,46 @@ describe('RegistrationReview', () => {
           address_line_2: null,
           city: null,
           postcode: null,
+          occupation: 'Teacher',
           matched_on: 'email',
         },
       ],
     })
     expect(screen.getByText(/Matches existing guardian/)).toBeTruthy()
+  })
+
+  it('shows the English school name', () => {
+    renderReview()
+    expect(screen.getByText('English (mainstream) school')).toBeTruthy()
+    expect(screen.getByText('St Marys Primary')).toBeTruthy()
+  })
+
+  it("shows the contact's occupation", () => {
+    renderReview()
+    expect(screen.getByText('Occupation')).toBeTruthy()
+    expect(screen.getByText('Nurse')).toBeTruthy()
+  })
+
+  it('labels an occupation change in the guardian match note', () => {
+    renderReview({}, 'admin', {
+      'contact-1': [
+        {
+          id: 'guardian-1',
+          first_name: 'Petra',
+          last_name: 'Existing',
+          phone: '07700 900000',
+          email: 'petra@example.com',
+          address_line_1: '1 Seed St',
+          address_line_2: null,
+          city: 'London',
+          postcode: 'N1 2AA',
+          occupation: 'Teacher',
+          matched_on: 'email',
+        },
+      ],
+    })
+    expect(screen.getByText('Occupation:')).toBeTruthy()
+    expect(screen.getByText('Teacher → Nurse')).toBeTruthy()
   })
 
   it('lists the phone field change under the guardian match note', () => {
@@ -214,6 +251,7 @@ describe('RegistrationReview', () => {
           address_line_2: null,
           city: 'London',
           postcode: 'N1 2AA',
+          occupation: 'Teacher',
           matched_on: 'email',
         },
       ],
@@ -235,6 +273,7 @@ describe('RegistrationReview', () => {
           address_line_2: null,
           city: 'London',
           postcode: 'N1 2AA',
+          occupation: 'Nurse',
           matched_on: 'email',
         },
       ],

@@ -29,7 +29,9 @@ import {
   createStudentSchema,
   updateStudentSchema,
   guardianSchema,
+  guardianSchemaWithOccupation,
   registrationContactSchema,
+  registrationParentContactSchema,
   registrationSubmissionSchema,
   approveRegistrationSchema,
   rejectRegistrationSchema,
@@ -318,12 +320,58 @@ describe('updateClassSchema', () => {
 })
 
 describe('updateGuardianSchema', () => {
+  it('treats a blank occupation as null', () => {
+    const result = updateGuardianSchema.parse({
+      first_name: 'Maria',
+      last_name: 'Smith',
+      phone: '07700 900000',
+      email: '',
+      occupation: '',
+      address_line_1: '',
+      address_line_2: '',
+      city: '',
+      postcode: '',
+      notes: '',
+    })
+    expect(result.occupation).toBeNull()
+  })
+
+  // The guardian edit page is the fourth way an occupation reaches the column,
+  // and `guardians.occupation` is bare TEXT — so the bound has to hold here too
+  // or this page becomes a hole in the 100-character contract.
+  it('enforces the short-text limit on occupation', () => {
+    const base = {
+      first_name: 'Maria',
+      last_name: 'Smith',
+      phone: '07700 900000',
+      email: '',
+      address_line_1: '',
+      address_line_2: '',
+      city: '',
+      postcode: '',
+      notes: '',
+    }
+    expect(() =>
+      updateGuardianSchema.parse({
+        ...base,
+        occupation: 'A'.repeat(SHORT_TEXT_MAX),
+      }),
+    ).not.toThrow()
+    expect(() =>
+      updateGuardianSchema.parse({
+        ...base,
+        occupation: 'A'.repeat(SHORT_TEXT_MAX + 1),
+      }),
+    ).toThrow('characters or fewer')
+  })
+
   it('accepts valid guardian data', () => {
     const result = updateGuardianSchema.parse({
       first_name: 'Maria',
       last_name: 'Smith',
       phone: '07700 900000',
       email: 'maria@example.com',
+      occupation: 'Teacher',
       address_line_1: '123 High Street',
       address_line_2: '',
       city: 'London',
@@ -511,6 +559,69 @@ describe('guardianSchema', () => {
       }),
     ).toThrow()
   })
+
+  it('accepts new mode without an occupation', () => {
+    const result = guardianSchema.parse({
+      mode: 'new',
+      first_name: 'Uncle',
+      last_name: 'Bob',
+      phone: '07700 900002',
+    })
+    expect(result.mode).toBe('new')
+  })
+})
+
+describe('guardianSchemaWithOccupation', () => {
+  const validNew = {
+    mode: 'new' as const,
+    first_name: 'Maria',
+    last_name: 'P',
+    phone: '07700 900000',
+    occupation: 'Teacher',
+  }
+
+  it('accepts new mode with an occupation', () => {
+    const result = guardianSchemaWithOccupation.parse(validNew)
+    expect(result).toMatchObject({ mode: 'new', occupation: 'Teacher' })
+  })
+
+  it('rejects new mode without an occupation', () => {
+    const { occupation: _omitted, ...withoutOccupation } = validNew
+    expect(() =>
+      guardianSchemaWithOccupation.parse(withoutOccupation),
+    ).toThrow()
+  })
+
+  it('rejects new mode with a blank occupation', () => {
+    expect(() =>
+      guardianSchemaWithOccupation.parse({ ...validNew, occupation: '   ' }),
+    ).toThrow()
+  })
+
+  it('enforces the occupation length limit', () => {
+    expect(
+      guardianSchemaWithOccupation.parse({
+        ...validNew,
+        occupation: 'A'.repeat(SHORT_TEXT_MAX),
+      }),
+    ).toBeTruthy()
+    expect(() =>
+      guardianSchemaWithOccupation.parse({
+        ...validNew,
+        occupation: 'A'.repeat(SHORT_TEXT_MAX + 1),
+      }),
+    ).toThrow()
+  })
+
+  // Reusing an existing guardian never re-collects their details, so the
+  // requirement must not leak onto that branch.
+  it('accepts existing mode without an occupation', () => {
+    const result = guardianSchemaWithOccupation.parse({
+      mode: 'existing',
+      existing_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+    })
+    expect(result.mode).toBe('existing')
+  })
 })
 
 describe('createStudentSchema', () => {
@@ -519,6 +630,7 @@ describe('createStudentSchema', () => {
     student_last_name: 'Smith',
     student_code: 'S001',
     student_date_of_birth: '2015-06-01',
+    student_english_school_name: 'St Marys Primary',
     address_guardian_id: '',
     student_address_line_1: '123 High Street',
     student_address_line_2: '',
@@ -538,6 +650,7 @@ describe('createStudentSchema', () => {
     student_last_name: 'Smith',
     student_code: '',
     student_date_of_birth: '',
+    student_english_school_name: '',
     address_guardian_id: 'primary',
     student_address_line_1: '',
     student_address_line_2: '',
@@ -557,6 +670,14 @@ describe('createStudentSchema', () => {
     expect(result.student_first_name).toBe('Anna')
     expect(result.address_guardian_id).toBeNull()
     expect(result.student_address_line_1).toBe('123 High Street')
+  })
+
+  it('accepts a blank english school name and stores it as null', () => {
+    const result = createStudentSchema.parse({
+      ...validWithOwnAddress,
+      student_english_school_name: '',
+    })
+    expect(result.student_english_school_name).toBeNull()
   })
 
   it('accepts student with guardian address reference', () => {
@@ -594,6 +715,7 @@ describe('updateStudentSchema', () => {
       student_last_name: 'Smith',
       student_code: '',
       student_date_of_birth: '',
+      student_english_school_name: '',
       address_guardian_id: 'primary',
       student_address_line_1: '',
       student_address_line_2: '',
@@ -617,6 +739,7 @@ describe('updateStudentSchema', () => {
       student_last_name: 'Smith',
       student_code: '',
       student_date_of_birth: '',
+      student_english_school_name: '',
       address_guardian_id: 'primary',
       student_address_line_1: '',
       student_address_line_2: '',
@@ -644,6 +767,7 @@ describe('registrationContactSchema', () => {
     relationship: 'Mother',
     phone: '07700 900000',
     email: 'petra@example.com',
+    occupation: 'Nurse',
     same_as_child_address: 'on',
     address_line_1: '',
     address_line_2: '',
@@ -660,6 +784,21 @@ describe('registrationContactSchema', () => {
   it('accepts an empty email', () => {
     const result = registrationContactSchema.parse({ ...valid, email: '' })
     expect(result.email).toBeNull()
+  })
+
+  // Emergency contacts are not asked for an occupation.
+  it('accepts an empty occupation and stores it as null', () => {
+    const result = registrationContactSchema.parse({ ...valid, occupation: '' })
+    expect(result.occupation).toBeNull()
+  })
+
+  it('enforces the occupation length limit', () => {
+    expect(() =>
+      registrationContactSchema.parse({
+        ...valid,
+        occupation: 'A'.repeat(SHORT_TEXT_MAX + 1),
+      }),
+    ).toThrow()
   })
 
   it('rejects a malformed email', () => {
@@ -744,12 +883,56 @@ describe('registrationContactSchema', () => {
   })
 })
 
+describe('registrationParentContactSchema', () => {
+  const valid = {
+    first_name: 'Petra',
+    last_name: 'Pending',
+    relationship: 'Mother',
+    phone: '07700 900000',
+    email: 'petra@example.com',
+    occupation: 'Nurse',
+    same_as_child_address: 'on',
+    address_line_1: '',
+    address_line_2: '',
+    city: '',
+    postcode: '',
+  }
+
+  it('accepts a parent contact with an occupation', () => {
+    const result = registrationParentContactSchema.parse(valid)
+    expect(result.occupation).toBe('Nurse')
+  })
+
+  it('rejects a blank occupation', () => {
+    expect(() =>
+      registrationParentContactSchema.parse({ ...valid, occupation: '' }),
+    ).toThrow()
+  })
+
+  it('rejects a missing occupation', () => {
+    const { occupation: _omitted, ...withoutOccupation } = valid
+    expect(() =>
+      registrationParentContactSchema.parse(withoutOccupation),
+    ).toThrow()
+  })
+
+  it('enforces the occupation length limit', () => {
+    expect(() =>
+      registrationParentContactSchema.parse({
+        ...valid,
+        occupation: 'A'.repeat(SHORT_TEXT_MAX + 1),
+      }),
+    ).toThrow()
+  })
+})
+
 describe('registrationSubmissionSchema', () => {
   const valid = {
     child_first_name: 'Seed',
     child_last_name: 'Pending',
     date_of_birth: '2020-01-15',
     preferred_year_group: 'Year 1',
+    english_school_name: 'St Marys Primary',
     address_line_1: '1 Seed St',
     address_line_2: '',
     city: 'London',
@@ -807,6 +990,28 @@ describe('registrationSubmissionSchema', () => {
         consent_emergency_first_aid: undefined,
       }),
     ).toThrow('Emergency first aid')
+  })
+
+  // Required on the public form; the admin schemas keep it optional because
+  // there is a backlog of students whose English school is unknown.
+  it('rejects a missing english_school_name', () => {
+    const { english_school_name: _omitted, ...withoutSchool } = valid
+    expect(() => registrationSubmissionSchema.parse(withoutSchool)).toThrow()
+  })
+
+  it('rejects a blank english_school_name', () => {
+    expect(() =>
+      registrationSubmissionSchema.parse({ ...valid, english_school_name: '' }),
+    ).toThrow()
+  })
+
+  it('enforces the english_school_name length limit', () => {
+    expect(() =>
+      registrationSubmissionSchema.parse({
+        ...valid,
+        english_school_name: 'A'.repeat(SHORT_TEXT_MAX + 1),
+      }),
+    ).toThrow()
   })
 
   it('allows optional consents to be unticked', () => {
@@ -1084,12 +1289,27 @@ describe('extractGuardianFields', () => {
     fd.append('primary_last_name', 'P')
     fd.append('primary_phone', '07700 900000')
     fd.append('primary_email', 'maria@test.com')
+    fd.append('primary_occupation', 'Teacher')
 
     const result = extractGuardianFields(fd, 'primary')
     expect(result.mode).toBe('new')
     if (result.mode === 'new') {
       expect(result.first_name).toBe('Maria')
       expect(result.email).toBe('maria@test.com')
+      expect(result.occupation).toBe('Teacher')
+    }
+  })
+
+  it('leaves occupation undefined when the field is absent', () => {
+    const fd = new FormData()
+    fd.append('contact1_mode', 'new')
+    fd.append('contact1_first_name', 'Uncle')
+    fd.append('contact1_last_name', 'Bob')
+    fd.append('contact1_phone', '07700 900002')
+
+    const result = extractGuardianFields(fd, 'contact1')
+    if (result.mode === 'new') {
+      expect(result.occupation).toBeUndefined()
     }
   })
 })
@@ -1102,6 +1322,7 @@ describe('extractRegistrationContact', () => {
     fd.append('secondary_relationship', 'Father')
     fd.append('secondary_phone', '07700 900001')
     fd.append('secondary_email', 'gary@example.com')
+    fd.append('secondary_occupation', 'Chef')
     fd.append('secondary_same_as_child_address', 'on')
 
     const result = extractRegistrationContact(fd, 'secondary')
@@ -1111,6 +1332,7 @@ describe('extractRegistrationContact', () => {
       relationship: 'Father',
       phone: '07700 900001',
       email: 'gary@example.com',
+      occupation: 'Chef',
       same_as_child_address: 'on',
       address_line_1: '',
       address_line_2: '',

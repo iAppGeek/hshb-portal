@@ -19,6 +19,7 @@ type StudentData = {
   last_name: string
   student_code: string | null
   date_of_birth: string | null
+  english_school_name: string | null
   address_guardian_id: string | null
   address_line_1: string | null
   address_line_2: string | null
@@ -130,6 +131,11 @@ export default function EditStudentForm({
             name="student_code"
             defaultValue={student.student_code ?? undefined}
           />
+          <Field
+            label="English (mainstream) school"
+            name="student_english_school_name"
+            defaultValue={student.english_school_name ?? undefined}
+          />
         </div>
 
         <div className="mt-4">
@@ -217,6 +223,7 @@ export default function EditStudentForm({
           showAddress
           requireAddress={addressMode === 'guardian'}
           requireEmail
+          requireOccupation
           defaultId={student.primary_guardian_id ?? undefined}
           defaultRelationship={
             student.primary_guardian_relationship ?? undefined
@@ -234,6 +241,7 @@ export default function EditStudentForm({
             prefix="secondary"
             guardians={guardians}
             showAddress
+            requireOccupation
             defaultId={student.secondary_guardian_id ?? undefined}
             defaultRelationship={
               student.secondary_guardian_relationship ?? undefined
@@ -405,6 +413,7 @@ function GuardianSelector({
   showAddress = false,
   requireAddress = false,
   requireEmail = false,
+  requireOccupation = false,
   defaultId,
   defaultRelationship,
 }: {
@@ -413,6 +422,7 @@ function GuardianSelector({
   showAddress?: boolean
   requireAddress?: boolean
   requireEmail?: boolean
+  requireOccupation?: boolean
   defaultId?: string
   defaultRelationship?: string
 }) {
@@ -544,6 +554,7 @@ function GuardianSelector({
           showAddress={showAddress}
           requireAddress={requireAddress}
           requireEmail={requireEmail}
+          requireOccupation={requireOccupation}
         />
       )}
     </>
@@ -583,11 +594,13 @@ function GuardianFields({
   showAddress = false,
   requireAddress = false,
   requireEmail = false,
+  requireOccupation = false,
 }: {
   prefix: string
   showAddress?: boolean
   requireAddress?: boolean
   requireEmail?: boolean
+  requireOccupation?: boolean
 }) {
   return (
     <>
@@ -605,6 +618,11 @@ function GuardianFields({
           label="Relationship to student"
           name={`${prefix}_relationship`}
           required
+        />
+        <Field
+          label="Occupation"
+          name={`${prefix}_occupation`}
+          required={requireOccupation}
         />
       </div>
       {showAddress && (

@@ -17,6 +17,7 @@ type GuardianInfo = {
   last_name: string
   phone: string
   email: string | null
+  occupation: string | null
   address_line_1: string | null
   address_line_2: string | null
   city: string | null
@@ -34,6 +35,7 @@ export type StudentForModal = {
   id: string
   first_name: string
   last_name: string
+  english_school_name?: string | null
   address_guardian_id: string | null
   address_guardian?: AddressSource | null
   address_line_1: string | null
@@ -148,6 +150,7 @@ export default function StudentDetailsModal({ student, role, onClose }: Props) {
                 relationship={student.primary_guardian_relationship}
                 role={role}
                 email={student.primary_guardian.email}
+                occupation={student.primary_guardian.occupation}
                 addressLine1={student.primary_guardian.address_line_1}
                 addressLine2={student.primary_guardian.address_line_2}
                 city={student.primary_guardian.city}
@@ -169,6 +172,7 @@ export default function StudentDetailsModal({ student, role, onClose }: Props) {
                 relationship={student.secondary_guardian_relationship}
                 role={role}
                 email={student.secondary_guardian.email}
+                occupation={student.secondary_guardian.occupation}
                 addressLine1={student.secondary_guardian.address_line_1}
                 addressLine2={student.secondary_guardian.address_line_2}
                 city={student.secondary_guardian.city}
@@ -219,6 +223,13 @@ export default function StudentDetailsModal({ student, role, onClose }: Props) {
                     .filter(Boolean)
                     .join(', ')
                 : 'None'}
+            </p>
+          </section>
+
+          <section className="border-t border-gray-100 pt-4">
+            <h3 className={SECTION_H}>English (mainstream) school</h3>
+            <p className="text-sm text-gray-600">
+              {student.english_school_name ?? '—'}
             </p>
           </section>
 
@@ -282,6 +293,7 @@ type PersonCardProps = {
   relationship: string | null
   role: StaffRole
   email?: string | null
+  occupation?: string | null
   addressLine1?: string | null
   addressLine2?: string | null
   city?: string | null
@@ -296,6 +308,7 @@ function PersonCard({
   relationship,
   role,
   email,
+  occupation,
   addressLine1,
   addressLine2,
   city,
@@ -321,6 +334,7 @@ function PersonCard({
           </Link>
         )}
       </div>
+      {occupation && <p className="text-sm text-gray-500">{occupation}</p>}
       {email && <p className="text-sm text-gray-600">{email}</p>}
       <a
         href={`tel:${phone}`}

@@ -39,6 +39,31 @@ describe('AddStudentForm', () => {
     expect(screen.getByText('Primary Guardian')).toBeTruthy()
   })
 
+  // Optional for admin data entry, unlike the public registration form.
+  it('renders an optional English school field', () => {
+    const { container } = render(<AddStudentForm guardians={[]} />)
+    const input = container.querySelector(
+      'input[name="student_english_school_name"]',
+    ) as HTMLInputElement
+    expect(input).not.toBeNull()
+    expect(input.required).toBe(false)
+  })
+
+  it('requires an occupation for guardians but not additional contacts', () => {
+    const { container } = render(<AddStudentForm guardians={[]} />)
+    fireEvent.click(screen.getByText('+ Add secondary guardian'))
+    fireEvent.click(screen.getByText('+ Add additional contact'))
+
+    const occupation = (prefix: string) =>
+      container.querySelector(
+        `input[name="${prefix}_occupation"]`,
+      ) as HTMLInputElement
+
+    expect(occupation('primary').required).toBe(true)
+    expect(occupation('secondary').required).toBe(true)
+    expect(occupation('contact1').required).toBe(false)
+  })
+
   it('does not show secondary guardian fields by default', () => {
     render(<AddStudentForm guardians={[]} />)
     expect(screen.queryByText('Secondary Guardian')).toBeNull()

@@ -9,6 +9,7 @@ type GuardianInsert = {
   last_name: string
   phone: string
   email?: string | null
+  occupation?: string | null
   address_line_1?: string | null
   address_line_2?: string | null
   city?: string | null
@@ -58,7 +59,7 @@ export async function getGuardianById(
   const { data } = await supabase
     .from('guardians')
     .select(
-      'id, first_name, last_name, phone, email, address_line_1, address_line_2, city, postcode, notes',
+      'id, first_name, last_name, phone, email, occupation, address_line_1, address_line_2, city, postcode, notes',
     )
     .eq('id', id)
     .single()
@@ -101,6 +102,7 @@ export type GuardianMatch = {
   last_name: string
   phone: string
   email: string | null
+  occupation: string | null
   address_line_1: string | null
   address_line_2: string | null
   city: string | null
