@@ -68,21 +68,21 @@ export default function RegistrationForm({
             name="child_first_name"
             required
             maxLength={SHORT_TEXT_MAX}
-            autoComplete="section-child given-name"
+            autoComplete="off"
           />
           <Field
             label="Last name"
             name="child_last_name"
             required
             maxLength={SHORT_TEXT_MAX}
-            autoComplete="section-child family-name"
+            autoComplete="off"
           />
           <Field
             label="Date of birth"
             name="date_of_birth"
             type="date"
             required
-            autoComplete="section-child bday"
+            autoComplete="off"
           />
           <Field
             label="English (mainstream) school"
@@ -90,6 +90,7 @@ export default function RegistrationForm({
             required
             maxLength={SHORT_TEXT_MAX}
             hint="The school your child attends during the week"
+            autoComplete="off"
           />
           <div>
             <label
@@ -101,6 +102,7 @@ export default function RegistrationForm({
             <select
               id="preferred_year_group"
               name="preferred_year_group"
+              autoComplete="off"
               className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
             >
               {yearGroups.map((yg) => (
@@ -122,26 +124,26 @@ export default function RegistrationForm({
             name="address_line_1"
             required
             maxLength={ADDRESS_TEXT_MAX}
-            autoComplete="section-child address-line1"
+            autoComplete="address-line1"
           />
           <Field
             label="Address line 2"
             name="address_line_2"
             maxLength={ADDRESS_TEXT_MAX}
-            autoComplete="section-child address-line2"
+            autoComplete="address-line2"
           />
           <Field
             label="City"
             name="city"
             required
             maxLength={ADDRESS_TEXT_MAX}
-            autoComplete="section-child address-level2"
+            autoComplete="address-level2"
           />
           <Field
             label="Postcode"
             name="postcode"
             required
-            autoComplete="section-child postal-code"
+            autoComplete="postal-code"
             maxLength={ADDRESS_TEXT_MAX}
           />
         </div>
@@ -370,12 +372,14 @@ function ContactFields({
           label="Relationship to child"
           name={`${prefix}_relationship`}
           maxLength={SHORT_TEXT_MAX}
+          autoComplete="off"
         />
         <Field
           label="Occupation"
           name={`${prefix}_occupation`}
           required={requireOccupation}
           maxLength={SHORT_TEXT_MAX}
+          autoComplete="off"
         />
         <Field
           label="Phone"

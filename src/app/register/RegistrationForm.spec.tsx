@@ -79,31 +79,37 @@ describe('RegistrationForm', () => {
         .querySelector(`input[name="${name}"]`)
         ?.getAttribute('autocomplete')
 
-    it('tags the child name and address with WHATWG autofill tokens', () => {
+    // The child is not the person filling the form, so there is nothing in the
+    // browser's profile that legitimately belongs in these fields. Sectioning
+    // them was not enough — the browser still offered the adult's saved
+    // identity inside the section.
+    it('disables autofill on every child detail field', () => {
       const { container } = renderForm()
 
-      expect(autoCompleteOf(container, 'child_first_name')).toBe(
-        'section-child given-name',
-      )
-      expect(autoCompleteOf(container, 'child_last_name')).toBe(
-        'section-child family-name',
-      )
-      // Sectioned like its siblings: an unscoped `bday` joins the browser's
-      // default profile and fills the birthday of the adult filling the form.
-      expect(autoCompleteOf(container, 'date_of_birth')).toBe(
-        'section-child bday',
-      )
-      expect(autoCompleteOf(container, 'address_line_1')).toBe(
-        'section-child address-line1',
-      )
+      expect(autoCompleteOf(container, 'child_first_name')).toBe('off')
+      expect(autoCompleteOf(container, 'child_last_name')).toBe('off')
+      expect(autoCompleteOf(container, 'date_of_birth')).toBe('off')
+      // Reported from production: Chrome matched on the field name ending in
+      // "name" and filled this with the parent's full name.
+      expect(autoCompleteOf(container, 'english_school_name')).toBe('off')
+      expect(
+        container
+          .querySelector('select[name="preferred_year_group"]')
+          ?.getAttribute('autocomplete'),
+      ).toBe('off')
+    })
+
+    // The household address, filled in by the parent, so their saved profile
+    // is the right source — no section, or it would match nothing they have.
+    it('tags the home address with unscoped address tokens', () => {
+      const { container } = renderForm()
+
+      expect(autoCompleteOf(container, 'address_line_1')).toBe('address-line1')
+      expect(autoCompleteOf(container, 'address_line_2')).toBe('address-line2')
       // UK split address: address-level2 is the town/city and there is no
       // county field, so address-level1 is deliberately absent.
-      expect(autoCompleteOf(container, 'city')).toBe(
-        'section-child address-level2',
-      )
-      expect(autoCompleteOf(container, 'postcode')).toBe(
-        'section-child postal-code',
-      )
+      expect(autoCompleteOf(container, 'city')).toBe('address-level2')
+      expect(autoCompleteOf(container, 'postcode')).toBe('postal-code')
     })
 
     it('tags each contact with name, phone and email tokens', () => {
@@ -159,13 +165,13 @@ describe('RegistrationForm', () => {
       )
     })
 
-    // No meaningful WHATWG token exists for these, and a wrong one is worse
-    // than none: organization-title would invite employer autofill.
-    it('leaves fields with no meaningful token untagged', () => {
+    // No meaningful WHATWG token exists for these. Untagged is not neutral:
+    // the browser falls back to guessing from the field name, so they are
+    // turned off explicitly rather than left bare.
+    it('disables autofill where no meaningful token exists', () => {
       const { container } = renderForm()
-      expect(autoCompleteOf(container, 'primary_relationship')).toBeNull()
-      expect(autoCompleteOf(container, 'primary_occupation')).toBeNull()
-      expect(autoCompleteOf(container, 'english_school_name')).toBeNull()
+      expect(autoCompleteOf(container, 'primary_relationship')).toBe('off')
+      expect(autoCompleteOf(container, 'primary_occupation')).toBe('off')
     })
   })
 
