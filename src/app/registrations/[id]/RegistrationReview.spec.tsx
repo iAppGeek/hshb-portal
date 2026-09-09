@@ -124,10 +124,21 @@ describe('RegistrationReview', () => {
     expect(screen.getAllByRole('tooltip').length).toBeGreaterThan(0)
   })
 
-  it('hides action buttons entirely for admin once a submission is actioned', () => {
+  it('hides Approve and Reject but shows Delete for admin once a submission is actioned', () => {
     renderReview({ status: 'actioned' }, 'admin')
     expect(screen.queryByText('Approve & save student')).toBeNull()
     expect(screen.queryByText('Reject')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy()
+  })
+
+  it('shows the actioned-specific confirm text when deleting an actioned submission', () => {
+    renderReview({ status: 'actioned' }, 'admin')
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    expect(
+      screen.getByText(
+        'Delete this registration record permanently? The student and guardian records created from it are not affected. This cannot be undone.',
+      ),
+    ).toBeTruthy()
   })
 
   it('opens the approve dialog', () => {

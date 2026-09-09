@@ -84,6 +84,49 @@ test.describe('Registration review', () => {
     expect(student?.primary_guardian_id).not.toBeNull()
   })
 
+  test('deletes an actioned submission from the review page', async ({
+    page,
+  }) => {
+    childLastName = `ReviewDeleteActioned${suffix}`
+    const { id } = await createRegistrationSubmission({
+      child_last_name: childLastName,
+      contact_last_name: `Parent${suffix}`,
+      contact_email: `e2e.${suffix}.deleteactioned@example.com`,
+    })
+
+    await page.goto(`/registrations/${id}`)
+    await page.getByRole('button', { name: 'Approve & save student' }).click()
+    await page.getByRole('button', { name: 'Approve' }).click()
+
+    await expect(page).toHaveURL(/\/students\/.+\/edit/)
+
+    const { data: submission } = await db
+      .from('registration_submissions')
+      .select('student_id')
+      .eq('id', id)
+      .single()
+    const studentId = submission!.student_id
+
+    await page.goto(`/registrations/${id}`)
+    await page.getByRole('button', { name: 'Delete' }).click()
+    await page.getByRole('button', { name: 'Confirm delete' }).click()
+
+    await expect(page).toHaveURL(/\/registrations\?status=rejected/)
+
+    const { data: deletedSubmission } = await db
+      .from('registration_submissions')
+      .select('id')
+      .eq('id', id)
+    expect(deletedSubmission).toEqual([])
+
+    const { data: student } = await db
+      .from('students')
+      .select('id')
+      .eq('id', studentId)
+      .single()
+    expect(student?.id).toBe(studentId)
+  })
+
   test('links to an existing inactive student on approval', async ({
     page,
   }) => {

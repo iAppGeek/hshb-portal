@@ -312,10 +312,11 @@ describe('deleteRegistrationAction', () => {
     consoleSpy.mockRestore()
   })
 
-  it('deletes, audits with the child name, and redirects', async () => {
+  it('deletes, audits with the child name and status, and redirects', async () => {
     vi.mocked(getRegistrationSubmissionById).mockResolvedValue({
       child_first_name: 'Seed',
       child_last_name: 'Pending',
+      status: 'actioned',
     } as never)
     vi.mocked(deleteRegistrationSubmission).mockResolvedValue(undefined)
 
@@ -327,7 +328,7 @@ describe('deleteRegistrationAction', () => {
     expect(logAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'registration_deleted',
-        details: { childName: 'Seed Pending' },
+        details: { childName: 'Seed Pending', status: 'actioned' },
       }),
     )
     expect(redirect).toHaveBeenCalledWith('/registrations?status=rejected')

@@ -86,7 +86,7 @@ describe('PhotoOptOutSection', () => {
     expect(screen.getByRole('tooltip')).toBeTruthy()
   })
 
-  it('hides action buttons for admin once actioned', () => {
+  it('hides Match & apply and Reject but shows Delete for admin once actioned', () => {
     render(
       <PhotoOptOutSection
         requests={[{ ...pendingRequest, status: 'actioned' }]}
@@ -96,6 +96,25 @@ describe('PhotoOptOutSection', () => {
       />,
     )
     expect(screen.queryByRole('button', { name: 'Match & apply' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Reject' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy()
+  })
+
+  it('shows the actioned-specific confirm text when deleting an actioned request', () => {
+    render(
+      <PhotoOptOutSection
+        requests={[{ ...pendingRequest, status: 'actioned' }]}
+        matchesByRequest={{}}
+        studentsForLinking={[]}
+        role="admin"
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    expect(
+      screen.getByText(
+        "Delete this opt-out request permanently? The student's consent flag is not affected. This cannot be undone.",
+      ),
+    ).toBeTruthy()
   })
 
   it('opens the apply dialog', () => {

@@ -129,6 +129,7 @@ export async function deletePhotoOptOutAction(
         childName: request
           ? `${request.child_first_name} ${request.child_last_name}`
           : undefined,
+        status: request?.status,
       },
     })
     revalidatePath('/registrations')

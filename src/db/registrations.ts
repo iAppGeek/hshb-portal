@@ -167,10 +167,8 @@ export async function deleteRegistrationSubmission(id: string): Promise<void> {
     .from('registration_submissions')
     .delete()
     .eq('id', id)
-    .neq('status', 'actioned')
     .select('id')
   if (error) throw error
-  if (!data?.length)
-    throw new Error('Submission not found or cannot be deleted once actioned')
+  if (!data?.length) throw new Error('Submission not found')
   revalidateTag('registrations', 'max')
 }

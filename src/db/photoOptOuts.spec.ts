@@ -209,13 +209,11 @@ describe('rejectPhotoOptOut', () => {
 })
 
 describe('deletePhotoOptOut', () => {
-  it('deletes a non-actioned request', async () => {
+  it('deletes a request regardless of status', async () => {
     mockFrom.mockReturnValue({
       delete: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          neq: vi.fn().mockReturnValue({
-            select: vi.fn().mockResolvedValue({ data: [{ id: 'req-1' }] }),
-          }),
+          select: vi.fn().mockResolvedValue({ data: [{ id: 'req-1' }] }),
         }),
       }),
     })
@@ -224,19 +222,17 @@ describe('deletePhotoOptOut', () => {
     expect(revalidateTag).toHaveBeenCalledWith('photo-opt-outs', 'max')
   })
 
-  it('throws when no row is deleted', async () => {
+  it('throws when no row is deleted (missing)', async () => {
     mockFrom.mockReturnValue({
       delete: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          neq: vi.fn().mockReturnValue({
-            select: vi.fn().mockResolvedValue({ data: [] }),
-          }),
+          select: vi.fn().mockResolvedValue({ data: [] }),
         }),
       }),
     })
 
     await expect(deletePhotoOptOut('req-1')).rejects.toThrow(
-      'cannot be deleted',
+      'Request not found',
     )
   })
 })

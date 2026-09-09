@@ -56,7 +56,7 @@ export default function RegistrationReview({
 
   const isAdmin = canApproveRegistrations(role)
   const canAct = isAdmin && submission.status === 'pending'
-  const canDelete = isAdmin && submission.status !== 'actioned'
+  const canDelete = isAdmin
 
   function handleDelete() {
     setError(null)
@@ -284,7 +284,9 @@ export default function RegistrationReview({
       {confirmDelete && (
         <div className="rounded-lg bg-red-50 p-4">
           <p className="mb-3 text-sm text-red-800">
-            Delete this registration permanently? This cannot be undone.
+            {submission.status === 'actioned'
+              ? 'Delete this registration record permanently? The student and guardian records created from it are not affected. This cannot be undone.'
+              : 'Delete this registration permanently? This cannot be undone.'}
           </p>
           <div className="flex gap-3">
             <button

@@ -141,6 +141,7 @@ export async function deleteRegistrationAction(
         childName: submission
           ? `${submission.child_first_name} ${submission.child_last_name}`
           : undefined,
+        status: submission?.status,
       },
     })
     revalidatePath('/registrations')

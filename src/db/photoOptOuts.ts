@@ -117,10 +117,8 @@ export async function deletePhotoOptOut(id: string): Promise<void> {
     .from('photo_consent_opt_outs')
     .delete()
     .eq('id', id)
-    .neq('status', 'actioned')
     .select('id')
   if (error) throw error
-  if (!data?.length)
-    throw new Error('Request not found or cannot be deleted once actioned')
+  if (!data?.length) throw new Error('Request not found')
   revalidateTag('photo-opt-outs', 'max')
 }

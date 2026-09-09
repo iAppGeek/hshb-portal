@@ -105,38 +105,42 @@ export default function PhotoOptOutSection({
                       </span>
                     </td>
                     <td className="px-4 py-4 text-right text-sm sm:px-6">
-                      {canAct ? (
+                      {canAct || isAdmin ? (
                         <div className="flex justify-end gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setApplyingId(r.id)}
-                            className="font-medium text-blue-600 hover:text-blue-800"
-                          >
-                            Match & apply
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setRejectingId(r.id)}
-                            className="font-medium text-gray-600 hover:text-gray-900"
-                          >
-                            Reject
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeletingId(r.id)}
-                            className="font-medium text-red-600 hover:text-red-800"
-                          >
-                            Delete
-                          </button>
+                          {canAct && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setApplyingId(r.id)}
+                                className="font-medium text-blue-600 hover:text-blue-800"
+                              >
+                                Match & apply
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setRejectingId(r.id)}
+                                className="font-medium text-gray-600 hover:text-gray-900"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => setDeletingId(r.id)}
+                              className="font-medium text-red-600 hover:text-red-800"
+                            >
+                              Delete
+                            </button>
+                          )}
                         </div>
                       ) : (
-                        !isAdmin && (
-                          <Tooltip text="Only admins can action opt-out requests">
-                            <span className="cursor-not-allowed text-sm text-gray-400">
-                              —
-                            </span>
-                          </Tooltip>
-                        )
+                        <Tooltip text="Only admins can action opt-out requests">
+                          <span className="cursor-not-allowed text-sm text-gray-400">
+                            —
+                          </span>
+                        </Tooltip>
                       )}
                     </td>
                   </tr>
@@ -151,7 +155,9 @@ export default function PhotoOptOutSection({
       {deletingId && (
         <div className="mt-3 rounded-lg bg-red-50 p-4">
           <p className="mb-3 text-sm text-red-800">
-            Delete this opt-out request permanently? This cannot be undone.
+            {requests.find((r) => r.id === deletingId)?.status === 'actioned'
+              ? "Delete this opt-out request permanently? The student's consent flag is not affected. This cannot be undone."
+              : 'Delete this opt-out request permanently? This cannot be undone.'}
           </p>
           <div className="flex gap-3">
             <button

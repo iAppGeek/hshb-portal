@@ -246,13 +246,11 @@ describe('rejectRegistration', () => {
 })
 
 describe('deleteRegistrationSubmission', () => {
-  it('deletes a non-actioned submission', async () => {
+  it('deletes a submission regardless of status', async () => {
     mockFrom.mockReturnValue({
       delete: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          neq: vi.fn().mockReturnValue({
-            select: vi.fn().mockResolvedValue({ data: [{ id: 'sub-1' }] }),
-          }),
+          select: vi.fn().mockResolvedValue({ data: [{ id: 'sub-1' }] }),
         }),
       }),
     })
@@ -261,19 +259,17 @@ describe('deleteRegistrationSubmission', () => {
     expect(revalidateTag).toHaveBeenCalledWith('registrations', 'max')
   })
 
-  it('throws when no row is deleted (actioned or missing)', async () => {
+  it('throws when no row is deleted (missing)', async () => {
     mockFrom.mockReturnValue({
       delete: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          neq: vi.fn().mockReturnValue({
-            select: vi.fn().mockResolvedValue({ data: [] }),
-          }),
+          select: vi.fn().mockResolvedValue({ data: [] }),
         }),
       }),
     })
 
     await expect(deleteRegistrationSubmission('sub-1')).rejects.toThrow(
-      'cannot be deleted',
+      'Submission not found',
     )
   })
 })

@@ -199,10 +199,11 @@ describe('deletePhotoOptOutAction', () => {
     expect(deletePhotoOptOut).not.toHaveBeenCalled()
   })
 
-  it('deletes, audits with the child name, and redirects', async () => {
+  it('deletes, audits with the child name and status, and redirects', async () => {
     vi.mocked(getPhotoOptOutById).mockResolvedValue({
       child_first_name: 'Alice',
       child_last_name: 'Student',
+      status: 'actioned',
     } as never)
     vi.mocked(deletePhotoOptOut).mockResolvedValue(undefined)
 
@@ -214,7 +215,7 @@ describe('deletePhotoOptOutAction', () => {
     expect(logAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'photo_opt_out_deleted',
-        details: { childName: 'Alice Student' },
+        details: { childName: 'Alice Student', status: 'actioned' },
       }),
     )
     expect(redirect).toHaveBeenCalledWith('/registrations')
