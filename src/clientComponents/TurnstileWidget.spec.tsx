@@ -2,10 +2,20 @@ import { useEffect } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'
 
-function MockScript({ onLoad }: { onLoad?: () => void }) {
+let mockScriptMode: 'load' | 'error' | 'pending' = 'load'
+
+function MockScript({
+  onLoad,
+  onError,
+}: {
+  onLoad?: () => void
+  onError?: () => void
+}) {
   useEffect(() => {
-    onLoad?.()
-  }, [onLoad])
+    if (mockScriptMode === 'load') onLoad?.()
+    else if (mockScriptMode === 'error') onError?.()
+    // 'pending': never settles, simulating a script that hangs.
+  }, [onLoad, onError])
   return null
 }
 
@@ -17,6 +27,7 @@ import TurnstileWidget from './TurnstileWidget'
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockScriptMode = 'load'
   delete (window as { turnstile?: unknown }).turnstile
 })
 
@@ -85,5 +96,78 @@ describe('TurnstileWidget', () => {
     expect(() =>
       render(<TurnstileWidget siteKey="test-site-key" onToken={vi.fn()} />),
     ).not.toThrow()
+  })
+
+  it('reports an error when window.turnstile is unavailable after script load', () => {
+    const onError = vi.fn()
+
+    render(
+      <TurnstileWidget
+        siteKey="test-site-key"
+        onToken={vi.fn()}
+        onError={onError}
+      />,
+    )
+
+    expect(onError).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports an error and clears the token when the widget errors', () => {
+    let capturedError: (() => void) | undefined
+    window.turnstile = {
+      render: (_el, options) => {
+        capturedError = options['error-callback']
+        return 'widget-1'
+      },
+    }
+    const onToken = vi.fn()
+    const onError = vi.fn()
+
+    render(
+      <TurnstileWidget
+        siteKey="test-site-key"
+        onToken={onToken}
+        onError={onError}
+      />,
+    )
+    capturedError?.()
+
+    expect(onToken).toHaveBeenCalledWith(null)
+    expect(onError).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports an error when the Turnstile script itself fails to load', () => {
+    mockScriptMode = 'error'
+    const onError = vi.fn()
+
+    render(
+      <TurnstileWidget
+        siteKey="test-site-key"
+        onToken={vi.fn()}
+        onError={onError}
+      />,
+    )
+
+    expect(onError).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports an error if the widget never renders within the load timeout', () => {
+    vi.useFakeTimers()
+    mockScriptMode = 'pending'
+    const onError = vi.fn()
+
+    render(
+      <TurnstileWidget
+        siteKey="test-site-key"
+        onToken={vi.fn()}
+        onError={onError}
+      />,
+    )
+    expect(onError).not.toHaveBeenCalled()
+
+    vi.advanceTimersByTime(8000)
+    expect(onError).toHaveBeenCalledTimes(1)
+
+    vi.useRealTimers()
   })
 })

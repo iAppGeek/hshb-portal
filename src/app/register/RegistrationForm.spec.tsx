@@ -11,10 +11,21 @@ vi.mock('./actions', () => ({
 }))
 
 vi.mock('@/clientComponents/TurnstileWidget', () => ({
-  default: ({ onToken }: { onToken: (token: string | null) => void }) => (
-    <button type="button" onClick={() => onToken('test-token')}>
-      Simulate Turnstile
-    </button>
+  default: ({
+    onToken,
+    onError,
+  }: {
+    onToken: (token: string | null) => void
+    onError?: () => void
+  }) => (
+    <>
+      <button type="button" onClick={() => onToken('test-token')}>
+        Simulate Turnstile
+      </button>
+      <button type="button" onClick={() => onError?.()}>
+        Simulate Turnstile Error
+      </button>
+    </>
   ),
 }))
 
@@ -74,6 +85,48 @@ describe('RegistrationForm', () => {
     expect(screen.queryByText('Parent/carer 2')).toBeNull()
   })
 
+  it('flags the secondary parent and emergency contacts as present so the server includes them', () => {
+    const { container } = renderForm()
+
+    const hasSecondary = () =>
+      (
+        container.querySelector(
+          'input[name="has_secondary"]',
+        ) as HTMLInputElement
+      ).value
+    const hasContact1 = () =>
+      (
+        container.querySelector(
+          'input[name="has_contact1"]',
+        ) as HTMLInputElement
+      ).value
+    const hasContact2 = () =>
+      (
+        container.querySelector(
+          'input[name="has_contact2"]',
+        ) as HTMLInputElement
+      ).value
+
+    expect(hasSecondary()).toBe('false')
+    expect(hasContact1()).toBe('false')
+    expect(hasContact2()).toBe('false')
+
+    fireEvent.click(
+      screen.getByRole('button', { name: '+ Add a second parent/carer' }),
+    )
+    expect(hasSecondary()).toBe('true')
+
+    fireEvent.click(
+      screen.getByRole('button', { name: '+ Add an emergency contact' }),
+    )
+    expect(hasContact1()).toBe('true')
+
+    fireEvent.click(
+      screen.getByRole('button', { name: '+ Add a second emergency contact' }),
+    )
+    expect(hasContact2()).toBe('true')
+  })
+
   it('reveals emergency contact 2 only after contact 1 is added', () => {
     renderForm()
 
@@ -112,6 +165,76 @@ describe('RegistrationForm', () => {
 
     fireEvent.click(screen.getByText('Simulate Turnstile'))
     expect(submit).not.toBeDisabled()
+  })
+
+  it('explains why the submit button is disabled before the security check completes', () => {
+    renderForm()
+
+    const submit = screen.getByRole('button', {
+      name: 'Submit registration',
+    })
+    expect(submit).toBeDisabled()
+    expect(submit.closest('span')).toHaveAttribute(
+      'title',
+      'Please complete the security check above before submitting.',
+    )
+    expect(
+      screen.getByText(
+        'Please complete the security check above before submitting.',
+      ),
+    ).toBeTruthy()
+  })
+
+  it('explains that the security check failed to load when Turnstile errors', () => {
+    renderForm()
+
+    fireEvent.click(screen.getByText('Simulate Turnstile Error'))
+
+    const submit = screen.getByRole('button', {
+      name: 'Submit registration',
+    })
+    expect(submit).toBeDisabled()
+    expect(
+      screen.getByText(
+        'The security check failed to load. Please refresh the page and try again.',
+      ),
+    ).toBeTruthy()
+  })
+
+  it('clears the disabled reason once a token is issued', () => {
+    renderForm()
+
+    fireEvent.click(screen.getByText('Simulate Turnstile'))
+
+    const submit = screen.getByRole('button', {
+      name: 'Submit registration',
+    })
+    expect(submit).not.toBeDisabled()
+    expect(submit.closest('span')).not.toHaveAttribute('title')
+  })
+
+  it('scrolls the newly revealed second parent/carer section into view', () => {
+    renderForm()
+    const scrollIntoViewMock = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoViewMock
+
+    fireEvent.click(
+      screen.getByRole('button', { name: '+ Add a second parent/carer' }),
+    )
+
+    expect(scrollIntoViewMock).toHaveBeenCalled()
+  })
+
+  it('scrolls the newly revealed emergency contact section into view', () => {
+    renderForm()
+    const scrollIntoViewMock = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoViewMock
+
+    fireEvent.click(
+      screen.getByRole('button', { name: '+ Add an emergency contact' }),
+    )
+
+    expect(scrollIntoViewMock).toHaveBeenCalled()
   })
 
   it('displays the error returned by the server action', async () => {

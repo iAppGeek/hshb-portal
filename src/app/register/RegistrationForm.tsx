@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 
 import TurnstileWidget from '@/clientComponents/TurnstileWidget'
 import { PRIVACY_NOTICE_URL, YEAR_GROUP_NOT_SURE } from '@/lib/registration'
@@ -27,8 +27,22 @@ export default function RegistrationForm({
   const [showContact1, setShowContact1] = useState(false)
   const [showContact2, setShowContact2] = useState(false)
   const [token, setToken] = useState<string | null>(null)
+  const [captchaError, setCaptchaError] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  function handleToken(newToken: string | null) {
+    setToken(newToken)
+    if (newToken) setCaptchaError(false)
+  }
+
+  const disabledReason = isPending
+    ? 'Submitting your registration…'
+    : captchaError
+      ? 'The security check failed to load. Please refresh the page and try again.'
+      : !token
+        ? 'Please complete the security check above before submitting.'
+        : null
 
   function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -149,6 +163,7 @@ export default function RegistrationForm({
         <FormSection
           title="Parent/carer 2"
           onRemove={() => setShowSecondary(false)}
+          scrollIntoViewOnMount
         >
           <ContactFields prefix="secondary" defaultSameAddress />
         </FormSection>
@@ -170,6 +185,7 @@ export default function RegistrationForm({
             setShowContact1(false)
             setShowContact2(false)
           }}
+          scrollIntoViewOnMount
         >
           <ContactFields prefix="contact1" defaultSameAddress />
         </FormSection>
@@ -188,6 +204,7 @@ export default function RegistrationForm({
           <FormSection
             title="Emergency contact 2"
             onRemove={() => setShowContact2(false)}
+            scrollIntoViewOnMount
           >
             <ContactFields prefix="contact2" defaultSameAddress />
           </FormSection>
@@ -260,21 +277,37 @@ export default function RegistrationForm({
         />
         {turnstileSiteKey && (
           <div className="mt-4">
-            <TurnstileWidget siteKey={turnstileSiteKey} onToken={setToken} />
+            <TurnstileWidget
+              siteKey={turnstileSiteKey}
+              onToken={handleToken}
+              onError={() => setCaptchaError(true)}
+            />
             <input type="hidden" name="turnstile_token" value={token ?? ''} />
           </div>
         )}
       </FormSection>
 
-      <div className="flex items-center gap-4">
-        <button
-          type="submit"
-          disabled={isPending || !token}
-          className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 disabled:pointer-events-none disabled:opacity-50"
-        >
-          {isPending ? 'Submitting…' : 'Submit registration'}
-        </button>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-4">
+          <span title={disabledReason ?? undefined}>
+            <button
+              type="submit"
+              disabled={isPending || !token}
+              aria-describedby={
+                disabledReason ? 'submit-disabled-reason' : undefined
+              }
+              className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 disabled:pointer-events-none disabled:opacity-50"
+            >
+              {isPending ? 'Submitting…' : 'Submit registration'}
+            </button>
+          </span>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+        </div>
+        {disabledReason && (
+          <p id="submit-disabled-reason" className="text-sm text-gray-500">
+            {disabledReason}
+          </p>
+        )}
       </div>
     </form>
   )
@@ -368,13 +401,28 @@ function FormSection({
   title,
   children,
   onRemove,
+  scrollIntoViewOnMount = false,
 }: {
   title: string
   children: React.ReactNode
   onRemove?: () => void
+  scrollIntoViewOnMount?: boolean
 }) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (scrollIntoViewOnMount)
+      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    // scrollIntoViewOnMount is constant for the lifetime of a given
+    // FormSection instance (it only mounts when its parent starts showing
+    // it), so this intentionally runs once on mount, not on every change.
+  }, [scrollIntoViewOnMount])
+
   return (
-    <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
+    <div
+      ref={ref}
+      className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200"
+    >
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
         {onRemove && (
