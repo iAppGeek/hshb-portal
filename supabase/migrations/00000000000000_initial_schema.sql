@@ -7,6 +7,16 @@
 -- growing a chain of individually-hand-maintained migrations, this dump is
 -- the new source of truth, taken *after* prod was reconciled to match local.
 --
+-- Re-dumped after hardening function privileges. Postgres grants EXECUTE on
+-- every new function to PUBLIC by default, and `anon` inherits it — so
+-- revoking from `anon` by name does nothing on its own. The `REVOKE ... FROM
+-- PUBLIC` statements below are what actually close it, and the schema default
+-- privileges no longer hand EXECUTE to PUBLIC/anon/authenticated, so functions
+-- added in future are closed on creation. `service_role` — the only role the
+-- app connects as (src/db/client.ts) — keeps EXECUTE throughout.
+-- `set_updated_at` is deliberately left open: it is a trigger function,
+-- PostgREST does not expose it, and triggers fire regardless of EXECUTE.
+--
 -- Prod's `supabase_migrations.schema_migrations` history table still lists
 -- the old (now-deleted) migration versions as applied. Before running any
 -- future `supabase db push`, reconcile it with `supabase migration repair`:
@@ -18,6 +28,8 @@
 -- captured by a schema-scoped dump — it was not defined in any prior
 -- migration file either. Left as-is; investigate separately if you want it
 -- tracked in migrations too.
+
+
 
 
 
@@ -1251,50 +1263,42 @@ GRANT USAGE ON SCHEMA "public" TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."apply_photo_opt_out"("p_request_id" "uuid", "p_staff_id" "uuid", "p_student_id" "uuid") TO "anon";
-GRANT ALL ON FUNCTION "public"."apply_photo_opt_out"("p_request_id" "uuid", "p_staff_id" "uuid", "p_student_id" "uuid") TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."apply_photo_opt_out"("p_request_id" "uuid", "p_staff_id" "uuid", "p_student_id" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."apply_photo_opt_out"("p_request_id" "uuid", "p_staff_id" "uuid", "p_student_id" "uuid") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."approve_registration"("p_submission_id" "uuid", "p_staff_id" "uuid", "p_student_code" "text", "p_class_id" "uuid", "p_existing_student_id" "uuid", "p_reuse_guardians" boolean) TO "anon";
-GRANT ALL ON FUNCTION "public"."approve_registration"("p_submission_id" "uuid", "p_staff_id" "uuid", "p_student_code" "text", "p_class_id" "uuid", "p_existing_student_id" "uuid", "p_reuse_guardians" boolean) TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."approve_registration"("p_submission_id" "uuid", "p_staff_id" "uuid", "p_student_code" "text", "p_class_id" "uuid", "p_existing_student_id" "uuid", "p_reuse_guardians" boolean) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."approve_registration"("p_submission_id" "uuid", "p_staff_id" "uuid", "p_student_code" "text", "p_class_id" "uuid", "p_existing_student_id" "uuid", "p_reuse_guardians" boolean) TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."create_registration_submission"("p_submission" "jsonb", "p_contacts" "jsonb") TO "anon";
-GRANT ALL ON FUNCTION "public"."create_registration_submission"("p_submission" "jsonb", "p_contacts" "jsonb") TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."create_registration_submission"("p_submission" "jsonb", "p_contacts" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."create_registration_submission"("p_submission" "jsonb", "p_contacts" "jsonb") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."find_guardian_matches"("p_email" "text", "p_phone" "text", "p_last_name" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."find_guardian_matches"("p_email" "text", "p_phone" "text", "p_last_name" "text") TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."find_guardian_matches"("p_email" "text", "p_phone" "text", "p_last_name" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."find_guardian_matches"("p_email" "text", "p_phone" "text", "p_last_name" "text") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."find_student_matches"("p_first_name" "text", "p_last_name" "text", "p_date_of_birth" "date") TO "anon";
-GRANT ALL ON FUNCTION "public"."find_student_matches"("p_first_name" "text", "p_last_name" "text", "p_date_of_birth" "date") TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."find_student_matches"("p_first_name" "text", "p_last_name" "text", "p_date_of_birth" "date") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."find_student_matches"("p_first_name" "text", "p_last_name" "text", "p_date_of_birth" "date") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_attendance_summary"("p_date" "date") TO "anon";
-GRANT ALL ON FUNCTION "public"."get_attendance_summary"("p_date" "date") TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."get_attendance_summary"("p_date" "date") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."get_attendance_summary"("p_date" "date") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."migrate_class"("p_source_class_id" "uuid", "p_name" "text", "p_year_group" "text", "p_room_number" "text", "p_academic_year" "text", "p_teacher_id" "uuid") TO "anon";
-GRANT ALL ON FUNCTION "public"."migrate_class"("p_source_class_id" "uuid", "p_name" "text", "p_year_group" "text", "p_room_number" "text", "p_academic_year" "text", "p_teacher_id" "uuid") TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."migrate_class"("p_source_class_id" "uuid", "p_name" "text", "p_year_group" "text", "p_room_number" "text", "p_academic_year" "text", "p_teacher_id" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."migrate_class"("p_source_class_id" "uuid", "p_name" "text", "p_year_group" "text", "p_room_number" "text", "p_academic_year" "text", "p_teacher_id" "uuid") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."rls_auto_enable"() TO "anon";
-GRANT ALL ON FUNCTION "public"."rls_auto_enable"() TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."rls_auto_enable"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rls_auto_enable"() TO "service_role";
 
 
@@ -1406,8 +1410,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQ
 
 
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "postgres";
-ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "anon";
-ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "service_role";
 
 
@@ -1420,14 +1422,41 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "service_role";
 
+
+
+
+
+
+
+
 -- pg_dump sets search_path to '' above for restore safety; reset it so later
 -- statements in this session (e.g. supabase db reset's seed.sql, which uses
 -- unqualified table names) resolve against public again.
 RESET search_path;
 
 
+-- ─── Function privilege hardening (declared, not merely omitted) ──────────────
+--
+-- Prod has these revokes applied. They must be restated here, not just left
+-- out of the GRANT list above, because a fresh database is NOT a blank slate:
+-- the Supabase base image installs schema default privileges that grant
+-- EXECUTE on every new function to anon/authenticated, and those run before
+-- this migration. Omitting a GRANT does not undo them — only an explicit
+-- REVOKE does. Without this block `supabase db reset` produces a local/E2E
+-- database more permissive than prod.
+--
+-- `service_role` (the only role src/db/client.ts connects as) keeps EXECUTE.
+-- `set_updated_at` is intentionally excluded: trigger function, not exposed by
+-- PostgREST, and triggers fire regardless of EXECUTE.
 
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
 
-
-
-
+REVOKE ALL ON FUNCTION public.approve_registration(uuid, uuid, text, uuid, uuid, boolean) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.apply_photo_opt_out(uuid, uuid, uuid)                       FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.create_registration_submission(jsonb, jsonb)                FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.find_student_matches(text, text, date)                      FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.find_guardian_matches(text, text, text)                     FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.migrate_class(uuid, text, text, text, text, uuid)           FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.get_attendance_summary(date)                                FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.rls_auto_enable()                                           FROM PUBLIC, anon, authenticated;
