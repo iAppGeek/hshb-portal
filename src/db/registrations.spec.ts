@@ -163,8 +163,22 @@ describe('getRegistrationSubmissionById', () => {
 })
 
 describe('approveRegistration', () => {
-  it('passes rpc args through and revalidates', async () => {
-    mockRpc.mockResolvedValue({ data: 'student-1', error: null })
+  it('passes rpc args through, revalidates, and returns the change record unchanged', async () => {
+    const rpcResult = {
+      student_id: 'student-1',
+      linked_existing: false,
+      guardians: [
+        {
+          contact_role: 'primary',
+          guardian_id: 'guardian-1',
+          reused: true,
+          matched_on: 'phone',
+          changes: { phone: { old: '07700 900333', new: '07700 900000' } },
+        },
+      ],
+      student_changes: {},
+    }
+    mockRpc.mockResolvedValue({ data: rpcResult, error: null })
 
     const result = await approveRegistration({
       submissionId: 'sub-1',
@@ -175,7 +189,7 @@ describe('approveRegistration', () => {
       reuseGuardians: true,
     })
 
-    expect(result).toBe('student-1')
+    expect(result).toEqual(rpcResult)
     expect(mockRpc).toHaveBeenCalledWith('approve_registration', {
       p_submission_id: 'sub-1',
       p_staff_id: 'staff-1',

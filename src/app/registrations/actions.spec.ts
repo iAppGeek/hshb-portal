@@ -121,7 +121,12 @@ describe('approveRegistrationAction', () => {
   })
 
   it('approves as a new student, audits, and redirects to the student edit page', async () => {
-    vi.mocked(approveRegistration).mockResolvedValue(STUDENT_ID)
+    vi.mocked(approveRegistration).mockResolvedValue({
+      student_id: STUDENT_ID,
+      linked_existing: false,
+      guardians: [],
+      student_changes: {},
+    })
 
     await expect(
       approveRegistrationAction(SUBMISSION_ID, makeFormData(validFields)),
@@ -154,8 +159,13 @@ describe('approveRegistrationAction', () => {
   })
 
   it('approves as linking to an existing student', async () => {
-    vi.mocked(approveRegistration).mockResolvedValue(STUDENT_ID)
     const existingId = '00000000-0000-4000-8000-000000000099'
+    vi.mocked(approveRegistration).mockResolvedValue({
+      student_id: STUDENT_ID,
+      linked_existing: true,
+      guardians: [],
+      student_changes: {},
+    })
 
     await expect(
       approveRegistrationAction(
@@ -190,7 +200,12 @@ describe('approveRegistrationAction', () => {
   })
 
   it('forwards reuseGuardians: false when the checkbox is unticked', async () => {
-    vi.mocked(approveRegistration).mockResolvedValue(STUDENT_ID)
+    vi.mocked(approveRegistration).mockResolvedValue({
+      student_id: STUDENT_ID,
+      linked_existing: false,
+      guardians: [],
+      student_changes: {},
+    })
     const { reuse_guardians: _reuseGuardians, ...withoutReuse } = validFields
 
     await expect(

@@ -891,7 +891,7 @@ export type Database = {
           p_student_code?: string
           p_submission_id: string
         }
-        Returns: string
+        Returns: Json
       }
       create_registration_submission: {
         Args: { p_contacts: Json; p_submission: Json }

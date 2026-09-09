@@ -505,7 +505,7 @@ CREATE OR REPLACE FUNCTION approve_registration(
   p_class_id            UUID DEFAULT NULL,
   p_existing_student_id UUID DEFAULT NULL,    -- NULL = create; set = link/update returning child
   p_reuse_guardians     BOOLEAN DEFAULT TRUE
-) RETURNS UUID AS $$
+) RETURNS JSON AS $$
 DECLARE
   v_sub        registration_submissions%ROWTYPE;
   v_con        registration_submission_contacts%ROWTYPE;
@@ -514,6 +514,12 @@ DECLARE
   v_reused     BOOLEAN;
   v_primary UUID; v_secondary UUID; v_add1 UUID; v_add2 UUID;
   v_rel_primary TEXT; v_rel_secondary TEXT; v_rel_add1 TEXT; v_rel_add2 TEXT;
+  v_old_g      guardians%ROWTYPE;
+  v_old_s      students%ROWTYPE;
+  v_matched_on TEXT;
+  v_gchanges   JSONB;
+  v_guardians  JSONB := '[]'::JSONB;
+  v_schanges   JSONB := '{}'::JSONB;
 BEGIN
   SELECT * INTO v_sub FROM registration_submissions
     WHERE id = p_submission_id AND status = 'pending' FOR UPDATE;
@@ -527,15 +533,17 @@ BEGIN
   FOR v_con IN
     SELECT * FROM registration_submission_contacts WHERE submission_id = p_submission_id
   LOOP
-    v_gid := NULL;
+    v_gid := NULL; v_matched_on := NULL;
     IF p_reuse_guardians AND v_con.email IS NOT NULL THEN
       SELECT id INTO v_gid FROM guardians WHERE LOWER(email) = LOWER(v_con.email) LIMIT 1;
+      IF v_gid IS NOT NULL THEN v_matched_on := 'email'; END IF;
     END IF;
     IF p_reuse_guardians AND v_gid IS NULL THEN
       SELECT id INTO v_gid FROM guardians
        WHERE regexp_replace(phone, '\D', '', 'g') = regexp_replace(v_con.phone, '\D', '', 'g')
          AND LOWER(last_name) = LOWER(v_con.last_name)
        LIMIT 1;
+      IF v_gid IS NOT NULL THEN v_matched_on := 'phone'; END IF;
     END IF;
 
     v_reused := (v_gid IS NOT NULL);
@@ -551,9 +559,12 @@ BEGIN
       RETURNING id INTO v_gid;
     END IF;
 
+    v_gchanges := '{}'::JSONB;
     IF v_reused AND p_reuse_guardians THEN
       -- Reused guardian: the parent's latest submission is the newest statement
       -- of their contact details, so refresh phone and address.
+      SELECT * INTO v_old_g FROM guardians WHERE id = v_gid FOR UPDATE;
+
       UPDATE guardians SET
         phone          = v_con.phone,
         email          = COALESCE(v_con.email, email),
@@ -562,7 +573,27 @@ BEGIN
         city           = CASE WHEN v_con.same_as_child_address THEN v_sub.city           ELSE COALESCE(v_con.city, city)           END,
         postcode       = CASE WHEN v_con.same_as_child_address THEN v_sub.postcode       ELSE COALESCE(v_con.postcode, postcode)   END
       WHERE id = v_gid;
+
+      SELECT COALESCE(jsonb_object_agg(k, jsonb_build_object('old', o, 'new', n)), '{}'::JSONB)
+        INTO v_gchanges
+      FROM (
+        SELECT t.k, t.o, t.n FROM guardians g,
+          UNNEST(
+            ARRAY['phone','email','address_line_1','address_line_2','city','postcode'],
+            ARRAY[v_old_g.phone, v_old_g.email, v_old_g.address_line_1, v_old_g.address_line_2, v_old_g.city, v_old_g.postcode],
+            ARRAY[g.phone, g.email, g.address_line_1, g.address_line_2, g.city, g.postcode]
+          ) AS t(k, o, n)
+        WHERE g.id = v_gid AND t.o IS DISTINCT FROM t.n
+      ) AS d;
     END IF;
+
+    v_guardians := v_guardians || jsonb_build_object(
+      'contact_role', v_con.contact_role,
+      'guardian_id',  v_gid,
+      'reused',       v_reused,
+      'matched_on',   v_matched_on,
+      'changes',      v_gchanges
+    );
 
     CASE v_con.contact_role
       WHEN 'primary'      THEN v_primary   := v_gid; v_rel_primary   := v_con.relationship;
@@ -599,6 +630,11 @@ BEGIN
   ELSE
     -- Returning child: the submission is the source of truth for names, DOB,
     -- address, medical info, consents and contacts. Reactivate the student.
+    SELECT * INTO v_old_s FROM students WHERE id = p_existing_student_id FOR UPDATE;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Existing student not found';
+    END IF;
+
     UPDATE students SET
       student_code  = COALESCE(p_student_code, student_code),
       first_name    = v_sub.child_first_name,
@@ -619,9 +655,30 @@ BEGIN
       active = TRUE
     WHERE id = p_existing_student_id
     RETURNING id INTO v_student_id;
-    IF v_student_id IS NULL THEN
-      RAISE EXCEPTION 'Existing student not found';
-    END IF;
+
+    SELECT COALESCE(jsonb_object_agg(k, jsonb_build_object('old', o, 'new', n)), '{}'::JSONB)
+      INTO v_schanges
+    FROM (
+      SELECT t.k, t.o, t.n FROM students s,
+        UNNEST(
+          ARRAY['first_name','last_name','date_of_birth','address_line_1','address_line_2','city','postcode',
+                'allergies','medical_details','student_code',
+                'primary_guardian_id','secondary_guardian_id','additional_contact_1_id','additional_contact_2_id',
+                'consent_privacy_notice','consent_emergency_first_aid','consent_photo_media','consent_home_school','consent_comms_email_sms',
+                'active'],
+          ARRAY[v_old_s.first_name, v_old_s.last_name, v_old_s.date_of_birth::TEXT, v_old_s.address_line_1, v_old_s.address_line_2, v_old_s.city, v_old_s.postcode,
+                v_old_s.allergies, v_old_s.medical_details, v_old_s.student_code,
+                v_old_s.primary_guardian_id::TEXT, v_old_s.secondary_guardian_id::TEXT, v_old_s.additional_contact_1_id::TEXT, v_old_s.additional_contact_2_id::TEXT,
+                v_old_s.consent_privacy_notice::TEXT, v_old_s.consent_emergency_first_aid::TEXT, v_old_s.consent_photo_media::TEXT, v_old_s.consent_home_school::TEXT, v_old_s.consent_comms_email_sms::TEXT,
+                v_old_s.active::TEXT],
+          ARRAY[s.first_name, s.last_name, s.date_of_birth::TEXT, s.address_line_1, s.address_line_2, s.city, s.postcode,
+                s.allergies, s.medical_details, s.student_code,
+                s.primary_guardian_id::TEXT, s.secondary_guardian_id::TEXT, s.additional_contact_1_id::TEXT, s.additional_contact_2_id::TEXT,
+                s.consent_privacy_notice::TEXT, s.consent_emergency_first_aid::TEXT, s.consent_photo_media::TEXT, s.consent_home_school::TEXT, s.consent_comms_email_sms::TEXT,
+                s.active::TEXT]
+        ) AS t(k, o, n)
+      WHERE s.id = v_student_id AND t.o IS DISTINCT FROM t.n
+    ) AS d;
   END IF;
 
   IF p_class_id IS NOT NULL THEN
@@ -638,7 +695,12 @@ BEGIN
     linked_existing = (p_existing_student_id IS NOT NULL)
   WHERE id = p_submission_id;
 
-  RETURN v_student_id;
+  RETURN json_build_object(
+    'student_id',      v_student_id,
+    'linked_existing', (p_existing_student_id IS NOT NULL),
+    'guardians',       v_guardians,
+    'student_changes', v_schanges
+  );
 
 EXCEPTION
   WHEN unique_violation THEN

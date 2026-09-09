@@ -112,6 +112,21 @@ type ApproveRegistrationInput = {
   reuseGuardians: boolean
 }
 
+export type GuardianChange = {
+  contact_role: ContactRole
+  guardian_id: string
+  reused: boolean
+  matched_on: 'email' | 'phone' | null
+  changes: Record<string, { old: string | null; new: string | null }>
+}
+
+export type ApproveRegistrationResult = {
+  student_id: string
+  linked_existing: boolean
+  guardians: GuardianChange[]
+  student_changes: Record<string, { old: string | null; new: string | null }>
+}
+
 export async function approveRegistration({
   submissionId,
   staffId,
@@ -119,7 +134,7 @@ export async function approveRegistration({
   classId,
   existingStudentId,
   reuseGuardians,
-}: ApproveRegistrationInput): Promise<string> {
+}: ApproveRegistrationInput): Promise<ApproveRegistrationResult> {
   const { data, error } = await supabase.rpc('approve_registration', {
     p_submission_id: submissionId,
     p_staff_id: staffId,
@@ -132,7 +147,7 @@ export async function approveRegistration({
   revalidateTag('registrations', 'max')
   revalidateTag('students', 'max')
   revalidateTag('classes', 'max')
-  return data as string
+  return data as ApproveRegistrationResult
 }
 
 type RejectRegistrationInput = {

@@ -10,6 +10,7 @@ import {
   deleteRegistrationSubmission,
   getRegistrationSubmissionById,
   logAuditEvent,
+  type ApproveRegistrationResult,
 } from '@/db'
 import { getUserFriendlyDbError } from '@/lib/db-error'
 import { canApproveRegistrations } from '@/lib/permissions'
@@ -37,9 +38,9 @@ export async function approveRegistrationAction(
   )
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
-  let studentId: string
+  let result: ApproveRegistrationResult
   try {
-    studentId = await approveRegistration({
+    result = await approveRegistration({
       submissionId: id,
       staffId,
       studentCode: parsed.data.student_code,
@@ -54,8 +55,8 @@ export async function approveRegistrationAction(
       entity: 'registration_submission',
       entityId: id,
       details: {
-        studentId,
-        linkedExisting: parsed.data.existing_student_id !== null,
+        studentId: result.student_id,
+        linkedExisting: result.linked_existing,
         classId: parsed.data.class_id,
         reuseGuardians: parsed.data.reuse_guardians,
       },
@@ -73,7 +74,7 @@ export async function approveRegistrationAction(
     }
   }
 
-  redirect(`/students/${studentId}/edit`)
+  redirect(`/students/${result.student_id}/edit`)
 }
 
 export async function rejectRegistrationAction(

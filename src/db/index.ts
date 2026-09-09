@@ -40,6 +40,8 @@ export type {
   ContactRole,
   RegistrationSummary,
   RegistrationFull,
+  GuardianChange,
+  ApproveRegistrationResult,
 } from './registrations'
 export {
   createPhotoOptOut,
