@@ -17,6 +17,7 @@ const baseMatch: GuardianMatch = {
   address_line_2: null,
   city: 'Oldtown',
   postcode: 'OL1 1AA',
+  occupation: 'Teacher',
   matched_on: 'email',
 }
 
@@ -29,6 +30,7 @@ const baseContact: Contact = {
   relationship: 'Mother',
   phone: '07700 900333',
   email: 'petra@example.com',
+  occupation: 'Teacher',
   same_as_child_address: false,
   address_line_1: 'Old Address',
   address_line_2: null,
@@ -45,6 +47,30 @@ const baseSubmission = {
 }
 
 describe('guardianReuseDiff', () => {
+  it('reports an occupation change when the contact supplies a new one', () => {
+    const diff = guardianReuseDiff(
+      baseMatch,
+      { ...baseContact, occupation: 'Nurse' },
+      baseSubmission,
+    )
+    expect(diff).toContainEqual({
+      field: 'occupation',
+      old: 'Teacher',
+      new: 'Nurse',
+    })
+  })
+
+  // Mirrors COALESCE(v_con.occupation, occupation) in approve_registration: a
+  // blank submission must never wipe an occupation already on record.
+  it('keeps the existing occupation when the contact left it blank', () => {
+    const diff = guardianReuseDiff(
+      baseMatch,
+      { ...baseContact, occupation: null },
+      baseSubmission,
+    )
+    expect(diff.some((d) => d.field === 'occupation')).toBe(false)
+  })
+
   it('returns no changes when values match', () => {
     expect(guardianReuseDiff(baseMatch, baseContact, baseSubmission)).toEqual(
       [],

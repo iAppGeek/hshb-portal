@@ -42,6 +42,7 @@ test.describe('Add student', () => {
       .locator('input[name="primary_email"]')
       .fill('e2e@test.hshb.local')
     await page.locator('input[name="primary_relationship"]').fill('Mother')
+    await page.locator('input[name="primary_occupation"]').fill('Pharmacist')
     await page
       .locator('input[name="primary_address_line_1"]')
       .fill('1 Test Street')
@@ -62,5 +63,12 @@ test.describe('Add student', () => {
 
     expect(student?.address_guardian_id).not.toBeNull()
     expect(student?.address_line_1).toBeNull()
+
+    const { data: guardian } = await db
+      .from('guardians')
+      .select('occupation')
+      .eq('id', student?.address_guardian_id ?? '')
+      .single()
+    expect(guardian?.occupation).toBe('Pharmacist')
   })
 })

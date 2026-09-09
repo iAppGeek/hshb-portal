@@ -180,6 +180,7 @@ describe('updateStudentAction', () => {
       primary_last_name: 'Doe',
       primary_phone: '07700 900000',
       primary_email: 'jane@example.com',
+      primary_occupation: 'Teacher',
     }
 
     await expect(
@@ -190,6 +191,7 @@ describe('updateStudentAction', () => {
       expect.objectContaining({
         first_name: 'Jane',
         last_name: 'Doe',
+        occupation: 'Teacher',
       }),
     )
     expect(updateStudent).toHaveBeenCalledWith(

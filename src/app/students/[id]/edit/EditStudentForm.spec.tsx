@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 
 vi.mock('next/link', () => ({
   default: ({
@@ -93,6 +93,28 @@ describe('EditStudentForm', () => {
       />,
     )
     expect(screen.queryByRole('link', { name: 'Edit guardian' })).toBeNull()
+  })
+
+  // A pre-selected guardian renders in "existing" mode, which collects no
+  // details, so this exercises the "new guardian" branch.
+  it('requires an occupation for guardians but not additional contacts', () => {
+    const { container } = render(
+      <EditStudentForm
+        student={{ ...baseStudent, primary_guardian_id: null }}
+        guardians={guardians}
+      />,
+    )
+    fireEvent.click(screen.getByText('+ Add secondary guardian'))
+    fireEvent.click(screen.getByText('+ Add additional contact'))
+
+    const occupation = (prefix: string) =>
+      container.querySelector(
+        `input[name="${prefix}_occupation"]`,
+      ) as HTMLInputElement
+
+    expect(occupation('primary').required).toBe(true)
+    expect(occupation('secondary').required).toBe(true)
+    expect(occupation('contact1').required).toBe(false)
   })
 
   it('shows Save changes and Cancel buttons', () => {

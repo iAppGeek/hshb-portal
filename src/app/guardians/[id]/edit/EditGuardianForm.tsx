@@ -60,6 +60,11 @@ export default function EditGuardianForm({ guardian, linkedStudents }: Props) {
               type="email"
               defaultValue={guardian.email ?? undefined}
             />
+            <Field
+              label="Occupation"
+              name="occupation"
+              defaultValue={guardian.occupation ?? undefined}
+            />
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">

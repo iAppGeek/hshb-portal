@@ -154,6 +154,7 @@ export default function RegistrationForm({
         <ContactFields
           prefix="primary"
           requireEmail={false}
+          requireOccupation
           defaultSameAddress
         />
       </FormSection>
@@ -165,7 +166,11 @@ export default function RegistrationForm({
           onRemove={() => setShowSecondary(false)}
           scrollIntoViewOnMount
         >
-          <ContactFields prefix="secondary" defaultSameAddress />
+          <ContactFields
+            prefix="secondary"
+            requireOccupation
+            defaultSameAddress
+          />
         </FormSection>
       ) : (
         <button
@@ -316,10 +321,12 @@ export default function RegistrationForm({
 function ContactFields({
   prefix,
   requireEmail = false,
+  requireOccupation = false,
   defaultSameAddress = false,
 }: {
   prefix: string
   requireEmail?: boolean
+  requireOccupation?: boolean
   defaultSameAddress?: boolean
 }) {
   const [sameAddress, setSameAddress] = useState(defaultSameAddress)
@@ -342,6 +349,12 @@ function ContactFields({
         <Field
           label="Relationship to child"
           name={`${prefix}_relationship`}
+          maxLength={SHORT_TEXT_MAX}
+        />
+        <Field
+          label="Occupation"
+          name={`${prefix}_occupation`}
+          required={requireOccupation}
           maxLength={SHORT_TEXT_MAX}
         />
         <Field

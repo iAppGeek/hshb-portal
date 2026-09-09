@@ -8,11 +8,11 @@ const STUDENT_SELECT = `
   *,
   student_classes(class:classes(id, name, year_group, academic_year)),
   primary_guardian:guardians!students_primary_guardian_id_fkey(
-    first_name, last_name, phone, email,
+    first_name, last_name, phone, email, occupation,
     address_line_1, address_line_2, city, postcode, notes
   ),
   secondary_guardian:guardians!students_secondary_guardian_id_fkey(
-    first_name, last_name, phone, email,
+    first_name, last_name, phone, email, occupation,
     address_line_1, address_line_2, city, postcode, notes
   ),
   additional_contact_1:guardians!students_additional_contact_1_id_fkey(
@@ -30,11 +30,11 @@ const STUDENT_SELECT_WITH_TEACHER = `
   *,
   student_classes(class:classes(id, name, year_group, teacher_id)),
   primary_guardian:guardians!students_primary_guardian_id_fkey(
-    first_name, last_name, phone, email,
+    first_name, last_name, phone, email, occupation,
     address_line_1, address_line_2, city, postcode, notes
   ),
   secondary_guardian:guardians!students_secondary_guardian_id_fkey(
-    first_name, last_name, phone, email,
+    first_name, last_name, phone, email, occupation,
     address_line_1, address_line_2, city, postcode, notes
   ),
   additional_contact_1:guardians!students_additional_contact_1_id_fkey(

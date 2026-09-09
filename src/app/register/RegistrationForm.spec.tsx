@@ -73,6 +73,32 @@ describe('RegistrationForm', () => {
     expect(input.maxLength).toBe(SHORT_TEXT_MAX)
   })
 
+  // Occupation is asked of every contact but only required of parents/carers.
+  it('requires an occupation for parents/carers but not emergency contacts', () => {
+    const { container } = renderForm()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: '+ Add a second parent/carer' }),
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: '+ Add an emergency contact' }),
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: '+ Add a second emergency contact' }),
+    )
+
+    const occupation = (prefix: string) =>
+      container.querySelector(
+        `input[name="${prefix}_occupation"]`,
+      ) as HTMLInputElement
+
+    expect(occupation('primary').required).toBe(true)
+    expect(occupation('secondary').required).toBe(true)
+    expect(occupation('contact1').required).toBe(false)
+    expect(occupation('contact2').required).toBe(false)
+    expect(occupation('primary').maxLength).toBe(SHORT_TEXT_MAX)
+  })
+
   it('reveals and removes the optional secondary parent/carer section', () => {
     renderForm()
 

@@ -17,6 +17,7 @@ import { canEditStudents } from '@/lib/permissions'
 import {
   updateStudentSchema,
   guardianSchema,
+  guardianSchemaWithOccupation,
   extractFormFields,
   extractGuardianFields,
   type ActionResult,
@@ -34,6 +35,7 @@ async function resolveGuardian(
     last_name: data.last_name,
     phone: data.phone,
     email: data.email ?? undefined,
+    occupation: data.occupation ?? undefined,
     address_line_1: data.address_line_1 ?? undefined,
     address_line_2: data.address_line_2 ?? undefined,
     city: data.city ?? undefined,
@@ -57,7 +59,7 @@ export async function updateStudentAction(
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
   const primaryRaw = extractGuardianFields(formData, 'primary')
-  const primaryParsed = guardianSchema.safeParse(primaryRaw)
+  const primaryParsed = guardianSchemaWithOccupation.safeParse(primaryRaw)
   if (!primaryParsed.success)
     return { error: primaryParsed.error.issues[0].message }
 
@@ -67,7 +69,8 @@ export async function updateStudentAction(
     let secondaryGuardianId: string | null = null
     if (parsed.data.has_secondary) {
       const secondaryRaw = extractGuardianFields(formData, 'secondary')
-      const secondaryParsed = guardianSchema.safeParse(secondaryRaw)
+      const secondaryParsed =
+        guardianSchemaWithOccupation.safeParse(secondaryRaw)
       if (!secondaryParsed.success)
         return { error: secondaryParsed.error.issues[0].message }
       secondaryGuardianId = await resolveGuardian(secondaryParsed.data)

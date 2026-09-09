@@ -24,6 +24,7 @@ export function guardianReuseDiff(
   const next = {
     phone: contact.phone,
     email: contact.email ?? match.email,
+    occupation: contact.occupation ?? match.occupation,
     address_line_1: same
       ? submission.address_line_1
       : (contact.address_line_1 ?? match.address_line_1),

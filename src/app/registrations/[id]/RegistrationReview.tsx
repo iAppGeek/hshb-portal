@@ -44,6 +44,7 @@ const CONTACT_ORDER: ContactRole[] = [
 const GUARDIAN_FIELD_LABELS: Record<string, string> = {
   phone: 'Phone',
   email: 'Email',
+  occupation: 'Occupation',
   address_line_1: 'Address line 1',
   address_line_2: 'Address line 2',
   city: 'City',
@@ -135,6 +136,7 @@ export default function RegistrationReview({
             <Field label="Relationship" value={contact.relationship ?? '—'} />
             <Field label="Phone" value={contact.phone} />
             <Field label="Email" value={contact.email ?? '—'} />
+            <Field label="Occupation" value={contact.occupation ?? '—'} />
             <Field
               label="Address"
               value={
@@ -164,7 +166,7 @@ export default function RegistrationReview({
                   ({m.phone}
                   {m.email ? `, ${m.email}` : ''}) by {m.matched_on}. Approving
                   with &quot;reuse&quot; on will link the student to that record
-                  and update its phone and address.
+                  and update its phone, occupation and address.
                   {diff.length === 0 ? (
                     <p className="mt-2 text-xs text-amber-700">
                       No contact details will change.

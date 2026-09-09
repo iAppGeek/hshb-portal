@@ -9,6 +9,7 @@ import { getClientIp } from '@/lib/request-ip'
 import {
   registrationSubmissionSchema,
   registrationContactSchema,
+  registrationParentContactSchema,
   extractFormFields,
   extractRegistrationContact,
   type ActionResult,
@@ -43,16 +44,18 @@ export async function submitRegistrationAction(
   const contacts: (z.infer<typeof registrationContactSchema> & {
     contact_role: 'primary' | 'secondary' | 'additional_1' | 'additional_2'
   })[] = []
-  for (const [prefix, role, present] of [
-    ['primary', 'primary', true],
-    ['secondary', 'secondary', parsed.data.has_secondary],
-    ['contact1', 'additional_1', parsed.data.has_contact1],
-    ['contact2', 'additional_2', parsed.data.has_contact2],
+  // Occupation is required of parents/carers but not of emergency contacts.
+  for (const [prefix, role, present, isParent] of [
+    ['primary', 'primary', true, true],
+    ['secondary', 'secondary', parsed.data.has_secondary, true],
+    ['contact1', 'additional_1', parsed.data.has_contact1, false],
+    ['contact2', 'additional_2', parsed.data.has_contact2, false],
   ] as const) {
     if (!present) continue
-    const c = registrationContactSchema.safeParse(
-      extractRegistrationContact(formData, prefix),
-    )
+    const schema = isParent
+      ? registrationParentContactSchema
+      : registrationContactSchema
+    const c = schema.safeParse(extractRegistrationContact(formData, prefix))
     if (!c.success) return { error: c.error.issues[0].message }
     contacts.push({ contact_role: role, ...c.data })
   }

@@ -76,6 +76,7 @@ export async function createRegistrationSubmission(
     date_of_birth?: string
     contact_last_name?: string
     contact_email?: string
+    contact_occupation?: string
   } = {},
 ): Promise<{ id: string }> {
   const { data: submission, error } = await db
@@ -102,6 +103,7 @@ export async function createRegistrationSubmission(
     last_name: overrides.contact_last_name ?? 'Parent',
     phone: '07700 900000',
     email: overrides.contact_email ?? 'e2e.parent@example.com',
+    occupation: overrides.contact_occupation ?? 'Engineer',
   })
 
   return submission

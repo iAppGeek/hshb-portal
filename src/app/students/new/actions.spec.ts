@@ -63,6 +63,7 @@ const baseFields = {
   primary_last_name: 'Smith',
   primary_phone: '07700 900000',
   primary_email: 'maria@example.com',
+  primary_occupation: 'Teacher',
   primary_address_line_1: '',
   primary_address_line_2: '',
   primary_city: '',
@@ -133,6 +134,50 @@ describe('createStudentAction', () => {
     expect(redirect).toHaveBeenCalledWith('/students')
   })
 
+  it('passes the primary guardian occupation through to createGuardian', async () => {
+    vi.mocked(createGuardian).mockResolvedValue({ id: GUARDIAN_1 } as any)
+    vi.mocked(createStudent).mockResolvedValue({ id: STUDENT_ID } as any)
+
+    await createStudentAction(makeFormData(baseFields))
+
+    expect(createGuardian).toHaveBeenCalledWith(
+      expect.objectContaining({ occupation: 'Teacher' }),
+    )
+  })
+
+  it('rejects a blank occupation for the primary guardian', async () => {
+    const result = await createStudentAction(
+      makeFormData({ ...baseFields, primary_occupation: '' }),
+    )
+
+    expect(result?.error).toBeDefined()
+    expect(createGuardian).not.toHaveBeenCalled()
+  })
+
+  // Emergency contacts are not asked for an occupation.
+  it('accepts an additional contact without an occupation', async () => {
+    vi.mocked(createGuardian)
+      .mockResolvedValueOnce({ id: GUARDIAN_1 } as any)
+      .mockResolvedValueOnce({ id: CONTACT_1 } as any)
+    vi.mocked(createStudent).mockResolvedValue({ id: STUDENT_ID } as any)
+
+    const result = await createStudentAction(
+      makeFormData({
+        ...baseFields,
+        has_contact1: 'true',
+        contact1_first_name: 'Uncle',
+        contact1_last_name: 'Bob',
+        contact1_phone: '07700 900002',
+        contact1_occupation: '',
+      }),
+    )
+
+    expect(result).toBeUndefined()
+    expect(createStudent).toHaveBeenCalledWith(
+      expect.objectContaining({ additional_contact_1_id: CONTACT_1 }),
+    )
+  })
+
   it('creates secondary guardian when has_secondary is true', async () => {
     vi.mocked(createGuardian)
       .mockResolvedValueOnce({ id: GUARDIAN_1 } as any)
@@ -147,6 +192,7 @@ describe('createStudentAction', () => {
         secondary_last_name: 'Smith',
         secondary_phone: '07700 900001',
         secondary_email: '',
+        secondary_occupation: 'Chef',
         secondary_address_line_1: '',
         secondary_address_line_2: '',
         secondary_city: '',

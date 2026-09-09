@@ -39,6 +39,7 @@ CREATE TABLE guardians (
   address_line_2  TEXT,
   city            TEXT,
   postcode        TEXT,
+  occupation      TEXT,
   notes           TEXT,
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW()
@@ -436,6 +437,7 @@ CREATE TABLE registration_submission_contacts (
   relationship          TEXT,
   phone                 TEXT NOT NULL,
   email                 TEXT,
+  occupation            TEXT,
   same_as_child_address BOOLEAN NOT NULL DEFAULT TRUE,
   address_line_1        TEXT,
   address_line_2        TEXT,
@@ -475,18 +477,19 @@ CREATE OR REPLACE FUNCTION find_guardian_matches(
   last_name      TEXT,
   phone          TEXT,
   email          TEXT,
+  occupation     TEXT,
   address_line_1 TEXT,
   address_line_2 TEXT,
   city           TEXT,
   postcode       TEXT,
   matched_on     TEXT
 ) AS $$
-  SELECT g.id, g.first_name, g.last_name, g.phone, g.email,
+  SELECT g.id, g.first_name, g.last_name, g.phone, g.email, g.occupation,
     g.address_line_1, g.address_line_2, g.city, g.postcode, 'email'::TEXT
   FROM guardians g
   WHERE p_email IS NOT NULL AND LOWER(g.email) = LOWER(p_email)
   UNION ALL
-  SELECT g.id, g.first_name, g.last_name, g.phone, g.email,
+  SELECT g.id, g.first_name, g.last_name, g.phone, g.email, g.occupation,
     g.address_line_1, g.address_line_2, g.city, g.postcode, 'phone'::TEXT
   FROM guardians g
   WHERE regexp_replace(g.phone, '\D', '', 'g') = regexp_replace(p_phone, '\D', '', 'g')
@@ -555,9 +558,9 @@ BEGIN
     v_reused := (v_gid IS NOT NULL);
 
     IF v_gid IS NULL THEN
-      INSERT INTO guardians (first_name, last_name, phone, email,
+      INSERT INTO guardians (first_name, last_name, phone, email, occupation,
                              address_line_1, address_line_2, city, postcode)
-      VALUES (v_con.first_name, v_con.last_name, v_con.phone, v_con.email,
+      VALUES (v_con.first_name, v_con.last_name, v_con.phone, v_con.email, v_con.occupation,
         CASE WHEN v_con.same_as_child_address THEN v_sub.address_line_1 ELSE v_con.address_line_1 END,
         CASE WHEN v_con.same_as_child_address THEN v_sub.address_line_2 ELSE v_con.address_line_2 END,
         CASE WHEN v_con.same_as_child_address THEN v_sub.city           ELSE v_con.city           END,
@@ -568,12 +571,16 @@ BEGIN
     v_gchanges := '{}'::JSONB;
     IF v_reused AND p_reuse_guardians THEN
       -- Reused guardian: the parent's latest submission is the newest statement
-      -- of their contact details, so refresh phone and address.
+      -- of their contact details, so refresh phone, occupation and address.
+      -- Occupation is COALESCEd rather than assigned outright: it is optional on
+      -- emergency-contact blocks, so a blank submission must not wipe a value
+      -- captured when the same person registered as a parent.
       SELECT * INTO v_old_g FROM guardians WHERE id = v_gid FOR UPDATE;
 
       UPDATE guardians SET
         phone          = v_con.phone,
         email          = COALESCE(v_con.email, email),
+        occupation     = COALESCE(v_con.occupation, occupation),
         address_line_1 = CASE WHEN v_con.same_as_child_address THEN v_sub.address_line_1 ELSE COALESCE(v_con.address_line_1, address_line_1) END,
         address_line_2 = CASE WHEN v_con.same_as_child_address THEN v_sub.address_line_2 ELSE COALESCE(v_con.address_line_2, address_line_2) END,
         city           = CASE WHEN v_con.same_as_child_address THEN v_sub.city           ELSE COALESCE(v_con.city, city)           END,
@@ -585,9 +592,9 @@ BEGIN
       FROM (
         SELECT t.k, t.o, t.n FROM guardians g,
           UNNEST(
-            ARRAY['phone','email','address_line_1','address_line_2','city','postcode'],
-            ARRAY[v_old_g.phone, v_old_g.email, v_old_g.address_line_1, v_old_g.address_line_2, v_old_g.city, v_old_g.postcode],
-            ARRAY[g.phone, g.email, g.address_line_1, g.address_line_2, g.city, g.postcode]
+            ARRAY['phone','email','occupation','address_line_1','address_line_2','city','postcode'],
+            ARRAY[v_old_g.phone, v_old_g.email, v_old_g.occupation, v_old_g.address_line_1, v_old_g.address_line_2, v_old_g.city, v_old_g.postcode],
+            ARRAY[g.phone, g.email, g.occupation, g.address_line_1, g.address_line_2, g.city, g.postcode]
           ) AS t(k, o, n)
         WHERE g.id = v_gid AND t.o IS DISTINCT FROM t.n
       ) AS d;
@@ -851,11 +858,11 @@ BEGIN
 
   INSERT INTO registration_submission_contacts (
     submission_id, contact_role, first_name, last_name, relationship, phone, email,
-    same_as_child_address, address_line_1, address_line_2, city, postcode
+    occupation, same_as_child_address, address_line_1, address_line_2, city, postcode
   )
   SELECT
     v_id, c.contact_role, c.first_name, c.last_name, c.relationship, c.phone, c.email,
-    COALESCE(c.same_as_child_address, TRUE), c.address_line_1, c.address_line_2, c.city, c.postcode
+    c.occupation, COALESCE(c.same_as_child_address, TRUE), c.address_line_1, c.address_line_2, c.city, c.postcode
   FROM jsonb_populate_recordset(NULL::registration_submission_contacts, p_contacts) AS c;
 
   IF NOT EXISTS (
