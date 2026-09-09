@@ -59,6 +59,8 @@ export async function approveRegistrationAction(
         linkedExisting: result.linked_existing,
         classId: parsed.data.class_id,
         reuseGuardians: parsed.data.reuse_guardians,
+        guardians: result.guardians,
+        studentChanges: result.student_changes,
       },
     })
     revalidatePath('/registrations')

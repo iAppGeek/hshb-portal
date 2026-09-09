@@ -150,12 +150,62 @@ describe('approveRegistrationAction', () => {
         linkedExisting: false,
         classId: CLASS_ID,
         reuseGuardians: true,
+        guardians: [],
+        studentChanges: {},
       },
     })
     expect(revalidatePath).toHaveBeenCalledWith('/registrations')
     expect(revalidatePath).toHaveBeenCalledWith('/dashboard')
     expect(revalidatePath).toHaveBeenCalledWith('/students')
     expect(redirect).toHaveBeenCalledWith(`/students/${STUDENT_ID}/edit`)
+  })
+
+  it('audits the guardian and student change record from the RPC result', async () => {
+    vi.mocked(approveRegistration).mockResolvedValue({
+      student_id: STUDENT_ID,
+      linked_existing: false,
+      guardians: [
+        {
+          contact_role: 'primary',
+          guardian_id: 'guardian-1',
+          reused: true,
+          matched_on: 'email',
+          changes: {
+            phone: { old: '07700 900333', new: '07700 900000' },
+          },
+        },
+      ],
+      student_changes: {
+        first_name: { old: 'Alice', new: 'Alicia' },
+      },
+    })
+
+    await expect(
+      approveRegistrationAction(SUBMISSION_ID, makeFormData(validFields)),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(logAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: expect.objectContaining({
+          guardians: [
+            expect.objectContaining({
+              changes: {
+                phone: { old: '07700 900333', new: '07700 900000' },
+              },
+            }),
+          ],
+          studentChanges: { first_name: { old: 'Alice', new: 'Alicia' } },
+        }),
+      }),
+    )
+    const call = vi.mocked(logAuditEvent).mock.calls[0][0]
+    expect(
+      (
+        call.details as {
+          guardians: { changes: Record<string, unknown> }[]
+        }
+      ).guardians[0].changes.phone,
+    ).toEqual({ old: '07700 900333', new: '07700 900000' })
   })
 
   it('approves as linking to an existing student', async () => {

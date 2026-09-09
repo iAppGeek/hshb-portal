@@ -333,6 +333,21 @@ test.describe('Registration review', () => {
       .single()
     expect(updatedGuardian?.phone).toBe('07700 900000')
     expect(updatedGuardian?.address_line_1).toBe('1 Fixture St')
+
+    const { data: auditRow } = await db
+      .from('audit_log')
+      .select('details')
+      .eq('action', 'registration_approved')
+      .eq('entity_id', id)
+      .single()
+    const details = auditRow!.details as {
+      guardians: { reused: boolean; changes: Record<string, unknown> }[]
+    }
+    expect(details.guardians[0].reused).toBe(true)
+    expect(
+      (details.guardians[0].changes as Record<string, { old: string }>).phone
+        .old,
+    ).toBe('07700 900333')
   })
 
   test('creates a new guardian when reuse is unticked despite a match', async ({
