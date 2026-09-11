@@ -1,4 +1,4 @@
-import { unstable_cache, revalidateTag } from 'next/cache'
+import { unstable_cache, updateTag } from 'next/cache'
 
 import { TEACHING_ROLES } from '@/lib/permissions'
 
@@ -84,7 +84,7 @@ export async function createStaff(input: {
     .select()
     .single()
   if (error) throw error
-  revalidateTag('staff', 'max')
+  updateTag('staff')
   return data
 }
 
@@ -102,6 +102,6 @@ export async function updateStaff(
 ) {
   const { error } = await supabase.from('staff').update(input).eq('id', id)
   if (error) throw error
-  revalidateTag('staff', 'max')
-  revalidateTag('classes', 'max') // staff name shown on class pages
+  updateTag('staff')
+  updateTag('classes') // staff name shown on class pages
 }

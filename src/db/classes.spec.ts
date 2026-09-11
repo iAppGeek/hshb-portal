@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { revalidateTag } from 'next/cache'
+import { updateTag } from 'next/cache'
 
 import {
   getAllClasses,
@@ -15,7 +15,7 @@ const mockFrom = vi.hoisted(() => vi.fn())
 
 vi.mock('next/cache', () => ({
   unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
-  revalidateTag: vi.fn(),
+  updateTag: vi.fn(),
 }))
 
 vi.mock('./client', () => ({
@@ -186,7 +186,7 @@ describe('createClass', () => {
     const result = await createClass(input)
     expect(result).toEqual(created)
     expect(mockFrom).toHaveBeenCalledWith('classes')
-    expect(revalidateTag).toHaveBeenCalledWith('classes', 'max')
+    expect(updateTag).toHaveBeenCalledWith('classes')
   })
 
   it('throws when supabase returns an error', async () => {
@@ -203,7 +203,7 @@ describe('createClass', () => {
     await expect(
       createClass({ name: 'X', year_group: '1', teacher_id: 'staff-1' }),
     ).rejects.toThrow('DB error')
-    expect(revalidateTag).not.toHaveBeenCalled()
+    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 
@@ -217,8 +217,8 @@ describe('updateClass', () => {
     await updateClass('class-1', { name: 'Year 1B', active: false })
     expect(mockFrom).toHaveBeenCalledWith('classes')
     expect(mockEq).toHaveBeenCalledWith('id', 'class-1')
-    expect(revalidateTag).toHaveBeenCalledWith('classes', 'max')
-    expect(revalidateTag).toHaveBeenCalledWith('students', 'max')
+    expect(updateTag).toHaveBeenCalledWith('classes')
+    expect(updateTag).toHaveBeenCalledWith('students')
   })
 
   it('throws when supabase returns an error', async () => {
@@ -231,7 +231,7 @@ describe('updateClass', () => {
     await expect(updateClass('class-1', { name: 'X' })).rejects.toThrow(
       'DB error',
     )
-    expect(revalidateTag).not.toHaveBeenCalled()
+    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 
@@ -252,8 +252,8 @@ describe('setClassStudents', () => {
       { class_id: 'class-1', student_id: 'student-1' },
       { class_id: 'class-1', student_id: 'student-2' },
     ])
-    expect(revalidateTag).toHaveBeenCalledWith('classes', 'max')
-    expect(revalidateTag).toHaveBeenCalledWith('students', 'max')
+    expect(updateTag).toHaveBeenCalledWith('classes')
+    expect(updateTag).toHaveBeenCalledWith('students')
   })
 
   it('skips insert when studentIds is empty', async () => {
@@ -264,8 +264,8 @@ describe('setClassStudents', () => {
 
     await setClassStudents('class-1', [])
     expect(mockFrom).toHaveBeenCalledTimes(1)
-    expect(revalidateTag).toHaveBeenCalledWith('classes', 'max')
-    expect(revalidateTag).toHaveBeenCalledWith('students', 'max')
+    expect(updateTag).toHaveBeenCalledWith('classes')
+    expect(updateTag).toHaveBeenCalledWith('students')
   })
 
   it('throws when delete fails', async () => {
@@ -278,6 +278,6 @@ describe('setClassStudents', () => {
     await expect(setClassStudents('class-1', ['s-1'])).rejects.toThrow(
       'delete error',
     )
-    expect(revalidateTag).not.toHaveBeenCalled()
+    expect(updateTag).not.toHaveBeenCalled()
   })
 })

@@ -1,4 +1,4 @@
-import { unstable_cache, revalidateTag } from 'next/cache'
+import { unstable_cache, updateTag } from 'next/cache'
 
 import type { Database, Enums, Tables } from '@/types/database'
 
@@ -18,7 +18,7 @@ export async function createPhotoOptOut(
     .select('id')
     .single()
   if (error) throw error
-  revalidateTag('photo-opt-outs', 'max')
+  updateTag('photo-opt-outs')
   return { id: data.id }
 }
 
@@ -80,8 +80,8 @@ export async function applyPhotoOptOut({
     p_student_id: studentId,
   })
   if (error) throw error
-  revalidateTag('photo-opt-outs', 'max')
-  revalidateTag('students', 'max')
+  updateTag('photo-opt-outs')
+  updateTag('students')
   return data as string
 }
 
@@ -109,7 +109,7 @@ export async function rejectPhotoOptOut({
     .select('id')
   if (error) throw error
   if (!data?.length) throw new Error('Request not found or already actioned')
-  revalidateTag('photo-opt-outs', 'max')
+  updateTag('photo-opt-outs')
 }
 
 export async function deletePhotoOptOut(id: string): Promise<void> {
@@ -120,5 +120,5 @@ export async function deletePhotoOptOut(id: string): Promise<void> {
     .select('id')
   if (error) throw error
   if (!data?.length) throw new Error('Request not found')
-  revalidateTag('photo-opt-outs', 'max')
+  updateTag('photo-opt-outs')
 }

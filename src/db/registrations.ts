@@ -1,4 +1,4 @@
-import { unstable_cache, revalidateTag } from 'next/cache'
+import { unstable_cache, updateTag } from 'next/cache'
 
 import type { Database, Enums, Json, Tables } from '@/types/database'
 
@@ -45,7 +45,7 @@ export async function createRegistrationSubmission({
     p_contacts: contacts as Json,
   })
   if (error) throw error
-  revalidateTag('registrations', 'max')
+  updateTag('registrations')
   return { id: data as string }
 }
 
@@ -144,9 +144,9 @@ export async function approveRegistration({
     p_reuse_guardians: reuseGuardians,
   } as Database['public']['Functions']['approve_registration']['Args'])
   if (error) throw error
-  revalidateTag('registrations', 'max')
-  revalidateTag('students', 'max')
-  revalidateTag('classes', 'max')
+  updateTag('registrations')
+  updateTag('students')
+  updateTag('classes')
   return data as ApproveRegistrationResult
 }
 
@@ -174,7 +174,7 @@ export async function rejectRegistration({
     .select('id')
   if (error) throw error
   if (!data?.length) throw new Error('Submission not found or already actioned')
-  revalidateTag('registrations', 'max')
+  updateTag('registrations')
 }
 
 export async function deleteRegistrationSubmission(id: string): Promise<void> {
@@ -185,5 +185,5 @@ export async function deleteRegistrationSubmission(id: string): Promise<void> {
     .select('id')
   if (error) throw error
   if (!data?.length) throw new Error('Submission not found')
-  revalidateTag('registrations', 'max')
+  updateTag('registrations')
 }

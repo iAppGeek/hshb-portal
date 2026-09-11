@@ -83,7 +83,7 @@ test.describe('Photo consent opt-out — admin review', () => {
       .single()
 
     // Submit through the real public form (not a direct DB insert) so the
-    // request's own revalidateTag call keeps /registrations' cached list
+    // request's own updateTag call keeps /registrations' cached list
     // fresh — a fixture-inserted row wouldn't trigger that invalidation.
     await page.goto('/register/photo-opt-out')
     await page.getByLabel('First name').fill('E2E')

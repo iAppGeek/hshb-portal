@@ -52,6 +52,10 @@ test.describe('Add student', () => {
     await page.getByRole('button', { name: 'Save student' }).click()
 
     await expect(page).toHaveURL('/students')
+    // Parallel projects add a student with the same name, so match any row
+    await expect(
+      page.getByText(`${STUDENT_LAST}, ${STUDENT_FIRST}`).first(),
+    ).toBeVisible()
 
     // Verify student was saved with address_guardian_id set and own address null
     const { data: student } = await db

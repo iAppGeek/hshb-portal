@@ -40,7 +40,7 @@ test.describe('Registration review', () => {
     })
 
     // The list page's cached data doesn't see rows inserted directly via this
-    // fixture (bypassing the app's own revalidateTag), so check the detail
+    // fixture (bypassing the app's own updateTag), so check the detail
     // page — which is fetched fresh per id — rather than the shared list.
     await page.goto(`/registrations/${id}`)
     await expect(

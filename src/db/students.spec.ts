@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { revalidateTag } from 'next/cache'
+import { updateTag } from 'next/cache'
 
 import {
   getAllStudents,
@@ -23,7 +23,7 @@ const mockRpc = vi.hoisted(() => vi.fn())
 
 vi.mock('next/cache', () => ({
   unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
-  revalidateTag: vi.fn(),
+  updateTag: vi.fn(),
 }))
 
 vi.mock('./client', () => ({
@@ -390,7 +390,7 @@ describe('createStudent', () => {
 
     expect(result).toEqual({ id: 'student-new' })
     expect(mockFrom).toHaveBeenCalledWith('students')
-    expect(revalidateTag).toHaveBeenCalledWith('students', 'max')
+    expect(updateTag).toHaveBeenCalledWith('students')
   })
 
   it('throws when the database returns an error', async () => {
@@ -415,7 +415,7 @@ describe('createStudent', () => {
         postcode: 'E1 1AA',
       }),
     ).rejects.toThrow('DB error')
-    expect(revalidateTag).not.toHaveBeenCalled()
+    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 
@@ -431,14 +431,14 @@ describe('enrollStudentInClasses', () => {
       { student_id: 'student-1', class_id: 'class-1' },
       { student_id: 'student-1', class_id: 'class-2' },
     ])
-    expect(revalidateTag).toHaveBeenCalledWith('students', 'max')
-    expect(revalidateTag).toHaveBeenCalledWith('classes', 'max')
+    expect(updateTag).toHaveBeenCalledWith('students')
+    expect(updateTag).toHaveBeenCalledWith('classes')
   })
 
   it('does nothing when classIds is empty', async () => {
     await enrollStudentInClasses('student-1', [])
     expect(mockFrom).not.toHaveBeenCalled()
-    expect(revalidateTag).not.toHaveBeenCalled()
+    expect(updateTag).not.toHaveBeenCalled()
   })
 
   it('throws when the database returns an error', async () => {
@@ -449,7 +449,7 @@ describe('enrollStudentInClasses', () => {
     await expect(
       enrollStudentInClasses('student-1', ['class-1']),
     ).rejects.toThrow('DB error')
-    expect(revalidateTag).not.toHaveBeenCalled()
+    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 
@@ -464,7 +464,7 @@ describe('updateStudent', () => {
 
     expect(mockFrom).toHaveBeenCalledWith('students')
     expect(mockUpdate).toHaveBeenCalledWith({ first_name: 'Updated' })
-    expect(revalidateTag).toHaveBeenCalledWith('students', 'max')
+    expect(updateTag).toHaveBeenCalledWith('students')
   })
 
   it('throws when the database returns an error', async () => {
@@ -477,7 +477,7 @@ describe('updateStudent', () => {
     await expect(
       updateStudent('student-1', { first_name: 'X' }),
     ).rejects.toThrow('DB error')
-    expect(revalidateTag).not.toHaveBeenCalled()
+    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 
@@ -499,8 +499,8 @@ describe('updateStudentClasses', () => {
       { student_id: 'student-1', class_id: 'class-1' },
       { student_id: 'student-1', class_id: 'class-2' },
     ])
-    expect(revalidateTag).toHaveBeenCalledWith('students', 'max')
-    expect(revalidateTag).toHaveBeenCalledWith('classes', 'max')
+    expect(updateTag).toHaveBeenCalledWith('students')
+    expect(updateTag).toHaveBeenCalledWith('classes')
   })
 
   it('deletes existing classes and skips insert when classIds is empty', async () => {
@@ -513,8 +513,8 @@ describe('updateStudentClasses', () => {
 
     expect(mockFrom).toHaveBeenCalledTimes(1)
     expect(mockDelete).toHaveBeenCalled()
-    expect(revalidateTag).toHaveBeenCalledWith('students', 'max')
-    expect(revalidateTag).toHaveBeenCalledWith('classes', 'max')
+    expect(updateTag).toHaveBeenCalledWith('students')
+    expect(updateTag).toHaveBeenCalledWith('classes')
   })
 
   it('throws when the delete fails', async () => {
@@ -527,7 +527,7 @@ describe('updateStudentClasses', () => {
     await expect(
       updateStudentClasses('student-1', ['class-1']),
     ).rejects.toThrow('Delete error')
-    expect(revalidateTag).not.toHaveBeenCalled()
+    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 

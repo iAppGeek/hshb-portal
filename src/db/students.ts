@@ -1,4 +1,4 @@
-import { unstable_cache, revalidateTag } from 'next/cache'
+import { unstable_cache, updateTag } from 'next/cache'
 
 import { supabase } from './client'
 
@@ -285,7 +285,7 @@ export async function createStudent(data: StudentInsert) {
     .select('id')
     .single()
   if (error) throw error
-  revalidateTag('students', 'max')
+  updateTag('students')
   return student
 }
 
@@ -300,8 +300,8 @@ export async function enrollStudentInClasses(
       classIds.map((classId) => ({ student_id: studentId, class_id: classId })),
     )
   if (error) throw error
-  revalidateTag('students', 'max')
-  revalidateTag('classes', 'max')
+  updateTag('students')
+  updateTag('classes')
 }
 
 type StudentUpdate = Partial<StudentInsert>
@@ -309,7 +309,7 @@ type StudentUpdate = Partial<StudentInsert>
 export async function updateStudent(id: string, data: StudentUpdate) {
   const { error } = await supabase.from('students').update(data).eq('id', id)
   if (error) throw error
-  revalidateTag('students', 'max')
+  updateTag('students')
 }
 
 export async function updateStudentClasses(
@@ -324,7 +324,7 @@ export async function updateStudentClasses(
   if (classIds.length > 0) {
     await enrollStudentInClasses(studentId, classIds)
   } else {
-    revalidateTag('students', 'max')
-    revalidateTag('classes', 'max')
+    updateTag('students')
+    updateTag('classes')
   }
 }
