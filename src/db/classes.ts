@@ -1,4 +1,4 @@
-import { unstable_cache, revalidateTag } from 'next/cache'
+import { unstable_cache, updateTag } from 'next/cache'
 
 import type { Database } from '@/types/database'
 
@@ -116,7 +116,7 @@ export async function createClass(data: ClassInsert) {
     .select()
     .single()
   if (error) throw error
-  revalidateTag('classes', 'max')
+  updateTag('classes')
   return cls
 }
 
@@ -126,8 +126,8 @@ export async function updateClass(
 ) {
   const { error } = await supabase.from('classes').update(data).eq('id', id)
   if (error) throw error
-  revalidateTag('classes', 'max')
-  revalidateTag('students', 'max')
+  updateTag('classes')
+  updateTag('students')
 }
 
 type MigrateClassInput = {
@@ -153,8 +153,8 @@ export async function migrateClass(
     p_teacher_id: newClass.teacher_id,
   } as Database['public']['Functions']['migrate_class']['Args'])
   if (error) throw error
-  revalidateTag('classes', 'max')
-  revalidateTag('students', 'max')
+  updateTag('classes')
+  updateTag('students')
   return data as { new_class_id: string }
 }
 
@@ -176,6 +176,6 @@ export async function setClassStudents(classId: string, studentIds: string[]) {
       )
     if (insertError) throw insertError
   }
-  revalidateTag('classes', 'max')
-  revalidateTag('students', 'max')
+  updateTag('classes')
+  updateTag('students')
 }

@@ -1,4 +1,4 @@
-import { revalidateTag } from 'next/cache'
+import { updateTag } from 'next/cache'
 
 import type { Database } from '@/types/database'
 
@@ -47,7 +47,7 @@ export async function createGuardian(data: GuardianInsert) {
     .select('id')
     .single()
   if (error) throw error
-  revalidateTag('students', 'max')
+  updateTag('students')
   return guardian
 }
 
@@ -93,7 +93,7 @@ export async function updateGuardian(id: string, data: GuardianInsert) {
     .update({ ...data, updated_at: new Date().toISOString() })
     .eq('id', id)
   if (error) throw error
-  revalidateTag('students', 'max')
+  updateTag('students')
 }
 
 export type GuardianMatch = {

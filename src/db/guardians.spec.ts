@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { revalidateTag } from 'next/cache'
+import { updateTag } from 'next/cache'
 
 import {
   getGuardianCount,
@@ -19,7 +19,7 @@ const mockFrom = vi.hoisted(() => vi.fn())
 const mockRpc = vi.hoisted(() => vi.fn())
 
 vi.mock('next/cache', () => ({
-  revalidateTag: vi.fn(),
+  updateTag: vi.fn(),
 }))
 
 vi.mock('./client', () => ({
@@ -112,7 +112,7 @@ describe('createGuardian', () => {
 
     expect(result).toEqual({ id: 'guardian-1' })
     expect(mockFrom).toHaveBeenCalledWith('guardians')
-    expect(revalidateTag).toHaveBeenCalledWith('students', 'max')
+    expect(updateTag).toHaveBeenCalledWith('students')
   })
 
   it('sends occupation through to the insert', async () => {
@@ -269,7 +269,7 @@ describe('updateGuardian', () => {
 
     expect(mockFrom).toHaveBeenCalledWith('guardians')
     expect(mockUpdate).toHaveBeenCalled()
-    expect(revalidateTag).toHaveBeenCalledWith('students', 'max')
+    expect(updateTag).toHaveBeenCalledWith('students')
   })
 
   it('throws when the database returns an error', async () => {
@@ -286,7 +286,7 @@ describe('updateGuardian', () => {
         phone: '07700',
       }),
     ).rejects.toThrow('DB error')
-    expect(revalidateTag).not.toHaveBeenCalled()
+    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 

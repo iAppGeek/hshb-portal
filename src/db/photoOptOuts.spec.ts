@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { revalidateTag } from 'next/cache'
+import { updateTag } from 'next/cache'
 
 import {
   createPhotoOptOut,
@@ -16,7 +16,7 @@ const mockRpc = vi.hoisted(() => vi.fn())
 
 vi.mock('next/cache', () => ({
   unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
-  revalidateTag: vi.fn(),
+  updateTag: vi.fn(),
 }))
 
 vi.mock('./client', () => ({
@@ -45,7 +45,7 @@ describe('createPhotoOptOut', () => {
     } as never)
 
     expect(result).toEqual({ id: 'req-1' })
-    expect(revalidateTag).toHaveBeenCalledWith('photo-opt-outs', 'max')
+    expect(updateTag).toHaveBeenCalledWith('photo-opt-outs')
   })
 
   it('throws when the insert fails', async () => {
@@ -150,8 +150,8 @@ describe('applyPhotoOptOut', () => {
       p_staff_id: 'staff-1',
       p_student_id: 'student-1',
     })
-    expect(revalidateTag).toHaveBeenCalledWith('photo-opt-outs', 'max')
-    expect(revalidateTag).toHaveBeenCalledWith('students', 'max')
+    expect(updateTag).toHaveBeenCalledWith('photo-opt-outs')
+    expect(updateTag).toHaveBeenCalledWith('students')
   })
 
   it('throws the rpc error', async () => {
@@ -184,7 +184,7 @@ describe('rejectPhotoOptOut', () => {
       staffId: 'staff-1',
       reason: 'Cannot match',
     })
-    expect(revalidateTag).toHaveBeenCalledWith('photo-opt-outs', 'max')
+    expect(updateTag).toHaveBeenCalledWith('photo-opt-outs')
   })
 
   it('throws when already actioned', async () => {
@@ -219,7 +219,7 @@ describe('deletePhotoOptOut', () => {
     })
 
     await deletePhotoOptOut('req-1')
-    expect(revalidateTag).toHaveBeenCalledWith('photo-opt-outs', 'max')
+    expect(updateTag).toHaveBeenCalledWith('photo-opt-outs')
   })
 
   it('throws when no row is deleted (missing)', async () => {

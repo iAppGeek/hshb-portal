@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hshb-portal-v3'
+const CACHE_NAME = 'hshb-portal-v4'
 
 const PRECACHE_URLS = [
   '/manifest.json',
@@ -34,24 +34,12 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Navigation requests (HTML pages): stale-while-revalidate
-  // Serve cached HTML instantly, then update cache in the background.
-  // This eliminates the blank screen on PWA cold-start.
+  // Navigation requests (HTML pages): network-only, offline page as fallback.
+  // Portal pages hold live student data, so a cached copy would show stale
+  // records after a save and leave personal data in browser storage.
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      caches.match(event.request).then((cached) => {
-        const fetchPromise = fetch(event.request)
-          .then((response) => {
-            const clone = response.clone()
-            caches
-              .open(CACHE_NAME)
-              .then((cache) => cache.put(event.request, clone))
-            return response
-          })
-          .catch(() => cached || caches.match('/offline.html'))
-
-        return cached || fetchPromise
-      }),
+      fetch(event.request).catch(() => caches.match('/offline.html')),
     )
     return
   }

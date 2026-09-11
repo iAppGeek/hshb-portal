@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { revalidateTag } from 'next/cache'
+import { updateTag } from 'next/cache'
 
 import {
   createRegistrationSubmission,
@@ -16,7 +16,7 @@ const mockRpc = vi.hoisted(() => vi.fn())
 
 vi.mock('next/cache', () => ({
   unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
-  revalidateTag: vi.fn(),
+  updateTag: vi.fn(),
 }))
 
 vi.mock('./client', () => ({
@@ -51,7 +51,7 @@ describe('createRegistrationSubmission', () => {
       contacts: [],
     })
 
-    expect(revalidateTag).toHaveBeenCalledWith('registrations', 'max')
+    expect(updateTag).toHaveBeenCalledWith('registrations')
   })
 
   it('throws the rpc error', async () => {
@@ -63,7 +63,7 @@ describe('createRegistrationSubmission', () => {
         contacts: [],
       }),
     ).rejects.toThrow('rpc failed')
-    expect(revalidateTag).not.toHaveBeenCalled()
+    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 
@@ -198,9 +198,9 @@ describe('approveRegistration', () => {
       p_existing_student_id: undefined,
       p_reuse_guardians: true,
     })
-    expect(revalidateTag).toHaveBeenCalledWith('registrations', 'max')
-    expect(revalidateTag).toHaveBeenCalledWith('students', 'max')
-    expect(revalidateTag).toHaveBeenCalledWith('classes', 'max')
+    expect(updateTag).toHaveBeenCalledWith('registrations')
+    expect(updateTag).toHaveBeenCalledWith('students')
+    expect(updateTag).toHaveBeenCalledWith('classes')
   })
 
   it('throws the rpc error', async () => {
@@ -235,7 +235,7 @@ describe('rejectRegistration', () => {
       staffId: 'staff-1',
       reason: 'Duplicate',
     })
-    expect(revalidateTag).toHaveBeenCalledWith('registrations', 'max')
+    expect(updateTag).toHaveBeenCalledWith('registrations')
   })
 
   it('throws when already actioned (no row returned)', async () => {
@@ -270,7 +270,7 @@ describe('deleteRegistrationSubmission', () => {
     })
 
     await deleteRegistrationSubmission('sub-1')
-    expect(revalidateTag).toHaveBeenCalledWith('registrations', 'max')
+    expect(updateTag).toHaveBeenCalledWith('registrations')
   })
 
   it('throws when no row is deleted (missing)', async () => {
