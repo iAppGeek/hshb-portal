@@ -66,10 +66,10 @@ export const getClassWithStudents = unstable_cache(
     const { data } = await supabase
       .from('classes')
       .select(
-        `*, teacher:staff(first_name, last_name, display_name, contact_number),
+        `*, teacher:staff(first_name, last_name, display_name, email),
       student_classes(
         student:students(
-          id, first_name, last_name, allergies,
+          id, student_code, first_name, last_name, allergies,
           primary_guardian:guardians!students_primary_guardian_id_fkey(first_name, last_name, phone, email),
           secondary_guardian:guardians!students_secondary_guardian_id_fkey(first_name, last_name, phone, email)
         )

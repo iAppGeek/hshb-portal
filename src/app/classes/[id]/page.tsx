@@ -17,6 +17,7 @@ export const metadata: Metadata = { title: 'Class Register' }
 
 type Student = {
   id: string
+  student_code: string | null
   first_name: string
   last_name: string
   allergies: string | null
@@ -56,7 +57,7 @@ export default async function ClassRegisterPage({
     first_name: string
     last_name: string
     display_name: string | null
-    contact_number: string | null
+    email: string | null
   } | null
 
   const teacherName = teacher
@@ -122,12 +123,12 @@ export default async function ClassRegisterPage({
           <p className="mt-1 text-sm font-medium text-gray-900">
             {teacherName}
           </p>
-          {teacher?.contact_number && (
+          {teacher?.email && (
             <a
-              href={`tel:${teacher.contact_number}`}
-              className="text-sm text-blue-600 hover:text-blue-800"
+              href={`mailto:${teacher.email}`}
+              className="text-sm break-all text-blue-600 hover:text-blue-800"
             >
-              {teacher.contact_number}
+              {teacher.email}
             </a>
           )}
         </div>
@@ -163,9 +164,10 @@ export default async function ClassRegisterPage({
               <tr>
                 {[
                   { label: '#', mobileHidden: true },
+                  { label: 'Student ID', mobileHidden: true },
                   { label: 'First Name', mobileHidden: false },
                   { label: 'Surname', mobileHidden: false },
-                  { label: 'Guardian', mobileHidden: false },
+                  { label: 'Primary Contact', mobileHidden: false },
                   { label: 'Allergies', mobileHidden: false },
                   { label: 'Attendance', mobileHidden: false },
                 ].map(({ label, mobileHidden }) => (
@@ -186,6 +188,9 @@ export default async function ClassRegisterPage({
                 >
                   <td className="hidden border border-gray-200 px-3 py-2 text-sm text-gray-500 sm:table-cell sm:px-6 sm:py-3 print:table-cell print:border-gray-400 print:p-px print:text-xs">
                     {i + 1}
+                  </td>
+                  <td className="hidden border border-gray-200 px-3 py-2 text-sm text-gray-700 sm:table-cell sm:px-6 sm:py-3 print:table-cell print:border-gray-400 print:p-px print:text-xs">
+                    {student.student_code ?? '—'}
                   </td>
                   <td className="border border-gray-200 px-3 py-2 text-sm text-gray-900 sm:px-6 sm:py-3 print:border-gray-400 print:p-px print:text-xs">
                     {student.first_name}
