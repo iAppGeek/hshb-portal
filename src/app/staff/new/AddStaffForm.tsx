@@ -38,6 +38,7 @@ export default function AddStaffForm() {
         </h2>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Title" name="title" required defaultValue="Ms" />
           <Field label="First name" name="first_name" required />
           <Field label="Last name" name="last_name" required />
           <Field label="Email" name="email" type="email" required />
@@ -102,11 +103,13 @@ function Field({
   name,
   type = 'text',
   required = false,
+  defaultValue,
 }: {
   label: string
   name: string
   type?: string
   required?: boolean
+  defaultValue?: string
 }) {
   return (
     <div>
@@ -119,6 +122,7 @@ function Field({
         name={name}
         type={type}
         required={required}
+        defaultValue={defaultValue}
         className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
       />
     </div>

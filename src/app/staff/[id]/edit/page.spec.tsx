@@ -34,6 +34,7 @@ import EditStaffPage from './page'
 
 const mockStaff = {
   id: 'staff-1',
+  title: 'Ms',
   first_name: 'Alice',
   last_name: 'Smith',
   email: 'alice@school.com',

@@ -154,6 +154,81 @@ export type Database = {
           },
         ]
       }
+      fee_plan_classes: {
+        Row: {
+          class_id: string
+          created_at: string
+          fee_plan_id: string
+          id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          fee_plan_id: string
+          id?: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          fee_plan_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fee_plan_classes_class_id_fkey'
+            columns: ['class_id']
+            isOneToOne: true
+            referencedRelation: 'classes'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'fee_plan_classes_fee_plan_id_fkey'
+            columns: ['fee_plan_id']
+            isOneToOne: false
+            referencedRelation: 'fee_plans'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      fee_plans: {
+        Row: {
+          academic_year: string
+          active: boolean
+          created_at: string
+          full_year_amount: number
+          id: string
+          monthly_instalment_amount: number
+          name: string
+          notes: string | null
+          termly_instalment_amount: number
+          updated_at: string
+        }
+        Insert: {
+          academic_year: string
+          active?: boolean
+          created_at?: string
+          full_year_amount: number
+          id?: string
+          monthly_instalment_amount: number
+          name: string
+          notes?: string | null
+          termly_instalment_amount: number
+          updated_at?: string
+        }
+        Update: {
+          academic_year?: string
+          active?: boolean
+          created_at?: string
+          full_year_amount?: number
+          id?: string
+          monthly_instalment_amount?: number
+          name?: string
+          notes?: string | null
+          termly_instalment_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       guardians: {
         Row: {
           address_line_1: string | null
@@ -609,6 +684,7 @@ export type Database = {
           last_name: string
           personal_email: string | null
           role: string
+          title: string
         }
         Insert: {
           contact_number?: string | null
@@ -620,6 +696,7 @@ export type Database = {
           last_name: string
           personal_email?: string | null
           role: string
+          title?: string
         }
         Update: {
           contact_number?: string | null
@@ -631,6 +708,7 @@ export type Database = {
           last_name?: string
           personal_email?: string | null
           role?: string
+          title?: string
         }
         Relationships: []
       }
@@ -672,6 +750,139 @@ export type Database = {
           },
         ]
       }
+      staff_payroll: {
+        Row: {
+          bank_account_name: string | null
+          bank_account_number: string | null
+          bank_sort_code: string | null
+          created_at: string
+          dbs_barred_list_checked: boolean
+          dbs_issue_date: string | null
+          dbs_level: string | null
+          dbs_reference: string | null
+          dbs_renewal_due: string | null
+          dbs_update_service: boolean
+          dbs_verified: boolean
+          dbs_verified_at: string | null
+          dbs_verified_by: string | null
+          fire_warden_certified: boolean
+          fire_warden_expiry_date: string | null
+          fire_warden_issue_date: string | null
+          fire_warden_reference: string | null
+          fire_warden_verified_at: string | null
+          first_aid_certified: boolean
+          first_aid_expiry_date: string | null
+          first_aid_issue_date: string | null
+          first_aid_reference: string | null
+          first_aid_verified_at: string | null
+          id: string
+          id_type: string | null
+          id_verified: boolean
+          id_verified_at: string | null
+          id_verified_by: string | null
+          payment_funding: string
+          payroll_ref: string | null
+          right_to_work_checked: boolean
+          right_to_work_checked_at: string | null
+          staff_id: string
+          updated_at: string
+        }
+        Insert: {
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_sort_code?: string | null
+          created_at?: string
+          dbs_barred_list_checked?: boolean
+          dbs_issue_date?: string | null
+          dbs_level?: string | null
+          dbs_reference?: string | null
+          dbs_renewal_due?: string | null
+          dbs_update_service?: boolean
+          dbs_verified?: boolean
+          dbs_verified_at?: string | null
+          dbs_verified_by?: string | null
+          fire_warden_certified?: boolean
+          fire_warden_expiry_date?: string | null
+          fire_warden_issue_date?: string | null
+          fire_warden_reference?: string | null
+          fire_warden_verified_at?: string | null
+          first_aid_certified?: boolean
+          first_aid_expiry_date?: string | null
+          first_aid_issue_date?: string | null
+          first_aid_reference?: string | null
+          first_aid_verified_at?: string | null
+          id?: string
+          id_type?: string | null
+          id_verified?: boolean
+          id_verified_at?: string | null
+          id_verified_by?: string | null
+          payment_funding: string
+          payroll_ref?: string | null
+          right_to_work_checked?: boolean
+          right_to_work_checked_at?: string | null
+          staff_id: string
+          updated_at?: string
+        }
+        Update: {
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_sort_code?: string | null
+          created_at?: string
+          dbs_barred_list_checked?: boolean
+          dbs_issue_date?: string | null
+          dbs_level?: string | null
+          dbs_reference?: string | null
+          dbs_renewal_due?: string | null
+          dbs_update_service?: boolean
+          dbs_verified?: boolean
+          dbs_verified_at?: string | null
+          dbs_verified_by?: string | null
+          fire_warden_certified?: boolean
+          fire_warden_expiry_date?: string | null
+          fire_warden_issue_date?: string | null
+          fire_warden_reference?: string | null
+          fire_warden_verified_at?: string | null
+          first_aid_certified?: boolean
+          first_aid_expiry_date?: string | null
+          first_aid_issue_date?: string | null
+          first_aid_reference?: string | null
+          first_aid_verified_at?: string | null
+          id?: string
+          id_type?: string | null
+          id_verified?: boolean
+          id_verified_at?: string | null
+          id_verified_by?: string | null
+          payment_funding?: string
+          payroll_ref?: string | null
+          right_to_work_checked?: boolean
+          right_to_work_checked_at?: string | null
+          staff_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'staff_payroll_dbs_verified_by_fkey'
+            columns: ['dbs_verified_by']
+            isOneToOne: false
+            referencedRelation: 'staff'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'staff_payroll_id_verified_by_fkey'
+            columns: ['id_verified_by']
+            isOneToOne: false
+            referencedRelation: 'staff'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'staff_payroll_staff_id_fkey'
+            columns: ['staff_id']
+            isOneToOne: true
+            referencedRelation: 'staff'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       student_classes: {
         Row: {
           class_id: string
@@ -701,6 +912,108 @@ export type Database = {
           },
           {
             foreignKeyName: 'student_classes_student_id_fkey'
+            columns: ['student_id']
+            isOneToOne: false
+            referencedRelation: 'students'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      student_fee_accounts: {
+        Row: {
+          created_at: string
+          custom_total_amount: number | null
+          custom_up_to_date: boolean
+          fee_plan_override_id: string | null
+          id: string
+          payment_plan: string | null
+          payment_plan_notes: string | null
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          custom_total_amount?: number | null
+          custom_up_to_date?: boolean
+          fee_plan_override_id?: string | null
+          id?: string
+          payment_plan?: string | null
+          payment_plan_notes?: string | null
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          custom_total_amount?: number | null
+          custom_up_to_date?: boolean
+          fee_plan_override_id?: string | null
+          id?: string
+          payment_plan?: string | null
+          payment_plan_notes?: string | null
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'student_fee_accounts_fee_plan_override_id_fkey'
+            columns: ['fee_plan_override_id']
+            isOneToOne: false
+            referencedRelation: 'fee_plans'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'student_fee_accounts_student_id_fkey'
+            columns: ['student_id']
+            isOneToOne: true
+            referencedRelation: 'students'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      student_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          method: string
+          notes: string | null
+          payment_date: string
+          recorded_by: string | null
+          reference: string
+          student_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          method: string
+          notes?: string | null
+          payment_date: string
+          recorded_by?: string | null
+          reference: string
+          student_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          method?: string
+          notes?: string | null
+          payment_date?: string
+          recorded_by?: string | null
+          reference?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'student_payments_recorded_by_fkey'
+            columns: ['recorded_by']
+            isOneToOne: false
+            referencedRelation: 'staff'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'student_payments_student_id_fkey'
             columns: ['student_id']
             isOneToOne: false
             referencedRelation: 'students'
@@ -964,6 +1277,20 @@ export type Database = {
           p_year_group: string
         }
         Returns: Json
+      }
+      save_fee_plan: {
+        Args: {
+          p_academic_year: string
+          p_active: boolean
+          p_class_ids: string[]
+          p_full_year_amount: number
+          p_id: string
+          p_monthly_instalment_amount: number
+          p_name: string
+          p_notes: string
+          p_termly_instalment_amount: number
+        }
+        Returns: string
       }
     }
     Enums: {

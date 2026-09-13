@@ -10,6 +10,7 @@ import { updateStaffAction } from './actions'
 
 type StaffData = {
   id: string
+  title: string
   first_name: string
   last_name: string
   email: string
@@ -51,6 +52,12 @@ export default function EditStaffForm({ staff }: { staff: StaffData }) {
         </h2>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field
+            label="Title"
+            name="title"
+            required
+            defaultValue={staff.title}
+          />
           <Field
             label="First name"
             name="first_name"

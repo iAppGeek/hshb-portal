@@ -127,4 +127,39 @@ export {
   getStaffSignedInCount,
 } from './staff-attendance'
 export type { StaffAttendanceRow } from './staff-attendance'
+export {
+  getStaffPayrollList,
+  getStaffPayrollByStaffId,
+  upsertStaffPayroll,
+} from './staff-payroll'
+export type {
+  StaffPayrollRow,
+  StaffPayrollInput,
+  StaffPayrollListItem,
+} from './staff-payroll'
+export {
+  getFeePlans,
+  getFeePlanById,
+  createFeePlan,
+  updateFeePlan,
+} from './fee-plans'
+export type { FeePlanRow, FeePlanWithClasses, FeePlanInput } from './fee-plans'
+export {
+  getStudentFeeList,
+  getStudentFeeDetail,
+  upsertStudentFeeAccount,
+  createStudentPayment,
+  deleteStudentPayment,
+} from './student-fees'
+export type {
+  StudentFeeAccountRow,
+  StudentPaymentRow,
+  StudentFeeAccountInput,
+  StudentPaymentInput,
+  FeeClass,
+  PaymentSummary,
+  StudentFeeListItem,
+  StudentPaymentWithRecorder,
+  StudentFeeDetail,
+} from './student-fees'
 export { logAuditEvent } from './audit-log'

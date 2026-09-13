@@ -84,3 +84,22 @@ INSERT INTO registration_submission_contacts (id, submission_id, contact_role, f
 -- first `supabase db reset`. E2E tests create their own rows.
 INSERT INTO photo_consent_opt_outs (id, status, child_first_name, child_last_name, date_of_birth, declaration_name) VALUES
   ('82000000-0000-0000-0000-000000000001', 'pending', 'Alice', 'Student', '2015-06-01', 'Gary AliceGuardian');
+
+-- ─── Finance ──────────────────────────────────────────────────────────────────
+-- One fee plan covering Alpha + Beta, Alice on a monthly plan with one payment,
+-- and a payroll record for Tom. E2E tests create their own rows and only read these.
+INSERT INTO fee_plans (id, name, academic_year, full_year_amount, monthly_instalment_amount, termly_instalment_amount) VALUES
+  ('90000000-0000-0000-0000-000000000001', 'Standard', '2025-26', 800.00, 100.00, 266.67);
+
+INSERT INTO fee_plan_classes (id, fee_plan_id, class_id) VALUES
+  ('91000000-0000-0000-0000-000000000001', '90000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001'),
+  ('91000000-0000-0000-0000-000000000002', '90000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002');
+
+INSERT INTO student_fee_accounts (id, student_id, payment_plan) VALUES
+  ('92000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', 'monthly');
+
+INSERT INTO student_payments (id, student_id, amount, payment_date, reference, method, recorded_by) VALUES
+  ('93000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', 100.00, '2025-09-01', 'SEED-001', 'bank_transfer', '00000000-0000-0000-0000-000000000001');
+
+INSERT INTO staff_payroll (id, staff_id, payment_funding, payroll_ref) VALUES
+  ('94000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002', 'school', 'PR-002');

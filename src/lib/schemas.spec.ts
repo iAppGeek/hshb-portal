@@ -41,6 +41,15 @@ import {
   extractFormFields,
   extractGuardianFields,
   extractRegistrationContact,
+  optionalSortCode,
+  optionalAccountNumber,
+  moneyAmount,
+  optionalMoneyAmount,
+  academicYear,
+  staffPayrollSchema,
+  feePlanSchema,
+  studentFeeAccountSchema,
+  studentPaymentSchema,
   SHORT_TEXT_MAX,
   ADDRESS_TEXT_MAX,
   LONG_TEXT_MAX,
@@ -493,6 +502,7 @@ describe('staffAttendanceSchema', () => {
 describe('createStaffSchema', () => {
   it('accepts valid staff data', () => {
     const result = createStaffSchema.parse({
+      title: ' Mrs ',
       first_name: 'Jane',
       last_name: 'Smith',
       email: 'jane@school.com',
@@ -501,14 +511,31 @@ describe('createStaffSchema', () => {
       contact_number: '',
       personal_email: '',
     })
+    expect(result.title).toBe('Mrs')
     expect(result.display_name).toBeNull()
     expect(result.contact_number).toBeNull()
     expect(result.personal_email).toBeNull()
   })
 
+  it('requires a title', () => {
+    expect(() =>
+      createStaffSchema.parse({
+        title: '',
+        first_name: 'Jane',
+        last_name: 'Smith',
+        email: 'jane@school.com',
+        role: 'teacher',
+        display_name: '',
+        contact_number: '',
+        personal_email: '',
+      }),
+    ).toThrow()
+  })
+
   it('rejects invalid role', () => {
     expect(() =>
       createStaffSchema.parse({
+        title: 'Ms',
         first_name: 'Jane',
         last_name: 'Smith',
         email: 'jane@school.com',
@@ -1346,5 +1373,297 @@ describe('extractRegistrationContact', () => {
     const result = extractRegistrationContact(fd, 'contact1')
     expect(result.first_name).toBe('')
     expect(result.same_as_child_address).toBeUndefined()
+  })
+})
+
+// ─── Finance ─────────────────────────────────────────────────────────────────
+
+describe('optionalSortCode', () => {
+  it('strips dashes and spaces', () => {
+    expect(optionalSortCode.parse('12-34 56')).toBe('123456')
+  })
+
+  it('treats blank as null', () => {
+    expect(optionalSortCode.parse('')).toBeNull()
+  })
+
+  it('rejects anything other than 6 digits', () => {
+    expect(optionalSortCode.safeParse('12345').success).toBe(false)
+    expect(optionalSortCode.safeParse('12a456').success).toBe(false)
+  })
+})
+
+describe('optionalAccountNumber', () => {
+  it('accepts 8 digits typed with spaces', () => {
+    expect(optionalAccountNumber.parse('1234 5678')).toBe('12345678')
+  })
+
+  it('rejects 7 digits', () => {
+    expect(optionalAccountNumber.safeParse('1234567').success).toBe(false)
+  })
+})
+
+describe('moneyAmount', () => {
+  it('parses whole and 2dp amounts', () => {
+    expect(moneyAmount.parse('100')).toBe(100)
+    expect(moneyAmount.parse(' 99.50 ')).toBe(99.5)
+  })
+
+  it('rejects more than 2 decimal places, negatives and blanks', () => {
+    expect(moneyAmount.safeParse('1.005').success).toBe(false)
+    expect(moneyAmount.safeParse('-5').success).toBe(false)
+    expect(moneyAmount.safeParse('').success).toBe(false)
+  })
+})
+
+describe('optionalMoneyAmount', () => {
+  it('treats blank as null and parses numbers', () => {
+    expect(optionalMoneyAmount.parse('')).toBeNull()
+    expect(optionalMoneyAmount.parse('12.5')).toBe(12.5)
+  })
+})
+
+describe('academicYear', () => {
+  it('normalises a slash to a dash', () => {
+    expect(academicYear.parse('2025/26')).toBe('2025-26')
+  })
+
+  it('accepts the century rollover', () => {
+    expect(academicYear.parse('2099-00')).toBe('2099-00')
+  })
+
+  it('rejects non-consecutive or malformed years', () => {
+    expect(academicYear.safeParse('2025-27').success).toBe(false)
+    expect(academicYear.safeParse('2025').success).toBe(false)
+  })
+})
+
+describe('staffPayrollSchema', () => {
+  const blank = {
+    payment_funding: 'school',
+    bank_account_name: '',
+    bank_sort_code: '',
+    bank_account_number: '',
+    payroll_ref: '',
+    id_type: '',
+    id_verified_at: '',
+    right_to_work_checked_at: '',
+    dbs_level: '',
+    dbs_reference: '',
+    dbs_issue_date: '',
+    dbs_verified_at: '',
+    dbs_renewal_due: '',
+    first_aid_reference: '',
+    first_aid_issue_date: '',
+    first_aid_verified_at: '',
+    first_aid_expiry_date: '',
+    fire_warden_reference: '',
+    fire_warden_issue_date: '',
+    fire_warden_verified_at: '',
+    fire_warden_expiry_date: '',
+  }
+
+  function messages(input: Record<string, unknown>): string[] {
+    const result = staffPayrollSchema.safeParse(input)
+    return result.success ? [] : result.error.issues.map((i) => i.message)
+  }
+
+  it('accepts a minimal record with only payment funding', () => {
+    const result = staffPayrollSchema.parse(blank)
+    expect(result.payment_funding).toBe('school')
+    expect(result.id_verified).toBe(false)
+    expect(result.bank_sort_code).toBeNull()
+    expect(result.dbs_renewal_due).toBeNull()
+  })
+
+  it('requires payment funding', () => {
+    expect(messages({ ...blank, payment_funding: '' })).toEqual([
+      'Select how this staff member is paid',
+    ])
+  })
+
+  it('requires all bank fields once one is entered', () => {
+    expect(messages({ ...blank, bank_sort_code: '123456' })).toEqual([
+      'Enter the account holder name',
+      'Enter the account number',
+    ])
+  })
+
+  it('requires ID details when ID is verified', () => {
+    expect(messages({ ...blank, id_verified: 'on' })).toEqual([
+      'Select the ID type that was verified',
+      'Enter the ID verification date',
+    ])
+  })
+
+  it('requires a date when right to work is checked', () => {
+    expect(messages({ ...blank, right_to_work_checked: 'on' })).toEqual([
+      'Enter the right to work check date',
+    ])
+  })
+
+  it('requires DBS details when DBS is verified', () => {
+    expect(messages({ ...blank, dbs_verified: 'on' })).toHaveLength(4)
+  })
+
+  it('requires first aid and fire warden details when certified', () => {
+    expect(
+      messages({
+        ...blank,
+        first_aid_certified: 'on',
+        fire_warden_certified: 'on',
+      }),
+    ).toHaveLength(6)
+  })
+
+  it('defaults DBS renewal to 3 years after issue', () => {
+    const result = staffPayrollSchema.parse({
+      ...blank,
+      dbs_verified: 'on',
+      dbs_level: 'enhanced',
+      dbs_reference: '001234567890',
+      dbs_issue_date: '2025-09-01',
+      dbs_verified_at: '2025-09-10',
+    })
+    expect(result.dbs_renewal_due).toBe('2028-09-01')
+  })
+
+  it('keeps an explicit DBS renewal date', () => {
+    const result = staffPayrollSchema.parse({
+      ...blank,
+      dbs_issue_date: '2025-09-01',
+      dbs_renewal_due: '2026-09-01',
+    })
+    expect(result.dbs_renewal_due).toBe('2026-09-01')
+  })
+
+  it('rejects an unknown ID type', () => {
+    expect(
+      staffPayrollSchema.safeParse({ ...blank, id_type: 'library_card' })
+        .success,
+    ).toBe(false)
+  })
+})
+
+describe('feePlanSchema', () => {
+  const valid = {
+    name: 'Standard',
+    academic_year: '2025/26',
+    full_year_amount: '800',
+    monthly_instalment_amount: '100',
+    termly_instalment_amount: '266.67',
+    notes: '',
+    active: 'on',
+    class_ids: ['a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'],
+  }
+
+  it('parses amounts, normalises the year and keeps class ids', () => {
+    expect(feePlanSchema.parse(valid)).toEqual({
+      name: 'Standard',
+      academic_year: '2025-26',
+      full_year_amount: 800,
+      monthly_instalment_amount: 100,
+      termly_instalment_amount: 266.67,
+      notes: null,
+      active: true,
+      class_ids: ['a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'],
+    })
+  })
+
+  it('defaults class ids to empty and active to false when unticked', () => {
+    const { class_ids: _ids, active: _active, ...rest } = valid
+    const result = feePlanSchema.parse(rest)
+    expect(result.class_ids).toEqual([])
+    expect(result.active).toBe(false)
+  })
+
+  it('rejects an invalid class id', () => {
+    expect(
+      feePlanSchema.safeParse({ ...valid, class_ids: ['nope'] }).success,
+    ).toBe(false)
+  })
+})
+
+describe('studentFeeAccountSchema', () => {
+  const base = {
+    payment_plan: 'monthly',
+    payment_plan_notes: '',
+    fee_plan_override_id: '',
+    custom_total_amount: '250',
+    custom_up_to_date: 'on',
+  }
+
+  it('clears custom fields for a non-custom plan', () => {
+    expect(studentFeeAccountSchema.parse(base)).toEqual({
+      payment_plan: 'monthly',
+      payment_plan_notes: null,
+      fee_plan_override_id: null,
+      custom_total_amount: null,
+      custom_up_to_date: false,
+    })
+  })
+
+  it('allows no plan at all', () => {
+    const result = studentFeeAccountSchema.parse({ ...base, payment_plan: '' })
+    expect(result.payment_plan).toBeNull()
+  })
+
+  it('keeps custom fields for a custom plan', () => {
+    const result = studentFeeAccountSchema.parse({
+      ...base,
+      payment_plan: 'custom',
+      payment_plan_notes: 'Two payments agreed with head',
+    })
+    expect(result.custom_total_amount).toBe(250)
+    expect(result.custom_up_to_date).toBe(true)
+  })
+
+  it('requires a total and notes for a custom plan', () => {
+    const result = studentFeeAccountSchema.safeParse({
+      ...base,
+      payment_plan: 'custom',
+      custom_total_amount: '',
+    })
+    expect(result.success).toBe(false)
+    expect(result.error?.issues.map((i) => i.message)).toEqual([
+      'Enter the agreed total for a custom plan',
+      'Explain the custom arrangement in the notes',
+    ])
+  })
+})
+
+describe('studentPaymentSchema', () => {
+  const valid = {
+    amount: '100',
+    payment_date: '2025-09-01',
+    reference: 'HSHB-ALICE',
+    method: 'bank_transfer',
+    notes: '',
+  }
+
+  it('accepts a valid payment', () => {
+    expect(studentPaymentSchema.parse(valid)).toEqual({
+      amount: 100,
+      payment_date: '2025-09-01',
+      reference: 'HSHB-ALICE',
+      method: 'bank_transfer',
+      notes: null,
+    })
+  })
+
+  it('rejects a zero amount', () => {
+    expect(
+      studentPaymentSchema.safeParse({ ...valid, amount: '0' }).error?.issues[0]
+        .message,
+    ).toBe('Amount must be more than £0')
+  })
+
+  it('requires a reference and a known method', () => {
+    expect(
+      studentPaymentSchema.safeParse({ ...valid, reference: '' }).success,
+    ).toBe(false)
+    expect(
+      studentPaymentSchema.safeParse({ ...valid, method: 'cheque' }).success,
+    ).toBe(false)
   })
 })

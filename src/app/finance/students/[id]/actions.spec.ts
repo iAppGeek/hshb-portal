@@ -1,0 +1,203 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { revalidatePath } from 'next/cache'
+
+import { auth } from '@/auth'
+import {
+  createStudentPayment,
+  deleteStudentPayment,
+  logAuditEvent,
+  upsertStudentFeeAccount,
+} from '@/db'
+
+import {
+  addStudentPaymentAction,
+  deleteStudentPaymentAction,
+  saveStudentFeeAccountAction,
+} from './actions'
+
+vi.mock('@/auth', () => ({ auth: vi.fn() }))
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
+vi.mock('@/db', () => ({
+  upsertStudentFeeAccount: vi.fn(),
+  createStudentPayment: vi.fn(),
+  deleteStudentPayment: vi.fn(),
+  logAuditEvent: vi.fn(),
+}))
+
+function makeFormData(fields: Record<string, string>): FormData {
+  const fd = new FormData()
+  for (const [key, value] of Object.entries(fields)) fd.append(key, value)
+  return fd
+}
+
+const account = {
+  payment_plan: 'termly',
+  payment_plan_notes: '',
+  fee_plan_override_id: '',
+  custom_total_amount: '',
+}
+
+const payment = {
+  amount: '100.50',
+  payment_date: '2025-09-01',
+  reference: 'REF-1',
+  method: 'bank_transfer',
+  notes: '',
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  vi.mocked(auth).mockResolvedValue({
+    user: { role: 'admin', staffId: 'admin-1' },
+  } as never)
+})
+
+describe.each([
+  [
+    'saveStudentFeeAccountAction',
+    () => saveStudentFeeAccountAction('s1', makeFormData(account)),
+  ],
+  [
+    'addStudentPaymentAction',
+    () => addStudentPaymentAction('s1', makeFormData(payment)),
+  ],
+  [
+    'deleteStudentPaymentAction',
+    () => deleteStudentPaymentAction('s1', 'pay1'),
+  ],
+])('%s access', (_name, run) => {
+  it('rejects unauthenticated users', async () => {
+    vi.mocked(auth).mockResolvedValue(null as never)
+    expect(await run()).toEqual({ error: 'Not authenticated' })
+  })
+
+  it('rejects non-admins', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'headteacher', staffId: 'h1' },
+    } as never)
+    expect(await run()).toEqual({ error: 'Not authorised' })
+    expect(upsertStudentFeeAccount).not.toHaveBeenCalled()
+    expect(createStudentPayment).not.toHaveBeenCalled()
+    expect(deleteStudentPayment).not.toHaveBeenCalled()
+  })
+})
+
+describe('saveStudentFeeAccountAction', () => {
+  it('saves the account, logs it and revalidates both pages', async () => {
+    expect(
+      await saveStudentFeeAccountAction('s1', makeFormData(account)),
+    ).toBeUndefined()
+
+    expect(upsertStudentFeeAccount).toHaveBeenCalledWith('s1', {
+      payment_plan: 'termly',
+      payment_plan_notes: null,
+      fee_plan_override_id: null,
+      custom_total_amount: null,
+      custom_up_to_date: false,
+    })
+    expect(logAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        staffId: 'admin-1',
+        action: 'update',
+        entity: 'student_fee_account',
+        entityId: 's1',
+      }),
+    )
+    expect(revalidatePath).toHaveBeenCalledWith('/finance')
+    expect(revalidatePath).toHaveBeenCalledWith('/finance/students/s1')
+  })
+
+  it('returns validation errors', async () => {
+    expect(
+      await saveStudentFeeAccountAction(
+        's1',
+        makeFormData({ ...account, payment_plan: 'custom' }),
+      ),
+    ).toEqual({ error: 'Enter the agreed total for a custom plan' })
+  })
+
+  it('returns a friendly error when saving fails', async () => {
+    vi.mocked(upsertStudentFeeAccount).mockRejectedValue(new Error('down'))
+    expect(
+      await saveStudentFeeAccountAction('s1', makeFormData(account)),
+    ).toEqual({ error: 'Failed to save the fee account. Please try again.' })
+  })
+})
+
+describe('addStudentPaymentAction', () => {
+  it('records the payment against the current admin', async () => {
+    vi.mocked(createStudentPayment).mockResolvedValue({ id: 'pay1' })
+
+    expect(
+      await addStudentPaymentAction('s1', makeFormData(payment)),
+    ).toBeUndefined()
+
+    expect(createStudentPayment).toHaveBeenCalledWith('s1', {
+      amount: 100.5,
+      payment_date: '2025-09-01',
+      reference: 'REF-1',
+      method: 'bank_transfer',
+      notes: null,
+      recorded_by: 'admin-1',
+    })
+    expect(logAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'create',
+        entity: 'student_payment',
+        entityId: 'pay1',
+        details: expect.objectContaining({ student_id: 's1', amount: 100.5 }),
+      }),
+    )
+    expect(revalidatePath).toHaveBeenCalledWith('/finance/students/s1')
+  })
+
+  it('returns validation errors', async () => {
+    expect(
+      await addStudentPaymentAction(
+        's1',
+        makeFormData({ ...payment, reference: '' }),
+      ),
+    ).toEqual({ error: 'Required' })
+    expect(createStudentPayment).not.toHaveBeenCalled()
+  })
+
+  it('returns a friendly error when saving fails', async () => {
+    vi.mocked(createStudentPayment).mockRejectedValue(new Error('down'))
+    expect(await addStudentPaymentAction('s1', makeFormData(payment))).toEqual({
+      error: 'Failed to record the payment. Please try again.',
+    })
+  })
+})
+
+describe('deleteStudentPaymentAction', () => {
+  it('deletes the payment and logs it', async () => {
+    vi.mocked(deleteStudentPayment).mockResolvedValue(true)
+
+    expect(await deleteStudentPaymentAction('s1', 'pay1')).toBeUndefined()
+
+    expect(deleteStudentPayment).toHaveBeenCalledWith('s1', 'pay1')
+    expect(logAuditEvent).toHaveBeenCalledWith({
+      staffId: 'admin-1',
+      action: 'delete',
+      entity: 'student_payment',
+      entityId: 'pay1',
+      details: { student_id: 's1' },
+    })
+    expect(revalidatePath).toHaveBeenCalledWith('/finance/students/s1')
+  })
+
+  it('reports a payment that no longer exists', async () => {
+    vi.mocked(deleteStudentPayment).mockResolvedValue(false)
+    expect(await deleteStudentPaymentAction('s1', 'pay1')).toEqual({
+      error: 'That payment no longer exists.',
+    })
+    expect(logAuditEvent).not.toHaveBeenCalled()
+  })
+
+  it('returns a friendly error when deleting fails', async () => {
+    vi.mocked(deleteStudentPayment).mockRejectedValue(new Error('down'))
+    expect(await deleteStudentPaymentAction('s1', 'pay1')).toEqual({
+      error: 'Failed to delete the payment. Please try again.',
+    })
+  })
+})
