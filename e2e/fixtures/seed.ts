@@ -127,3 +127,14 @@ export async function deletePhotoOptOutsByChildLastName(
     .delete()
     .eq('child_last_name', lastName)
 }
+
+export async function deleteStudentsByLastName(
+  lastName: string,
+): Promise<void> {
+  await db.from('students').delete().eq('last_name', lastName)
+}
+
+// Links in fee_plan_classes cascade with the plan.
+export async function deleteFeePlansByName(name: string): Promise<void> {
+  await db.from('fee_plans').delete().eq('name', name)
+}

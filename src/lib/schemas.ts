@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { addYears, DBS_RENEWAL_YEARS } from './compliance'
+
 // ─── Reusable field schemas ──────────────────────────────────────────────────
 
 export const uuid = z.string().uuid()
@@ -213,6 +215,7 @@ export const staffAttendanceSchema = z.object({
 })
 
 export const createStaffSchema = z.object({
+  title: shortText,
   first_name: requiredString,
   last_name: requiredString,
   email: emailField,
@@ -394,6 +397,235 @@ export const applyPhotoOptOutSchema = z.object({
 })
 
 export const rejectPhotoOptOutSchema = z.object({ reason: requiredString })
+
+// ─── Finance ─────────────────────────────────────────────────────────────────
+// Enum values mirror the CHECK constraints in the finance_payments migration.
+
+export const paymentFunding = z.enum(['kea', 'school'], {
+  message: 'Select how this staff member is paid',
+})
+export const idType = z.enum([
+  'passport',
+  'driving_licence',
+  'brp',
+  'birth_certificate',
+  'other',
+])
+export const dbsLevel = z.enum(['enhanced', 'standard', 'basic'])
+export const paymentPlan = z.enum(['monthly', 'termly', 'yearly', 'custom'])
+export const paymentMethod = z.enum(['bank_transfer', 'cash', 'card', 'other'])
+
+const optionalIsoDate = optionalString.pipe(isoDate.nullable())
+
+// Sort codes and account numbers are often typed with dashes or spaces.
+const digitsOrNull = z
+  .string()
+  .transform((v) => v.replace(/[\s-]/g, '') || null)
+  .nullable()
+
+export const optionalSortCode = digitsOrNull.pipe(
+  z
+    .string()
+    .regex(/^\d{6}$/, 'Sort code must be 6 digits')
+    .nullable(),
+)
+
+export const optionalAccountNumber = digitsOrNull.pipe(
+  z
+    .string()
+    .regex(/^\d{8}$/, 'Account number must be 8 digits')
+    .nullable(),
+)
+
+const MONEY_PATTERN = /^\d{1,8}(\.\d{1,2})?$/
+const MONEY_MESSAGE = 'Enter an amount like 100 or 99.50'
+
+export const moneyAmount = requiredString
+  .regex(MONEY_PATTERN, MONEY_MESSAGE)
+  .transform(Number)
+
+export const optionalMoneyAmount = optionalString.pipe(
+  z.string().regex(MONEY_PATTERN, MONEY_MESSAGE).transform(Number).nullable(),
+)
+
+export const academicYear = requiredString
+  .transform((v) => v.replace('/', '-'))
+  .pipe(
+    z.string().regex(/^\d{4}-\d{2}$/, 'Academic year must look like 2025-26'),
+  )
+  .refine(
+    (v) => (Number(v.slice(0, 4)) + 1) % 100 === Number(v.slice(5)),
+    'Academic year must be two consecutive years, like 2025-26',
+  )
+
+type RequiredDetail = [value: unknown, path: string, message: string]
+
+function requireDetails(
+  ctx: z.RefinementCtx,
+  when: boolean,
+  details: RequiredDetail[],
+): void {
+  if (!when) return
+  for (const [value, path, message] of details) {
+    if (value === null || value === undefined) {
+      ctx.addIssue({ code: 'custom', message, path: [path] })
+    }
+  }
+}
+
+export const staffPayrollSchema = z
+  .object({
+    payment_funding: paymentFunding,
+    bank_account_name: optionalShortText,
+    bank_sort_code: optionalSortCode,
+    bank_account_number: optionalAccountNumber,
+    payroll_ref: optionalShortText,
+    id_verified: checkbox,
+    id_type: optionalString.pipe(idType.nullable()),
+    id_verified_at: optionalIsoDate,
+    right_to_work_checked: checkbox,
+    right_to_work_checked_at: optionalIsoDate,
+    dbs_verified: checkbox,
+    dbs_level: optionalString.pipe(dbsLevel.nullable()),
+    dbs_barred_list_checked: checkbox,
+    dbs_update_service: checkbox,
+    dbs_reference: optionalShortText,
+    dbs_issue_date: optionalIsoDate,
+    dbs_verified_at: optionalIsoDate,
+    dbs_renewal_due: optionalIsoDate,
+    first_aid_certified: checkbox,
+    first_aid_reference: optionalShortText,
+    first_aid_issue_date: optionalIsoDate,
+    first_aid_verified_at: optionalIsoDate,
+    first_aid_expiry_date: optionalIsoDate,
+    fire_warden_certified: checkbox,
+    fire_warden_reference: optionalShortText,
+    fire_warden_issue_date: optionalIsoDate,
+    fire_warden_verified_at: optionalIsoDate,
+    fire_warden_expiry_date: optionalIsoDate,
+  })
+  .superRefine((d, ctx) => {
+    const hasAnyBank = Boolean(
+      d.bank_account_name || d.bank_sort_code || d.bank_account_number,
+    )
+    requireDetails(ctx, hasAnyBank, [
+      [
+        d.bank_account_name,
+        'bank_account_name',
+        'Enter the account holder name',
+      ],
+      [d.bank_sort_code, 'bank_sort_code', 'Enter the sort code'],
+      [
+        d.bank_account_number,
+        'bank_account_number',
+        'Enter the account number',
+      ],
+    ])
+    requireDetails(ctx, d.id_verified, [
+      [d.id_type, 'id_type', 'Select the ID type that was verified'],
+      [d.id_verified_at, 'id_verified_at', 'Enter the ID verification date'],
+    ])
+    requireDetails(ctx, d.right_to_work_checked, [
+      [
+        d.right_to_work_checked_at,
+        'right_to_work_checked_at',
+        'Enter the right to work check date',
+      ],
+    ])
+    requireDetails(ctx, d.dbs_verified, [
+      [d.dbs_level, 'dbs_level', 'Select the DBS level'],
+      [d.dbs_reference, 'dbs_reference', 'Enter the DBS certificate reference'],
+      [d.dbs_issue_date, 'dbs_issue_date', 'Enter the DBS issue date'],
+      [d.dbs_verified_at, 'dbs_verified_at', 'Enter the DBS verification date'],
+    ])
+    requireDetails(ctx, d.first_aid_certified, [
+      [
+        d.first_aid_reference,
+        'first_aid_reference',
+        'Enter the first aid certificate reference',
+      ],
+      [
+        d.first_aid_issue_date,
+        'first_aid_issue_date',
+        'Enter the first aid issue date',
+      ],
+      [
+        d.first_aid_verified_at,
+        'first_aid_verified_at',
+        'Enter the first aid verification date',
+      ],
+    ])
+    requireDetails(ctx, d.fire_warden_certified, [
+      [
+        d.fire_warden_reference,
+        'fire_warden_reference',
+        'Enter the fire warden certificate reference',
+      ],
+      [
+        d.fire_warden_issue_date,
+        'fire_warden_issue_date',
+        'Enter the fire warden issue date',
+      ],
+      [
+        d.fire_warden_verified_at,
+        'fire_warden_verified_at',
+        'Enter the fire warden verification date',
+      ],
+    ])
+  })
+  .transform((d) => ({
+    ...d,
+    dbs_renewal_due:
+      d.dbs_renewal_due ??
+      (d.dbs_issue_date ? addYears(d.dbs_issue_date, DBS_RENEWAL_YEARS) : null),
+  }))
+
+export const feePlanSchema = z.object({
+  name: shortText,
+  academic_year: academicYear,
+  full_year_amount: moneyAmount,
+  monthly_instalment_amount: moneyAmount,
+  termly_instalment_amount: moneyAmount,
+  notes: optionalLongText,
+  active: checkbox,
+  class_ids: z.array(uuid).default([]),
+})
+
+export const studentFeeAccountSchema = z
+  .object({
+    payment_plan: optionalString.pipe(paymentPlan.nullable()),
+    payment_plan_notes: optionalLongText,
+    fee_plan_override_id: optionalString.pipe(uuid.nullable()),
+    custom_total_amount: optionalMoneyAmount,
+    custom_up_to_date: checkbox,
+  })
+  .superRefine((d, ctx) => {
+    requireDetails(ctx, d.payment_plan === 'custom', [
+      [
+        d.custom_total_amount,
+        'custom_total_amount',
+        'Enter the agreed total for a custom plan',
+      ],
+      [
+        d.payment_plan_notes,
+        'payment_plan_notes',
+        'Explain the custom arrangement in the notes',
+      ],
+    ])
+  })
+  .transform((d) =>
+    d.payment_plan === 'custom'
+      ? d
+      : { ...d, custom_total_amount: null, custom_up_to_date: false },
+  )
+
+export const studentPaymentSchema = z.object({
+  amount: moneyAmount.refine((n) => n > 0, 'Amount must be more than £0'),
+  payment_date: isoDate,
+  reference: shortText,
+  method: paymentMethod,
+  notes: optionalLongText,
+})
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

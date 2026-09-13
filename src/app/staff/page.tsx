@@ -112,6 +112,7 @@ export default async function StaffPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="hidden bg-gray-50 sm:table-header-group">
                 <tr>
+                  <th className={TH}>Title</th>
                   <th className={TH}>First name</th>
                   <th className={TH}>Last name</th>
                   <th className={TH}>Display name</th>
@@ -150,10 +151,13 @@ export default async function StaffPage() {
                       key={member.id}
                       className="block border-b border-gray-200 last:border-0 hover:bg-gray-50 sm:table-row sm:border-0"
                     >
+                      <td className={TD}>{member.title}</td>
+
                       {/* Full name — on mobile: name left, Edit link right */}
                       <td className="block px-4 pt-4 pb-0 text-sm font-medium text-gray-900 sm:table-cell sm:px-6 sm:py-4 sm:whitespace-nowrap">
                         <div className="flex items-center justify-between gap-2 sm:block">
                           <span>
+                            <span className="sm:hidden">{member.title} </span>
                             {member.first_name}
                             <span className="sm:hidden">
                               {' '}

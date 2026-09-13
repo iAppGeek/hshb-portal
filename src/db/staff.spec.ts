@@ -197,6 +197,7 @@ describe('getStaffById', () => {
 describe('createStaff', () => {
   it('inserts a staff record and returns it', async () => {
     const input = {
+      title: 'Ms',
       first_name: 'Alice',
       last_name: 'Smith',
       email: 'alice@school.com',
@@ -233,6 +234,7 @@ describe('createStaff', () => {
 
     await expect(
       createStaff({
+        title: 'Ms',
         first_name: 'Alice',
         last_name: 'Smith',
         email: 'alice@school.com',
@@ -251,6 +253,7 @@ describe('updateStaff', () => {
     })
 
     await updateStaff('staff-1', {
+      title: 'Ms',
       first_name: 'Alice',
       last_name: 'Smith',
       email: 'alice@school.com',
@@ -272,6 +275,7 @@ describe('updateStaff', () => {
 
     await expect(
       updateStaff('staff-1', {
+        title: 'Ms',
         first_name: 'Alice',
         last_name: 'Smith',
         email: 'alice@school.com',

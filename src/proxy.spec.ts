@@ -65,6 +65,38 @@ describe('middleware', () => {
     expect(mockRedirect).not.toHaveBeenCalled()
   })
 
+  it.each(['headteacher', 'secretary', 'teacher'])(
+    'redirects %s away from /finance to dashboard',
+    (role) => {
+      middleware(...makeReq('/finance', { user: { role } }))
+      expect(mockRedirect).toHaveBeenCalledWith(
+        new URL('/dashboard', 'http://localhost:3000'),
+      )
+    },
+  )
+
+  it('redirects non-admin away from nested /finance pages', () => {
+    middleware(
+      ...makeReq('/finance/staff/abc', { user: { role: 'headteacher' } }),
+    )
+    expect(mockRedirect).toHaveBeenCalledWith(
+      new URL('/dashboard', 'http://localhost:3000'),
+    )
+  })
+
+  it('allows admin to access /finance and nested pages', () => {
+    middleware(...makeReq('/finance', { user: { role: 'admin' } }))
+    middleware(
+      ...makeReq('/finance/fee-plans/new', { user: { role: 'admin' } }),
+    )
+    expect(mockRedirect).not.toHaveBeenCalled()
+  })
+
+  it('does not treat /financeX as a finance page', () => {
+    middleware(...makeReq('/financeX', { user: { role: 'teacher' } }))
+    expect(mockRedirect).not.toHaveBeenCalled()
+  })
+
   it('allows unauthenticated access to /register', () => {
     middleware(...makeReq('/register'))
     expect(mockRedirect).not.toHaveBeenCalled()

@@ -41,6 +41,7 @@ function makeFormData(fields: Record<string, string>): FormData {
 }
 
 const validFields = {
+  title: 'Mr',
   first_name: 'Alice',
   last_name: 'Smith',
   email: 'alice@school.com',
@@ -77,6 +78,7 @@ describe('updateStaffAction', () => {
     ).rejects.toThrow('NEXT_REDIRECT:/staff')
 
     expect(updateStaff).toHaveBeenCalledWith('staff-1', {
+      title: 'Mr',
       first_name: 'Alice',
       last_name: 'Smith',
       email: 'alice@school.com',

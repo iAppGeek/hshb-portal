@@ -5,7 +5,7 @@ import { TEACHING_ROLES } from '@/lib/permissions'
 import { supabase } from './client'
 
 const STAFF_SELECT =
-  'id, email, first_name, last_name, display_name, role, contact_number, personal_email, created_at'
+  'id, email, title, first_name, last_name, display_name, role, contact_number, personal_email, created_at'
 
 const OPTS = { revalidate: 60, tags: ['staff'] }
 
@@ -70,6 +70,7 @@ export const getTeachers = unstable_cache(
 )
 
 export async function createStaff(input: {
+  title: string
   first_name: string
   last_name: string
   email: string
@@ -91,6 +92,7 @@ export async function createStaff(input: {
 export async function updateStaff(
   id: string,
   input: {
+    title: string
     first_name: string
     last_name: string
     email: string

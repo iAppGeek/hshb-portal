@@ -36,6 +36,7 @@ Four roles exist: **teacher**, **admin**, **headteacher**, **secretary**.
 | Receive push notifications          | -       | Yes   | Yes         | -         |
 | Review registrations                | -       | Yes   | Yes         | Yes       |
 | Approve/reject/delete registrations | -       | Yes   | -           | -         |
+| Manage finance (payroll, fees)      | -       | Yes   | -           | -         |
 
 ## Other Rules
 

@@ -28,6 +28,7 @@ beforeEach(() => {
 const mockStaff = [
   {
     id: 'staff-1',
+    title: 'Mrs',
     first_name: 'Jane',
     last_name: 'Smith',
     display_name: 'Jane Smith',
@@ -41,6 +42,7 @@ const mockStaff = [
   },
   {
     id: 'staff-2',
+    title: 'Mr',
     first_name: 'Bob',
     last_name: 'Jones',
     display_name: null,
@@ -87,6 +89,15 @@ describe('StaffPage', () => {
     expect(screen.getByText('Email')).toBeTruthy()
     expect(screen.getAllByText('jane@school.com').length).toBeGreaterThan(0)
     expect(screen.getAllByText('bob@school.com').length).toBeGreaterThan(0)
+  })
+
+  it('shows the Title column with each staff title', async () => {
+    vi.mocked(getAllStaffWithClasses).mockResolvedValue(mockStaff as any)
+
+    render(await StaffPage())
+    expect(screen.getByText('Title')).toBeTruthy()
+    expect(screen.getAllByText('Mrs').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Mr').length).toBeGreaterThan(0)
   })
 
   it('shows class name and room number for teachers', async () => {

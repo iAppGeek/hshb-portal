@@ -25,6 +25,7 @@ import {
   showsOnSignInSheet,
   canReviewRegistrations,
   canApproveRegistrations,
+  canManageFinance,
   TEACHING_ROLES,
   NOTIFICATION_ROLES,
 } from './permissions'
@@ -81,6 +82,7 @@ const table: [string, (role: StaffRole) => boolean, StaffRole[]][] = [
     ['admin', 'headteacher', 'secretary'],
   ],
   ['canApproveRegistrations', canApproveRegistrations, ['admin']],
+  ['canManageFinance', canManageFinance, ['admin']],
 ]
 
 describe('permissions', () => {

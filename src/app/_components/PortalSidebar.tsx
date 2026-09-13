@@ -20,6 +20,7 @@ import {
   DocumentTextIcon,
   ArrowPathRoundedSquareIcon,
   InboxIcon,
+  BanknotesIcon,
 } from '@heroicons/react/24/outline'
 
 import logo from '@/images/logo.png'
@@ -36,6 +37,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   '/reports': ChartBarIcon,
   '/admin': ArrowPathRoundedSquareIcon,
   '/registrations': InboxIcon,
+  '/finance': BanknotesIcon,
 }
 
 type NavItem = {
@@ -211,7 +213,9 @@ export default function PortalSidebar({
             <XMarkIcon className="h-5 w-5" />
           </button>
         </div>
-        <nav className="flex-1 space-y-1 px-3 py-4">{navLinks}</nav>
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
+          {navLinks}
+        </nav>
         {userFooter}
       </aside>
 

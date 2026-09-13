@@ -21,16 +21,20 @@ describe('revalidateAllCaches', () => {
     expect(updateTag).not.toHaveBeenCalled()
   })
 
-  it('revalidates students, classes and staff when a session exists', async () => {
+  it('revalidates every cached data set when a session exists', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { staffId: 'staff-1', role: 'admin' },
     } as never)
 
     await revalidateAllCaches()
 
-    expect(updateTag).toHaveBeenCalledTimes(3)
-    expect(updateTag).toHaveBeenCalledWith('students')
-    expect(updateTag).toHaveBeenCalledWith('classes')
-    expect(updateTag).toHaveBeenCalledWith('staff')
+    expect(vi.mocked(updateTag).mock.calls.map(([tag]) => tag)).toEqual([
+      'students',
+      'classes',
+      'staff',
+      'staff-payroll',
+      'fee-plans',
+      'student-fees',
+    ])
   })
 })

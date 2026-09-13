@@ -96,6 +96,10 @@ export function canAccessAdminTasks(role: StaffRole): boolean {
   return role === 'admin'
 }
 
+export function canManageFinance(role: StaffRole): boolean {
+  return role === 'admin' // payroll, bank details and fees — view and edit
+}
+
 export function canReviewRegistrations(role: StaffRole): boolean {
   return role === 'admin' || role === 'headteacher' || role === 'secretary'
 }

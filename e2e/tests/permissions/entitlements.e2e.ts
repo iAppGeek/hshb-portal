@@ -45,6 +45,16 @@ const ROUTE_RULES: RouteRule[] = [
     redirectTo: '/students',
   },
   {
+    route: '/finance',
+    allowedRoles: ['admin'],
+    redirectTo: '/dashboard',
+  },
+  {
+    route: '/finance/fee-plans/new',
+    allowedRoles: ['admin'],
+    redirectTo: '/dashboard',
+  },
+  {
     route: '/registrations',
     allowedRoles: ['admin', 'headteacher', 'secretary'],
     redirectTo: '/dashboard',
