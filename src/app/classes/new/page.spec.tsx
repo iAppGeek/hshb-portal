@@ -14,6 +14,8 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/db', () => ({
   getTeachers: vi.fn(),
   getStudentsForList: vi.fn(),
+  getAcademicYears: vi.fn(),
+  getCurrentAcademicYear: vi.fn(),
 }))
 
 vi.mock('../ClassForm', () => ({
@@ -27,7 +29,12 @@ vi.mock('./actions', () => ({
 }))
 
 import { auth } from '@/auth'
-import { getTeachers, getStudentsForList } from '@/db'
+import {
+  getAcademicYears,
+  getCurrentAcademicYear,
+  getTeachers,
+  getStudentsForList,
+} from '@/db'
 
 import AddClassPage from './page'
 
@@ -37,9 +44,19 @@ const mockTeachers = [
 const mockStudents = [
   { id: 'student-1', first_name: 'Alice', last_name: 'Brown' },
 ]
+const mockYears = [
+  {
+    id: 'year-1',
+    code: '2026-27',
+    start_date: '2026-09-01',
+    end_date: '2027-08-31',
+  },
+]
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(getAcademicYears).mockResolvedValue(mockYears as any)
+  vi.mocked(getCurrentAcademicYear).mockResolvedValue(mockYears[0] as any)
 })
 
 describe('AddClassPage', () => {

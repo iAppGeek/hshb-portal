@@ -20,6 +20,7 @@ const CLASS_ID = '00000000-0000-4000-8000-000000000001'
 const STAFF_ID = '00000000-0000-4000-8000-000000000010'
 const STUDENT_1 = '00000000-0000-4000-8000-000000000020'
 const STUDENT_2 = '00000000-0000-4000-8000-000000000030'
+const YEAR_ID = '00000000-0000-4000-8000-000000000040'
 
 const adminSession = { user: { staffId: STAFF_ID, role: 'admin' } }
 
@@ -44,7 +45,7 @@ const baseFields = {
   name: 'Year 1A',
   year_group: '1',
   room_number: 'R1',
-  academic_year: '2024/25',
+  academic_year_id: YEAR_ID,
   teacher_id: STAFF_ID,
   active: 'true',
 }
@@ -84,6 +85,7 @@ describe('updateClassAction', () => {
       expect.objectContaining({
         name: 'Year 1A',
         year_group: '1',
+        academic_year_id: YEAR_ID,
         teacher_id: STAFF_ID,
         active: true,
       }),
