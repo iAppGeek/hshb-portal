@@ -1,19 +1,33 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
-import { getAllClassesIncludingInactive, getFeePlans } from '@/db'
+import { getAcademicYears, getClassesByAcademicYear, getFeePlans } from '@/db'
 
 import FeePlansTab from './FeePlansTab'
 
 vi.mock('@/db', () => ({
+  getAcademicYears: vi.fn(),
   getFeePlans: vi.fn(),
-  getAllClassesIncludingInactive: vi.fn(),
+  getClassesByAcademicYear: vi.fn(),
 }))
+
+vi.mock('../../../_components/YearSelector', () => ({
+  default: () => <div data-testid="year-selector" />,
+}))
+
+const years = [
+  {
+    id: 'year-1',
+    code: '2025-26',
+    start_date: '2025-09-01',
+    end_date: '2026-08-31',
+  },
+]
 
 const plan = {
   id: 'p1',
   name: 'Standard',
-  academic_year: '2025-26',
+  academic_year: years[0],
   full_year_amount: 800,
   monthly_instalment_amount: 100,
   termly_instalment_amount: 266.67,
@@ -26,7 +40,8 @@ const plan = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(getAllClassesIncludingInactive).mockResolvedValue([
+  vi.mocked(getAcademicYears).mockResolvedValue(years as any)
+  vi.mocked(getClassesByAcademicYear).mockResolvedValue([
     { id: 'c1', name: 'Alpha' },
     { id: 'c2', name: 'Beta' },
   ] as never)
@@ -35,7 +50,7 @@ beforeEach(() => {
 describe('FeePlansTab', () => {
   it('shows an empty state and the add link with no plans', async () => {
     vi.mocked(getFeePlans).mockResolvedValue([])
-    render(await FeePlansTab())
+    render(await FeePlansTab({ yearId: 'year-1' }))
 
     expect(screen.getByText('No fee plans yet.')).toBeTruthy()
     expect(
@@ -43,13 +58,15 @@ describe('FeePlansTab', () => {
     ).toBe('/finance/fee-plans/new')
   })
 
-  it('lists plans with amounts, class names and status', async () => {
+  it('lists plans with amounts, class names and status for the requested year', async () => {
     vi.mocked(getFeePlans).mockResolvedValue([
       plan,
       { ...plan, id: 'p2', name: 'Old', active: false, class_ids: [] },
     ])
-    render(await FeePlansTab())
+    render(await FeePlansTab({ yearId: 'year-1' }))
 
+    expect(getFeePlans).toHaveBeenCalledWith('year-1')
+    expect(getClassesByAcademicYear).toHaveBeenCalledWith('year-1')
     expect(screen.getByText('Standard')).toBeTruthy()
     expect(screen.getAllByText('£800.00')).toHaveLength(2)
     expect(screen.getAllByText('£266.67')).toHaveLength(2)

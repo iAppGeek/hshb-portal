@@ -5,8 +5,8 @@ import type { StudentFeeRow } from '../../_lib/studentFeeSummary'
 
 import StudentFeesTable from './StudentFeesTable'
 
-const alpha = { id: 'c1', name: 'Alpha', academic_year: '2025-26' }
-const beta = { id: 'c2', name: 'Beta', academic_year: '2025-26' }
+const alpha = { id: 'c1', name: 'Alpha' }
+const beta = { id: 'c2', name: 'Beta' }
 
 const rows: StudentFeeRow[] = [
   {
@@ -20,6 +20,7 @@ const rows: StudentFeeRow[] = [
     paid: 100,
     due: 200,
     status: 'behind',
+    priorOwed: 0,
   },
   {
     id: 's2',
@@ -32,6 +33,7 @@ const rows: StudentFeeRow[] = [
     paid: 0,
     due: null,
     status: 'no_plan',
+    priorOwed: 50,
   },
   {
     id: 's3',
@@ -44,6 +46,7 @@ const rows: StudentFeeRow[] = [
     paid: 800,
     due: 800,
     status: 'paid_in_full',
+    priorOwed: 0,
   },
 ]
 
@@ -110,6 +113,19 @@ describe('StudentFeesTable', () => {
     expect(visibleNames()).toEqual(['/finance/students/s3'])
 
     fireEvent.change(select, { target: { value: 'conflict' } })
+    expect(visibleNames()).toEqual(['/finance/students/s2'])
+  })
+
+  it('shows the prior-year balance only when positive', () => {
+    render(<StudentFeesTable rows={rows} />)
+    expect(screen.getByText('£50.00')).toBeTruthy()
+  })
+
+  it('filters to students who owe from previous years', () => {
+    render(<StudentFeesTable rows={rows} />)
+    fireEvent.change(screen.getByLabelText('Filter by status'), {
+      target: { value: 'owes_prior' },
+    })
     expect(visibleNames()).toEqual(['/finance/students/s2'])
   })
 
