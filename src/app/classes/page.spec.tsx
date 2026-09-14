@@ -71,13 +71,23 @@ const currentYear = {
   end_date: '2027-08-31',
 }
 
+const previousYear = {
+  id: 'year-0',
+  code: '2025-26',
+  start_date: '2025-09-01',
+  end_date: '2026-08-31',
+}
+
 function noSearchParams() {
   return { searchParams: Promise.resolve({}) }
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(getAcademicYears).mockResolvedValue([currentYear] as any)
+  vi.mocked(getAcademicYears).mockResolvedValue([
+    currentYear,
+    previousYear,
+  ] as any)
   vi.mocked(getCurrentAcademicYear).mockResolvedValue(currentYear as any)
 })
 
@@ -174,7 +184,7 @@ describe('ClassesPage', () => {
     expect(screen.getByTestId('classes-table')).toBeTruthy()
   })
 
-  it('uses the requested year from the search params', async () => {
+  it('lets an admin browse a past year with the year selector', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
@@ -184,6 +194,49 @@ describe('ClassesPage', () => {
       await ClassesPage({ searchParams: Promise.resolve({ year: 'year-0' }) }),
     )
     expect(getClassesByAcademicYear).toHaveBeenCalledWith('year-0')
+    expect(screen.getByTestId('year-selector')).toBeTruthy()
+  })
+
+  it('falls back to the current year for an unknown year', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue(mockClasses as any)
+
+    render(
+      await ClassesPage({
+        searchParams: Promise.resolve({ year: 'not-a-year' }),
+      }),
+    )
+    expect(getClassesByAcademicYear).toHaveBeenCalledWith('year-1')
+  })
+
+  it.each(['headteacher', 'secretary'])(
+    'keeps %s on the current year with no year selector',
+    async (role) => {
+      vi.mocked(auth).mockResolvedValue({
+        user: { role, staffId: 'staff-2' },
+      } as any)
+      vi.mocked(getClassesByAcademicYear).mockResolvedValue(mockClasses as any)
+
+      render(
+        await ClassesPage({
+          searchParams: Promise.resolve({ year: 'year-0' }),
+        }),
+      )
+      expect(getClassesByAcademicYear).toHaveBeenCalledWith('year-1')
+      expect(screen.queryByTestId('year-selector')).toBeNull()
+    },
+  )
+
+  it('shows no year selector for a teacher', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'teacher', staffId: 'staff-99' },
+    } as any)
+    vi.mocked(getClassesByTeacher).mockResolvedValue(mockClasses as any)
+
+    render(await ClassesPage(noSearchParams()))
+    expect(screen.queryByTestId('year-selector')).toBeNull()
   })
 
   it('does not show Add Class button for secretary', async () => {

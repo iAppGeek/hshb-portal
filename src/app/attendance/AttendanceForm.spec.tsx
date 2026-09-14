@@ -326,4 +326,31 @@ describe('AttendanceForm', () => {
     const saveButton = screen.getByText('Save register')
     expect(saveButton.tagName).toBe('BUTTON')
   })
+
+  it('shows an archived register as read-only', () => {
+    render(
+      <AttendanceForm
+        classId="class-1"
+        date="2026-06-01"
+        students={[students[0]]}
+        existing={{ 'student-1': 'present' }}
+        role="admin"
+        hasExisting
+        archived
+      />,
+    )
+
+    expect(
+      screen.getByText(
+        'This register is from a past academic year and is read-only.',
+      ),
+    ).toBeTruthy()
+    expect(screen.queryByText('Save register')).toBeNull()
+
+    const absent = screen.getAllByRole('button', { name: 'Absent' })[0]
+    expect((absent as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(absent)
+    expect(screen.getByText('1 present')).toBeTruthy()
+    expect(screen.getByText('0 absent')).toBeTruthy()
+  })
 })

@@ -186,4 +186,36 @@ describe('AttendanceRegister', () => {
 
     expect(screen.getByText('Today')).toBeTruthy()
   })
+
+  it('passes archived to AttendanceForm, defaulting to false', async () => {
+    vi.mocked(getStudentsByClass).mockResolvedValue([mockStudent] as any)
+    vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
+
+    render(
+      await AttendanceRegister({
+        classId: 'class-1',
+        date: '2024-06-15',
+        className: 'Year 3A',
+        role: 'admin',
+      }),
+    )
+    expect(vi.mocked(AttendanceForm)).toHaveBeenLastCalledWith(
+      expect.objectContaining({ archived: false }),
+      undefined,
+    )
+
+    render(
+      await AttendanceRegister({
+        classId: 'class-1',
+        date: '2024-06-15',
+        className: 'Year 3A',
+        role: 'admin',
+        archived: true,
+      }),
+    )
+    expect(vi.mocked(AttendanceForm)).toHaveBeenLastCalledWith(
+      expect.objectContaining({ archived: true }),
+      undefined,
+    )
+  })
 })

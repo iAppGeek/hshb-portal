@@ -7,6 +7,7 @@ import { auth } from '@/auth'
 import {
   getAttendanceByClassAndDate,
   getClassById,
+  getCurrentAcademicYear,
   getAdminSubscriptions,
   deletePushSubscription,
   saveAttendance,
@@ -41,6 +42,18 @@ export async function saveAttendanceAction(
   const dateParsed = isoDate.safeParse(dateRaw)
   if (!dateParsed.success) return { error: 'Invalid date' }
   const date = dateParsed.data
+
+  const [cls, currentYear] = await Promise.all([
+    getClassById(classId),
+    getCurrentAcademicYear(),
+  ])
+  if (!cls) return { error: 'Class not found' }
+  if (cls.academic_year_id !== currentYear.id) {
+    return {
+      error:
+        'Registers can only be saved for classes in the current academic year.',
+    }
+  }
 
   const parsedRecords = studentIds.map((sid) =>
     attendanceRecordSchema.safeParse({
@@ -90,9 +103,9 @@ export async function saveAttendanceAction(
   })
   revalidatePath('/attendance')
 
-  Promise.all([getClassById(classId), getAdminSubscriptions()])
-    .then(([cls, subs]) => {
-      const className = cls?.name ?? 'a class'
+  getAdminSubscriptions()
+    .then((subs) => {
+      const className = cls.name
       const others = subs.filter((sub) => sub.staff_id !== staffId)
       return Promise.allSettled(
         others.map((sub) =>

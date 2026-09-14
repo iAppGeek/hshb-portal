@@ -12,6 +12,8 @@ type Props = {
   date: string
   className: string
   role: StaffRole
+  /** The class is outside the current academic year, so the register is read-only. */
+  archived?: boolean
 }
 
 export default async function AttendanceRegister({
@@ -19,6 +21,7 @@ export default async function AttendanceRegister({
   date,
   className,
   role,
+  archived = false,
 }: Props) {
   const [students, existingRows] = await Promise.all([
     getStudentsByClass(classId),
@@ -73,6 +76,7 @@ export default async function AttendanceRegister({
         existing={existing}
         role={role}
         hasExisting={existingRows.length > 0}
+        archived={archived}
       />
     </>
   )

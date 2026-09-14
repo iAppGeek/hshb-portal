@@ -10,10 +10,12 @@ import {
   getCurrentAcademicYear,
 } from '@/db'
 import Tooltip from '@/components/Tooltip'
+import { resolveYearId } from '@/lib/academicYears'
 import {
   canEditClasses,
   canCreateClasses,
   canSeeAllData,
+  isAdmin,
 } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -38,14 +40,21 @@ export default async function ClassesPage({
   const role = session.user?.role as StaffRole
   const canEdit = canEditClasses(role)
   const canSeeAll = canSeeAllData(role)
+  // Only admins browse past years; other all-data roles see the current year.
+  const canBrowseYears = isAdmin(role)
 
   const { year } = await searchParams
-  const years = canSeeAll ? await getAcademicYears() : []
-  const currentYear = canSeeAll ? await getCurrentAcademicYear() : null
-  const selectedYearId = year ?? currentYear?.id
+  const [years, currentYear] = canSeeAll
+    ? await Promise.all([getAcademicYears(), getCurrentAcademicYear()])
+    : [[], null]
+  const selectedYearId = currentYear
+    ? canBrowseYears
+      ? resolveYearId(years, year, currentYear.id)
+      : currentYear.id
+    : null
 
-  const classes = canSeeAll
-    ? await getClassesByAcademicYear(selectedYearId!)
+  const classes = selectedYearId
+    ? await getClassesByAcademicYear(selectedYearId)
     : await getClassesByTeacher(session.user.staffId)
 
   return (
@@ -70,11 +79,11 @@ export default async function ClassesPage({
         }
       />
 
-      {canSeeAll && (
+      {canBrowseYears && selectedYearId && (
         <div className="mb-4">
           <YearSelector
             years={years}
-            value={selectedYearId!}
+            value={selectedYearId}
             basePath="/classes"
           />
         </div>
