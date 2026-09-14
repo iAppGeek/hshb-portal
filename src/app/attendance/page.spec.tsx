@@ -6,8 +6,14 @@ vi.mock('@/auth', () => ({
 }))
 
 vi.mock('@/db', () => ({
-  getAllClasses: vi.fn(),
+  getAcademicYears: vi.fn(),
+  getCurrentAcademicYear: vi.fn(),
+  getClassesByAcademicYear: vi.fn(),
   getClassesByTeacher: vi.fn(),
+}))
+
+vi.mock('../_components/YearSelector', () => ({
+  default: () => <div data-testid="year-selector" />,
 }))
 
 vi.mock('./AttendanceFilters', () => ({
@@ -31,21 +37,35 @@ vi.mock('./AttendanceRegister', () => ({
 }))
 
 import { auth } from '@/auth'
-import { getAllClasses, getClassesByTeacher } from '@/db'
+import {
+  getAcademicYears,
+  getClassesByAcademicYear,
+  getClassesByTeacher,
+  getCurrentAcademicYear,
+} from '@/db'
 
 import AttendancePage from './page'
 import AttendanceFilters from './AttendanceFilters'
 import AttendanceRegister from './AttendanceRegister'
 
+const currentYear = {
+  id: 'year-1',
+  code: '2026-27',
+  start_date: '2026-09-01',
+  end_date: '2027-08-31',
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(getAcademicYears).mockResolvedValue([currentYear] as any)
+  vi.mocked(getCurrentAcademicYear).mockResolvedValue(currentYear as any)
 })
 
 const mockClass = {
   id: 'class-1',
   name: 'Year 3A',
   year_group: '3',
-  academic_year: '2025-26',
+  academic_year: '2026-27',
 }
 
 describe('AttendancePage', () => {
@@ -53,7 +73,7 @@ describe('AttendancePage', () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
-    vi.mocked(getAllClasses).mockResolvedValue([mockClass] as any)
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue([mockClass] as any)
 
     render(await AttendancePage({ searchParams: Promise.resolve({}) }))
     expect(screen.getByText('Attendance Register')).toBeTruthy()
@@ -69,15 +89,27 @@ describe('AttendancePage', () => {
     expect(screen.getByText('No classes assigned.')).toBeTruthy()
   })
 
-  it('fetches all classes for admin', async () => {
+  it('fetches classes for the current year for admin', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
-    vi.mocked(getAllClasses).mockResolvedValue([mockClass] as any)
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue([mockClass] as any)
 
     await AttendancePage({ searchParams: Promise.resolve({}) })
-    expect(getAllClasses).toHaveBeenCalled()
+    expect(getClassesByAcademicYear).toHaveBeenCalledWith('year-1')
     expect(getClassesByTeacher).not.toHaveBeenCalled()
+  })
+
+  it('fetches classes for the requested year', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue([mockClass] as any)
+
+    await AttendancePage({
+      searchParams: Promise.resolve({ year: 'year-0' }),
+    })
+    expect(getClassesByAcademicYear).toHaveBeenCalledWith('year-0')
   })
 
   it('fetches only teacher classes for teacher role', async () => {
@@ -88,14 +120,14 @@ describe('AttendancePage', () => {
 
     await AttendancePage({ searchParams: Promise.resolve({}) })
     expect(getClassesByTeacher).toHaveBeenCalledWith('staff-2')
-    expect(getAllClasses).not.toHaveBeenCalled()
+    expect(getClassesByAcademicYear).not.toHaveBeenCalled()
   })
 
   it('passes classes, selectedClassId, and selectedDate to AttendanceFilters', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
-    vi.mocked(getAllClasses).mockResolvedValue([mockClass] as any)
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue([mockClass] as any)
 
     render(
       await AttendancePage({
@@ -120,7 +152,7 @@ describe('AttendancePage', () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
-    vi.mocked(getAllClasses).mockResolvedValue([mockClass] as any)
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue([mockClass] as any)
 
     render(
       await AttendancePage({
@@ -146,7 +178,7 @@ describe('AttendancePage', () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
-    vi.mocked(getAllClasses).mockResolvedValue([mockClass] as any)
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue([mockClass] as any)
 
     const today = new Date().toISOString().split('T')[0]
 
@@ -162,11 +194,42 @@ describe('AttendancePage', () => {
     )
   })
 
+  it('defaults to the year end date when browsing a past year outside its range', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
+    const pastYear = {
+      id: 'year-0',
+      code: '2025-26',
+      start_date: '2025-09-01',
+      end_date: '2026-08-31',
+    }
+    vi.mocked(getAcademicYears).mockResolvedValue([
+      currentYear,
+      pastYear,
+    ] as any)
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue([mockClass] as any)
+
+    render(
+      await AttendancePage({
+        searchParams: Promise.resolve({
+          classId: 'class-1',
+          year: 'year-0',
+        }),
+      }),
+    )
+
+    expect(vi.mocked(AttendanceRegister)).toHaveBeenCalledWith(
+      expect.objectContaining({ date: '2026-08-31' }),
+      undefined,
+    )
+  })
+
   it('defaults to the first class when no classId is in searchParams', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
-    vi.mocked(getAllClasses).mockResolvedValue([mockClass] as any)
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue([mockClass] as any)
 
     render(await AttendancePage({ searchParams: Promise.resolve({}) }))
 
@@ -180,10 +243,10 @@ describe('AttendancePage', () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'secretary', staffId: 'staff-4' },
     } as any)
-    vi.mocked(getAllClasses).mockResolvedValue([mockClass] as any)
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue([mockClass] as any)
 
     await AttendancePage({ searchParams: Promise.resolve({}) })
-    expect(getAllClasses).toHaveBeenCalled()
+    expect(getClassesByAcademicYear).toHaveBeenCalled()
     expect(getClassesByTeacher).not.toHaveBeenCalled()
   })
 
@@ -191,7 +254,7 @@ describe('AttendancePage', () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
-    vi.mocked(getAllClasses).mockResolvedValue([mockClass] as any)
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue([mockClass] as any)
 
     // Use mockImplementation (not Once) so React's internal Suspense retries also suspend.
     // React retries suspended components within act(), consuming a mockImplementationOnce.
