@@ -67,6 +67,9 @@ describe('FeePlanForm', () => {
     expect((screen.getByLabelText('Active') as HTMLInputElement).checked).toBe(
       true,
     )
+    expect(
+      screen.getByText(/Inactive plans still apply to their classes/),
+    ).toBeTruthy()
   })
 
   it('shows only classes from the chosen year', () => {

@@ -85,10 +85,13 @@ describe('updateClassAction', () => {
       expect.objectContaining({
         name: 'Year 1A',
         year_group: '1',
-        academic_year_id: YEAR_ID,
         teacher_id: STAFF_ID,
         active: true,
       }),
+    )
+    // The form may still post a year, but a class's year is never updated.
+    expect(vi.mocked(updateClass).mock.calls[0][1]).not.toHaveProperty(
+      'academic_year_id',
     )
     expect(setClassStudents).toHaveBeenCalledWith(CLASS_ID, [])
     expect(revalidatePath).toHaveBeenCalledWith('/classes')

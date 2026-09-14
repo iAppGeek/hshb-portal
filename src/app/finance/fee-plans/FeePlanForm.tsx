@@ -111,20 +111,26 @@ export default function FeePlanForm({
             name="termly_instalment_amount"
             defaultValue={plan?.termly_instalment_amount}
           />
-          <div className="flex items-center gap-2 sm:mt-6">
-            <input
-              id="active"
-              name="active"
-              type="checkbox"
-              defaultChecked={plan?.active ?? true}
-              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <label
-              htmlFor="active"
-              className="text-sm font-medium text-gray-700"
-            >
-              Active
-            </label>
+          <div className="sm:mt-6">
+            <div className="flex items-center gap-2">
+              <input
+                id="active"
+                name="active"
+                type="checkbox"
+                defaultChecked={plan?.active ?? true}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label
+                htmlFor="active"
+                className="text-sm font-medium text-gray-700"
+              >
+                Active
+              </label>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Inactive plans still apply to their classes but aren&apos;t
+              offered as a student override.
+            </p>
           </div>
           <div className="sm:col-span-2">
             <label htmlFor="notes" className={LABEL}>

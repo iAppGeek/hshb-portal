@@ -146,9 +146,10 @@ export const createClassSchema = z.object({
   student_ids: z.array(uuid).default([]),
 })
 
-export const updateClassSchema = createClassSchema.extend({
-  active: booleanFromString,
-})
+// A class's academic year is fixed once it is created.
+export const updateClassSchema = createClassSchema
+  .omit({ academic_year_id: true })
+  .extend({ active: booleanFromString })
 
 export const migrateClassSchema = z.object({
   source_class_id: uuid,

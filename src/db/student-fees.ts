@@ -275,8 +275,9 @@ export async function getPriorYearBalances(
     for (const s of list) {
       if (s.account?.settled) continue
       const classIds = new Set(s.classes.map((c) => c.id))
-      const classPlans = plans.filter(
-        (p) => p.active && p.class_ids.some((id) => classIds.has(id)),
+      // Plan status never hides a debt: inactive plans still apply.
+      const classPlans = plans.filter((p) =>
+        p.class_ids.some((id) => classIds.has(id)),
       )
       const overrideId = s.account?.fee_plan_override_id ?? null
       const override = plans.find((p) => p.id === overrideId) ?? null

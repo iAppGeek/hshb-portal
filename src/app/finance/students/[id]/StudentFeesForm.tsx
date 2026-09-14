@@ -10,8 +10,6 @@ type Props = {
   account: StudentFeeAccountRow | null
   academicYearId: string
   planOptions: { id: string; label: string }[]
-  /** Non-current years (or an already-settled account) show the settled fields. */
-  showSettled: boolean
   action: (formData: FormData) => Promise<ActionResult>
 }
 
@@ -23,7 +21,6 @@ export default function StudentFeesForm({
   account,
   academicYearId,
   planOptions,
-  showSettled,
   action,
 }: Props): React.ReactElement {
   const [paymentPlan, setPaymentPlan] = useState(account?.payment_plan ?? '')
@@ -142,37 +139,33 @@ export default function StudentFeesForm({
           )}
         </div>
 
-        {showSettled && (
-          <>
-            <div className="flex items-center gap-2">
-              <input
-                id="settled"
-                name="settled"
-                type="checkbox"
-                defaultChecked={account?.settled ?? false}
-                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <label
-                htmlFor="settled"
-                className="text-sm font-medium text-gray-700"
-              >
-                Settled (written off or agreed as paid)
-              </label>
-            </div>
-            <div className="sm:col-span-2">
-              <label htmlFor="settled_note" className={LABEL}>
-                Settled note
-              </label>
-              <textarea
-                id="settled_note"
-                name="settled_note"
-                rows={2}
-                defaultValue={account?.settled_note ?? ''}
-                className={INPUT}
-              />
-            </div>
-          </>
-        )}
+        <div className="flex items-center gap-2">
+          <input
+            id="settled"
+            name="settled"
+            type="checkbox"
+            defaultChecked={account?.settled ?? false}
+            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+          <label
+            htmlFor="settled"
+            className="text-sm font-medium text-gray-700"
+          >
+            Settled (written off or agreed as paid)
+          </label>
+        </div>
+        <div className="sm:col-span-2">
+          <label htmlFor="settled_note" className={LABEL}>
+            Settled note
+          </label>
+          <textarea
+            id="settled_note"
+            name="settled_note"
+            rows={2}
+            defaultValue={account?.settled_note ?? ''}
+            className={INPUT}
+          />
+        </div>
       </div>
 
       <div className="mt-4 flex items-center gap-4">

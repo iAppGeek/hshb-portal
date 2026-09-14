@@ -339,6 +339,39 @@ describe('getPriorYearBalances', () => {
     expect(await getPriorYearBalances('y2')).toEqual({})
   })
 
+  it('counts an inactive class plan', async () => {
+    mockGetFeePlans.mockResolvedValue([
+      {
+        id: 'p1',
+        active: false,
+        academic_year: {
+          code: '2025-26',
+          start_date: '2025-09-01',
+          end_date: '2026-08-31',
+        },
+        full_year_amount: 800,
+        monthly_instalment_amount: 100,
+        termly_instalment_amount: 266.67,
+        class_ids: ['c1'],
+      },
+    ])
+    const tables: Record<string, Chain> = {
+      students: chain({
+        data: [
+          { id: 's1', first_name: 'A', last_name: 'A', student_code: null },
+        ],
+      }),
+      student_classes: chain({ data: [{ student_id: 's1', class: alpha }] }),
+      student_fee_accounts: chain({
+        data: [{ student_id: 's1', payment_plan: 'yearly', settled: false }],
+      }),
+      student_payments: chain({ data: [] }),
+    }
+    mockFrom.mockImplementation((table: string) => tables[table])
+
+    expect(await getPriorYearBalances('y2')).toEqual({ s1: 800 })
+  })
+
   it('returns an empty record when there are no prior years', async () => {
     mockFrom.mockImplementation(() => chain({ data: [] }))
     expect(await getPriorYearBalances('y1')).toEqual({})

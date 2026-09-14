@@ -8,18 +8,20 @@ This document describes what is implemented on `feat/academic-years` (PR #31). I
 
 ## 0. Decisions (as implemented)
 
-| #   | Decision                 | Outcome                                                                                                                                                                                                                                                                                                                                            |
-| --- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **Source of truth**      | New `academic_years` table. At most one row is **current** (the migration and seed always set one). Classes, fee plans, fee accounts and payments reference it by id; the text column on classes and fee plans is dropped.                                                                                                                         |
-| 2   | **What links to a year** | **Directly:** classes, fee plans, student fee accounts, student payments. **Via class:** attendance, lesson plans, timetable slots, student class links. **Via date:** incidents. Staff records are not year-bound.                                                                                                                                |
-| 3   | **Fees**                 | One fee plan per student per year (unchanged). Fee account is **one row per student per year**. Each payment carries the year it pays for; the form defaults it from the payment date and it can be changed.                                                                                                                                       |
-| 4   | **Outstanding balance**  | Finance › Students shows this year's status **and** an **Owed (prev. years)** column with a matching filter. A per-year **settled** flag + note on the fee account removes that year from the owed total.                                                                                                                                          |
-| 5   | **Year rollover**        | Manual. Admin › **Academic Years** tab adds a year, edits its dates and makes one current. Class migration picks a target year (default: current).                                                                                                                                                                                                 |
-| 6   | **Class scope**          | `getAllClasses` and `getClassesByTeacher` return **active classes in the current year**. A class created early for next year stays out of those lists until that year is made current.                                                                                                                                                             |
-| 7   | **Past years**           | **Admins only.** On Classes and Attendance, admins get a year selector; headteachers, secretaries and teachers stay on the current year and any `?year` is ignored. Attendance lists active classes for the current year and every class for another year, and registers outside the current year are read-only. Finance (admin only) is per year. |
-| 8   | **Format**               | Year code `YYYY-YY` (e.g. `2026-27`), 1 Sep – 31 Aug by default, dates editable, inclusive `end_date`.                                                                                                                                                                                                                                             |
-| 9   | **Finance navigation**   | Finance has two tabs, **Students** (default) and **Fee Plans**, under one year selector in the page header. The year is carried through tab links, student links, the add-fee-plan link and the student page's back link. An unknown or missing year falls back to the current year.                                                               |
-| 10  | **HR**                   | Staff payroll and compliance move from Finance to a new **HR** sidebar item at `/hr` and `/hr/staff/[id]`. New `canManageHr` permission, admin only, so entitlements are unchanged. Old `/finance?tab=staff` and `/finance/staff/[id]` URLs are not redirected.                                                                                    |
+| #   | Decision                 | Outcome                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Source of truth**      | New `academic_years` table. At most one row is **current** (the migration and seed always set one). Classes, fee plans, fee accounts and payments reference it by id; the text column on classes and fee plans is dropped.                                                                                                                                                                                                         |
+| 2   | **What links to a year** | **Directly:** classes, fee plans, student fee accounts, student payments. **Via class:** attendance, lesson plans, timetable slots, student class links. **Via date:** incidents. Staff records are not year-bound.                                                                                                                                                                                                                |
+| 3   | **Fees**                 | One fee plan per student per year (unchanged). Fee account is **one row per student per year**. Each payment carries the year it pays for; the form defaults it from the payment date and it can be changed.                                                                                                                                                                                                                       |
+| 4   | **Outstanding balance**  | Finance › Students shows the selected year's status **and** an **Owed (prev. years)** column with a matching filter. A per-year **settled** flag + note on the fee account, available in every year, removes that year from the owed total. A fee plan's active flag never affects fees: an inactive plan still applies to its classes and still counts toward what is owed, so deactivating last year's plans never hides a debt. |
+| 5   | **Year rollover**        | Manual. Admin › **Academic Years** tab adds a year, edits its dates and makes one current. Class migration picks a target year (default: current).                                                                                                                                                                                                                                                                                 |
+| 6   | **Class scope**          | `getAllClasses` and `getClassesByTeacher` return **active classes in the current year**. A class created early for next year stays out of those lists until that year is made current.                                                                                                                                                                                                                                             |
+| 7   | **Past years**           | **Admins only.** On Classes and Attendance, admins get a year selector; headteachers, secretaries and teachers stay on the current year and any `?year` is ignored. Attendance lists active classes for the current year and every class for another year, and registers outside the current year are read-only. Finance (admin only) is per year.                                                                                 |
+| 8   | **Format**               | Year code `YYYY-YY` (e.g. `2026-27`), 1 Sep – 31 Aug by default, dates editable, inclusive `end_date`.                                                                                                                                                                                                                                                                                                                             |
+| 9   | **Finance navigation**   | Finance has two tabs, **Students** (default) and **Fee Plans**, under one year selector in the page header. Everything on the page follows the selected year; the current year is only the default when no year is chosen. The year is carried through tab links, student links, the add-fee-plan link and the student page's back link. An unknown or missing year falls back to the current year.                                |
+| 10  | **HR**                   | Staff payroll and compliance move from Finance to a new **HR** sidebar item at `/hr` and `/hr/staff/[id]`. New `canManageHr` permission, admin only, so entitlements are unchanged. Old `/finance?tab=staff` and `/finance/staff/[id]` URLs are not redirected.                                                                                                                                                                    |
+| 11  | **Class year is fixed**  | A class's academic year cannot change after it is created. The edit form shows it read-only, `updateClassSchema` drops it, `updateClass` cannot take it, and a database trigger rejects the change. Class migration creates a new class instead.                                                                                                                                                                                   |
+| 12  | **Inactive fee plans**   | `fee_plans.active` only hides a plan from the student override dropdown. Resolution through classes, the student fee page and prior-year balances ignore it.                                                                                                                                                                                                                                                                       |
 
 ---
 
@@ -75,6 +77,8 @@ Backfill, in order:
 4. `student_fee_accounts.academic_year_id` = the year of `fee_plan_override_id` if set, else the current year.
 5. Raise if any account's override plan is in a different year from the account.
 
+Follow-up migration `supabase/migrations/20260914130000_lock_class_academic_year.sql`: trigger function `prevent_class_academic_year_change` and `BEFORE UPDATE OF academic_year_id` trigger `classes_academic_year_immutable` on `classes`, raising "A class's academic year cannot be changed". It is a separate file because `20260914120000` had already run on production; both have now run there.
+
 Functions:
 
 - `save_fee_plan(p_id, p_name, p_academic_year_id, …, p_class_ids)`: raises if any class in `p_class_ids` is not in `p_academic_year_id`.
@@ -98,7 +102,7 @@ Functions:
 - `CLASS_SELECT` embeds `academic_year:academic_years(id, code, start_date, end_date)`; `withYearCode` flattens it to `academic_year: string | null` so display components keep their prop shape. Rows also carry `academic_year_id`.
 - `getAllClasses()` and `getClassesByTeacher(teacherId)` look up the current year and call cached year-keyed queries (active classes only).
 - `getClassesByAcademicYear(yearId)` returns every class in a year, active and inactive. `getAllClassesIncludingInactive` is removed.
-- `getClassById` and `getClassWithStudents` are flattened the same way. `createClass`, `updateClass` and `migrateClass` take `academic_year_id`.
+- `getClassById` and `getClassWithStudents` are flattened the same way. `createClass` and `migrateClass` take `academic_year_id`; `updateClass` does not accept it.
 
 ### Students (`src/db/students.ts`)
 
@@ -114,14 +118,15 @@ Functions:
 - `getStudentFeeList(yearId)`: active students; classes = their class links whose class is in `yearId` (inner join, no class `active` filter); that year's account; that year's payments (paged past the 1000-row cap).
 - `getStudentFeeDetail(studentId, yearId)`: the same for one student, payments with recorder.
 - `getStudentFeeYears(studentId)`: every year (newest first) where the student has a class, an account or a payment.
-- `getPriorYearBalances(yearId)`: for each year starting before `yearId`, reuses `getStudentFeeList` and `getFeePlans`, resolves the plan (override, else active class plans), and adds `max(total − paid, 0)` where `total` is known and the account is not settled. `today` is that year's `end_date`.
+- `getPriorYearBalances(yearId)`: for each year starting before `yearId`, reuses `getStudentFeeList` and `getFeePlans`, resolves the plan (override, else every class plan regardless of status), and adds `max(total − paid, 0)` where `total` is known and the account is not settled. `today` is that year's `end_date`.
 - `upsertStudentFeeAccount(studentId, yearId, input)`; `addStudentPayment(studentId, { …, academic_year_id })`.
 
 ### Pure logic and validation
 
 - `src/lib/fees.ts`: `FeePlanAmounts.academic_year` is `{ code, start_date, end_date }`; `dueDates(plan, startDate)`. `normaliseAcademicYear`, `academicYearStart`, `academicYearRange` and `paymentsInAcademicYear` are removed from this file.
+- `src/app/finance/_lib/studentFeeSummary.ts`: `summariseStudentFees` resolves an override first, else every class plan regardless of its active flag.
 - `src/lib/academicYears.ts` (new): `normaliseAcademicYear`, `nextAcademicYear(code)`, `academicYearForDate(years, date)`, `resolveYearId(years, requestedId, currentId)`.
-- `src/lib/schemas.ts`: class, migrate-class and fee-plan schemas take `academic_year_id: uuid`; new `academicYearSchema` and `academicYearDatesSchema`; fee account schema gains `academic_year_id`, `settled`, `settled_note`; payment schema gains `academic_year_id`.
+- `src/lib/schemas.ts`: create-class, migrate-class and fee-plan schemas take `academic_year_id: uuid`; `updateClassSchema` omits it; new `academicYearSchema` and `academicYearDatesSchema`; fee account schema gains `academic_year_id`, `settled`, `settled_note`; payment schema gains `academic_year_id`.
 - `src/lib/permissions.ts`: `canManageFinance` (student fees and fee plans) and new `canManageHr` (staff payroll and compliance), both admin only.
 - `src/proxy.ts`: `/finance` and `/finance/*` require `canManageFinance`; `/hr` and `/hr/*` require `canManageHr`; others redirect to `/dashboard`.
 
@@ -143,7 +148,7 @@ Functions:
 ### Classes (`src/app/classes/`)
 
 - List: admins get `YearSelector` and `getClassesByAcademicYear(resolveYearId(years, ?year, current))`. Headteachers and secretaries get `getClassesByAcademicYear(current)` with no selector; `?year` is ignored. Teachers keep `getClassesByTeacher`.
-- New and edit forms: year `<select>`; new defaults to the current year.
+- New form: year `<select>`, defaulting to the current year. Edit form: the year is shown as read-only text with "A class's academic year can't be changed after it is created." and is not posted.
 
 ### Class migration (`src/app/admin/_tabs/class-migration/`)
 
@@ -164,7 +169,7 @@ Functions:
 - **Students tab**: `getStudentFeeList`, `getFeePlans`, `getPriorYearBalances` for the year. `StudentFeesTable` adds **Owed (prev. years)** and the "Owes from previous years" filter; **Manage** links to `/finance/students/[id]?year=<id>`.
 - **Fee Plans tab**: that year's plans and class names; **Add fee plan** links to `/finance/fee-plans/new?year=<id>`.
 - **Fee plan new/edit pages**: year `<select>` (new defaults to `?year`, else current); classes for every year are loaded and `FeePlanForm` shows those of the selected year. Actions validate against that year's classes and plans.
-- **Student detail** (`/finance/students/[id]?year=`): `resolveYearId`; its own `YearSelector`; back link to `/finance?tab=students&year=<id>`. Fee account form posts `academic_year_id`; override options are that year's active plans plus the current override; **Settled** checkbox and note show for non-current years or an already-settled account. **Previous years** table lists every other year with history (total, paid, balance, Settled badge, link to that year). Payment form adds **Pays for** (`academic_year_id`), defaulting from the payment date.
+- **Student detail** (`/finance/students/[id]?year=`): `resolveYearId`; its own `YearSelector`; back link to `/finance?tab=students&year=<id>`. Fee account form posts `academic_year_id`; override options are that year's active plans plus the current override; **Settled** checkbox and note show for every year. **Other years** table lists every other year with history (total, paid, balance, Settled badge, link to that year). Payment form adds **Pays for** (`academic_year_id`), defaulting to the year containing the payment date, else the selected year.
 
 ### HR (`/hr`, admin only)
 
@@ -182,6 +187,7 @@ Functions:
   - `src/lib`: `academicYears.spec.ts` (incl. `resolveYearId`), `fees.spec.ts`, `schemas.spec.ts`, `permissions.spec.ts` (incl. `canManageHr`).
   - `src/proxy.spec.ts`: `/finance` and `/hr` gating, nested pages, `/financeX` and `/hrX` not gated.
   - Admin: academic-years tab, table, form, make-current button, actions; admin page; class-migration tab, form, actions.
+  - `ClassForm` (year selectable on create, read-only on edit); class edit action and `updateClassSchema` never pass an academic year; fee summary and prior-year balances count inactive plans; settled fields show in every year; the payment year falls back to the selected year.
   - Classes page (admin-only year selector, unknown-year fallback, headteacher and secretary pinned to the current year), new/edit pages and actions; attendance page (admin-only year selector, active classes for the current year, all classes and `archived` for another year, unknown-year fallback, unlisted `classId` fallback), register and form (`archived` disables marking and Save), save action (rejects a missing class or a class outside the current year).
   - Finance: page (default tab, requested year, unknown-year fallback, no staff tab), tab bar (year in links), students tab and table (year in links, owed column and filter), fee plans tab (year in add link), fee-plan form/pages/actions, student detail page (per-year data, previous years, unknown-year fallback, back link) and forms.
   - HR: `hr/page.spec.tsx` (role gating), `StaffPayrollList`, staff page, form and action specs (moved).
@@ -201,30 +207,26 @@ Functions:
 
 - `supabase db reset` locally, then check: every class, fee plan, account and payment has a year; exactly one current year; overlapping years and a second current year are rejected; duplicate class names within a year are rejected.
 - `npm run fix:all`, then `npm run pipeline:check`.
-- Before running the migration on production:
+- Both `20260914120000_academic_years.sql` and `20260914130000_lock_class_academic_year.sql` have run on production. Production must run this branch: the app on `main` reads the dropped `academic_year` text columns.
+- Post-migration checks on production:
 
   ```sql
-  -- Year values: anything not shaped like 2025-26 or 2025/26 aborts the migration
-  SELECT 'class' AS src, academic_year, count(*) FROM classes GROUP BY 2
-  UNION ALL
-  SELECT 'fee_plan', academic_year, count(*) FROM fee_plans GROUP BY 2;
+  -- Active classes outside the current year: they no longer show in current-year lists
+  SELECT c.name, ay.code
+  FROM classes c JOIN academic_years ay ON ay.id = c.academic_year_id
+  WHERE c.active AND NOT ay.is_current;
 
-  -- Active classes that will land in a non-current year
-  SELECT name, academic_year FROM classes
-  WHERE active AND replace(academic_year, '/', '-') <> '2026-27';
+  -- Fee accounts outside the current year: moved there by their override plan
+  SELECT sfa.student_id, ay.code
+  FROM student_fee_accounts sfa JOIN academic_years ay ON ay.id = sfa.academic_year_id
+  WHERE NOT ay.is_current;
 
-  -- Fee accounts that move to another year via their override plan
-  SELECT sfa.student_id, fp.name, fp.academic_year
-  FROM student_fee_accounts sfa
-  JOIN fee_plans fp ON fp.id = sfa.fee_plan_override_id
-  WHERE replace(fp.academic_year, '/', '-') <> '2026-27';
-
-  -- Payments that will count toward 2025-26
-  SELECT student_id, amount, payment_date FROM student_payments
-  WHERE payment_date < '2026-09-01';
+  -- Payments counted toward a year other than the current one
+  SELECT sp.student_id, sp.amount, sp.payment_date, ay.code
+  FROM student_payments sp JOIN academic_years ay ON ay.id = sp.academic_year_id
+  WHERE NOT ay.is_current;
   ```
 
-- The migration and the deploy go out together: the currently deployed app reads the dropped text columns.
 - Run before the register-history migration and before `hshb-pupil-import-2026-27/out/update.sql`; change that script's `c.academic_year = '2026-27'` join to join `academic_years ay ON ay.id = c.academic_year_id AND ay.code = '2026-27'`.
 - Bookmarks to `/finance?tab=staff` or `/finance/staff/[id]` stop working; use `/hr`.
 
@@ -233,9 +235,7 @@ Functions:
 ## 7. Known gaps (not in this PR)
 
 - The override plan's year is only constrained by the form's options; `saveStudentFeeAccountAction` does not reject an override from another year.
-- Prior-year balances and the previous years table ignore inactive fee plans, so deactivating last year's plan hides what is still owed.
 - Prior-year balances only include active students (leavers are added by the register-history plan).
-- The student page's previous years table also lists future years that have history.
 - No dedicated Playwright spec yet for the Academic Years admin flow or for fees across years (payment against last year, settled year).
 - The finance e2e year is chosen from 400 far-future slots per test; two parallel tests can collide on the overlap constraint.
 

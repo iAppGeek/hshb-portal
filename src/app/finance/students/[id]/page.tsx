@@ -111,7 +111,6 @@ export default async function StudentFeesPage({
   const planOptions = plans
     .filter((p) => p.active || p.id === account?.fee_plan_override_id)
     .map((p) => ({ id: p.id, label: planLabel(p) }))
-  const showSettled = yearId !== currentYear.id || Boolean(account?.settled)
 
   const previousYears = await Promise.all(
     yearsHistory
@@ -203,14 +202,13 @@ export default async function StudentFeesPage({
         account={account}
         academicYearId={yearId}
         planOptions={planOptions}
-        showSettled={showSettled}
         action={saveStudentFeeAccountAction.bind(null, student.id)}
       />
 
       {previousYears.length > 0 && (
         <div className={CARD}>
           <h2 className="mb-4 text-sm font-semibold text-gray-900">
-            Previous years
+            Other years
           </h2>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -261,7 +259,7 @@ export default async function StudentFeesPage({
         <PaymentForm
           defaultDate={today}
           years={years}
-          currentYearId={currentYear.id}
+          defaultYearId={yearId}
           action={addStudentPaymentAction.bind(null, student.id)}
         />
 

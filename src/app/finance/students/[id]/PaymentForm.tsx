@@ -14,7 +14,8 @@ export type PaymentFormYear = AcademicYearRange & { id: string }
 type Props = {
   defaultDate: string
   years: PaymentFormYear[]
-  currentYearId: string
+  /** Used when the payment date falls outside every known year. */
+  defaultYearId: string
   action: (formData: FormData) => Promise<ActionResult>
 }
 
@@ -25,12 +26,12 @@ const LABEL = 'block text-sm font-medium text-gray-700'
 export default function PaymentForm({
   defaultDate,
   years,
-  currentYearId,
+  defaultYearId,
   action,
 }: Props): React.ReactElement {
   const [date, setDate] = useState(defaultDate)
   const [yearId, setYearId] = useState(
-    academicYearForDate(years, defaultDate)?.id ?? currentYearId,
+    academicYearForDate(years, defaultDate)?.id ?? defaultYearId,
   )
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -38,7 +39,7 @@ export default function PaymentForm({
   function handleDateChange(e: React.ChangeEvent<HTMLInputElement>): void {
     const value = e.target.value
     setDate(value)
-    setYearId(academicYearForDate(years, value)?.id ?? currentYearId)
+    setYearId(academicYearForDate(years, value)?.id ?? defaultYearId)
   }
 
   function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>): void {
@@ -52,7 +53,7 @@ export default function PaymentForm({
       } else {
         form.reset()
         setDate(defaultDate)
-        setYearId(academicYearForDate(years, defaultDate)?.id ?? currentYearId)
+        setYearId(academicYearForDate(years, defaultDate)?.id ?? defaultYearId)
       }
     })
   }

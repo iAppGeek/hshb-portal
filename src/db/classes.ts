@@ -150,9 +150,10 @@ export async function createClass(data: ClassInsert) {
   return cls
 }
 
+/** A class's academic year is fixed once created, so it is not updatable. */
 export async function updateClass(
   id: string,
-  data: Partial<ClassInsert> & { active?: boolean },
+  data: Partial<Omit<ClassInsert, 'academic_year_id'>> & { active?: boolean },
 ) {
   const { error } = await supabase.from('classes').update(data).eq('id', id)
   if (error) throw error

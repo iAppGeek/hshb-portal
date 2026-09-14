@@ -36,7 +36,7 @@ describe('PaymentForm', () => {
       <PaymentForm
         defaultDate="2026-09-13"
         years={years}
-        currentYearId="year-2"
+        defaultYearId="year-2"
         action={vi.fn()}
       />,
     )
@@ -61,7 +61,7 @@ describe('PaymentForm', () => {
       <PaymentForm
         defaultDate="2026-09-13"
         years={years}
-        currentYearId="year-2"
+        defaultYearId="year-2"
         action={vi.fn()}
       />,
     )
@@ -79,7 +79,7 @@ describe('PaymentForm', () => {
       <PaymentForm
         defaultDate="2026-09-13"
         years={years}
-        currentYearId="year-2"
+        defaultYearId="year-2"
         action={action}
       />,
     )
@@ -102,7 +102,7 @@ describe('PaymentForm', () => {
       <PaymentForm
         defaultDate="2026-09-13"
         years={years}
-        currentYearId="year-2"
+        defaultYearId="year-2"
         action={action}
       />,
     )

@@ -325,6 +325,19 @@ describe('updateClassSchema', () => {
     })
     expect(result.active).toBe(true)
   })
+
+  it('drops the academic year, which cannot change after creation', () => {
+    const result = updateClassSchema.parse({
+      name: 'Year 1',
+      year_group: '1',
+      room_number: '',
+      academic_year_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+      teacher_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+      student_ids: [],
+      active: 'true',
+    })
+    expect(result).not.toHaveProperty('academic_year_id')
+  })
 })
 
 describe('updateGuardianSchema', () => {

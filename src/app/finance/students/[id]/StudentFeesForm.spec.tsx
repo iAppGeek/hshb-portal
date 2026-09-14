@@ -21,7 +21,6 @@ describe('StudentFeesForm', () => {
         account={null}
         academicYearId="year-1"
         planOptions={planOptions}
-        showSettled={false}
         action={vi.fn()}
       />,
     )
@@ -44,7 +43,6 @@ describe('StudentFeesForm', () => {
         account={null}
         academicYearId="year-1"
         planOptions={planOptions}
-        showSettled={false}
         action={vi.fn()}
       />,
     )
@@ -56,21 +54,7 @@ describe('StudentFeesForm', () => {
     expect(hidden.value).toBe('year-1')
   })
 
-  it('does not show the settled fields for the current year', () => {
-    render(
-      <StudentFeesForm
-        account={null}
-        academicYearId="year-1"
-        planOptions={planOptions}
-        showSettled={false}
-        action={vi.fn()}
-      />,
-    )
-
-    expect(screen.queryByLabelText(/Settled/)).toBeNull()
-  })
-
-  it('shows the settled fields for a past year', () => {
+  it('shows the settled fields in every year', () => {
     render(
       <StudentFeesForm
         account={
@@ -81,7 +65,6 @@ describe('StudentFeesForm', () => {
         }
         academicYearId="year-0"
         planOptions={planOptions}
-        showSettled={true}
         action={vi.fn()}
       />,
     )
@@ -109,7 +92,6 @@ describe('StudentFeesForm', () => {
         }
         academicYearId="year-1"
         planOptions={planOptions}
-        showSettled={false}
         action={vi.fn()}
       />,
     )
@@ -140,7 +122,6 @@ describe('StudentFeesForm', () => {
         account={null}
         academicYearId="year-1"
         planOptions={planOptions}
-        showSettled={false}
         action={action}
       />,
     )
@@ -166,7 +147,6 @@ describe('StudentFeesForm', () => {
         account={null}
         academicYearId="year-1"
         planOptions={[]}
-        showSettled={false}
         action={action}
       />,
     )

@@ -49,6 +49,22 @@ CREATE TABLE classes (
   UNIQUE (name, academic_year_id)
 );
 
+-- A class's academic year is fixed once it is created; class migration
+-- creates a new class instead.
+CREATE OR REPLACE FUNCTION prevent_class_academic_year_change()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.academic_year_id IS DISTINCT FROM OLD.academic_year_id THEN
+    RAISE EXCEPTION 'A class''s academic year cannot be changed';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER classes_academic_year_immutable
+  BEFORE UPDATE OF academic_year_id ON classes
+  FOR EACH ROW EXECUTE FUNCTION prevent_class_academic_year_change();
+
 -- ─── Guardians ────────────────────────────────────────────────────────────────
 -- Reusable guardian/contact records. Students link to these via FK.
 

@@ -111,32 +111,49 @@ export default function ClassForm({
             name="room_number"
             defaultValue={classData?.room_number ?? undefined}
           />
-          <div>
-            <label
-              htmlFor="academic_year_id"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Academic year<span className="ml-0.5 text-red-500">*</span>
-            </label>
-            <select
-              id="academic_year_id"
-              name="academic_year_id"
-              required
-              defaultValue={
-                classData?.academic_year_id ?? defaultAcademicYearId ?? ''
-              }
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-            >
-              <option value="" disabled>
-                Select a year…
-              </option>
-              {years.map((y) => (
-                <option key={y.id} value={y.id}>
-                  {y.code}
+          {classData ? (
+            <div>
+              <p className="block text-sm font-medium text-gray-700">
+                Academic year
+              </p>
+              <p
+                data-testid="class-academic-year"
+                className="mt-1 py-2 text-sm text-gray-900"
+              >
+                {years.find((y) => y.id === classData.academic_year_id)?.code ??
+                  '—'}
+              </p>
+              <p className="text-xs text-gray-500">
+                A class&apos;s academic year can&apos;t be changed after it is
+                created.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <label
+                htmlFor="academic_year_id"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Academic year<span className="ml-0.5 text-red-500">*</span>
+              </label>
+              <select
+                id="academic_year_id"
+                name="academic_year_id"
+                required
+                defaultValue={defaultAcademicYearId ?? ''}
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+              >
+                <option value="" disabled>
+                  Select a year…
                 </option>
-              ))}
-            </select>
-          </div>
+                {years.map((y) => (
+                  <option key={y.id} value={y.id}>
+                    {y.code}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="sm:col-span-2">
             <label
               htmlFor="teacher_id"

@@ -251,7 +251,7 @@ describe('StudentFeesPage', () => {
     expect(screen.getByText('— / —')).toBeTruthy()
   })
 
-  it('shows a previous years strip when the student has earlier-year history', async () => {
+  it('shows an other years table when the student has history in other years', async () => {
     const previousYear = {
       id: 'year-0',
       code: '2024-25',
@@ -293,7 +293,7 @@ describe('StudentFeesPage', () => {
 
     render(await StudentFeesPage(noSearchParams()))
 
-    expect(screen.getByText('Previous years')).toBeTruthy()
+    expect(screen.getByText('Other years')).toBeTruthy()
     expect(screen.getByText('2024-25')).toBeTruthy()
     expect(screen.getByText('Settled')).toBeTruthy()
   })

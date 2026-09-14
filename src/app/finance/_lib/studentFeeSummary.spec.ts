@@ -71,14 +71,15 @@ describe('summariseStudentFees', () => {
     expect(summary.status).toBe('behind')
   })
 
-  it('ignores inactive plans attached to classes', () => {
+  it('counts inactive plans attached to classes', () => {
+    const plan = makePlan({ active: false })
     const summary = summariseStudentFees(
       { classes: [alpha], account: makeAccount({}), payments: [] },
-      [makePlan({ active: false })],
+      [plan],
       today,
     )
-    expect(summary.resolution.kind).toBe('none')
-    expect(summary.status).toBe('no_plan')
+    expect(summary.resolution).toEqual({ kind: 'class', plan })
+    expect(summary.total).toBe(800)
   })
 
   it('uses an override even when it is inactive', () => {

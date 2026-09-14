@@ -35,10 +35,10 @@ export function summariseStudentFees(
   today: string,
 ): StudentFeeSummary {
   const classIds = new Set(student.classes.map((c) => c.id))
-  // A deactivated plan stops applying through classes but can still be chosen
-  // as an explicit override.
-  const classPlans = plans.filter(
-    (p) => p.active && p.class_ids.some((id) => classIds.has(id)),
+  // A plan's active flag only hides it from pickers; it always applies to its
+  // classes, so what is owed never disappears when a plan is deactivated.
+  const classPlans = plans.filter((p) =>
+    p.class_ids.some((id) => classIds.has(id)),
   )
   const overrideId = student.account?.fee_plan_override_id ?? null
   const override = plans.find((p) => p.id === overrideId) ?? null
