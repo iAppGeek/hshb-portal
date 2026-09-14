@@ -10,13 +10,38 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: '14.5'
-  }
   public: {
     Tables: {
+      academic_years: {
+        Row: {
+          code: string
+          created_at: string
+          end_date: string
+          id: string
+          is_current: boolean
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          end_date: string
+          id?: string
+          is_current?: boolean
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          end_date?: string
+          id?: string
+          is_current?: boolean
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       attendance: {
         Row: {
           class_id: string
@@ -115,7 +140,7 @@ export type Database = {
       }
       classes: {
         Row: {
-          academic_year: string
+          academic_year_id: string
           active: boolean
           created_at: string | null
           id: string
@@ -125,7 +150,7 @@ export type Database = {
           year_group: string
         }
         Insert: {
-          academic_year?: string
+          academic_year_id: string
           active?: boolean
           created_at?: string | null
           id?: string
@@ -135,7 +160,7 @@ export type Database = {
           year_group: string
         }
         Update: {
-          academic_year?: string
+          academic_year_id?: string
           active?: boolean
           created_at?: string | null
           id?: string
@@ -145,6 +170,13 @@ export type Database = {
           year_group?: string
         }
         Relationships: [
+          {
+            foreignKeyName: 'classes_academic_year_id_fkey'
+            columns: ['academic_year_id']
+            isOneToOne: false
+            referencedRelation: 'academic_years'
+            referencedColumns: ['id']
+          },
           {
             foreignKeyName: 'classes_teacher_id_fkey'
             columns: ['teacher_id']
@@ -192,7 +224,7 @@ export type Database = {
       }
       fee_plans: {
         Row: {
-          academic_year: string
+          academic_year_id: string
           active: boolean
           created_at: string
           full_year_amount: number
@@ -204,7 +236,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          academic_year: string
+          academic_year_id: string
           active?: boolean
           created_at?: string
           full_year_amount: number
@@ -216,7 +248,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          academic_year?: string
+          academic_year_id?: string
           active?: boolean
           created_at?: string
           full_year_amount?: number
@@ -227,7 +259,15 @@ export type Database = {
           termly_instalment_amount?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'fee_plans_academic_year_id_fkey'
+            columns: ['academic_year_id']
+            isOneToOne: false
+            referencedRelation: 'academic_years'
+            referencedColumns: ['id']
+          },
+        ]
       }
       guardians: {
         Row: {
@@ -921,6 +961,7 @@ export type Database = {
       }
       student_fee_accounts: {
         Row: {
+          academic_year_id: string
           created_at: string
           custom_total_amount: number | null
           custom_up_to_date: boolean
@@ -928,10 +969,13 @@ export type Database = {
           id: string
           payment_plan: string | null
           payment_plan_notes: string | null
+          settled: boolean
+          settled_note: string | null
           student_id: string
           updated_at: string
         }
         Insert: {
+          academic_year_id: string
           created_at?: string
           custom_total_amount?: number | null
           custom_up_to_date?: boolean
@@ -939,10 +983,13 @@ export type Database = {
           id?: string
           payment_plan?: string | null
           payment_plan_notes?: string | null
+          settled?: boolean
+          settled_note?: string | null
           student_id: string
           updated_at?: string
         }
         Update: {
+          academic_year_id?: string
           created_at?: string
           custom_total_amount?: number | null
           custom_up_to_date?: boolean
@@ -950,10 +997,19 @@ export type Database = {
           id?: string
           payment_plan?: string | null
           payment_plan_notes?: string | null
+          settled?: boolean
+          settled_note?: string | null
           student_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: 'student_fee_accounts_academic_year_id_fkey'
+            columns: ['academic_year_id']
+            isOneToOne: false
+            referencedRelation: 'academic_years'
+            referencedColumns: ['id']
+          },
           {
             foreignKeyName: 'student_fee_accounts_fee_plan_override_id_fkey'
             columns: ['fee_plan_override_id']
@@ -964,7 +1020,7 @@ export type Database = {
           {
             foreignKeyName: 'student_fee_accounts_student_id_fkey'
             columns: ['student_id']
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: 'students'
             referencedColumns: ['id']
           },
@@ -972,6 +1028,7 @@ export type Database = {
       }
       student_payments: {
         Row: {
+          academic_year_id: string
           amount: number
           created_at: string
           id: string
@@ -983,6 +1040,7 @@ export type Database = {
           student_id: string
         }
         Insert: {
+          academic_year_id: string
           amount: number
           created_at?: string
           id?: string
@@ -994,6 +1052,7 @@ export type Database = {
           student_id: string
         }
         Update: {
+          academic_year_id?: string
           amount?: number
           created_at?: string
           id?: string
@@ -1005,6 +1064,13 @@ export type Database = {
           student_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: 'student_payments_academic_year_id_fkey'
+            columns: ['academic_year_id']
+            isOneToOne: false
+            referencedRelation: 'academic_years'
+            referencedColumns: ['id']
+          },
           {
             foreignKeyName: 'student_payments_recorded_by_fkey'
             columns: ['recorded_by']
@@ -1269,7 +1335,7 @@ export type Database = {
       }
       migrate_class: {
         Args: {
-          p_academic_year: string
+          p_academic_year_id: string
           p_name: string
           p_room_number: string
           p_source_class_id: string
@@ -1280,7 +1346,7 @@ export type Database = {
       }
       save_fee_plan: {
         Args: {
-          p_academic_year: string
+          p_academic_year_id: string
           p_active: boolean
           p_class_ids: string[]
           p_full_year_amount: number
@@ -1292,6 +1358,7 @@ export type Database = {
         }
         Returns: string
       }
+      set_current_academic_year: { Args: { p_id: string }; Returns: undefined }
     }
     Enums: {
       contact_role: 'primary' | 'secondary' | 'additional_1' | 'additional_2'
