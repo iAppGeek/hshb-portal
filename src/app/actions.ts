@@ -13,4 +13,5 @@ export async function revalidateAllCaches(): Promise<void> {
   updateTag('staff-payroll')
   updateTag('fee-plans')
   updateTag('student-fees')
+  updateTag('academic-years')
 }

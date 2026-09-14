@@ -180,6 +180,7 @@ test.describe('Finance', () => {
     await page.getByRole('button', { name: 'Add fee plan' }).click()
 
     await expect(page).toHaveURL('/finance?tab=fee-plans')
+    await page.goto(`/finance?tab=fee-plans&year=${academicYearId}`)
     await expect(
       page.getByRole('row', { name: new RegExp(planName) }),
     ).toContainText(className)

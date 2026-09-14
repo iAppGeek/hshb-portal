@@ -26,6 +26,7 @@ test.describe('Class register', () => {
         name: `E2ERegisterClass${suffix}`,
         year_group: '1',
         teacher_id: SEED_IDS.staff.teacher,
+        academic_year_id: SEED_IDS.academicYears.current,
         active: false,
       })
       .select('id')

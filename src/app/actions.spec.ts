@@ -35,6 +35,7 @@ describe('revalidateAllCaches', () => {
       'staff-payroll',
       'fee-plans',
       'student-fees',
+      'academic-years',
     ])
   })
 })

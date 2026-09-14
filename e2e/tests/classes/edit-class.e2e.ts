@@ -1,5 +1,10 @@
 import { test, expect } from '../../fixtures/index'
-import { db, deleteClassByName, deleteStaffByEmail } from '../../fixtures/seed'
+import {
+  db,
+  SEED_IDS,
+  deleteClassByName,
+  deleteStaffByEmail,
+} from '../../fixtures/seed'
 
 // Pin to admin — only admins can edit classes
 test.use({ storageState: 'e2e/.auth/admin.json' })
@@ -54,6 +59,7 @@ test.describe('Edit class', () => {
         name: className,
         year_group: '1',
         teacher_id: originalTeacherId,
+        academic_year_id: SEED_IDS.academicYears.current,
       })
       .select('id')
       .single()
