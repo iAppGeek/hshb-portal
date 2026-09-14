@@ -3,7 +3,8 @@ import { render, screen } from '@testing-library/react'
 
 import { auth } from '@/auth'
 import {
-  getAllClassesIncludingInactive,
+  getAcademicYears,
+  getClassesByAcademicYear,
   getFeePlanById,
   getFeePlans,
 } from '@/db'
@@ -17,7 +18,8 @@ vi.mock('next/navigation', () => ({
   }),
 }))
 vi.mock('@/db', () => ({
-  getAllClassesIncludingInactive: vi.fn(),
+  getAcademicYears: vi.fn(),
+  getClassesByAcademicYear: vi.fn(),
   getFeePlanById: vi.fn(),
   getFeePlans: vi.fn(),
 }))
@@ -38,19 +40,37 @@ vi.mock('../../FeePlanForm', () => ({
 
 const params = Promise.resolve({ id: 'p1' })
 
+const currentYear = {
+  id: 'year-1',
+  code: '2025-26',
+  start_date: '2025-09-01',
+  end_date: '2026-08-31',
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as never)
-  vi.mocked(getAllClassesIncludingInactive).mockResolvedValue([])
+  vi.mocked(getAcademicYears).mockResolvedValue([currentYear] as never)
+  vi.mocked(getClassesByAcademicYear).mockResolvedValue([])
   vi.mocked(getFeePlanById).mockResolvedValue({
     id: 'p1',
     name: 'Standard',
-    academic_year: '2025-26',
+    academic_year: currentYear,
     class_ids: ['c1'],
   } as never)
   vi.mocked(getFeePlans).mockResolvedValue([
-    { id: 'p1', name: 'Standard', academic_year: '2025-26', class_ids: ['c1'] },
-    { id: 'p2', name: 'Sibling', academic_year: '2025-26', class_ids: ['c2'] },
+    {
+      id: 'p1',
+      name: 'Standard',
+      academic_year: currentYear,
+      class_ids: ['c1'],
+    },
+    {
+      id: 'p2',
+      name: 'Sibling',
+      academic_year: currentYear,
+      class_ids: ['c2'],
+    },
   ] as never)
 })
 
