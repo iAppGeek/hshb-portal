@@ -3,7 +3,7 @@ import { updateTag } from 'next/cache'
 
 import {
   getAllClasses,
-  getAllClassesIncludingInactive,
+  getClassesByAcademicYear,
   getClassById,
   getClassesByTeacher,
   createClass,
@@ -12,6 +12,7 @@ import {
 } from './classes'
 
 const mockFrom = vi.hoisted(() => vi.fn())
+const mockGetCurrentAcademicYear = vi.hoisted(() => vi.fn())
 
 vi.mock('next/cache', () => ({
   unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
@@ -22,11 +23,23 @@ vi.mock('./client', () => ({
   supabase: { from: mockFrom },
 }))
 
+vi.mock('./academic-years', () => ({
+  getCurrentAcademicYear: mockGetCurrentAcademicYear,
+}))
+
+const currentYear = {
+  id: 'year-1',
+  code: '2026-27',
+  start_date: '2026-09-01',
+  end_date: '2027-08-31',
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
+  mockGetCurrentAcademicYear.mockResolvedValue(currentYear)
 })
 
-const mockClass = {
+const mockRawClass = {
   id: 'class-1',
   name: 'Year 3A',
   year_group: '3',
@@ -40,28 +53,40 @@ const mockClass = {
     display_name: null,
     email: 'jane@school.com',
   },
+  academic_year: {
+    id: 'year-1',
+    code: '2026-27',
+    start_date: '2026-09-01',
+    end_date: '2027-08-31',
+  },
 }
 
+const mockClass = { ...mockRawClass, academic_year: '2026-27' }
+
 describe('getAllClasses', () => {
-  it('returns active classes ordered by year group', async () => {
+  it('returns active classes in the current year, flattening the year to its code', async () => {
+    const mockEq2 = vi.fn().mockReturnValue({
+      order: vi.fn().mockResolvedValue({ data: [mockRawClass] }),
+    })
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          order: vi.fn().mockResolvedValue({ data: [mockClass] }),
-        }),
+        eq: vi.fn().mockReturnValue({ eq: mockEq2 }),
       }),
     })
 
     const result = await getAllClasses()
     expect(result).toEqual([mockClass])
     expect(mockFrom).toHaveBeenCalledWith('classes')
+    expect(mockGetCurrentAcademicYear).toHaveBeenCalled()
   })
 
   it('returns empty array when no classes exist', async () => {
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          order: vi.fn().mockResolvedValue({ data: null }),
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({ data: null }),
+          }),
         }),
       }),
     })
@@ -72,12 +97,14 @@ describe('getAllClasses', () => {
 })
 
 describe('getClassesByTeacher', () => {
-  it('returns active classes assigned to the given teacher', async () => {
+  it('returns active classes assigned to the given teacher in the current year', async () => {
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
-            order: vi.fn().mockResolvedValue({ data: [mockClass] }),
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockResolvedValue({ data: [mockRawClass] }),
+            }),
           }),
         }),
       }),
@@ -92,7 +119,9 @@ describe('getClassesByTeacher', () => {
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
-            order: vi.fn().mockResolvedValue({ data: null }),
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockResolvedValue({ data: null }),
+            }),
           }),
         }),
       }),
@@ -103,39 +132,46 @@ describe('getClassesByTeacher', () => {
   })
 })
 
-describe('getAllClassesIncludingInactive', () => {
-  it('returns all classes without active filter', async () => {
+describe('getClassesByAcademicYear', () => {
+  it('returns all classes for the given year without an active filter', async () => {
     const mockData = [
-      { ...mockClass, active: true },
-      { ...mockClass, id: 'class-2', active: false },
+      mockRawClass,
+      { ...mockRawClass, id: 'class-2', active: false },
     ]
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
-        order: vi.fn().mockResolvedValue({ data: mockData }),
+        eq: vi.fn().mockReturnValue({
+          order: vi.fn().mockResolvedValue({ data: mockData }),
+        }),
       }),
     })
 
-    const result = await getAllClassesIncludingInactive()
-    expect(result).toEqual(mockData)
+    const result = await getClassesByAcademicYear('year-1')
+    expect(result).toEqual([
+      mockClass,
+      { ...mockClass, id: 'class-2', active: false },
+    ])
     expect(mockFrom).toHaveBeenCalledWith('classes')
   })
 
   it('returns empty array when no classes exist', async () => {
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
-        order: vi.fn().mockResolvedValue({ data: null }),
+        eq: vi.fn().mockReturnValue({
+          order: vi.fn().mockResolvedValue({ data: null }),
+        }),
       }),
     })
 
-    const result = await getAllClassesIncludingInactive()
+    const result = await getClassesByAcademicYear('year-1')
     expect(result).toEqual([])
   })
 })
 
 describe('getClassById', () => {
-  it('returns a class with student enrollments', async () => {
+  it('returns a class with student enrollments, flattening the year to its code', async () => {
     const mockData = {
-      ...mockClass,
+      ...mockRawClass,
       student_classes: [{ student_id: 'student-1' }],
     }
     mockFrom.mockReturnValue({
@@ -147,7 +183,10 @@ describe('getClassById', () => {
     })
 
     const result = await getClassById('class-1')
-    expect(result).toEqual(mockData)
+    expect(result).toEqual({
+      ...mockClass,
+      student_classes: [{ student_id: 'student-1' }],
+    })
     expect(mockFrom).toHaveBeenCalledWith('classes')
   })
 
@@ -171,7 +210,7 @@ describe('createClass', () => {
       name: 'Year 1A',
       year_group: '1',
       room_number: 'R1',
-      academic_year: '2024/25',
+      academic_year_id: 'year-1',
       teacher_id: 'staff-1',
     }
     const created = { id: 'class-new', ...input, active: true }
@@ -201,7 +240,12 @@ describe('createClass', () => {
     })
 
     await expect(
-      createClass({ name: 'X', year_group: '1', teacher_id: 'staff-1' }),
+      createClass({
+        name: 'X',
+        year_group: '1',
+        academic_year_id: 'year-1',
+        teacher_id: 'staff-1',
+      }),
     ).rejects.toThrow('DB error')
     expect(updateTag).not.toHaveBeenCalled()
   })

@@ -45,7 +45,8 @@ import {
   optionalAccountNumber,
   moneyAmount,
   optionalMoneyAmount,
-  academicYear,
+  academicYearSchema,
+  academicYearDatesSchema,
   staffPayrollSchema,
   feePlanSchema,
   studentFeeAccountSchema,
@@ -285,7 +286,7 @@ describe('createClassSchema', () => {
     name: 'Year 3A',
     year_group: '3',
     room_number: 'R12',
-    academic_year: '2024/25',
+    academic_year_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
     teacher_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
     student_ids: ['a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'],
   }
@@ -295,20 +296,18 @@ describe('createClassSchema', () => {
     expect(result.name).toBe('Year 3A')
   })
 
-  it('allows optional fields as empty strings (null transform)', () => {
-    const result = createClassSchema.parse({
-      ...valid,
-      room_number: '',
-      academic_year: '',
-    })
+  it('allows room_number as an empty string (null transform)', () => {
+    const result = createClassSchema.parse({ ...valid, room_number: '' })
     expect(result.room_number).toBeNull()
-    expect(result.academic_year).toBeNull()
   })
 
   it('rejects missing required fields', () => {
     expect(() => createClassSchema.parse({ ...valid, name: '' })).toThrow()
     expect(() =>
       createClassSchema.parse({ ...valid, teacher_id: 'bad' }),
+    ).toThrow()
+    expect(() =>
+      createClassSchema.parse({ ...valid, academic_year_id: 'bad' }),
     ).toThrow()
   })
 })
@@ -319,7 +318,7 @@ describe('updateClassSchema', () => {
       name: 'Year 1',
       year_group: '1',
       room_number: '',
-      academic_year: '',
+      academic_year_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
       teacher_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
       student_ids: [],
       active: 'true',
@@ -1423,18 +1422,58 @@ describe('optionalMoneyAmount', () => {
   })
 })
 
-describe('academicYear', () => {
-  it('normalises a slash to a dash', () => {
-    expect(academicYear.parse('2025/26')).toBe('2025-26')
+describe('academicYearSchema', () => {
+  const valid = {
+    code: '2025/26',
+    start_date: '2025-09-01',
+    end_date: '2026-08-31',
+  }
+
+  it('normalises a slash to a dash in the code', () => {
+    expect(academicYearSchema.parse(valid).code).toBe('2025-26')
   })
 
   it('accepts the century rollover', () => {
-    expect(academicYear.parse('2099-00')).toBe('2099-00')
+    expect(academicYearSchema.parse({ ...valid, code: '2099-00' }).code).toBe(
+      '2099-00',
+    )
   })
 
   it('rejects non-consecutive or malformed years', () => {
-    expect(academicYear.safeParse('2025-27').success).toBe(false)
-    expect(academicYear.safeParse('2025').success).toBe(false)
+    expect(
+      academicYearSchema.safeParse({ ...valid, code: '2025-27' }).success,
+    ).toBe(false)
+    expect(
+      academicYearSchema.safeParse({ ...valid, code: '2025' }).success,
+    ).toBe(false)
+  })
+
+  it('rejects an end date that is not after the start date', () => {
+    expect(
+      academicYearSchema.safeParse({
+        ...valid,
+        end_date: '2025-09-01',
+      }).success,
+    ).toBe(false)
+  })
+})
+
+describe('academicYearDatesSchema', () => {
+  it('rejects an end date on or before the start date', () => {
+    expect(
+      academicYearDatesSchema.safeParse({
+        start_date: '2025-09-01',
+        end_date: '2025-09-01',
+      }).success,
+    ).toBe(false)
+  })
+
+  it('accepts a valid range', () => {
+    const result = academicYearDatesSchema.parse({
+      start_date: '2025-09-01',
+      end_date: '2026-08-31',
+    })
+    expect(result.end_date).toBe('2026-08-31')
   })
 })
 
@@ -1548,7 +1587,7 @@ describe('staffPayrollSchema', () => {
 describe('feePlanSchema', () => {
   const valid = {
     name: 'Standard',
-    academic_year: '2025/26',
+    academic_year_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
     full_year_amount: '800',
     monthly_instalment_amount: '100',
     termly_instalment_amount: '266.67',
@@ -1557,10 +1596,10 @@ describe('feePlanSchema', () => {
     class_ids: ['a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'],
   }
 
-  it('parses amounts, normalises the year and keeps class ids', () => {
+  it('parses amounts and keeps the year id and class ids', () => {
     expect(feePlanSchema.parse(valid)).toEqual({
       name: 'Standard',
-      academic_year: '2025-26',
+      academic_year_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
       full_year_amount: 800,
       monthly_instalment_amount: 100,
       termly_instalment_amount: 266.67,
@@ -1582,25 +1621,47 @@ describe('feePlanSchema', () => {
       feePlanSchema.safeParse({ ...valid, class_ids: ['nope'] }).success,
     ).toBe(false)
   })
+
+  it('rejects an invalid academic year id', () => {
+    expect(
+      feePlanSchema.safeParse({ ...valid, academic_year_id: 'nope' }).success,
+    ).toBe(false)
+  })
 })
 
 describe('studentFeeAccountSchema', () => {
   const base = {
+    academic_year_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
     payment_plan: 'monthly',
     payment_plan_notes: '',
     fee_plan_override_id: '',
     custom_total_amount: '250',
     custom_up_to_date: 'on',
+    settled: '',
+    settled_note: '',
   }
 
   it('clears custom fields for a non-custom plan', () => {
     expect(studentFeeAccountSchema.parse(base)).toEqual({
+      academic_year_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
       payment_plan: 'monthly',
       payment_plan_notes: null,
       fee_plan_override_id: null,
       custom_total_amount: null,
       custom_up_to_date: false,
+      settled: false,
+      settled_note: null,
     })
+  })
+
+  it('accepts the settled flag and note', () => {
+    const result = studentFeeAccountSchema.parse({
+      ...base,
+      settled: 'on',
+      settled_note: 'Written off',
+    })
+    expect(result.settled).toBe(true)
+    expect(result.settled_note).toBe('Written off')
   })
 
   it('allows no plan at all', () => {
@@ -1636,6 +1697,7 @@ describe('studentPaymentSchema', () => {
   const valid = {
     amount: '100',
     payment_date: '2025-09-01',
+    academic_year_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
     reference: 'HSHB-ALICE',
     method: 'bank_transfer',
     notes: '',
@@ -1645,6 +1707,7 @@ describe('studentPaymentSchema', () => {
     expect(studentPaymentSchema.parse(valid)).toEqual({
       amount: 100,
       payment_date: '2025-09-01',
+      academic_year_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
       reference: 'HSHB-ALICE',
       method: 'bank_transfer',
       notes: null,
