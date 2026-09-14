@@ -6,7 +6,7 @@ const STUDENT_LIST_SELECT = 'id, first_name, last_name, student_code'
 
 const STUDENT_SELECT = `
   *,
-  student_classes(class:classes(id, name, year_group, academic_year)),
+  student_classes(class:classes(id, name, year_group, academic_year:academic_years(code))),
   primary_guardian:guardians!students_primary_guardian_id_fkey(
     first_name, last_name, phone, email, occupation,
     address_line_1, address_line_2, city, postcode, notes
@@ -49,6 +49,38 @@ const STUDENT_SELECT_WITH_TEACHER = `
 `
 
 const OPTS = { revalidate: 60, tags: ['students'] }
+
+type StudentClassLink = {
+  class: {
+    id: string
+    name: string
+    year_group: string
+    academic_year: { code: string } | null
+  } | null
+}
+
+/** Keeps the flat `class.academic_year: string` shape display components already use. */
+function withClassYearCodes<T extends { student_classes: StudentClassLink[] }>(
+  row: T,
+): Omit<T, 'student_classes'> & {
+  student_classes: (Omit<StudentClassLink, 'class'> & {
+    class:
+      | (Omit<NonNullable<StudentClassLink['class']>, 'academic_year'> & {
+          academic_year: string | null
+        })
+      | null
+  })[]
+} {
+  return {
+    ...row,
+    student_classes: row.student_classes.map((sc) => ({
+      ...sc,
+      class: sc.class
+        ? { ...sc.class, academic_year: sc.class.academic_year?.code ?? null }
+        : null,
+    })),
+  }
+}
 
 export const getStudentsForList = unstable_cache(
   async () => {
@@ -104,7 +136,7 @@ export const getStudentsByTeacher = unstable_cache(
       .in('id', studentIds)
       .eq('active', true)
       .order('last_name')
-    return data ?? []
+    return (data ?? []).map(withClassYearCodes)
   },
   ['students-by-teacher'],
   { revalidate: 60, tags: ['students', 'classes'] },
@@ -166,7 +198,7 @@ export const getAllStudents = unstable_cache(
       .select(STUDENT_SELECT)
       .eq('active', true)
       .order('last_name')
-    return data ?? []
+    return (data ?? []).map(withClassYearCodes)
   },
   ['all-students'],
   OPTS,
@@ -189,7 +221,7 @@ export const getStudentsByClass = unstable_cache(
       .in('id', studentIds)
       .eq('active', true)
       .order('last_name')
-    return data ?? []
+    return (data ?? []).map(withClassYearCodes)
   },
   ['students-by-class'],
   { revalidate: 60, tags: ['students', 'classes'] },

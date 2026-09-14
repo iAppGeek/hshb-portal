@@ -1,5 +1,15 @@
 export { supabase } from './client'
 export {
+  getAcademicYears,
+  getCurrentAcademicYear,
+  getAcademicYearById,
+  getAcademicYearForDate,
+  createAcademicYear,
+  updateAcademicYear,
+  setCurrentAcademicYear,
+} from './academic-years'
+export type { AcademicYearRow, AcademicYearInput } from './academic-years'
+export {
   getStaffByEmail,
   getStaffById,
   getAllStaff,
@@ -70,7 +80,7 @@ export type {
 } from './guardians'
 export {
   getAllClasses,
-  getAllClassesIncludingInactive,
+  getClassesByAcademicYear,
   getClassById,
   getClassWithStudents,
   getClassesByTeacher,
@@ -143,12 +153,19 @@ export {
   createFeePlan,
   updateFeePlan,
 } from './fee-plans'
-export type { FeePlanRow, FeePlanWithClasses, FeePlanInput } from './fee-plans'
+export type {
+  FeePlanRow,
+  FeePlanWithClasses,
+  FeePlanAcademicYear,
+  FeePlanInput,
+} from './fee-plans'
 export {
   getStudentFeeList,
   getStudentFeeDetail,
+  getStudentFeeYears,
+  getPriorYearBalances,
   upsertStudentFeeAccount,
-  createStudentPayment,
+  addStudentPayment,
   deleteStudentPayment,
 } from './student-fees'
 export type {
@@ -161,5 +178,6 @@ export type {
   StudentFeeListItem,
   StudentPaymentWithRecorder,
   StudentFeeDetail,
+  StudentFeeYear,
 } from './student-fees'
 export { logAuditEvent } from './audit-log'
