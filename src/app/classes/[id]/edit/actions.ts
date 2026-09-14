@@ -35,7 +35,7 @@ export async function updateClassAction(
       name: classData.name,
       year_group: classData.year_group,
       room_number: classData.room_number,
-      academic_year: classData.academic_year ?? undefined,
+      academic_year_id: classData.academic_year_id,
       teacher_id: classData.teacher_id,
       active,
     })

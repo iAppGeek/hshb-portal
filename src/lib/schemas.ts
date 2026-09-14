@@ -448,19 +448,29 @@ export const optionalMoneyAmount = optionalString.pipe(
   z.string().regex(MONEY_PATTERN, MONEY_MESSAGE).transform(Number).nullable(),
 )
 
+const academicYearCode = requiredString
+  .transform((v) => v.replace('/', '-'))
+  .pipe(
+    z.string().regex(/^\d{4}-\d{2}$/, 'Academic year must look like 2025-26'),
+  )
+  .refine(
+    (v) => (Number(v.slice(0, 4)) + 1) % 100 === Number(v.slice(5)),
+    'Academic year must be two consecutive years, like 2025-26',
+  )
+
+export const academicYearDatesSchema = z
+  .object({
+    start_date: isoDate,
+    end_date: isoDate,
+  })
+  .refine((d) => d.end_date > d.start_date, {
+    message: 'End date must be after the start date',
+    path: ['end_date'],
+  })
+
 export const academicYearSchema = z
   .object({
-    code: requiredString
-      .transform((v) => v.replace('/', '-'))
-      .pipe(
-        z
-          .string()
-          .regex(/^\d{4}-\d{2}$/, 'Academic year must look like 2025-26'),
-      )
-      .refine(
-        (v) => (Number(v.slice(0, 4)) + 1) % 100 === Number(v.slice(5)),
-        'Academic year must be two consecutive years, like 2025-26',
-      ),
+    code: academicYearCode,
     start_date: isoDate,
     end_date: isoDate,
   })

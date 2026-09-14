@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { auth } from '@/auth'
 import {
   createFeePlan,
-  getAllClassesIncludingInactive,
+  getClassesByAcademicYear,
   getFeePlanById,
   getFeePlans,
   logAuditEvent,
@@ -40,8 +40,8 @@ export async function createFeePlanAction(
 
   try {
     const [classes, plans] = await Promise.all([
-      getAllClassesIncludingInactive(),
-      getFeePlans(),
+      getClassesByAcademicYear(input.academic_year_id),
+      getFeePlans(input.academic_year_id),
     ])
     const invalid = validateFeePlan(parsed.data, classes, plans, null)
     if (invalid) return { error: invalid }
@@ -87,8 +87,8 @@ export async function updateFeePlanAction(
   try {
     const [existing, classes, plans] = await Promise.all([
       getFeePlanById(id),
-      getAllClassesIncludingInactive(),
-      getFeePlans(),
+      getClassesByAcademicYear(input.academic_year_id),
+      getFeePlans(input.academic_year_id),
     ])
     if (!existing) return { error: 'Fee plan not found.' }
     const invalid = validateFeePlan(parsed.data, classes, plans, id)

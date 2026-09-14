@@ -15,7 +15,7 @@ import FeeStatusBadge from '../../_components/FeeStatusBadge'
 import type { StudentFeeRow } from '../../_lib/studentFeeSummary'
 
 type PlanFilter = '' | PaymentPlan | 'none'
-type StatusFilter = '' | FeeStatus | 'conflict'
+type StatusFilter = '' | FeeStatus | 'conflict' | 'owes_prior'
 
 const TH =
   'px-3 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase'
@@ -56,7 +56,11 @@ export default function StudentFeesTable({
             ? r.paymentPlan === null
             : r.paymentPlan === plan)) &&
         (status === '' ||
-          (status === 'conflict' ? r.conflict : r.status === status)),
+          (status === 'conflict'
+            ? r.conflict
+            : status === 'owes_prior'
+              ? r.priorOwed > 0
+              : r.status === status)),
     )
   }, [rows, query, classId, plan, status])
 
@@ -111,6 +115,7 @@ export default function StudentFeesTable({
             </option>
           ))}
           <option value="conflict">Multiple fee plans</option>
+          <option value="owes_prior">Owes from previous years</option>
         </select>
       </div>
 
@@ -130,6 +135,7 @@ export default function StudentFeesTable({
                 <th className={TH}>Paid</th>
                 <th className={TH}>Due to date</th>
                 <th className={TH}>Status</th>
+                <th className={TH}>Owed (prev. years)</th>
                 <th className={`relative ${TH}`}>
                   <span className="sr-only">Actions</span>
                 </th>
@@ -138,7 +144,7 @@ export default function StudentFeesTable({
             <tbody className="divide-y divide-gray-200">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className={`${TD} text-center text-gray-500`}>
+                  <td colSpan={9} className={`${TD} text-center text-gray-500`}>
                     No students match these filters.
                   </td>
                 </tr>
@@ -178,6 +184,9 @@ export default function StudentFeesTable({
                     </td>
                     <td className={TD}>
                       <FeeStatusBadge status={r.status} />
+                    </td>
+                    <td className={`${TD} whitespace-nowrap`}>
+                      {r.priorOwed > 0 ? formatGbp(r.priorOwed) : ''}
                     </td>
                     <td className={`${TD} text-right`}>
                       <Link

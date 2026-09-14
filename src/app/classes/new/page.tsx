@@ -2,7 +2,12 @@ import { type Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { getTeachers, getStudentsForList } from '@/db'
+import {
+  getAcademicYears,
+  getCurrentAcademicYear,
+  getTeachers,
+  getStudentsForList,
+} from '@/db'
 import { canCreateClasses } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -23,9 +28,11 @@ export default async function AddClassPage() {
     redirect('/classes')
   }
 
-  const [teachers, students] = await Promise.all([
+  const [teachers, students, years, currentYear] = await Promise.all([
     getTeachers(),
     getStudentsForList(),
+    getAcademicYears(),
+    getCurrentAcademicYear(),
   ])
 
   return (
@@ -41,6 +48,8 @@ export default async function AddClassPage() {
       <ClassForm
         teachers={teachers as ClassFormTeacher[]}
         students={students as ClassFormStudent[]}
+        years={years}
+        defaultAcademicYearId={currentYear.id}
         action={createClassAction}
         submitLabel="Add Class"
       />

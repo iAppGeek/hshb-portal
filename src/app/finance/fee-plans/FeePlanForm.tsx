@@ -4,14 +4,17 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 
 import type { FeePlanWithClasses } from '@/db'
-import { normaliseAcademicYear } from '@/lib/fees'
 import type { ActionResult } from '@/lib/schemas'
 
 import type { FeePlanClassOption } from '../_lib/feePlanClasses'
 
+export type FeePlanFormYear = { id: string; code: string }
+
 type Props = {
   plan: FeePlanWithClasses | null
   classes: FeePlanClassOption[]
+  years: FeePlanFormYear[]
+  defaultAcademicYearId?: string
   /** Class id → label of another plan that already owns the class. */
   takenBy: Record<string, string>
   action: (formData: FormData) => Promise<ActionResult>
@@ -21,26 +24,25 @@ type Props = {
 const INPUT =
   'mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none'
 const LABEL = 'block text-sm font-medium text-gray-700'
-const ACADEMIC_YEAR_PATTERN = /^\d{4}-\d{2}$/
 
 export default function FeePlanForm({
   plan,
   classes,
+  years,
+  defaultAcademicYearId,
   takenBy,
   action,
   submitLabel,
 }: Props): React.ReactElement {
-  const [academicYear, setAcademicYear] = useState(plan?.academic_year ?? '')
+  const [academicYearId, setAcademicYearId] = useState(
+    plan?.academic_year.id ?? defaultAcademicYearId ?? '',
+  )
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  const year = normaliseAcademicYear(academicYear)
-  const yearClasses = ACADEMIC_YEAR_PATTERN.test(year)
-    ? classes.filter(
-        (c) =>
-          c.academic_year && normaliseAcademicYear(c.academic_year) === year,
-      )
-    : null
+  const yearClasses = classes.filter(
+    (c) => c.academic_year_id === academicYearId,
+  )
 
   function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>): void {
     e.preventDefault()
@@ -73,19 +75,26 @@ export default function FeePlanForm({
             />
           </div>
           <div>
-            <label htmlFor="academic_year" className={LABEL}>
+            <label htmlFor="academic_year_id" className={LABEL}>
               Academic year<span className="ml-0.5 text-red-500">*</span>
             </label>
-            <input
-              id="academic_year"
-              name="academic_year"
-              type="text"
+            <select
+              id="academic_year_id"
+              name="academic_year_id"
               required
-              placeholder="e.g. 2025-26"
-              value={academicYear}
-              onChange={(e) => setAcademicYear(e.target.value)}
+              value={academicYearId}
+              onChange={(e) => setAcademicYearId(e.target.value)}
               className={INPUT}
-            />
+            >
+              <option value="" disabled>
+                Select a year…
+              </option>
+              {years.map((y) => (
+                <option key={y.id} value={y.id}>
+                  {y.code}
+                </option>
+              ))}
+            </select>
           </div>
           <MoneyField
             label="Full year amount (£)"
@@ -140,12 +149,10 @@ export default function FeePlanForm({
           plan.
         </p>
         <div className="mt-4">
-          {yearClasses === null ? (
+          {yearClasses.length === 0 ? (
             <p className="text-sm text-gray-400">
-              Enter the academic year to choose its classes.
+              No classes in this academic year.
             </p>
-          ) : yearClasses.length === 0 ? (
-            <p className="text-sm text-gray-400">No classes in {year}.</p>
           ) : (
             <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {yearClasses.map((c) => {

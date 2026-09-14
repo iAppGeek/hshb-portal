@@ -7,7 +7,6 @@ import type {
 } from '@/db'
 import {
   feeStatus,
-  paymentsInAcademicYear,
   resolveFeePlan,
   resolvedPlanOrNull,
   sumPayments,
@@ -47,9 +46,7 @@ export function summariseStudentFees(
   const feePlan = resolvedPlanOrNull(resolution)
   const paymentPlan = (student.account?.payment_plan ??
     null) as PaymentPlan | null
-  const paid = sumPayments(
-    paymentsInAcademicYear(student.payments, feePlan?.academic_year ?? null),
-  )
+  const paid = sumPayments(student.payments)
 
   return {
     ...feeStatus({
@@ -78,12 +75,14 @@ export type StudentFeeRow = {
   paid: number
   due: number | null
   status: FeeStatus
+  priorOwed: number
 }
 
 export function buildStudentFeeRows(
   students: StudentFeeListItem[],
   plans: FeePlanWithClasses[],
   today: string,
+  priorOwed: Record<string, number>,
 ): StudentFeeRow[] {
   return students.map((s) => {
     const summary = summariseStudentFees(s, plans, today)
@@ -94,12 +93,13 @@ export function buildStudentFeeRows(
       classes: s.classes,
       paymentPlan: summary.paymentPlan,
       feePlanName: summary.feePlan
-        ? `${summary.feePlan.name} (${summary.feePlan.academic_year})`
+        ? `${summary.feePlan.name} (${summary.feePlan.academic_year.code})`
         : null,
       conflict: summary.resolution.kind === 'conflict',
       paid: summary.paid,
       due: summary.due,
       status: summary.status,
+      priorOwed: priorOwed[s.id] ?? 0,
     }
   })
 }

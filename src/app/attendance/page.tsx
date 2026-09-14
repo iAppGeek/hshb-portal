@@ -2,10 +2,17 @@ import { Suspense } from 'react'
 import { type Metadata } from 'next'
 
 import { auth } from '@/auth'
-import { getAllClasses, getClassesByTeacher } from '@/db'
+import {
+  getAcademicYears,
+  getClassesByAcademicYear,
+  getClassesByTeacher,
+  getCurrentAcademicYear,
+} from '@/db'
 import { todayInSchoolTz } from '@/lib/datetime'
 import { isTeacher } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
+
+import YearSelector from '../_components/YearSelector'
 
 import AttendanceFilters from './AttendanceFilters'
 import AttendanceRegister from './AttendanceRegister'
@@ -50,20 +57,36 @@ function RegisterSkeleton() {
 export default async function AttendancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ classId?: string; date?: string }>
+  searchParams: Promise<{ classId?: string; date?: string; year?: string }>
 }) {
   const session = await auth()
   const role = session?.user?.role as StaffRole
   const staffId = session?.user?.staffId ?? ''
+  const admin = !isTeacher(role)
 
-  const { classId: qClassId, date: qDate } = await searchParams
+  const { classId: qClassId, date: qDate, year: qYear } = await searchParams
 
   const today = todayInSchoolTz()
-  const selectedDate = qDate ?? today
 
-  const classes = isTeacher(role)
-    ? await getClassesByTeacher(staffId)
-    : await getAllClasses()
+  const years = admin ? await getAcademicYears() : []
+  const currentYear = admin ? await getCurrentAcademicYear() : null
+  const yearId = admin ? (qYear ?? currentYear!.id) : undefined
+  const selectedYear = years.find((y) => y.id === yearId) ?? null
+
+  const isNonCurrentYear = Boolean(
+    selectedYear && currentYear && selectedYear.id !== currentYear.id,
+  )
+  const defaultDate =
+    isNonCurrentYear && selectedYear
+      ? today >= selectedYear.start_date && today <= selectedYear.end_date
+        ? today
+        : selectedYear.end_date
+      : today
+  const selectedDate = qDate ?? defaultDate
+
+  const classes = admin
+    ? await getClassesByAcademicYear(yearId!)
+    : await getClassesByTeacher(staffId)
 
   const selectedClassId = qClassId ?? classes[0]?.id ?? null
   const selectedClass = classes.find((c) => c.id === selectedClassId)
@@ -74,6 +97,9 @@ export default async function AttendancePage({
         <h1 className="text-2xl font-bold text-gray-900">
           Attendance Register
         </h1>
+        {admin && (
+          <YearSelector years={years} value={yearId!} basePath="/attendance" />
+        )}
       </div>
 
       {classes.length === 0 ? (
@@ -86,6 +112,7 @@ export default async function AttendancePage({
             classes={classes}
             selectedClassId={selectedClassId}
             selectedDate={selectedDate}
+            yearId={yearId}
           />
 
           {selectedClassId && (

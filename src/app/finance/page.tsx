@@ -3,6 +3,7 @@ import { type Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
+import { getCurrentAcademicYear } from '@/db'
 import { canManageFinance } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -18,7 +19,7 @@ const DEFAULT_TAB = 'staff'
 export default async function FinancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>
+  searchParams: Promise<{ tab?: string; year?: string }>
 }): Promise<ReactNode> {
   const session = await auth()
   const role = session?.user?.role as StaffRole | undefined
@@ -27,7 +28,8 @@ export default async function FinancePage({
     redirect('/dashboard')
   }
 
-  const { tab = DEFAULT_TAB } = await searchParams
+  const { tab = DEFAULT_TAB, year } = await searchParams
+  const yearId = year ?? (await getCurrentAcademicYear()).id
 
   return (
     <div>
@@ -41,8 +43,8 @@ export default async function FinancePage({
       <FinanceTabBar currentTab={tab} />
 
       {tab === 'staff' && <StaffPayrollTab />}
-      {tab === 'students' && <StudentFeesTab />}
-      {tab === 'fee-plans' && <FeePlansTab />}
+      {tab === 'students' && <StudentFeesTab yearId={yearId} />}
+      {tab === 'fee-plans' && <FeePlansTab yearId={yearId} />}
     </div>
   )
 }

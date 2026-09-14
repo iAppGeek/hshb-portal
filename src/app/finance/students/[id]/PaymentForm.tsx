@@ -2,11 +2,19 @@
 
 import { useState, useTransition } from 'react'
 
+import {
+  academicYearForDate,
+  type AcademicYearRange,
+} from '@/lib/academicYears'
 import { PAYMENT_METHOD_LABELS } from '@/lib/fees'
 import type { ActionResult } from '@/lib/schemas'
 
+export type PaymentFormYear = AcademicYearRange & { id: string }
+
 type Props = {
   defaultDate: string
+  years: PaymentFormYear[]
+  currentYearId: string
   action: (formData: FormData) => Promise<ActionResult>
 }
 
@@ -16,10 +24,22 @@ const LABEL = 'block text-sm font-medium text-gray-700'
 
 export default function PaymentForm({
   defaultDate,
+  years,
+  currentYearId,
   action,
 }: Props): React.ReactElement {
+  const [date, setDate] = useState(defaultDate)
+  const [yearId, setYearId] = useState(
+    academicYearForDate(years, defaultDate)?.id ?? currentYearId,
+  )
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  function handleDateChange(e: React.ChangeEvent<HTMLInputElement>): void {
+    const value = e.target.value
+    setDate(value)
+    setYearId(academicYearForDate(years, value)?.id ?? currentYearId)
+  }
 
   function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>): void {
     e.preventDefault()
@@ -27,8 +47,13 @@ export default function PaymentForm({
     const form = e.currentTarget
     startTransition(async () => {
       const result = await action(new FormData(form))
-      if (result?.error) setError(result.error)
-      else form.reset()
+      if (result?.error) {
+        setError(result.error)
+      } else {
+        form.reset()
+        setDate(defaultDate)
+        setYearId(academicYearForDate(years, defaultDate)?.id ?? currentYearId)
+      }
     })
   }
 
@@ -59,9 +84,29 @@ export default function PaymentForm({
             name="payment_date"
             type="date"
             required
-            defaultValue={defaultDate}
+            value={date}
+            onChange={handleDateChange}
             className={INPUT}
           />
+        </div>
+        <div>
+          <label htmlFor="academic_year_id" className={LABEL}>
+            Pays for<span className="ml-0.5 text-red-500">*</span>
+          </label>
+          <select
+            id="academic_year_id"
+            name="academic_year_id"
+            required
+            value={yearId}
+            onChange={(e) => setYearId(e.target.value)}
+            className={INPUT}
+          >
+            {years.map((y) => (
+              <option key={y.id} value={y.id}>
+                {y.code}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label htmlFor="reference" className={LABEL}>

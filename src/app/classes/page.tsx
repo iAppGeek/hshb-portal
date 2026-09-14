@@ -3,7 +3,12 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { getAllClassesIncludingInactive, getClassesByTeacher } from '@/db'
+import {
+  getAcademicYears,
+  getClassesByAcademicYear,
+  getClassesByTeacher,
+  getCurrentAcademicYear,
+} from '@/db'
 import Tooltip from '@/components/Tooltip'
 import {
   canEditClasses,
@@ -14,12 +19,17 @@ import type { StaffRole } from '@/types/next-auth'
 
 import EmptyState from '../_components/EmptyState'
 import PageHeader from '../_components/PageHeader'
+import YearSelector from '../_components/YearSelector'
 
 import ClassesTable, { type ClassRow } from './ClassesTable'
 
 export const metadata: Metadata = { title: 'Classes' }
 
-export default async function ClassesPage() {
+export default async function ClassesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ year?: string }>
+}) {
   const session = await auth()
   if (!session) {
     redirect('/login')
@@ -27,9 +37,15 @@ export default async function ClassesPage() {
 
   const role = session.user?.role as StaffRole
   const canEdit = canEditClasses(role)
+  const canSeeAll = canSeeAllData(role)
 
-  const classes = canSeeAllData(role)
-    ? await getAllClassesIncludingInactive()
+  const { year } = await searchParams
+  const years = canSeeAll ? await getAcademicYears() : []
+  const currentYear = canSeeAll ? await getCurrentAcademicYear() : null
+  const selectedYearId = year ?? currentYear?.id
+
+  const classes = canSeeAll
+    ? await getClassesByAcademicYear(selectedYearId!)
     : await getClassesByTeacher(session.user.staffId)
 
   return (
@@ -53,6 +69,16 @@ export default async function ClassesPage() {
           ) : null
         }
       />
+
+      {canSeeAll && (
+        <div className="mb-4">
+          <YearSelector
+            years={years}
+            value={selectedYearId!}
+            basePath="/classes"
+          />
+        </div>
+      )}
 
       {classes.length === 0 ? (
         <EmptyState message="No classes found." />

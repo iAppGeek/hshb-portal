@@ -7,6 +7,7 @@ import { canAccessAdminTasks } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
 import AdminTabBar from './_components/AdminTabBar'
+import AcademicYearsTab from './_tabs/academic-years/AcademicYearsTab'
 import ClassMigrationTab from './_tabs/class-migration/ClassMigrationTab'
 
 export const metadata: Metadata = { title: 'Admin Tasks' }
@@ -16,7 +17,11 @@ const DEFAULT_TAB = 'class-migration'
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; sourceClassId?: string }>
+  searchParams: Promise<{
+    tab?: string
+    sourceClassId?: string
+    targetYearId?: string
+  }>
 }): Promise<ReactNode> {
   const session = await auth()
   const role = session?.user?.role as StaffRole | undefined
@@ -25,7 +30,7 @@ export default async function AdminPage({
     redirect('/dashboard')
   }
 
-  const { tab = DEFAULT_TAB, sourceClassId } = await searchParams
+  const { tab = DEFAULT_TAB, sourceClassId, targetYearId } = await searchParams
 
   return (
     <div className="max-w-2xl">
@@ -39,8 +44,12 @@ export default async function AdminPage({
       <AdminTabBar currentTab={tab} />
 
       {tab === 'class-migration' && (
-        <ClassMigrationTab sourceClassId={sourceClassId} />
+        <ClassMigrationTab
+          sourceClassId={sourceClassId}
+          targetYearId={targetYearId}
+        />
       )}
+      {tab === 'academic-years' && <AcademicYearsTab />}
     </div>
   )
 }
