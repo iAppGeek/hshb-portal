@@ -33,3 +33,14 @@ export function academicYearForDate<T extends AcademicYearRange>(
 ): T | null {
   return years.find((y) => date >= y.start_date && date <= y.end_date) ?? null
 }
+
+/** The requested year id when it is a known year, otherwise the current one. */
+export function resolveYearId(
+  years: { id: string }[],
+  requestedId: string | undefined,
+  currentId: string,
+): string {
+  return requestedId && years.some((y) => y.id === requestedId)
+    ? requestedId
+    : currentId
+}

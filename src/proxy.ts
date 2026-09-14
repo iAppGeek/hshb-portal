@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { canAccessReports, canManageFinance } from '@/lib/permissions'
+import {
+  canAccessReports,
+  canManageFinance,
+  canManageHr,
+} from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
 const PUBLIC_PATHS = ['/register']
@@ -13,6 +17,7 @@ export const proxy = auth((req) => {
   const isReportsPage = pathname.startsWith('/reports')
   const isFinancePage =
     pathname === '/finance' || pathname.startsWith('/finance/')
+  const isHrPage = pathname === '/hr' || pathname.startsWith('/hr/')
   const isPublicPath = PUBLIC_PATHS.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   )
@@ -37,6 +42,13 @@ export const proxy = auth((req) => {
   if (isFinancePage) {
     const role = req.auth?.user?.role as StaffRole | undefined
     if (!role || !canManageFinance(role)) {
+      return NextResponse.redirect(new URL('/dashboard', req.url))
+    }
+  }
+
+  if (isHrPage) {
+    const role = req.auth?.user?.role as StaffRole | undefined
+    if (!role || !canManageHr(role)) {
       return NextResponse.redirect(new URL('/dashboard', req.url))
     }
   }

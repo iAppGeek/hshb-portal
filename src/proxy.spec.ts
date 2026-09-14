@@ -77,7 +77,7 @@ describe('middleware', () => {
 
   it('redirects non-admin away from nested /finance pages', () => {
     middleware(
-      ...makeReq('/finance/staff/abc', { user: { role: 'headteacher' } }),
+      ...makeReq('/finance/students/abc', { user: { role: 'headteacher' } }),
     )
     expect(mockRedirect).toHaveBeenCalledWith(
       new URL('/dashboard', 'http://localhost:3000'),
@@ -94,6 +94,29 @@ describe('middleware', () => {
 
   it('does not treat /financeX as a finance page', () => {
     middleware(...makeReq('/financeX', { user: { role: 'teacher' } }))
+    expect(mockRedirect).not.toHaveBeenCalled()
+  })
+
+  it.each(['headteacher', 'secretary', 'teacher'])(
+    'redirects %s away from /hr and nested HR pages to dashboard',
+    (role) => {
+      middleware(...makeReq('/hr', { user: { role } }))
+      middleware(...makeReq('/hr/staff/abc', { user: { role } }))
+      expect(mockRedirect).toHaveBeenCalledTimes(2)
+      expect(mockRedirect).toHaveBeenCalledWith(
+        new URL('/dashboard', 'http://localhost:3000'),
+      )
+    },
+  )
+
+  it('allows admin to access /hr and nested pages', () => {
+    middleware(...makeReq('/hr', { user: { role: 'admin' } }))
+    middleware(...makeReq('/hr/staff/abc', { user: { role: 'admin' } }))
+    expect(mockRedirect).not.toHaveBeenCalled()
+  })
+
+  it('does not treat /hrX as an HR page', () => {
+    middleware(...makeReq('/hrX', { user: { role: 'teacher' } }))
     expect(mockRedirect).not.toHaveBeenCalled()
   })
 

@@ -1,10 +1,9 @@
 import Link from 'next/link'
 
-import { getAcademicYears, getClassesByAcademicYear, getFeePlans } from '@/db'
+import { getClassesByAcademicYear, getFeePlans } from '@/db'
 import { formatGbp } from '@/lib/fees'
 
 import EmptyState from '../../../_components/EmptyState'
-import YearSelector from '../../../_components/YearSelector'
 
 const TH =
   'px-3 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase'
@@ -17,8 +16,7 @@ type Props = {
 export default async function FeePlansTab({
   yearId,
 }: Props): Promise<React.ReactElement> {
-  const [years, plans, classes] = await Promise.all([
-    getAcademicYears(),
+  const [plans, classes] = await Promise.all([
     getFeePlans(yearId),
     getClassesByAcademicYear(yearId),
   ])
@@ -26,15 +24,9 @@ export default async function FeePlansTab({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <YearSelector
-          years={years}
-          value={yearId}
-          basePath="/finance"
-          extraParams={{ tab: 'fee-plans' }}
-        />
+      <div className="flex justify-end">
         <Link
-          href="/finance/fee-plans/new"
+          href={`/finance/fee-plans/new?year=${yearId}`}
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
         >
           Add fee plan

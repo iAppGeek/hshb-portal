@@ -1,18 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
-import { getAcademicYears, getClassesByAcademicYear, getFeePlans } from '@/db'
+import { getClassesByAcademicYear, getFeePlans } from '@/db'
 
 import FeePlansTab from './FeePlansTab'
 
 vi.mock('@/db', () => ({
-  getAcademicYears: vi.fn(),
   getFeePlans: vi.fn(),
   getClassesByAcademicYear: vi.fn(),
-}))
-
-vi.mock('../../../_components/YearSelector', () => ({
-  default: () => <div data-testid="year-selector" />,
 }))
 
 const years = [
@@ -40,7 +35,6 @@ const plan = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(getAcademicYears).mockResolvedValue(years as any)
   vi.mocked(getClassesByAcademicYear).mockResolvedValue([
     { id: 'c1', name: 'Alpha' },
     { id: 'c2', name: 'Beta' },
@@ -55,7 +49,7 @@ describe('FeePlansTab', () => {
     expect(screen.getByText('No fee plans yet.')).toBeTruthy()
     expect(
       screen.getByRole('link', { name: 'Add fee plan' }).getAttribute('href'),
-    ).toBe('/finance/fee-plans/new')
+    ).toBe('/finance/fee-plans/new?year=year-1')
   })
 
   it('lists plans with amounts, class names and status for the requested year', async () => {

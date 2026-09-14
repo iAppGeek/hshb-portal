@@ -17,6 +17,7 @@ import {
   ArrowPathRoundedSquareIcon,
   InboxIcon,
   BanknotesIcon,
+  IdentificationIcon,
 } from '@heroicons/react/24/outline'
 
 import { auth, signOut } from '@/auth'
@@ -25,6 +26,7 @@ import {
   canAccessAdminTasks,
   canAccessReports,
   canManageFinance,
+  canManageHr,
   canReviewRegistrations,
   receivesNotifications,
 } from '@/lib/permissions'
@@ -118,6 +120,12 @@ const navItems = [
     label: 'Registrations',
     Icon: InboxIcon,
     filter: canReviewRegistrations,
+  },
+  {
+    href: '/hr',
+    label: 'HR',
+    Icon: IdentificationIcon,
+    filter: canManageHr,
   },
   {
     href: '/finance',

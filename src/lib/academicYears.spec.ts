@@ -4,6 +4,7 @@ import {
   academicYearForDate,
   nextAcademicYear,
   normaliseAcademicYear,
+  resolveYearId,
 } from './academicYears'
 
 describe('normaliseAcademicYear', () => {
@@ -48,5 +49,21 @@ describe('academicYearForDate', () => {
 
   it('returns null when no year contains the date', () => {
     expect(academicYearForDate(years, '2024-01-01')).toBeNull()
+  })
+})
+
+describe('resolveYearId', () => {
+  const years = [{ id: 'y1' }, { id: 'y2' }]
+
+  it('returns the requested year when it is known', () => {
+    expect(resolveYearId(years, 'y1', 'y2')).toBe('y1')
+  })
+
+  it('falls back to the current year for an unknown year', () => {
+    expect(resolveYearId(years, 'nope', 'y2')).toBe('y2')
+  })
+
+  it('falls back to the current year when no year is requested', () => {
+    expect(resolveYearId(years, undefined, 'y2')).toBe('y2')
   })
 })

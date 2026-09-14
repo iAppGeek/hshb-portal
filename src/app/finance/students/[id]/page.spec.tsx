@@ -297,4 +297,23 @@ describe('StudentFeesPage', () => {
     expect(screen.getByText('2024-25')).toBeTruthy()
     expect(screen.getByText('Settled')).toBeTruthy()
   })
+
+  it('falls back to the current year for an unknown year', async () => {
+    render(
+      await StudentFeesPage({
+        params,
+        searchParams: Promise.resolve({ year: 'not-a-year' }),
+      }),
+    )
+
+    expect(getStudentFeeDetail).toHaveBeenCalledWith('s1', CURRENT_YEAR.id)
+  })
+
+  it('links back to the students tab for the selected year', async () => {
+    render(await StudentFeesPage(noSearchParams()))
+
+    expect(
+      screen.getByRole('link', { name: '← Student fees' }).getAttribute('href'),
+    ).toBe(`/finance?tab=students&year=${CURRENT_YEAR.id}`)
+  })
 })

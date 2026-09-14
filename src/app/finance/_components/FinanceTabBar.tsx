@@ -6,24 +6,25 @@ type Tab = {
 }
 
 const TABS: Tab[] = [
-  { id: 'staff', label: 'Staff' },
   { id: 'students', label: 'Students' },
   { id: 'fee-plans', label: 'Fee Plans' },
 ]
 
 type Props = {
   currentTab: string
+  yearId: string
 }
 
 export default function FinanceTabBar({
   currentTab,
+  yearId,
 }: Props): React.ReactElement {
   return (
     <div className="mb-6 flex max-w-md gap-1 rounded-xl bg-gray-100 p-1">
       {TABS.map((tab) => (
         <Link
           key={tab.id}
-          href={`/finance?tab=${tab.id}`}
+          href={`/finance?tab=${tab.id}&year=${yearId}`}
           aria-current={currentTab === tab.id ? 'page' : undefined}
           className={
             currentTab === tab.id

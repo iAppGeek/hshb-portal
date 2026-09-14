@@ -118,7 +118,7 @@ describe('saveStaffPayrollAction', () => {
           ...verifiedId,
         }),
       ),
-    ).rejects.toThrow('NEXT_REDIRECT:/finance?tab=staff')
+    ).rejects.toThrow('NEXT_REDIRECT:/hr')
 
     expect(upsertStaffPayroll).toHaveBeenCalledWith(
       's1',
@@ -143,8 +143,8 @@ describe('saveStaffPayrollAction', () => {
       },
     })
     expect(JSON.stringify(entry)).not.toContain('12345678')
-    expect(revalidatePath).toHaveBeenCalledWith('/finance')
-    expect(redirect).toHaveBeenCalledWith('/finance?tab=staff')
+    expect(revalidatePath).toHaveBeenCalledWith('/hr')
+    expect(redirect).toHaveBeenCalledWith('/hr')
   })
 
   it('keeps the original verifiers when checks stay verified', async () => {

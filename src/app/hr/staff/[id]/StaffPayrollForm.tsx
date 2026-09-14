@@ -253,7 +253,7 @@ export default function StaffPayrollForm({
           {isPending ? 'Saving…' : 'Save payroll record'}
         </button>
         <Link
-          href="/finance?tab=staff"
+          href="/hr"
           className="text-sm font-medium text-gray-500 hover:text-gray-700"
         >
           Cancel

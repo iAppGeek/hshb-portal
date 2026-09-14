@@ -1,13 +1,11 @@
-import type { Page } from '@playwright/test'
-
 import { test, expect } from '../../fixtures/index'
+import { loadWithFreshData } from '../../fixtures/loadWithFreshData'
 import {
   db,
   SEED_IDS,
   deleteAcademicYearByCode,
   deleteClassByName,
   deleteFeePlansByName,
-  deleteStaffByEmail,
   deleteStudentsByLastName,
 } from '../../fixtures/seed'
 
@@ -37,41 +35,12 @@ function academicYearForSuffix(suffix: string): {
   }
 }
 
-// Fixture rows bypass the app's cache invalidation. Refresh and reload until
-// they show, since a parallel test can repopulate a shared cache between this
-// test's insert and its refresh.
-async function loadWithFreshData(
-  page: Page,
-  isMobile: boolean,
-  path: string,
-  ready: () => Promise<void>,
-): Promise<void> {
-  await expect(async () => {
-    await page.goto(path)
-    if (isMobile) {
-      await page.getByRole('button', { name: 'Open navigation' }).click()
-    }
-    const refreshed = page.waitForResponse(
-      (res) => res.request().method() === 'POST' && res.ok(),
-    )
-    await page
-      .getByRole('button', { name: 'Refresh data' })
-      .filter({ visible: true })
-      .click()
-    await refreshed
-    await page.goto(path)
-    await ready()
-  }).toPass({ timeout: 45_000 })
-}
-
 test.describe('Finance', () => {
   let suffix: string
   let className: string
   let planName: string
   let studentLastName: string
-  let staffEmail: string
   let studentId: string
-  let staffId: string
   let academicYearId: string
   let academicYearCode: string
 
@@ -85,7 +54,6 @@ test.describe('Finance', () => {
     className = `E2EFinClass${suffix}`
     planName = `E2EFinPlan${suffix}`
     studentLastName = `E2EFinStudent${suffix}`
-    staffEmail = `e2e.finance.${suffix.toLowerCase()}@test.hshb.local`
 
     const year = academicYearForSuffix(suffix)
     academicYearCode = year.code
@@ -126,27 +94,12 @@ test.describe('Finance', () => {
       .from('student_classes')
       .insert({ student_id: studentId, class_id: cls.id })
     if (enrolError) throw enrolError
-
-    const { data: staff, error: staffError } = await db
-      .from('staff')
-      .insert({
-        title: 'Dr',
-        first_name: 'Fin',
-        last_name: `E2EFinStaff${suffix}`,
-        email: staffEmail,
-        role: 'teacher',
-      })
-      .select('id')
-      .single()
-    if (staffError) throw staffError
-    staffId = staff.id
   })
 
   test.afterEach(async () => {
     await deleteFeePlansByName(planName)
     await deleteStudentsByLastName(studentLastName)
     await deleteClassByName(className)
-    await deleteStaffByEmail(staffEmail)
     await deleteAcademicYearByCode(academicYearCode)
   })
 
@@ -157,7 +110,10 @@ test.describe('Finance', () => {
     await page.goto('/finance?tab=fee-plans')
     await expect(
       page.getByRole('link', { name: 'Add fee plan' }),
-    ).toHaveAttribute('href', '/finance/fee-plans/new')
+    ).toHaveAttribute(
+      'href',
+      `/finance/fee-plans/new?year=${SEED_IDS.academicYears.current}`,
+    )
 
     const classCheckbox = page.getByRole('checkbox', {
       name: new RegExp(`^${className}`),
@@ -211,33 +167,5 @@ test.describe('Finance', () => {
       .click()
     await expect(paymentRow).toHaveCount(0)
     await expect(page.getByTestId('paid-to-date')).toHaveText('£0.00')
-  })
-
-  test('creates a staff payroll record with masked bank details', async ({
-    page,
-    isMobile,
-  }) => {
-    const row = page.getByTestId(`payroll-row-${staffId}`)
-    await loadWithFreshData(page, isMobile, '/finance?tab=staff', async () => {
-      await expect(row).toContainText('No record', { timeout: 3_000 })
-    })
-
-    await row.getByRole('link', { name: 'Add record' }).click()
-    await expect(page).toHaveURL(`/finance/staff/${staffId}`)
-
-    await page.getByLabel('Payment funding').selectOption('school')
-    await page.getByLabel('Account holder name').fill('Dr Fin')
-    const sortCode = page.getByLabel('Sort code', { exact: true })
-    await sortCode.fill('12-34-56')
-    await expect(sortCode).toHaveAttribute('type', 'password')
-    await page.getByRole('button', { name: 'Show sort code' }).click()
-    await expect(sortCode).toHaveAttribute('type', 'text')
-    await page.getByLabel('Account number', { exact: true }).fill('12345678')
-    await page.getByRole('button', { name: 'Save payroll record' }).click()
-
-    await expect(page).toHaveURL('/finance?tab=staff')
-    await expect(row).toContainText('School')
-    await expect(row).toContainText('••••5678')
-    await expect(row).not.toContainText('12345678')
   })
 })

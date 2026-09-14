@@ -65,7 +65,7 @@ describe('StaffPayrollPage', () => {
   it('redirects to the staff tab when the staff member is missing', async () => {
     vi.mocked(getStaffById).mockResolvedValue(null)
     await expect(StaffPayrollPage({ params })).rejects.toThrow(
-      'NEXT_REDIRECT:/finance?tab=staff',
+      'NEXT_REDIRECT:/hr',
     )
     expect(redirect).toHaveBeenCalledTimes(1)
   })

@@ -10,6 +10,7 @@ import {
   getStudentFeeDetail,
   getStudentFeeYears,
 } from '@/db'
+import { resolveYearId } from '@/lib/academicYears'
 import { labelFor } from '@/lib/compliance'
 import { formatCalendarDate, todayInSchoolTz } from '@/lib/datetime'
 import {
@@ -92,7 +93,7 @@ export default async function StudentFeesPage({
     getAcademicYears(),
     getCurrentAcademicYear(),
   ])
-  const yearId = year ?? currentYear.id
+  const yearId = resolveYearId(years, year, currentYear.id)
 
   const [detail, plans, yearsHistory] = await Promise.all([
     getStudentFeeDetail(id, yearId),
@@ -135,7 +136,7 @@ export default async function StudentFeesPage({
     <div className="max-w-4xl space-y-6">
       <div>
         <Link
-          href="/finance?tab=students"
+          href={`/finance?tab=students&year=${yearId}`}
           className="text-sm font-medium text-blue-600 hover:text-blue-800"
         >
           ← Student fees

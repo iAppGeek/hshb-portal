@@ -25,8 +25,10 @@ const SELECT =
 
 export default function StudentFeesTable({
   rows,
+  yearId,
 }: {
   rows: StudentFeeRow[]
+  yearId: string
 }): React.ReactElement {
   const [query, setQuery] = useState('')
   const [classId, setClassId] = useState('')
@@ -190,7 +192,7 @@ export default function StudentFeesTable({
                     </td>
                     <td className={`${TD} text-right`}>
                       <Link
-                        href={`/finance/students/${r.id}`}
+                        href={`/finance/students/${r.id}?year=${yearId}`}
                         className="font-medium text-blue-600 hover:text-blue-800"
                       >
                         Manage
