@@ -4,11 +4,18 @@ import type { FeePlanWithClasses, StudentFeeAccountRow } from '@/db'
 
 import { buildStudentFeeRows, summariseStudentFees } from './studentFeeSummary'
 
+const YEAR = {
+  id: 'year-1',
+  code: '2025-26',
+  start_date: '2025-09-01',
+  end_date: '2026-08-31',
+}
+
 function makePlan(overrides: Partial<FeePlanWithClasses>): FeePlanWithClasses {
   return {
     id: 'plan-a',
     name: 'Standard',
-    academic_year: '2025-26',
+    academic_year: YEAR,
     full_year_amount: 800,
     monthly_instalment_amount: 100,
     termly_instalment_amount: 266.67,
@@ -27,19 +34,22 @@ function makeAccount(
   return {
     id: 'acc-1',
     student_id: 's1',
+    academic_year_id: YEAR.id,
     payment_plan: 'monthly',
     payment_plan_notes: null,
     fee_plan_override_id: null,
     custom_total_amount: null,
     custom_up_to_date: false,
+    settled: false,
+    settled_note: null,
     created_at: '2025-01-01T00:00:00Z',
     updated_at: '2025-01-01T00:00:00Z',
     ...overrides,
   }
 }
 
-const alpha = { id: 'c1', name: 'Alpha', academic_year: '2025-26' }
-const beta = { id: 'c2', name: 'Beta', academic_year: '2025-26' }
+const alpha = { id: 'c1', name: 'Alpha' }
+const beta = { id: 'c2', name: 'Beta' }
 const today = '2025-10-15'
 
 describe('summariseStudentFees', () => {
@@ -49,11 +59,7 @@ describe('summariseStudentFees', () => {
       {
         classes: [alpha],
         account: makeAccount({}),
-        payments: [
-          { amount: 100, payment_date: '2025-09-01' },
-          // Last year's payment does not count towards this plan
-          { amount: 500, payment_date: '2025-06-01' },
-        ],
+        payments: [{ amount: 100, payment_date: '2025-09-01' }],
       },
       [plan],
       today,
@@ -119,7 +125,7 @@ describe('summariseStudentFees', () => {
           custom_total_amount: 300,
           custom_up_to_date: true,
         }),
-        payments: [{ amount: 50, payment_date: '2020-01-01' }],
+        payments: [{ amount: 50, payment_date: '2025-09-15' }],
       },
       [],
       today,
@@ -131,7 +137,7 @@ describe('summariseStudentFees', () => {
 })
 
 describe('buildStudentFeeRows', () => {
-  it('maps students to table rows', () => {
+  it('maps students to table rows, including any prior-year balance', () => {
     const rows = buildStudentFeeRows(
       [
         {
@@ -155,6 +161,7 @@ describe('buildStudentFeeRows', () => {
       ],
       [makePlan({}), makePlan({ id: 'plan-b', class_ids: ['c2'] })],
       today,
+      { s1: 150 },
     )
 
     expect(rows).toEqual([
@@ -169,6 +176,7 @@ describe('buildStudentFeeRows', () => {
         paid: 200,
         due: 200,
         status: 'up_to_date',
+        priorOwed: 150,
       },
       {
         id: 's2',
@@ -181,6 +189,7 @@ describe('buildStudentFeeRows', () => {
         paid: 0,
         due: null,
         status: 'no_plan',
+        priorOwed: 0,
       },
     ])
   })
