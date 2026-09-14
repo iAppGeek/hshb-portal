@@ -18,6 +18,9 @@ vi.mock('./_tabs/class-migration/ClassMigrationTab', () => ({
     </div>
   )),
 }))
+vi.mock('./_tabs/academic-years/AcademicYearsTab', () => ({
+  default: vi.fn(() => <div data-testid="academic-years-tab" />),
+}))
 import { auth } from '@/auth'
 
 import AdminPage from './page'
@@ -94,6 +97,18 @@ describe('AdminPage', () => {
       }),
     )
 
+    expect(screen.queryByTestId('class-migration-tab')).toBeNull()
+  })
+
+  it('renders the academic-years tab when selected', async () => {
+    render(
+      await AdminPage({
+        searchParams: Promise.resolve({ tab: 'academic-years' }),
+      }),
+    )
+
+    expect(screen.getByTestId('current-tab').textContent).toBe('academic-years')
+    expect(screen.getByTestId('academic-years-tab')).toBeTruthy()
     expect(screen.queryByTestId('class-migration-tab')).toBeNull()
   })
 })
