@@ -3,10 +3,12 @@ import { render, screen } from '@testing-library/react'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
+import { getCurrentAcademicYear } from '@/db'
 
 import FinancePage from './page'
 
 vi.mock('@/auth', () => ({ auth: vi.fn() }))
+vi.mock('@/db', () => ({ getCurrentAcademicYear: vi.fn() }))
 vi.mock('next/navigation', () => ({
   redirect: vi.fn(() => {
     throw new Error('NEXT_REDIRECT')
@@ -38,6 +40,7 @@ async function renderTab(tab?: string): Promise<void> {
 beforeEach(() => {
   vi.clearAllMocks()
   mockRole('admin')
+  vi.mocked(getCurrentAcademicYear).mockResolvedValue({ id: 'year-1' } as never)
 })
 
 describe('FinancePage', () => {

@@ -19,7 +19,9 @@ describe('StudentFeesForm', () => {
     render(
       <StudentFeesForm
         account={null}
+        academicYearId="year-1"
         planOptions={planOptions}
+        showSettled={false}
         action={vi.fn()}
       />,
     )
@@ -36,6 +38,63 @@ describe('StudentFeesForm', () => {
     expect(customWrapper().hidden).toBe(true)
   })
 
+  it('submits the year as a hidden field', () => {
+    render(
+      <StudentFeesForm
+        account={null}
+        academicYearId="year-1"
+        planOptions={planOptions}
+        showSettled={false}
+        action={vi.fn()}
+      />,
+    )
+
+    const form = screen.getByText('Fee account').closest('form')!
+    const hidden = form.querySelector(
+      'input[name="academic_year_id"]',
+    ) as HTMLInputElement
+    expect(hidden.value).toBe('year-1')
+  })
+
+  it('does not show the settled fields for the current year', () => {
+    render(
+      <StudentFeesForm
+        account={null}
+        academicYearId="year-1"
+        planOptions={planOptions}
+        showSettled={false}
+        action={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByLabelText(/Settled/)).toBeNull()
+  })
+
+  it('shows the settled fields for a past year', () => {
+    render(
+      <StudentFeesForm
+        account={
+          {
+            settled: true,
+            settled_note: 'Written off',
+          } as StudentFeeAccountRow
+        }
+        academicYearId="year-0"
+        planOptions={planOptions}
+        showSettled={true}
+        action={vi.fn()}
+      />,
+    )
+
+    expect(
+      (screen.getByLabelText(/Settled \(written off/) as HTMLInputElement)
+        .checked,
+    ).toBe(true)
+    expect(
+      (screen.getByLabelText('Settled note') as HTMLTextAreaElement).value,
+    ).toBe('Written off')
+  })
+
   it('shows custom fields and the notes hint for a custom plan', () => {
     render(
       <StudentFeesForm
@@ -48,7 +107,9 @@ describe('StudentFeesForm', () => {
             payment_plan_notes: 'Agreed',
           } as StudentFeeAccountRow
         }
+        academicYearId="year-1"
         planOptions={planOptions}
+        showSettled={false}
         action={vi.fn()}
       />,
     )
@@ -77,7 +138,9 @@ describe('StudentFeesForm', () => {
     render(
       <StudentFeesForm
         account={null}
+        academicYearId="year-1"
         planOptions={planOptions}
+        showSettled={false}
         action={action}
       />,
     )
@@ -98,7 +161,15 @@ describe('StudentFeesForm', () => {
 
   it('shows an action error', async () => {
     const action = vi.fn().mockResolvedValue({ error: 'Bad plan' })
-    render(<StudentFeesForm account={null} planOptions={[]} action={action} />)
+    render(
+      <StudentFeesForm
+        account={null}
+        academicYearId="year-1"
+        planOptions={[]}
+        showSettled={false}
+        action={action}
+      />,
+    )
 
     fireEvent.click(screen.getByRole('button', { name: 'Save fee account' }))
 
