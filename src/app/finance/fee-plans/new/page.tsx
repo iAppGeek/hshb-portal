@@ -3,7 +3,12 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { getAllClassesIncludingInactive, getFeePlans } from '@/db'
+import {
+  getAcademicYears,
+  getClassesByAcademicYear,
+  getCurrentAcademicYear,
+  getFeePlans,
+} from '@/db'
 import { canManageFinance } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -13,7 +18,11 @@ import { createFeePlanAction } from '../actions'
 
 export const metadata: Metadata = { title: 'Add Fee Plan' }
 
-export default async function NewFeePlanPage(): Promise<React.ReactElement> {
+export default async function NewFeePlanPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ year?: string }>
+}): Promise<React.ReactElement> {
   const session = await auth()
   const role = session?.user?.role as StaffRole | undefined
 
@@ -21,10 +30,18 @@ export default async function NewFeePlanPage(): Promise<React.ReactElement> {
     redirect('/dashboard')
   }
 
-  const [classes, plans] = await Promise.all([
-    getAllClassesIncludingInactive(),
+  const { year } = await searchParams
+  const [years, currentYear] = await Promise.all([
+    getAcademicYears(),
+    getCurrentAcademicYear(),
+  ])
+  const defaultAcademicYearId = year ?? currentYear.id
+
+  const [classesByYear, plans] = await Promise.all([
+    Promise.all(years.map((y) => getClassesByAcademicYear(y.id))),
     getFeePlans(),
   ])
+  const classes = classesByYear.flat()
 
   return (
     <div className="max-w-3xl">
@@ -45,6 +62,8 @@ export default async function NewFeePlanPage(): Promise<React.ReactElement> {
       <FeePlanForm
         plan={null}
         classes={toClassOptions(classes)}
+        years={years}
+        defaultAcademicYearId={defaultAcademicYearId}
         takenBy={takenClassLabels(plans, null)}
         action={createFeePlanAction}
         submitLabel="Add fee plan"

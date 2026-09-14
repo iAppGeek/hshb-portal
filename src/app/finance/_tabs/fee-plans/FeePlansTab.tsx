@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-import { getAllClassesIncludingInactive, getFeePlans } from '@/db'
+import { getClassesByAcademicYear, getFeePlans } from '@/db'
 import { formatGbp } from '@/lib/fees'
 
 import EmptyState from '../../../_components/EmptyState'
@@ -9,10 +9,16 @@ const TH =
   'px-3 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase'
 const TD = 'px-3 py-3 text-sm text-gray-700'
 
-export default async function FeePlansTab(): Promise<React.ReactElement> {
+type Props = {
+  yearId: string
+}
+
+export default async function FeePlansTab({
+  yearId,
+}: Props): Promise<React.ReactElement> {
   const [plans, classes] = await Promise.all([
-    getFeePlans(),
-    getAllClassesIncludingInactive(),
+    getFeePlans(yearId),
+    getClassesByAcademicYear(yearId),
   ])
   const classNames = new Map(classes.map((c) => [c.id, c.name]))
 
@@ -20,7 +26,7 @@ export default async function FeePlansTab(): Promise<React.ReactElement> {
     <div className="space-y-4">
       <div className="flex justify-end">
         <Link
-          href="/finance/fee-plans/new"
+          href={`/finance/fee-plans/new?year=${yearId}`}
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
         >
           Add fee plan
@@ -36,7 +42,6 @@ export default async function FeePlansTab(): Promise<React.ReactElement> {
               <thead className="bg-gray-50">
                 <tr>
                   <th className={TH}>Name</th>
-                  <th className={TH}>Academic year</th>
                   <th className={TH}>Full year</th>
                   <th className={TH}>Monthly</th>
                   <th className={TH}>Termly</th>
@@ -53,7 +58,6 @@ export default async function FeePlansTab(): Promise<React.ReactElement> {
                     <td className={`${TD} font-medium text-gray-900`}>
                       {plan.name}
                     </td>
-                    <td className={TD}>{plan.academic_year}</td>
                     <td className={TD}>{formatGbp(plan.full_year_amount)}</td>
                     <td className={TD}>
                       {formatGbp(plan.monthly_instalment_amount)}

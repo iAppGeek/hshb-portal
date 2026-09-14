@@ -1,12 +1,11 @@
-import type { Page } from '@playwright/test'
-
 import { test, expect } from '../../fixtures/index'
+import { loadWithFreshData } from '../../fixtures/loadWithFreshData'
 import {
   db,
   SEED_IDS,
+  deleteAcademicYearByCode,
   deleteClassByName,
   deleteFeePlansByName,
-  deleteStaffByEmail,
   deleteStudentsByLastName,
 } from '../../fixtures/seed'
 
@@ -15,37 +14,25 @@ import {
 test.use({ storageState: 'e2e/.auth/admin.json' })
 test.describe.configure({ timeout: 90_000 })
 
-// A future year keeps the seed classes out of the class picker and means no
-// instalment is due yet, so status is deterministic.
-const ACADEMIC_YEAR = '2031-32'
 // Guardian seed ID from supabase/seed.sql
 const GUARDIAN_ID = '20000000-0000-0000-0000-000000000001'
 
-// Fixture rows bypass the app's cache invalidation. Refresh and reload until
-// they show, since a parallel test can repopulate a shared cache between this
-// test's insert and its refresh.
-async function loadWithFreshData(
-  page: Page,
-  isMobile: boolean,
-  path: string,
-  ready: () => Promise<void>,
-): Promise<void> {
-  await expect(async () => {
-    await page.goto(path)
-    if (isMobile) {
-      await page.getByRole('button', { name: 'Open navigation' }).click()
-    }
-    const refreshed = page.waitForResponse(
-      (res) => res.request().method() === 'POST' && res.ok(),
-    )
-    await page
-      .getByRole('button', { name: 'Refresh data' })
-      .filter({ visible: true })
-      .click()
-    await refreshed
-    await page.goto(path)
-    await ready()
-  }).toPass({ timeout: 45_000 })
+// A far-future year (unique per test, so parallel runs don't collide) keeps
+// this test's class out of every other year's picker and means no
+// instalment is due yet, so status is deterministic.
+function academicYearForSuffix(suffix: string): {
+  code: string
+  start_date: string
+  end_date: string
+} {
+  let hash = 0
+  for (const ch of suffix) hash = (hash * 31 + ch.charCodeAt(0)) % 400
+  const year = 2500 + hash
+  return {
+    code: `${year}-${String((year + 1) % 100).padStart(2, '0')}`,
+    start_date: `${year}-09-01`,
+    end_date: `${year + 1}-08-31`,
+  }
 }
 
 test.describe('Finance', () => {
@@ -53,9 +40,9 @@ test.describe('Finance', () => {
   let className: string
   let planName: string
   let studentLastName: string
-  let staffEmail: string
   let studentId: string
-  let staffId: string
+  let academicYearId: string
+  let academicYearCode: string
 
   test.beforeEach(async ({}, testInfo) => {
     // Tests run fully parallel, so names must be unique per test as well as
@@ -67,7 +54,16 @@ test.describe('Finance', () => {
     className = `E2EFinClass${suffix}`
     planName = `E2EFinPlan${suffix}`
     studentLastName = `E2EFinStudent${suffix}`
-    staffEmail = `e2e.finance.${suffix.toLowerCase()}@test.hshb.local`
+
+    const year = academicYearForSuffix(suffix)
+    academicYearCode = year.code
+    const { data: yearRow, error: yearError } = await db
+      .from('academic_years')
+      .insert(year)
+      .select('id')
+      .single()
+    if (yearError) throw yearError
+    academicYearId = yearRow.id
 
     const { data: cls, error: classError } = await db
       .from('classes')
@@ -75,7 +71,7 @@ test.describe('Finance', () => {
         name: className,
         year_group: 'Year 9',
         teacher_id: SEED_IDS.staff.teacher,
-        academic_year: ACADEMIC_YEAR,
+        academic_year_id: academicYearId,
       })
       .select('id')
       .single()
@@ -98,27 +94,13 @@ test.describe('Finance', () => {
       .from('student_classes')
       .insert({ student_id: studentId, class_id: cls.id })
     if (enrolError) throw enrolError
-
-    const { data: staff, error: staffError } = await db
-      .from('staff')
-      .insert({
-        title: 'Dr',
-        first_name: 'Fin',
-        last_name: `E2EFinStaff${suffix}`,
-        email: staffEmail,
-        role: 'teacher',
-      })
-      .select('id')
-      .single()
-    if (staffError) throw staffError
-    staffId = staff.id
   })
 
   test.afterEach(async () => {
     await deleteFeePlansByName(planName)
     await deleteStudentsByLastName(studentLastName)
     await deleteClassByName(className)
-    await deleteStaffByEmail(staffEmail)
+    await deleteAcademicYearByCode(academicYearCode)
   })
 
   test('sets up a fee plan and records and deletes a student payment', async ({
@@ -128,7 +110,10 @@ test.describe('Finance', () => {
     await page.goto('/finance?tab=fee-plans')
     await expect(
       page.getByRole('link', { name: 'Add fee plan' }),
-    ).toHaveAttribute('href', '/finance/fee-plans/new')
+    ).toHaveAttribute(
+      'href',
+      `/finance/fee-plans/new?year=${SEED_IDS.academicYears.current}`,
+    )
 
     const classCheckbox = page.getByRole('checkbox', {
       name: new RegExp(`^${className}`),
@@ -138,7 +123,7 @@ test.describe('Finance', () => {
       isMobile,
       '/finance/fee-plans/new',
       async () => {
-        await page.getByLabel('Academic year').fill(ACADEMIC_YEAR)
+        await page.getByLabel('Academic year').selectOption(academicYearId)
         await expect(classCheckbox).toBeVisible({ timeout: 3_000 })
       },
     )
@@ -151,11 +136,12 @@ test.describe('Finance', () => {
     await page.getByRole('button', { name: 'Add fee plan' }).click()
 
     await expect(page).toHaveURL('/finance?tab=fee-plans')
+    await page.goto(`/finance?tab=fee-plans&year=${academicYearId}`)
     await expect(
       page.getByRole('row', { name: new RegExp(planName) }),
     ).toContainText(className)
 
-    await page.goto(`/finance/students/${studentId}`)
+    await page.goto(`/finance/students/${studentId}?year=${academicYearId}`)
     await expect(page.getByTestId('fee-status')).toHaveText('No plan')
     await page.getByLabel('Payment plan').selectOption('monthly')
     await page.getByRole('button', { name: 'Save fee account' }).click()
@@ -164,7 +150,9 @@ test.describe('Finance', () => {
 
     const reference = `E2E-${suffix}`
     await page.getByLabel('Amount (£)').fill('100')
-    await page.getByLabel('Payment date').fill('2031-09-01')
+    await page
+      .getByLabel('Payment date')
+      .fill(academicYearForSuffix(suffix).start_date)
     await page.getByLabel('Reference').fill(reference)
     await page.getByLabel('Method').selectOption('cash')
     await page.getByRole('button', { name: 'Record payment' }).click()
@@ -179,33 +167,5 @@ test.describe('Finance', () => {
       .click()
     await expect(paymentRow).toHaveCount(0)
     await expect(page.getByTestId('paid-to-date')).toHaveText('£0.00')
-  })
-
-  test('creates a staff payroll record with masked bank details', async ({
-    page,
-    isMobile,
-  }) => {
-    const row = page.getByTestId(`payroll-row-${staffId}`)
-    await loadWithFreshData(page, isMobile, '/finance?tab=staff', async () => {
-      await expect(row).toContainText('No record', { timeout: 3_000 })
-    })
-
-    await row.getByRole('link', { name: 'Add record' }).click()
-    await expect(page).toHaveURL(`/finance/staff/${staffId}`)
-
-    await page.getByLabel('Payment funding').selectOption('school')
-    await page.getByLabel('Account holder name').fill('Dr Fin')
-    const sortCode = page.getByLabel('Sort code', { exact: true })
-    await sortCode.fill('12-34-56')
-    await expect(sortCode).toHaveAttribute('type', 'password')
-    await page.getByRole('button', { name: 'Show sort code' }).click()
-    await expect(sortCode).toHaveAttribute('type', 'text')
-    await page.getByLabel('Account number', { exact: true }).fill('12345678')
-    await page.getByRole('button', { name: 'Save payroll record' }).click()
-
-    await expect(page).toHaveURL('/finance?tab=staff')
-    await expect(row).toContainText('School')
-    await expect(row).toContainText('••••5678')
-    await expect(row).not.toContainText('12345678')
   })
 })

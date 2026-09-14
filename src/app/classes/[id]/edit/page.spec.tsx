@@ -15,6 +15,7 @@ vi.mock('@/db', () => ({
   getClassById: vi.fn(),
   getTeachers: vi.fn(),
   getStudentsForList: vi.fn(),
+  getAcademicYears: vi.fn(),
 }))
 
 vi.mock('../../ClassForm', () => ({
@@ -37,7 +38,12 @@ vi.mock('./actions', () => ({
 }))
 
 import { auth } from '@/auth'
-import { getClassById, getTeachers, getStudentsForList } from '@/db'
+import {
+  getAcademicYears,
+  getClassById,
+  getTeachers,
+  getStudentsForList,
+} from '@/db'
 
 import EditClassPage from './page'
 
@@ -46,7 +52,8 @@ const mockClass = {
   name: 'Year 1A',
   year_group: '1',
   room_number: 'R1',
-  academic_year: '2024/25',
+  academic_year_id: 'year-1',
+  academic_year: '2024-25',
   active: true,
   teacher_id: 'staff-1',
   student_classes: [],
@@ -58,9 +65,18 @@ const mockTeachers = [
 const mockStudents = [
   { id: 'student-1', first_name: 'Alice', last_name: 'Brown' },
 ]
+const mockYears = [
+  {
+    id: 'year-1',
+    code: '2024-25',
+    start_date: '2024-09-01',
+    end_date: '2025-08-31',
+  },
+]
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(getAcademicYears).mockResolvedValue(mockYears as any)
 })
 
 describe('EditClassPage', () => {

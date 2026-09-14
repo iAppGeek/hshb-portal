@@ -1,4 +1,4 @@
-import { getFeePlans, getStudentFeeList } from '@/db'
+import { getFeePlans, getPriorYearBalances, getStudentFeeList } from '@/db'
 import { todayInSchoolTz } from '@/lib/datetime'
 
 import EmptyState from '../../../_components/EmptyState'
@@ -6,10 +6,17 @@ import { buildStudentFeeRows } from '../../_lib/studentFeeSummary'
 
 import StudentFeesTable from './StudentFeesTable'
 
-export default async function StudentFeesTab(): Promise<React.ReactElement> {
-  const [students, plans] = await Promise.all([
-    getStudentFeeList(),
-    getFeePlans(),
+type Props = {
+  yearId: string
+}
+
+export default async function StudentFeesTab({
+  yearId,
+}: Props): Promise<React.ReactElement> {
+  const [students, plans, priorOwed] = await Promise.all([
+    getStudentFeeList(yearId),
+    getFeePlans(yearId),
+    getPriorYearBalances(yearId),
   ])
 
   if (students.length === 0) {
@@ -18,7 +25,8 @@ export default async function StudentFeesTab(): Promise<React.ReactElement> {
 
   return (
     <StudentFeesTable
-      rows={buildStudentFeeRows(students, plans, todayInSchoolTz())}
+      rows={buildStudentFeeRows(students, plans, todayInSchoolTz(), priorOwed)}
+      yearId={yearId}
     />
   )
 }

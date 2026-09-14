@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import {
   createFeePlan,
-  getAllClassesIncludingInactive,
+  getClassesByAcademicYear,
   getFeePlanById,
   getFeePlans,
   logAuditEvent,
@@ -26,17 +26,18 @@ vi.mock('@/db', () => ({
   updateFeePlan: vi.fn(),
   getFeePlanById: vi.fn(),
   getFeePlans: vi.fn(),
-  getAllClassesIncludingInactive: vi.fn(),
+  getClassesByAcademicYear: vi.fn(),
   logAuditEvent: vi.fn(),
 }))
 
 const CLASS_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'
 const OTHER_CLASS_ID = 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12'
+const YEAR_ID = 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13'
 
 function makeFormData(classIds: string[] = [CLASS_ID]): FormData {
   const fd = new FormData()
   fd.append('name', 'Standard')
-  fd.append('academic_year', '2025/26')
+  fd.append('academic_year_id', YEAR_ID)
   fd.append('full_year_amount', '800')
   fd.append('monthly_instalment_amount', '100')
   fd.append('termly_instalment_amount', '266.67')
@@ -48,7 +49,7 @@ function makeFormData(classIds: string[] = [CLASS_ID]): FormData {
 
 const expectedInput = {
   name: 'Standard',
-  academic_year: '2025-26',
+  academic_year_id: YEAR_ID,
   full_year_amount: 800,
   monthly_instalment_amount: 100,
   termly_instalment_amount: 266.67,
@@ -61,14 +62,8 @@ beforeEach(() => {
   vi.mocked(auth).mockResolvedValue({
     user: { role: 'admin', staffId: 'admin-1' },
   } as never)
-  vi.mocked(getAllClassesIncludingInactive).mockResolvedValue([
-    { id: CLASS_ID, name: 'Alpha', year_group: '1', academic_year: '2025-26' },
-    {
-      id: OTHER_CLASS_ID,
-      name: 'Beta',
-      year_group: '2',
-      academic_year: '2024-25',
-    },
+  vi.mocked(getClassesByAcademicYear).mockResolvedValue([
+    { id: CLASS_ID, name: 'Alpha', year_group: '1', academic_year_id: YEAR_ID },
   ] as never)
   vi.mocked(getFeePlans).mockResolvedValue([])
   vi.mocked(getFeePlanById).mockResolvedValue({ id: 'p1' } as never)
@@ -101,15 +96,13 @@ describe.each([
 describe('createFeePlanAction', () => {
   it('returns schema errors', async () => {
     const fd = makeFormData()
-    fd.set('academic_year', '2025')
-    expect(await createFeePlanAction(fd)).toEqual({
-      error: 'Academic year must look like 2025-26',
-    })
+    fd.set('academic_year_id', 'not-a-uuid')
+    expect(await createFeePlanAction(fd)).toHaveProperty('error')
   })
 
-  it('rejects a class from another academic year', async () => {
+  it('rejects a class that is not in the requested year', async () => {
     expect(await createFeePlanAction(makeFormData([OTHER_CLASS_ID]))).toEqual({
-      error: 'Beta is not a 2025-26 class.',
+      error: 'One of the selected classes no longer exists.',
     })
     expect(createFeePlan).not.toHaveBeenCalled()
   })
@@ -119,6 +112,8 @@ describe('createFeePlanAction', () => {
       'NEXT_REDIRECT:/finance?tab=fee-plans',
     )
 
+    expect(getClassesByAcademicYear).toHaveBeenCalledWith(YEAR_ID)
+    expect(getFeePlans).toHaveBeenCalledWith(YEAR_ID)
     expect(createFeePlan).toHaveBeenCalledWith(expectedInput, [CLASS_ID])
     expect(logAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -146,7 +141,7 @@ describe('updateFeePlanAction', () => {
       {
         id: 'p2',
         name: 'Sibling',
-        academic_year: '2025-26',
+        academic_year: { id: YEAR_ID, code: '2025-26' },
         class_ids: [CLASS_ID],
       },
     ] as never)

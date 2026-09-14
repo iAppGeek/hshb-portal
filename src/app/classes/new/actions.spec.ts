@@ -20,6 +20,7 @@ const STAFF_ID = '00000000-0000-4000-8000-000000000001'
 const CLASS_ID = '00000000-0000-4000-8000-000000000010'
 const STUDENT_1 = '00000000-0000-4000-8000-000000000020'
 const STUDENT_2 = '00000000-0000-4000-8000-000000000030'
+const YEAR_ID = '00000000-0000-4000-8000-000000000040'
 
 const adminSession = { user: { staffId: STAFF_ID, role: 'admin' } }
 
@@ -44,7 +45,7 @@ const baseFields = {
   name: 'Year 1A',
   year_group: '1',
   room_number: 'R1',
-  academic_year: '2024/25',
+  academic_year_id: YEAR_ID,
   teacher_id: STAFF_ID,
 }
 
@@ -83,7 +84,7 @@ describe('createClassAction', () => {
         name: 'Year 1A',
         year_group: '1',
         room_number: 'R1',
-        academic_year: '2024/25',
+        academic_year_id: YEAR_ID,
         teacher_id: STAFF_ID,
       }),
     )
@@ -114,7 +115,7 @@ describe('createClassAction', () => {
     ])
   })
 
-  it('converts empty optional fields to null', async () => {
+  it('converts an empty room number to null', async () => {
     vi.mocked(createClass).mockResolvedValue({ id: CLASS_ID } as any)
     vi.mocked(setClassStudents).mockResolvedValue(undefined)
     vi.mocked(redirect).mockImplementation(() => {
@@ -125,7 +126,7 @@ describe('createClassAction', () => {
       name: 'Year 2B',
       year_group: '2',
       room_number: '',
-      academic_year: '',
+      academic_year_id: YEAR_ID,
       teacher_id: STAFF_ID,
     }
 
@@ -136,9 +137,16 @@ describe('createClassAction', () => {
     expect(createClass).toHaveBeenCalledWith(
       expect.objectContaining({
         room_number: null,
-        academic_year: undefined,
       }),
     )
+  })
+
+  it('rejects a missing academic year', async () => {
+    const { academic_year_id: _omitted, ...fields } = baseFields
+
+    const result = await createClassAction(makeFormData(fields))
+    expect(result).toHaveProperty('error')
+    expect(createClass).not.toHaveBeenCalled()
   })
 
   it('returns error when createClass throws', async () => {

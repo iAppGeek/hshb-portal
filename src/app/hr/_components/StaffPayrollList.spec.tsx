@@ -3,7 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 
 import { getStaffPayrollList, type StaffPayrollRow } from '@/db'
 
-import StaffPayrollTab from './StaffPayrollTab'
+import StaffPayrollList from './StaffPayrollList'
 
 vi.mock('@/db', () => ({ getStaffPayrollList: vi.fn() }))
 vi.mock('@/lib/datetime', async (importOriginal) => ({
@@ -57,10 +57,10 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-describe('StaffPayrollTab', () => {
+describe('StaffPayrollList', () => {
   it('shows an empty state with no staff', async () => {
     vi.mocked(getStaffPayrollList).mockResolvedValue([])
-    render(await StaffPayrollTab())
+    render(await StaffPayrollList())
     expect(screen.getByText('No staff found.')).toBeTruthy()
   })
 
@@ -68,14 +68,14 @@ describe('StaffPayrollTab', () => {
     vi.mocked(getStaffPayrollList).mockResolvedValue([
       { ...base, id: 's1', first_name: 'Ann', last_name: 'Lee', payroll: null },
     ])
-    render(await StaffPayrollTab())
+    render(await StaffPayrollList())
 
     const row = within(screen.getByTestId('payroll-row-s1'))
     expect(row.getByText('Ms Ann Lee')).toBeTruthy()
     expect(row.getByText('No record')).toBeTruthy()
     expect(
       row.getByRole('link', { name: 'Add record' }).getAttribute('href'),
-    ).toBe('/finance/staff/s1')
+    ).toBe('/hr/staff/s1')
   })
 
   it('shows funding, masked bank details and compliance ticks', async () => {
@@ -94,7 +94,7 @@ describe('StaffPayrollTab', () => {
         }),
       },
     ])
-    render(await StaffPayrollTab())
+    render(await StaffPayrollList())
 
     const rowEl = screen.getByTestId('payroll-row-s1')
     const row = within(rowEl)
@@ -124,7 +124,7 @@ describe('StaffPayrollTab', () => {
         }),
       },
     ])
-    render(await StaffPayrollTab())
+    render(await StaffPayrollList())
 
     const rowEl = screen.getByTestId('payroll-row-s1')
     const row = within(rowEl)
@@ -151,7 +151,7 @@ describe('StaffPayrollTab', () => {
         }),
       },
     ])
-    render(await StaffPayrollTab())
+    render(await StaffPayrollList())
 
     expect(screen.getByTestId('payroll-row-s1').className).toContain(
       'bg-red-50',

@@ -19,6 +19,7 @@ const STAFF_ID = '00000000-0000-4000-8000-000000000001'
 const SOURCE_CLASS_ID = '00000000-0000-4000-8000-000000000010'
 const NEW_CLASS_ID = '00000000-0000-4000-8000-000000000011'
 const TEACHER_ID = '00000000-0000-4000-8000-000000000020'
+const YEAR_ID = '00000000-0000-4000-8000-000000000030'
 
 const adminSession = { user: { staffId: STAFF_ID, role: 'admin' } }
 
@@ -40,7 +41,7 @@ const baseFields = {
   name: 'Year 2A',
   year_group: '2',
   room_number: 'R2',
-  academic_year: '2026/27',
+  academic_year_id: YEAR_ID,
   teacher_id: TEACHER_ID,
 }
 
@@ -99,7 +100,7 @@ describe('migrateClassAction', () => {
       name: 'Year 2A',
       year_group: '2',
       room_number: 'R2',
-      academic_year: '2026/27',
+      academic_year_id: YEAR_ID,
       teacher_id: TEACHER_ID,
     })
     expect(logAuditEvent).toHaveBeenCalledWith(

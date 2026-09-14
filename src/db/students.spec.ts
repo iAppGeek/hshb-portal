@@ -41,7 +41,14 @@ const mockStudent = {
   last_name: 'Papadopoulos',
   active: true,
   student_classes: [
-    { class: { id: 'class-1', name: 'Year 3', year_group: '3' } },
+    {
+      class: {
+        id: 'class-1',
+        name: 'Year 3',
+        year_group: '3',
+        academic_year: null,
+      },
+    },
   ],
   primary_guardian: {
     first_name: 'Maria',

@@ -39,7 +39,7 @@ function chain(result: Result): Chain {
 
 const input = {
   name: 'Standard',
-  academic_year: '2025-26',
+  academic_year_id: 'year-1',
   full_year_amount: 800,
   monthly_instalment_amount: 100,
   termly_instalment_amount: 266.67,
@@ -49,7 +49,7 @@ const input = {
 
 const rpcArgs = {
   p_name: 'Standard',
-  p_academic_year: '2025-26',
+  p_academic_year_id: 'year-1',
   p_full_year_amount: 800,
   p_monthly_instalment_amount: 100,
   p_termly_instalment_amount: 266.67,
@@ -83,6 +83,20 @@ describe('getFeePlans', () => {
   it('returns an empty list when queries return null', async () => {
     mockFrom.mockImplementation(() => chain({ data: null }))
     expect(await getFeePlans()).toEqual([])
+  })
+
+  it('filters by academic year when given one', async () => {
+    const tables: Record<string, Chain> = {
+      fee_plans: chain({ data: [{ id: 'p1' }] }),
+      fee_plan_classes: chain({ data: [] }),
+    }
+    mockFrom.mockImplementation((table: string) => tables[table])
+
+    await getFeePlans('year-1')
+    expect(tables.fee_plans.eq).toHaveBeenCalledWith(
+      'academic_year_id',
+      'year-1',
+    )
   })
 })
 

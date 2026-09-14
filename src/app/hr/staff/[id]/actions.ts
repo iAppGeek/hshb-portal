@@ -11,7 +11,7 @@ import {
 } from '@/db'
 import { BANK_DETAIL_FIELDS, redactChanges } from '@/lib/audit-redaction'
 import { getUserFriendlyDbError } from '@/lib/db-error'
-import { canManageFinance } from '@/lib/permissions'
+import { canManageHr } from '@/lib/permissions'
 import {
   extractFormFields,
   staffPayrollSchema,
@@ -26,7 +26,7 @@ export async function saveStaffPayrollAction(
   const session = await auth()
   if (!session) return { error: 'Not authenticated' }
   const role = session.user.role as StaffRole
-  if (!canManageFinance(role)) return { error: 'Not authorised' }
+  if (!canManageHr(role)) return { error: 'Not authorised' }
   const actorId = session.user.staffId ?? null
 
   const parsed = staffPayrollSchema.safeParse(extractFormFields(formData))
@@ -59,7 +59,7 @@ export async function saveStaffPayrollAction(
         ...redactChanges(record, existing, BANK_DETAIL_FIELDS),
       },
     })
-    revalidatePath('/finance')
+    revalidatePath('/hr')
   } catch (err) {
     console.error('[saveStaffPayrollAction] error:', err)
     return {
@@ -70,5 +70,5 @@ export async function saveStaffPayrollAction(
     }
   }
 
-  redirect('/finance?tab=staff')
+  redirect('/hr')
 }

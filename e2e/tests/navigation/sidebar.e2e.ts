@@ -10,6 +10,8 @@ const NOTIFICATION_ROLES: Role[] = ['admin', 'headteacher']
 const REGISTRATIONS_ROLES: Role[] = ['admin', 'headteacher', 'secretary']
 // Roles that can manage finance
 const FINANCE_ROLES: Role[] = ['admin']
+// Roles that can manage HR records
+const HR_ROLES: Role[] = ['admin']
 
 function getRoleFromProject(projectName: string): Role {
   return projectName.split(':')[1] as Role
@@ -111,6 +113,25 @@ test.describe('Sidebar navigation', () => {
       await expect(financeButton).toBeVisible()
     } else {
       await expect(financeButton).not.toBeVisible()
+    }
+  })
+
+  test('HR nav item is visible for admin only', async ({
+    page,
+    isMobile,
+  }, testInfo) => {
+    const role = getRoleFromProject(testInfo.project.name)
+
+    if (isMobile) {
+      await page.getByRole('button', { name: 'Open navigation' }).click()
+    }
+
+    const hrButton = page.getByRole('button', { name: 'HR' }).first()
+
+    if (HR_ROLES.includes(role)) {
+      await expect(hrButton).toBeVisible()
+    } else {
+      await expect(hrButton).not.toBeVisible()
     }
   })
 

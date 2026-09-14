@@ -11,7 +11,7 @@ import {
 } from '@/lib/compliance'
 import { formatCalendarDate, todayInSchoolTz } from '@/lib/datetime'
 
-import EmptyState from '../../../_components/EmptyState'
+import EmptyState from '../../_components/EmptyState'
 
 const TH =
   'px-3 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase'
@@ -79,7 +79,7 @@ function hasLapsed(payroll: StaffPayrollRow, today: string): boolean {
   )
 }
 
-export default async function StaffPayrollTab(): Promise<React.ReactElement> {
+export default async function StaffPayrollList(): Promise<React.ReactElement> {
   const staff = await getStaffPayrollList()
   const today = todayInSchoolTz()
 
@@ -106,7 +106,7 @@ export default async function StaffPayrollTab(): Promise<React.ReactElement> {
           <tbody className="divide-y divide-gray-200">
             {staff.map((member) => {
               const p = member.payroll
-              const href = `/finance/staff/${member.id}`
+              const href = `/hr/staff/${member.id}`
               return (
                 <tr
                   key={member.id}

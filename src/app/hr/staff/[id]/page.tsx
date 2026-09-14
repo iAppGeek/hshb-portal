@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import { getAllStaff, getStaffById, getStaffPayrollByStaffId } from '@/db'
-import { canManageFinance } from '@/lib/permissions'
+import { canManageHr } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
 import StaffPayrollForm from './StaffPayrollForm'
@@ -20,7 +20,7 @@ export default async function StaffPayrollPage({
   const session = await auth()
   const role = session?.user?.role as StaffRole | undefined
 
-  if (!role || !canManageFinance(role)) {
+  if (!role || !canManageHr(role)) {
     redirect('/dashboard')
   }
 
@@ -32,7 +32,7 @@ export default async function StaffPayrollPage({
   ])
 
   if (!staff) {
-    redirect('/finance?tab=staff')
+    redirect('/hr')
   }
 
   function nameOf(staffId: string | null): string | null {
@@ -44,10 +44,10 @@ export default async function StaffPayrollPage({
     <div className="max-w-3xl">
       <div className="mb-6">
         <Link
-          href="/finance?tab=staff"
+          href="/hr"
           className="text-sm font-medium text-blue-600 hover:text-blue-800"
         >
-          ← Staff payroll
+          ← HR
         </Link>
         <h1 className="mt-2 text-2xl font-bold text-gray-900">
           {staff.title} {staff.first_name} {staff.last_name}

@@ -24,6 +24,8 @@ type Props = {
   existing: Record<string, AttendanceStatus>
   role: StaffRole
   hasExisting: boolean
+  /** Registers outside the current academic year can be viewed but not changed. */
+  archived?: boolean
 }
 
 export default function AttendanceForm({
@@ -33,6 +35,7 @@ export default function AttendanceForm({
   existing,
   role,
   hasExisting,
+  archived = false,
 }: Props) {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [statuses, setStatuses] = useState<
@@ -50,6 +53,7 @@ export default function AttendanceForm({
   const readOnly = hasExisting && !canUpdateAttendance(role)
 
   function toggle(studentId: string, status: AttendanceStatus) {
+    if (archived) return
     setSaved(false)
     setStatuses((prev) => ({ ...prev, [studentId]: status }))
   }
@@ -164,8 +168,9 @@ export default function AttendanceForm({
                           <div className="flex w-full overflow-hidden rounded-full ring-1 ring-gray-200 sm:w-auto">
                             <button
                               type="button"
+                              disabled={archived}
                               onClick={() => toggle(student.id, 'present')}
-                              className={`flex-1 px-4 py-2 text-sm font-medium transition sm:flex-none ${
+                              className={`flex-1 px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed sm:flex-none ${
                                 current === 'present'
                                   ? 'bg-green-100 text-green-800'
                                   : 'bg-white text-gray-400 hover:bg-gray-50'
@@ -175,8 +180,9 @@ export default function AttendanceForm({
                             </button>
                             <button
                               type="button"
+                              disabled={archived}
                               onClick={() => toggle(student.id, 'late')}
-                              className={`flex-1 border-x border-gray-200 px-4 py-2 text-sm font-medium transition sm:flex-none ${
+                              className={`flex-1 border-x border-gray-200 px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed sm:flex-none ${
                                 current === 'late'
                                   ? 'bg-yellow-100 text-yellow-800'
                                   : 'bg-white text-gray-400 hover:bg-gray-50'
@@ -186,8 +192,9 @@ export default function AttendanceForm({
                             </button>
                             <button
                               type="button"
+                              disabled={archived}
                               onClick={() => toggle(student.id, 'absent')}
-                              className={`flex-1 px-4 py-2 text-sm font-medium transition sm:flex-none ${
+                              className={`flex-1 px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed sm:flex-none ${
                                 current === 'absent'
                                   ? 'bg-red-100 text-red-800'
                                   : 'bg-white text-gray-400 hover:bg-gray-50'
@@ -217,7 +224,11 @@ export default function AttendanceForm({
           </div>
 
           <div className="mt-4 flex items-center gap-4">
-            {readOnly ? (
+            {archived ? (
+              <p className="text-sm text-gray-500">
+                This register is from a past academic year and is read-only.
+              </p>
+            ) : readOnly ? (
               <Tooltip text="You cannot update existing attendance records">
                 <span className="cursor-not-allowed rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white opacity-50 shadow-sm">
                   Save register

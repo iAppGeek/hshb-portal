@@ -12,7 +12,9 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/db', () => ({
-  getAllClassesIncludingInactive: vi.fn(),
+  getAcademicYears: vi.fn(),
+  getCurrentAcademicYear: vi.fn(),
+  getClassesByAcademicYear: vi.fn(),
   getClassesByTeacher: vi.fn(),
 }))
 
@@ -26,6 +28,10 @@ vi.mock('./ClassesTable', () => ({
   ),
 }))
 
+vi.mock('../_components/YearSelector', () => ({
+  default: () => <div data-testid="year-selector" />,
+}))
+
 vi.mock('next/link', () => ({
   default: ({
     children,
@@ -37,7 +43,12 @@ vi.mock('next/link', () => ({
 }))
 
 import { auth } from '@/auth'
-import { getAllClassesIncludingInactive, getClassesByTeacher } from '@/db'
+import {
+  getAcademicYears,
+  getClassesByAcademicYear,
+  getClassesByTeacher,
+  getCurrentAcademicYear,
+} from '@/db'
 
 import ClassesPage from './page'
 
@@ -47,32 +58,55 @@ const mockClasses = [
     name: 'Year 1A',
     year_group: '1',
     room_number: 'R1',
-    academic_year: '2024/25',
+    academic_year: '2024-25',
     active: true,
     teacher: { first_name: 'Jane', last_name: 'Smith' },
   },
 ]
 
+const currentYear = {
+  id: 'year-1',
+  code: '2026-27',
+  start_date: '2026-09-01',
+  end_date: '2027-08-31',
+}
+
+const previousYear = {
+  id: 'year-0',
+  code: '2025-26',
+  start_date: '2025-09-01',
+  end_date: '2026-08-31',
+}
+
+function noSearchParams() {
+  return { searchParams: Promise.resolve({}) }
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(getAcademicYears).mockResolvedValue([
+    currentYear,
+    previousYear,
+  ] as any)
+  vi.mocked(getCurrentAcademicYear).mockResolvedValue(currentYear as any)
 })
 
 describe('ClassesPage', () => {
   it('redirects to login when not authenticated', async () => {
     vi.mocked(auth).mockResolvedValue(null as any)
 
-    await expect(ClassesPage()).rejects.toThrow('NEXT_REDIRECT:/login')
+    await expect(ClassesPage(noSearchParams())).rejects.toThrow(
+      'NEXT_REDIRECT:/login',
+    )
   })
 
   it('renders heading for admin', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
-    vi.mocked(getAllClassesIncludingInactive).mockResolvedValue(
-      mockClasses as any,
-    )
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue(mockClasses as any)
 
-    render(await ClassesPage())
+    render(await ClassesPage(noSearchParams()))
     expect(screen.getByText('Classes')).toBeTruthy()
   })
 
@@ -80,11 +114,9 @@ describe('ClassesPage', () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
-    vi.mocked(getAllClassesIncludingInactive).mockResolvedValue(
-      mockClasses as any,
-    )
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue(mockClasses as any)
 
-    render(await ClassesPage())
+    render(await ClassesPage(noSearchParams()))
     expect(screen.getByRole('link', { name: 'Add Class' })).toBeTruthy()
   })
 
@@ -92,11 +124,9 @@ describe('ClassesPage', () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'headteacher', staffId: 'staff-1' },
     } as any)
-    vi.mocked(getAllClassesIncludingInactive).mockResolvedValue(
-      mockClasses as any,
-    )
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue(mockClasses as any)
 
-    render(await ClassesPage())
+    render(await ClassesPage(noSearchParams()))
     expect(screen.getByRole('link', { name: 'Add Class' })).toBeTruthy()
   })
 
@@ -106,7 +136,7 @@ describe('ClassesPage', () => {
     } as any)
     vi.mocked(getClassesByTeacher).mockResolvedValue(mockClasses as any)
 
-    render(await ClassesPage())
+    render(await ClassesPage(noSearchParams()))
     expect(screen.queryByRole('link', { name: 'Add Class' })).toBeNull()
   })
 
@@ -116,18 +146,18 @@ describe('ClassesPage', () => {
     } as any)
     vi.mocked(getClassesByTeacher).mockResolvedValue(mockClasses as any)
 
-    render(await ClassesPage())
+    render(await ClassesPage(noSearchParams()))
     expect(getClassesByTeacher).toHaveBeenCalledWith('staff-99')
-    expect(getAllClassesIncludingInactive).not.toHaveBeenCalled()
+    expect(getClassesByAcademicYear).not.toHaveBeenCalled()
   })
 
   it('shows empty state when no classes', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
-    vi.mocked(getAllClassesIncludingInactive).mockResolvedValue([])
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue([])
 
-    render(await ClassesPage())
+    render(await ClassesPage(noSearchParams()))
     expect(screen.getByText('No classes found.')).toBeTruthy()
   })
 
@@ -135,38 +165,87 @@ describe('ClassesPage', () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
-    vi.mocked(getAllClassesIncludingInactive).mockResolvedValue(
-      mockClasses as any,
-    )
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue(mockClasses as any)
 
-    render(await ClassesPage())
+    render(await ClassesPage(noSearchParams()))
     expect(screen.getByTestId('classes-table')).toBeTruthy()
     expect(screen.getByText('Year 1A')).toBeTruthy()
   })
 
-  it('fetches all classes for secretary role', async () => {
+  it('fetches all classes for secretary role, defaulting to the current year', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'secretary', staffId: 'staff-4' },
     } as any)
-    vi.mocked(getAllClassesIncludingInactive).mockResolvedValue(
-      mockClasses as any,
-    )
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue(mockClasses as any)
 
-    render(await ClassesPage())
-    expect(getAllClassesIncludingInactive).toHaveBeenCalled()
+    render(await ClassesPage(noSearchParams()))
+    expect(getClassesByAcademicYear).toHaveBeenCalledWith('year-1')
     expect(getClassesByTeacher).not.toHaveBeenCalled()
     expect(screen.getByTestId('classes-table')).toBeTruthy()
+  })
+
+  it('lets an admin browse a past year with the year selector', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue(mockClasses as any)
+
+    render(
+      await ClassesPage({ searchParams: Promise.resolve({ year: 'year-0' }) }),
+    )
+    expect(getClassesByAcademicYear).toHaveBeenCalledWith('year-0')
+    expect(screen.getByTestId('year-selector')).toBeTruthy()
+  })
+
+  it('falls back to the current year for an unknown year', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue(mockClasses as any)
+
+    render(
+      await ClassesPage({
+        searchParams: Promise.resolve({ year: 'not-a-year' }),
+      }),
+    )
+    expect(getClassesByAcademicYear).toHaveBeenCalledWith('year-1')
+  })
+
+  it.each(['headteacher', 'secretary'])(
+    'keeps %s on the current year with no year selector',
+    async (role) => {
+      vi.mocked(auth).mockResolvedValue({
+        user: { role, staffId: 'staff-2' },
+      } as any)
+      vi.mocked(getClassesByAcademicYear).mockResolvedValue(mockClasses as any)
+
+      render(
+        await ClassesPage({
+          searchParams: Promise.resolve({ year: 'year-0' }),
+        }),
+      )
+      expect(getClassesByAcademicYear).toHaveBeenCalledWith('year-1')
+      expect(screen.queryByTestId('year-selector')).toBeNull()
+    },
+  )
+
+  it('shows no year selector for a teacher', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'teacher', staffId: 'staff-99' },
+    } as any)
+    vi.mocked(getClassesByTeacher).mockResolvedValue(mockClasses as any)
+
+    render(await ClassesPage(noSearchParams()))
+    expect(screen.queryByTestId('year-selector')).toBeNull()
   })
 
   it('does not show Add Class button for secretary', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'secretary', staffId: 'staff-4' },
     } as any)
-    vi.mocked(getAllClassesIncludingInactive).mockResolvedValue(
-      mockClasses as any,
-    )
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue(mockClasses as any)
 
-    render(await ClassesPage())
+    render(await ClassesPage(noSearchParams()))
     expect(screen.queryByRole('link', { name: 'Add Class' })).toBeNull()
   })
 })

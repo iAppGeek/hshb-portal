@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache'
 
 import { auth } from '@/auth'
 import {
-  createStudentPayment,
+  addStudentPayment,
   deleteStudentPayment,
   logAuditEvent,
   upsertStudentFeeAccount,
@@ -19,7 +19,7 @@ vi.mock('@/auth', () => ({ auth: vi.fn() }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/db', () => ({
   upsertStudentFeeAccount: vi.fn(),
-  createStudentPayment: vi.fn(),
+  addStudentPayment: vi.fn(),
   deleteStudentPayment: vi.fn(),
   logAuditEvent: vi.fn(),
 }))
@@ -30,16 +30,22 @@ function makeFormData(fields: Record<string, string>): FormData {
   return fd
 }
 
+const YEAR_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'
+
 const account = {
+  academic_year_id: YEAR_ID,
   payment_plan: 'termly',
   payment_plan_notes: '',
   fee_plan_override_id: '',
   custom_total_amount: '',
+  settled: '',
+  settled_note: '',
 }
 
 const payment = {
   amount: '100.50',
   payment_date: '2025-09-01',
+  academic_year_id: YEAR_ID,
   reference: 'REF-1',
   method: 'bank_transfer',
   notes: '',
@@ -77,7 +83,7 @@ describe.each([
     } as never)
     expect(await run()).toEqual({ error: 'Not authorised' })
     expect(upsertStudentFeeAccount).not.toHaveBeenCalled()
-    expect(createStudentPayment).not.toHaveBeenCalled()
+    expect(addStudentPayment).not.toHaveBeenCalled()
     expect(deleteStudentPayment).not.toHaveBeenCalled()
   })
 })
@@ -88,12 +94,14 @@ describe('saveStudentFeeAccountAction', () => {
       await saveStudentFeeAccountAction('s1', makeFormData(account)),
     ).toBeUndefined()
 
-    expect(upsertStudentFeeAccount).toHaveBeenCalledWith('s1', {
+    expect(upsertStudentFeeAccount).toHaveBeenCalledWith('s1', YEAR_ID, {
       payment_plan: 'termly',
       payment_plan_notes: null,
       fee_plan_override_id: null,
       custom_total_amount: null,
       custom_up_to_date: false,
+      settled: false,
+      settled_note: null,
     })
     expect(logAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -126,15 +134,16 @@ describe('saveStudentFeeAccountAction', () => {
 
 describe('addStudentPaymentAction', () => {
   it('records the payment against the current admin', async () => {
-    vi.mocked(createStudentPayment).mockResolvedValue({ id: 'pay1' })
+    vi.mocked(addStudentPayment).mockResolvedValue({ id: 'pay1' })
 
     expect(
       await addStudentPaymentAction('s1', makeFormData(payment)),
     ).toBeUndefined()
 
-    expect(createStudentPayment).toHaveBeenCalledWith('s1', {
+    expect(addStudentPayment).toHaveBeenCalledWith('s1', {
       amount: 100.5,
       payment_date: '2025-09-01',
+      academic_year_id: YEAR_ID,
       reference: 'REF-1',
       method: 'bank_transfer',
       notes: null,
@@ -158,11 +167,11 @@ describe('addStudentPaymentAction', () => {
         makeFormData({ ...payment, reference: '' }),
       ),
     ).toEqual({ error: 'Required' })
-    expect(createStudentPayment).not.toHaveBeenCalled()
+    expect(addStudentPayment).not.toHaveBeenCalled()
   })
 
   it('returns a friendly error when saving fails', async () => {
-    vi.mocked(createStudentPayment).mockRejectedValue(new Error('down'))
+    vi.mocked(addStudentPayment).mockRejectedValue(new Error('down'))
     expect(await addStudentPaymentAction('s1', makeFormData(payment))).toEqual({
       error: 'Failed to record the payment. Please try again.',
     })

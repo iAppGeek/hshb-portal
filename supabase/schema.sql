@@ -13,18 +13,57 @@ CREATE TABLE staff (
   created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ─── Academic Years ──────────────────────────────────────────────────────────
+-- The single list every year-bound record hangs off. Exactly one row is
+-- current (enforced by a partial unique index); ranges may never overlap
+-- (enforced by a gist exclusion constraint).
+
+CREATE TABLE academic_years (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code        TEXT NOT NULL UNIQUE CHECK (code ~ '^\d{4}-\d{2}$'), -- e.g. '2026-27'
+  start_date  DATE NOT NULL,
+  end_date    DATE NOT NULL CHECK (end_date > start_date),        -- inclusive
+  is_current  BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW(),
+  EXCLUDE USING gist (daterange(start_date, end_date, '[]') WITH &&)
+);
+
+CREATE UNIQUE INDEX academic_years_one_current ON academic_years (is_current) WHERE is_current;
+
+CREATE TRIGGER academic_years_updated_at
+  BEFORE UPDATE ON academic_years
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 -- ─── Classes ──────────────────────────────────────────────────────────────────
 
 CREATE TABLE classes (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name          TEXT NOT NULL,
-  year_group    TEXT NOT NULL,
-  room_number   TEXT,
-  teacher_id    UUID REFERENCES staff(id) ON DELETE SET NULL,
-  academic_year TEXT NOT NULL DEFAULT '2025-26',
-  active        BOOLEAN NOT NULL DEFAULT TRUE,
-  created_at    TIMESTAMPTZ DEFAULT NOW()
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name              TEXT NOT NULL,
+  year_group        TEXT NOT NULL,
+  room_number       TEXT,
+  teacher_id        UUID REFERENCES staff(id) ON DELETE SET NULL,
+  academic_year_id  UUID NOT NULL REFERENCES academic_years(id) ON DELETE RESTRICT,
+  active            BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (name, academic_year_id)
 );
+
+-- A class's academic year is fixed once it is created; class migration
+-- creates a new class instead.
+CREATE OR REPLACE FUNCTION prevent_class_academic_year_change()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.academic_year_id IS DISTINCT FROM OLD.academic_year_id THEN
+    RAISE EXCEPTION 'A class''s academic year cannot be changed';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER classes_academic_year_immutable
+  BEFORE UPDATE OF academic_year_id ON classes
+  FOR EACH ROW EXECUTE FUNCTION prevent_class_academic_year_change();
 
 -- ─── Guardians ────────────────────────────────────────────────────────────────
 -- Reusable guardian/contact records. Students link to these via FK.

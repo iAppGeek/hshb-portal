@@ -1,31 +1,30 @@
 import type { FeePlanWithClasses } from '@/db'
-import { normaliseAcademicYear } from '@/lib/fees'
 
 export type FeePlanClassOption = {
   id: string
   name: string
   year_group: string
-  academic_year: string | null
+  academic_year_id: string
 }
 
 export function toClassOptions(
   classes: FeePlanClassOption[],
 ): FeePlanClassOption[] {
   return classes
-    .map(({ id, name, year_group, academic_year }) => ({
+    .map(({ id, name, year_group, academic_year_id }) => ({
       id,
       name,
       year_group,
-      academic_year,
+      academic_year_id,
     }))
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 export function planLabel(plan: {
   name: string
-  academic_year: string
+  academic_year: { code: string }
 }): string {
-  return `${plan.name} (${plan.academic_year})`
+  return `${plan.name} (${plan.academic_year.code})`
 }
 
 /** Class id → label of the other plan that already owns it. */
@@ -46,7 +45,7 @@ export function takenClassLabels(
  * instead of a generic unique-constraint error.
  */
 export function validateFeePlan(
-  input: { name: string; academic_year: string; class_ids: string[] },
+  input: { name: string; academic_year_id: string; class_ids: string[] },
   classes: FeePlanClassOption[],
   plans: FeePlanWithClasses[],
   currentPlanId: string | null,
@@ -54,11 +53,11 @@ export function validateFeePlan(
   const duplicate = plans.find(
     (p) =>
       p.id !== currentPlanId &&
-      p.academic_year === input.academic_year &&
+      p.academic_year.id === input.academic_year_id &&
       p.name.toLowerCase() === input.name.toLowerCase(),
   )
   if (duplicate) {
-    return `A fee plan called ${duplicate.name} already exists for ${input.academic_year}.`
+    return `A fee plan called ${duplicate.name} already exists for ${duplicate.academic_year.code}.`
   }
 
   const classesById = new Map(classes.map((c) => [c.id, c]))
@@ -66,10 +65,8 @@ export function validateFeePlan(
   for (const classId of input.class_ids) {
     const cls = classesById.get(classId)
     if (!cls) return 'One of the selected classes no longer exists.'
-    if (
-      normaliseAcademicYear(cls.academic_year ?? '') !== input.academic_year
-    ) {
-      return `${cls.name} is not a ${input.academic_year} class.`
+    if (cls.academic_year_id !== input.academic_year_id) {
+      return `${cls.name} does not belong to this fee plan's academic year.`
     }
     if (taken[classId]) {
       return `${cls.name} is already on the ${taken[classId]} fee plan.`

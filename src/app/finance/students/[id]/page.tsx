@@ -3,19 +3,26 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { getFeePlans, getStudentFeeDetail } from '@/db'
+import {
+  getAcademicYears,
+  getCurrentAcademicYear,
+  getFeePlans,
+  getStudentFeeDetail,
+  getStudentFeeYears,
+} from '@/db'
+import { resolveYearId } from '@/lib/academicYears'
 import { labelFor } from '@/lib/compliance'
 import { formatCalendarDate, todayInSchoolTz } from '@/lib/datetime'
 import {
   formatGbp,
   PAYMENT_METHOD_LABELS,
   PAYMENT_PLAN_LABELS,
-  paymentsInAcademicYear,
 } from '@/lib/fees'
 import { canManageFinance } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
 import FeeStatusBadge from '../../_components/FeeStatusBadge'
+import YearSelector from '../../../_components/YearSelector'
 import { planLabel } from '../../_lib/feePlanClasses'
 import {
   summariseStudentFees,
@@ -68,8 +75,10 @@ function FeePlanSummary({
 
 export default async function StudentFeesPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ year?: string }>
 }): Promise<React.ReactElement> {
   const session = await auth()
   const role = session?.user?.role as StaffRole | undefined
@@ -79,9 +88,17 @@ export default async function StudentFeesPage({
   }
 
   const { id } = await params
-  const [detail, plans] = await Promise.all([
-    getStudentFeeDetail(id),
-    getFeePlans(),
+  const { year } = await searchParams
+  const [years, currentYear] = await Promise.all([
+    getAcademicYears(),
+    getCurrentAcademicYear(),
+  ])
+  const yearId = resolveYearId(years, year, currentYear.id)
+
+  const [detail, plans, yearsHistory] = await Promise.all([
+    getStudentFeeDetail(id, yearId),
+    getFeePlans(yearId),
+    getStudentFeeYears(id),
   ])
 
   if (!detail) {
@@ -91,32 +108,52 @@ export default async function StudentFeesPage({
   const today = todayInSchoolTz()
   const { student, account, payments, classes } = detail
   const summary = summariseStudentFees(detail, plans, today)
-  const countedIds = new Set(
-    paymentsInAcademicYear(
-      payments,
-      summary.feePlan?.academic_year ?? null,
-    ).map((p) => p.id),
-  )
   const planOptions = plans
     .filter((p) => p.active || p.id === account?.fee_plan_override_id)
     .map((p) => ({ id: p.id, label: planLabel(p) }))
+
+  const previousYears = await Promise.all(
+    yearsHistory
+      .filter((yh) => yh.year.id !== yearId)
+      .map(async (yh) => {
+        const yearPlans = await getFeePlans(yh.year.id)
+        const yearSummary = summariseStudentFees(yh, yearPlans, today)
+        return {
+          year: yh.year,
+          paid: yearSummary.paid,
+          total: yearSummary.total,
+          balance:
+            yearSummary.total === null
+              ? null
+              : Math.max(yearSummary.total - yearSummary.paid, 0),
+          settled: yh.account?.settled ?? false,
+        }
+      }),
+  )
 
   return (
     <div className="max-w-4xl space-y-6">
       <div>
         <Link
-          href="/finance?tab=students"
+          href={`/finance?tab=students&year=${yearId}`}
           className="text-sm font-medium text-blue-600 hover:text-blue-800"
         >
           ← Student fees
         </Link>
-        <h1 className="mt-2 text-2xl font-bold text-gray-900">
-          {student.last_name}, {student.first_name}
-        </h1>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">
+            {student.last_name}, {student.first_name}
+          </h1>
+          <YearSelector
+            years={years}
+            value={yearId}
+            basePath={`/finance/students/${student.id}`}
+          />
+        </div>
         <p className="mt-1 text-sm text-gray-500">
           {[student.student_code, classes.map((c) => c.name).join(', ')]
             .filter(Boolean)
-            .join(' · ') || 'No active classes'}
+            .join(' · ') || 'No classes this year'}
         </p>
       </div>
 
@@ -143,7 +180,9 @@ export default async function StudentFeesPage({
           <div>
             <dt className="text-gray-500">
               Paid
-              {summary.feePlan ? ` in ${summary.feePlan.academic_year}` : ''}
+              {summary.feePlan
+                ? ` in ${summary.feePlan.academic_year.code}`
+                : ''}
             </dt>
             <dd className="mt-1 text-gray-900" data-testid="paid-to-date">
               {formatGbp(summary.paid)}
@@ -161,14 +200,66 @@ export default async function StudentFeesPage({
 
       <StudentFeesForm
         account={account}
+        academicYearId={yearId}
         planOptions={planOptions}
         action={saveStudentFeeAccountAction.bind(null, student.id)}
       />
+
+      {previousYears.length > 0 && (
+        <div className={CARD}>
+          <h2 className="mb-4 text-sm font-semibold text-gray-900">
+            Other years
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className={TH}>Year</th>
+                  <th className={TH}>Total</th>
+                  <th className={TH}>Paid</th>
+                  <th className={TH}>Balance</th>
+                  <th className={TH}>Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {previousYears.map((py) => (
+                  <tr key={py.year.id}>
+                    <td className={TD}>
+                      <Link
+                        href={`/finance/students/${student.id}?year=${py.year.id}`}
+                        className="font-medium text-blue-600 hover:text-blue-800"
+                      >
+                        {py.year.code}
+                      </Link>
+                    </td>
+                    <td className={TD}>
+                      {py.total === null ? '—' : formatGbp(py.total)}
+                    </td>
+                    <td className={TD}>{formatGbp(py.paid)}</td>
+                    <td className={TD}>
+                      {py.balance === null ? '—' : formatGbp(py.balance)}
+                    </td>
+                    <td className={TD}>
+                      {py.settled && (
+                        <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                          Settled
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className={CARD}>
         <h2 className="mb-4 text-sm font-semibold text-gray-900">Payments</h2>
         <PaymentForm
           defaultDate={today}
+          years={years}
+          defaultYearId={yearId}
           action={addStudentPaymentAction.bind(null, student.id)}
         />
 
@@ -199,11 +290,6 @@ export default async function StudentFeesPage({
                         month: 'short',
                         year: 'numeric',
                       })}
-                      {!countedIds.has(p.id) && (
-                        <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">
-                          Other year
-                        </span>
-                      )}
                     </td>
                     <td className={`${TD} whitespace-nowrap`}>
                       {formatGbp(p.amount)}

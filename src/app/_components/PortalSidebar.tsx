@@ -21,6 +21,7 @@ import {
   ArrowPathRoundedSquareIcon,
   InboxIcon,
   BanknotesIcon,
+  IdentificationIcon,
 } from '@heroicons/react/24/outline'
 
 import logo from '@/images/logo.png'
@@ -38,6 +39,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   '/admin': ArrowPathRoundedSquareIcon,
   '/registrations': InboxIcon,
   '/finance': BanknotesIcon,
+  '/hr': IdentificationIcon,
 }
 
 type NavItem = {

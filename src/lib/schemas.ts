@@ -141,21 +141,22 @@ export const createClassSchema = z.object({
   name: requiredString,
   year_group: requiredString,
   room_number: optionalString,
-  academic_year: optionalString,
+  academic_year_id: uuid,
   teacher_id: uuid,
   student_ids: z.array(uuid).default([]),
 })
 
-export const updateClassSchema = createClassSchema.extend({
-  active: booleanFromString,
-})
+// A class's academic year is fixed once it is created.
+export const updateClassSchema = createClassSchema
+  .omit({ academic_year_id: true })
+  .extend({ active: booleanFromString })
 
 export const migrateClassSchema = z.object({
   source_class_id: uuid,
   name: requiredString,
   year_group: requiredString,
   room_number: optionalString,
-  academic_year: requiredString,
+  academic_year_id: uuid,
   teacher_id: uuid,
 })
 
@@ -448,7 +449,7 @@ export const optionalMoneyAmount = optionalString.pipe(
   z.string().regex(MONEY_PATTERN, MONEY_MESSAGE).transform(Number).nullable(),
 )
 
-export const academicYear = requiredString
+const academicYearCode = requiredString
   .transform((v) => v.replace('/', '-'))
   .pipe(
     z.string().regex(/^\d{4}-\d{2}$/, 'Academic year must look like 2025-26'),
@@ -457,6 +458,27 @@ export const academicYear = requiredString
     (v) => (Number(v.slice(0, 4)) + 1) % 100 === Number(v.slice(5)),
     'Academic year must be two consecutive years, like 2025-26',
   )
+
+export const academicYearDatesSchema = z
+  .object({
+    start_date: isoDate,
+    end_date: isoDate,
+  })
+  .refine((d) => d.end_date > d.start_date, {
+    message: 'End date must be after the start date',
+    path: ['end_date'],
+  })
+
+export const academicYearSchema = z
+  .object({
+    code: academicYearCode,
+    start_date: isoDate,
+    end_date: isoDate,
+  })
+  .refine((d) => d.end_date > d.start_date, {
+    message: 'End date must be after the start date',
+    path: ['end_date'],
+  })
 
 type RequiredDetail = [value: unknown, path: string, message: string]
 
@@ -582,7 +604,7 @@ export const staffPayrollSchema = z
 
 export const feePlanSchema = z.object({
   name: shortText,
-  academic_year: academicYear,
+  academic_year_id: uuid,
   full_year_amount: moneyAmount,
   monthly_instalment_amount: moneyAmount,
   termly_instalment_amount: moneyAmount,
@@ -593,11 +615,14 @@ export const feePlanSchema = z.object({
 
 export const studentFeeAccountSchema = z
   .object({
+    academic_year_id: uuid,
     payment_plan: optionalString.pipe(paymentPlan.nullable()),
     payment_plan_notes: optionalLongText,
     fee_plan_override_id: optionalString.pipe(uuid.nullable()),
     custom_total_amount: optionalMoneyAmount,
     custom_up_to_date: checkbox,
+    settled: checkbox,
+    settled_note: optionalLongText,
   })
   .superRefine((d, ctx) => {
     requireDetails(ctx, d.payment_plan === 'custom', [
@@ -622,6 +647,7 @@ export const studentFeeAccountSchema = z
 export const studentPaymentSchema = z.object({
   amount: moneyAmount.refine((n) => n > 0, 'Amount must be more than £0'),
   payment_date: isoDate,
+  academic_year_id: uuid,
   reference: shortText,
   method: paymentMethod,
   notes: optionalLongText,

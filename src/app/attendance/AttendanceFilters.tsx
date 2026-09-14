@@ -9,12 +9,14 @@ type Props = {
   classes: Class[]
   selectedClassId: string | null
   selectedDate: string
+  yearId?: string
 }
 
 export default function AttendanceFilters({
   classes,
   selectedClassId,
   selectedDate,
+  yearId,
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -23,6 +25,7 @@ export default function AttendanceFilters({
     const params = new URLSearchParams()
     if (classId) params.set('classId', classId)
     params.set('date', date)
+    if (yearId) params.set('year', yearId)
     startTransition(() => {
       router.push(`/attendance?${params}`)
     })

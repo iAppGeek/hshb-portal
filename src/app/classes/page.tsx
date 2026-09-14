@@ -3,23 +3,35 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { getAllClassesIncludingInactive, getClassesByTeacher } from '@/db'
+import {
+  getAcademicYears,
+  getClassesByAcademicYear,
+  getClassesByTeacher,
+  getCurrentAcademicYear,
+} from '@/db'
 import Tooltip from '@/components/Tooltip'
+import { resolveYearId } from '@/lib/academicYears'
 import {
   canEditClasses,
   canCreateClasses,
   canSeeAllData,
+  isAdmin,
 } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
 import EmptyState from '../_components/EmptyState'
 import PageHeader from '../_components/PageHeader'
+import YearSelector from '../_components/YearSelector'
 
 import ClassesTable, { type ClassRow } from './ClassesTable'
 
 export const metadata: Metadata = { title: 'Classes' }
 
-export default async function ClassesPage() {
+export default async function ClassesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ year?: string }>
+}) {
   const session = await auth()
   if (!session) {
     redirect('/login')
@@ -27,9 +39,22 @@ export default async function ClassesPage() {
 
   const role = session.user?.role as StaffRole
   const canEdit = canEditClasses(role)
+  const canSeeAll = canSeeAllData(role)
+  // Only admins browse past years; other all-data roles see the current year.
+  const canBrowseYears = isAdmin(role)
 
-  const classes = canSeeAllData(role)
-    ? await getAllClassesIncludingInactive()
+  const { year } = await searchParams
+  const [years, currentYear] = canSeeAll
+    ? await Promise.all([getAcademicYears(), getCurrentAcademicYear()])
+    : [[], null]
+  const selectedYearId = currentYear
+    ? canBrowseYears
+      ? resolveYearId(years, year, currentYear.id)
+      : currentYear.id
+    : null
+
+  const classes = selectedYearId
+    ? await getClassesByAcademicYear(selectedYearId)
     : await getClassesByTeacher(session.user.staffId)
 
   return (
@@ -53,6 +78,16 @@ export default async function ClassesPage() {
           ) : null
         }
       />
+
+      {canBrowseYears && selectedYearId && (
+        <div className="mb-4">
+          <YearSelector
+            years={years}
+            value={selectedYearId}
+            basePath="/classes"
+          />
+        </div>
+      )}
 
       {classes.length === 0 ? (
         <EmptyState message="No classes found." />

@@ -1,4 +1,10 @@
-import { getAllClasses, getTeachers, getStudentsByClass } from '@/db'
+import {
+  getAcademicYears,
+  getClassesByAcademicYear,
+  getCurrentAcademicYear,
+  getTeachers,
+  getStudentsByClass,
+} from '@/db'
 import { uuid } from '@/lib/schemas'
 
 import ClassMigrationForm from './ClassMigrationForm'
@@ -7,15 +13,30 @@ import { migrateClassAction } from './actions'
 
 type Props = {
   sourceClassId: string | undefined
+  targetYearId: string | undefined
 }
 
 export default async function ClassMigrationTab({
   sourceClassId,
+  targetYearId,
 }: Props): Promise<React.ReactElement> {
-  const [classes, teachers] = await Promise.all([
-    getAllClasses(),
+  const [years, teachers, currentYear] = await Promise.all([
+    getAcademicYears(),
     getTeachers(),
+    getCurrentAcademicYear(),
   ])
+
+  const selectedTargetYearId = targetYearId ?? currentYear.id
+  const targetYear =
+    years.find((y) => y.id === selectedTargetYearId) ?? currentYear
+  const previousYear =
+    years
+      .filter((y) => y.start_date < targetYear.start_date)
+      .sort((a, b) => (a.start_date > b.start_date ? -1 : 1))[0] ?? null
+
+  const sourceClasses = previousYear
+    ? (await getClassesByAcademicYear(previousYear.id)).filter((c) => c.active)
+    : []
 
   const isValidSource = sourceClassId
     ? uuid.safeParse(sourceClassId).success
@@ -26,11 +47,12 @@ export default async function ClassMigrationTab({
 
   return (
     <ClassMigrationForm
-      classes={classes.map((c) => ({
+      years={years.map((y) => ({ id: y.id, code: y.code }))}
+      targetYearId={selectedTargetYearId}
+      classes={sourceClasses.map((c) => ({
         id: c.id,
         name: c.name,
         year_group: c.year_group,
-        academic_year: c.academic_year,
       }))}
       teachers={teachers.map((t) => ({
         id: t.id,

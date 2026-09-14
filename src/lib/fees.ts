@@ -1,4 +1,5 @@
-// Pure fee-status rules. See plans/finance-payments.md §3.
+// Pure fee-status rules. See plans/finance-payments.md §3 and
+// plans/academic-years.md §3.
 // Dates are ISO `YYYY-MM-DD` strings, so they compare correctly as strings.
 
 export type PaymentPlan = 'monthly' | 'termly' | 'yearly' | 'custom'
@@ -6,7 +7,7 @@ export type PaymentPlan = 'monthly' | 'termly' | 'yearly' | 'custom'
 export type FeeStatus = 'no_plan' | 'paid_in_full' | 'up_to_date' | 'behind'
 
 export type FeePlanAmounts = {
-  academic_year: string
+  academic_year: { code: string; start_date: string; end_date: string }
   full_year_amount: number
   monthly_instalment_amount: number
   termly_instalment_amount: number
@@ -42,61 +43,21 @@ function roundPennies(amount: number): number {
   return Math.round(amount * 100) / 100
 }
 
-/** Classes have used both `2025/26` and `2025-26`; the dash form is canonical. */
-export function normaliseAcademicYear(value: string): string {
-  return value.trim().replace('/', '-')
-}
-
-function startYear(academicYear: string): number | null {
-  const match = /^(\d{4})-\d{2}$/.exec(normaliseAcademicYear(academicYear))
-  return match ? Number(match[1]) : null
-}
-
-export function academicYearStart(academicYear: string): string | null {
-  const year = startYear(academicYear)
-  return year === null ? null : `${year}-09-01`
-}
-
-/** 1 September to 31 August. */
-export function academicYearRange(
-  academicYear: string,
-): { start: string; end: string } | null {
-  const year = startYear(academicYear)
-  return year === null
-    ? null
-    : { start: `${year}-09-01`, end: `${year + 1}-08-31` }
-}
-
-/**
- * Payments that count towards a fee plan's year. With no known year (e.g. a
- * custom plan with no fee plan) every payment counts.
- */
-export function paymentsInAcademicYear<T extends { payment_date: string }>(
-  payments: T[],
-  academicYear: string | null,
-): T[] {
-  const range = academicYear ? academicYearRange(academicYear) : null
-  if (!range) return payments
-  return payments.filter(
-    (p) => p.payment_date >= range.start && p.payment_date <= range.end,
-  )
-}
-
 function monthsToDates(months: string[], year: number): string[] {
   // Autumn months fall in the start year, spring months in the next.
   return months.map((m) => `${Number(m) >= 9 ? year : year + 1}-${m}-01`)
 }
 
-export function dueDates(plan: PaymentPlan, academicYear: string): string[] {
-  const year = startYear(academicYear)
-  if (year === null) return []
+/** Due dates within an academic year, given the year's start_date. */
+export function dueDates(plan: PaymentPlan, startDate: string): string[] {
+  const year = Number(startDate.slice(0, 4))
   switch (plan) {
     case 'monthly':
       return monthsToDates(MONTHLY_DUE, year)
     case 'termly':
       return monthsToDates(TERMLY_DUE, year)
     case 'yearly':
-      return [`${year}-09-01`]
+      return [startDate]
     case 'custom':
       return []
   }
@@ -126,7 +87,7 @@ export function amountDueToDate(
   feePlan: FeePlanAmounts,
   today: string,
 ): number {
-  const dates = dueDates(plan, feePlan.academic_year)
+  const dates = dueDates(plan, feePlan.academic_year.start_date)
   const count = dates.filter((d) => d <= today).length
   if (count === 0) return 0
   if (count === dates.length) return feePlan.full_year_amount

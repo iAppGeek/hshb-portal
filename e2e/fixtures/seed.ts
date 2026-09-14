@@ -36,6 +36,10 @@ export const SEED_IDS = {
     pending: '80000000-0000-0000-0000-000000000001',
     rejected: '80000000-0000-0000-0000-000000000002',
   },
+  academicYears: {
+    current: '05000000-0000-4000-8000-000000000001',
+    previous: '05000000-0000-4000-8000-000000000002',
+  },
 } as const
 
 export async function deleteStudentsByEmail(emails: string[]): Promise<void> {
@@ -137,4 +141,17 @@ export async function deleteStudentsByLastName(
 // Links in fee_plan_classes cascade with the plan.
 export async function deleteFeePlansByName(name: string): Promise<void> {
   await db.from('fee_plans').delete().eq('name', name)
+}
+
+// Restores the seeded current year after a test that switches it, via the
+// same RPC the app uses so the partial unique index stays satisfied.
+export async function setCurrentAcademicYear(id: string): Promise<void> {
+  const { error } = await db.rpc('set_current_academic_year', { p_id: id })
+  if (error) throw error
+}
+
+// Classes/fee plans/payments referencing this year must be deleted first
+// (ON DELETE RESTRICT).
+export async function deleteAcademicYearByCode(code: string): Promise<void> {
+  await db.from('academic_years').delete().eq('code', code)
 }

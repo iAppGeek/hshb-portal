@@ -11,12 +11,23 @@ INSERT INTO staff (id, email, first_name, last_name, role, contact_number) VALUE
   ('00000000-0000-0000-0000-000000000004', 'headteacher@test.hshb.local', 'Helen',   'Headteacher','headteacher', '07700000004'),
   ('00000000-0000-0000-0000-000000000005', 'secretary@test.hshb.local',   'Sandra',  'Secretary',  'secretary',   '07700000005');
 
+-- ─── Academic Years ───────────────────────────────────────────────────────────
+-- The migration's own backfill already created rows for these two codes
+-- (with random ids) since the classes/fee_plans tables are empty on a fresh
+-- reset; replace them with deterministic ids so tests can reference them.
+-- The year containing CURRENT_DATE is current; the previous year exists so
+-- prior-year fixtures (finance) have somewhere to point.
+DELETE FROM academic_years;
+INSERT INTO academic_years (id, code, start_date, end_date, is_current) VALUES
+  ('05000000-0000-4000-8000-000000000001', '2026-27', '2026-09-01', '2027-08-31', TRUE),
+  ('05000000-0000-4000-8000-000000000002', '2025-26', '2025-09-01', '2026-08-31', FALSE);
+
 -- ─── Classes ──────────────────────────────────────────────────────────────────
--- Alpha → teacher1, Beta → teacher2, Gamma → headteacher
-INSERT INTO classes (id, name, year_group, room_number, teacher_id, academic_year) VALUES
-  ('10000000-0000-0000-0000-000000000001', 'Alpha', 'Year 1', 'R1', '00000000-0000-0000-0000-000000000002', '2025-26'),
-  ('10000000-0000-0000-0000-000000000002', 'Beta',  'Year 2', 'R2', '00000000-0000-0000-0000-000000000003', '2025-26'),
-  ('10000000-0000-0000-0000-000000000003', 'Gamma', 'Year 3', 'R3', '00000000-0000-0000-0000-000000000004', '2025-26');
+-- Alpha → teacher1, Beta → teacher2, Gamma → headteacher. All in the current year.
+INSERT INTO classes (id, name, year_group, room_number, teacher_id, academic_year_id) VALUES
+  ('10000000-0000-0000-0000-000000000001', 'Alpha', 'Year 1', 'R1', '00000000-0000-0000-0000-000000000002', '05000000-0000-4000-8000-000000000001'),
+  ('10000000-0000-0000-0000-000000000002', 'Beta',  'Year 2', 'R2', '00000000-0000-0000-0000-000000000003', '05000000-0000-4000-8000-000000000001'),
+  ('10000000-0000-0000-0000-000000000003', 'Gamma', 'Year 3', 'R3', '00000000-0000-0000-0000-000000000004', '05000000-0000-4000-8000-000000000001');
 
 -- ─── Guardians ────────────────────────────────────────────────────────────────
 -- Greg deliberately has no occupation: the column is nullable and existing rows
@@ -88,18 +99,18 @@ INSERT INTO photo_consent_opt_outs (id, status, child_first_name, child_last_nam
 -- ─── Finance ──────────────────────────────────────────────────────────────────
 -- One fee plan covering Alpha + Beta, Alice on a monthly plan with one payment,
 -- and a payroll record for Tom. E2E tests create their own rows and only read these.
-INSERT INTO fee_plans (id, name, academic_year, full_year_amount, monthly_instalment_amount, termly_instalment_amount) VALUES
-  ('90000000-0000-0000-0000-000000000001', 'Standard', '2025-26', 800.00, 100.00, 266.67);
+INSERT INTO fee_plans (id, name, academic_year_id, full_year_amount, monthly_instalment_amount, termly_instalment_amount) VALUES
+  ('90000000-0000-0000-0000-000000000001', 'Standard', '05000000-0000-4000-8000-000000000001', 800.00, 100.00, 266.67);
 
 INSERT INTO fee_plan_classes (id, fee_plan_id, class_id) VALUES
   ('91000000-0000-0000-0000-000000000001', '90000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001'),
   ('91000000-0000-0000-0000-000000000002', '90000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002');
 
-INSERT INTO student_fee_accounts (id, student_id, payment_plan) VALUES
-  ('92000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', 'monthly');
+INSERT INTO student_fee_accounts (id, student_id, academic_year_id, payment_plan) VALUES
+  ('92000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', '05000000-0000-4000-8000-000000000001', 'monthly');
 
-INSERT INTO student_payments (id, student_id, amount, payment_date, reference, method, recorded_by) VALUES
-  ('93000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', 100.00, '2025-09-01', 'SEED-001', 'bank_transfer', '00000000-0000-0000-0000-000000000001');
+INSERT INTO student_payments (id, student_id, amount, payment_date, reference, method, recorded_by, academic_year_id) VALUES
+  ('93000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', 100.00, '2026-09-01', 'SEED-001', 'bank_transfer', '00000000-0000-0000-0000-000000000001', '05000000-0000-4000-8000-000000000001');
 
 INSERT INTO staff_payroll (id, staff_id, payment_funding, payroll_ref) VALUES
   ('94000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002', 'school', 'PR-002');

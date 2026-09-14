@@ -2,7 +2,12 @@ import { type Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { getClassById, getTeachers, getStudentsForList } from '@/db'
+import {
+  getAcademicYears,
+  getClassById,
+  getTeachers,
+  getStudentsForList,
+} from '@/db'
 import { canEditClasses } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -30,10 +35,11 @@ export default async function EditClassPage({
 
   const { id } = await params
 
-  const [classData, teachers, students] = await Promise.all([
+  const [classData, teachers, students, years] = await Promise.all([
     getClassById(id),
     getTeachers(),
     getStudentsForList(),
+    getAcademicYears(),
   ])
 
   if (!classData) {
@@ -55,6 +61,7 @@ export default async function EditClassPage({
       <ClassForm
         teachers={teachers as ClassFormTeacher[]}
         students={students as ClassFormStudent[]}
+        years={years}
         classData={classData as ClassFormData}
         action={updateClassAction.bind(null, id)}
         submitLabel="Save changes"

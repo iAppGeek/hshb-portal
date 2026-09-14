@@ -2,35 +2,58 @@ import { unstable_cache, updateTag } from 'next/cache'
 
 import type { Database } from '@/types/database'
 
+import { getCurrentAcademicYear } from './academic-years'
 import { supabase } from './client'
 
 const CLASS_SELECT =
-  '*, teacher:staff(id, first_name, last_name, display_name, email)'
+  '*, teacher:staff(id, first_name, last_name, display_name, email), academic_year:academic_years(id, code, start_date, end_date)'
 
 const OPTS = { revalidate: 60, tags: ['classes'] }
 
-export const getAllClasses = unstable_cache(
-  async () => {
+type AcademicYearEmbed = {
+  id: string
+  code: string
+  start_date: string
+  end_date: string
+} | null
+
+/** Keeps the flat `academic_year: string` shape display components already use. */
+function withYearCode<T extends { academic_year: AcademicYearEmbed }>(
+  row: T,
+): Omit<T, 'academic_year'> & { academic_year: string | null } {
+  const { academic_year, ...rest } = row
+  return { ...rest, academic_year: academic_year?.code ?? null }
+}
+
+const getAllClassesForYear = unstable_cache(
+  async (yearId: string) => {
     const { data } = await supabase
       .from('classes')
       .select(CLASS_SELECT)
       .eq('active', true)
+      .eq('academic_year_id', yearId)
       .order('year_group')
-    return data ?? []
+    return (data ?? []).map(withYearCode)
   },
   ['all-classes'],
   OPTS,
 )
 
-export const getAllClassesIncludingInactive = unstable_cache(
-  async () => {
+export async function getAllClasses() {
+  const current = await getCurrentAcademicYear()
+  return getAllClassesForYear(current.id)
+}
+
+export const getClassesByAcademicYear = unstable_cache(
+  async (yearId: string) => {
     const { data } = await supabase
       .from('classes')
       .select(CLASS_SELECT)
+      .eq('academic_year_id', yearId)
       .order('year_group')
-    return data ?? []
+    return (data ?? []).map(withYearCode)
   },
-  ['all-classes-including-inactive'],
+  ['classes-by-academic-year'],
   OPTS,
 )
 
@@ -41,25 +64,31 @@ export const getClassById = unstable_cache(
       .select(`${CLASS_SELECT}, student_classes(student_id)`)
       .eq('id', id)
       .single()
-    return data
+    return data ? withYearCode(data) : data
   },
   ['class-by-id'],
   OPTS,
 )
 
-export const getClassesByTeacher = unstable_cache(
-  async (teacherId: string) => {
+const getClassesByTeacherForYear = unstable_cache(
+  async (teacherId: string, yearId: string) => {
     const { data } = await supabase
       .from('classes')
       .select(CLASS_SELECT)
       .eq('teacher_id', teacherId)
       .eq('active', true)
+      .eq('academic_year_id', yearId)
       .order('year_group')
-    return data ?? []
+    return (data ?? []).map(withYearCode)
   },
   ['classes-by-teacher'],
   OPTS,
 )
+
+export async function getClassesByTeacher(teacherId: string) {
+  const current = await getCurrentAcademicYear()
+  return getClassesByTeacherForYear(teacherId, current.id)
+}
 
 export const getClassWithStudents = unstable_cache(
   async (id: string) => {
@@ -67,6 +96,7 @@ export const getClassWithStudents = unstable_cache(
       .from('classes')
       .select(
         `*, teacher:staff(first_name, last_name, display_name, email),
+      academic_year:academic_years(id, code, start_date, end_date),
       student_classes(
         student:students(
           id, student_code, first_name, last_name, allergies,
@@ -77,7 +107,7 @@ export const getClassWithStudents = unstable_cache(
       )
       .eq('id', id)
       .single()
-    return data
+    return data ? withYearCode(data) : data
   },
   ['class-with-students'],
   { revalidate: 60, tags: ['classes', 'students'] },
@@ -104,7 +134,7 @@ type ClassInsert = {
   name: string
   year_group: string
   room_number?: string | null
-  academic_year?: string
+  academic_year_id: string
   teacher_id: string
   active?: boolean
 }
@@ -120,9 +150,10 @@ export async function createClass(data: ClassInsert) {
   return cls
 }
 
+/** A class's academic year is fixed once created, so it is not updatable. */
 export async function updateClass(
   id: string,
-  data: Partial<ClassInsert> & { active?: boolean },
+  data: Partial<Omit<ClassInsert, 'academic_year_id'>> & { active?: boolean },
 ) {
   const { error } = await supabase.from('classes').update(data).eq('id', id)
   if (error) throw error
@@ -134,7 +165,7 @@ type MigrateClassInput = {
   name: string
   year_group: string
   room_number: string | null
-  academic_year: string
+  academic_year_id: string
   teacher_id: string
 }
 
@@ -149,7 +180,7 @@ export async function migrateClass(
     p_name: newClass.name,
     p_year_group: newClass.year_group,
     p_room_number: newClass.room_number,
-    p_academic_year: newClass.academic_year,
+    p_academic_year_id: newClass.academic_year_id,
     p_teacher_id: newClass.teacher_id,
   } as Database['public']['Functions']['migrate_class']['Args'])
   if (error) throw error

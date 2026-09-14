@@ -7,7 +7,6 @@ import type {
 } from '@/db'
 import {
   feeStatus,
-  paymentsInAcademicYear,
   resolveFeePlan,
   resolvedPlanOrNull,
   sumPayments,
@@ -36,10 +35,10 @@ export function summariseStudentFees(
   today: string,
 ): StudentFeeSummary {
   const classIds = new Set(student.classes.map((c) => c.id))
-  // A deactivated plan stops applying through classes but can still be chosen
-  // as an explicit override.
-  const classPlans = plans.filter(
-    (p) => p.active && p.class_ids.some((id) => classIds.has(id)),
+  // A plan's active flag only hides it from pickers; it always applies to its
+  // classes, so what is owed never disappears when a plan is deactivated.
+  const classPlans = plans.filter((p) =>
+    p.class_ids.some((id) => classIds.has(id)),
   )
   const overrideId = student.account?.fee_plan_override_id ?? null
   const override = plans.find((p) => p.id === overrideId) ?? null
@@ -47,9 +46,7 @@ export function summariseStudentFees(
   const feePlan = resolvedPlanOrNull(resolution)
   const paymentPlan = (student.account?.payment_plan ??
     null) as PaymentPlan | null
-  const paid = sumPayments(
-    paymentsInAcademicYear(student.payments, feePlan?.academic_year ?? null),
-  )
+  const paid = sumPayments(student.payments)
 
   return {
     ...feeStatus({
@@ -78,12 +75,14 @@ export type StudentFeeRow = {
   paid: number
   due: number | null
   status: FeeStatus
+  priorOwed: number
 }
 
 export function buildStudentFeeRows(
   students: StudentFeeListItem[],
   plans: FeePlanWithClasses[],
   today: string,
+  priorOwed: Record<string, number>,
 ): StudentFeeRow[] {
   return students.map((s) => {
     const summary = summariseStudentFees(s, plans, today)
@@ -94,12 +93,13 @@ export function buildStudentFeeRows(
       classes: s.classes,
       paymentPlan: summary.paymentPlan,
       feePlanName: summary.feePlan
-        ? `${summary.feePlan.name} (${summary.feePlan.academic_year})`
+        ? `${summary.feePlan.name} (${summary.feePlan.academic_year.code})`
         : null,
       conflict: summary.resolution.kind === 'conflict',
       paid: summary.paid,
       due: summary.due,
       status: summary.status,
+      priorOwed: priorOwed[s.id] ?? 0,
     }
   })
 }

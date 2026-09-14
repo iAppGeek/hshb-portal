@@ -1,15 +1,11 @@
 import { describe, it, expect } from 'vitest'
 
 import {
-  academicYearRange,
-  academicYearStart,
-  paymentsInAcademicYear,
   amountDueToDate,
   dueDates,
   feeStatus,
   formatGbp,
   instalmentAmount,
-  normaliseAcademicYear,
   resolveFeePlan,
   resolvedPlanOrNull,
   sumPayments,
@@ -17,39 +13,19 @@ import {
 } from './fees'
 
 const plan: FeePlanAmounts = {
-  academic_year: '2025-26',
+  academic_year: {
+    code: '2025-26',
+    start_date: '2025-09-01',
+    end_date: '2026-08-31',
+  },
   full_year_amount: 800,
   monthly_instalment_amount: 100,
   termly_instalment_amount: 266.67,
 }
 
-describe('normaliseAcademicYear', () => {
-  it('converts a slash to a dash and trims', () => {
-    expect(normaliseAcademicYear(' 2025/26 ')).toBe('2025-26')
-  })
-
-  it('leaves the dash form unchanged', () => {
-    expect(normaliseAcademicYear('2025-26')).toBe('2025-26')
-  })
-})
-
-describe('academicYearStart', () => {
-  it('returns 1 September of the first year', () => {
-    expect(academicYearStart('2025-26')).toBe('2025-09-01')
-  })
-
-  it('accepts the slash form', () => {
-    expect(academicYearStart('2026/27')).toBe('2026-09-01')
-  })
-
-  it('returns null for an unrecognised value', () => {
-    expect(academicYearStart('next year')).toBeNull()
-  })
-})
-
 describe('dueDates', () => {
   it('gives 8 monthly dates from September to April', () => {
-    expect(dueDates('monthly', '2025-26')).toEqual([
+    expect(dueDates('monthly', '2025-09-01')).toEqual([
       '2025-09-01',
       '2025-10-01',
       '2025-11-01',
@@ -62,7 +38,7 @@ describe('dueDates', () => {
   })
 
   it('gives 3 termly dates', () => {
-    expect(dueDates('termly', '2025-26')).toEqual([
+    expect(dueDates('termly', '2025-09-01')).toEqual([
       '2025-09-01',
       '2026-01-01',
       '2026-04-01',
@@ -70,15 +46,11 @@ describe('dueDates', () => {
   })
 
   it('gives a single yearly date', () => {
-    expect(dueDates('yearly', '2025-26')).toEqual(['2025-09-01'])
+    expect(dueDates('yearly', '2025-09-01')).toEqual(['2025-09-01'])
   })
 
   it('has no schedule for custom plans', () => {
-    expect(dueDates('custom', '2025-26')).toEqual([])
-  })
-
-  it('has no schedule for an invalid academic year', () => {
-    expect(dueDates('monthly', 'bad')).toEqual([])
+    expect(dueDates('custom', '2025-09-01')).toEqual([])
   })
 })
 
@@ -238,39 +210,5 @@ describe('resolvedPlanOrNull', () => {
 describe('formatGbp', () => {
   it('formats pounds and pence', () => {
     expect(formatGbp(1234.5)).toBe('£1,234.50')
-  })
-})
-
-describe('academicYearRange', () => {
-  it('runs from 1 September to 31 August', () => {
-    expect(academicYearRange('2025-26')).toEqual({
-      start: '2025-09-01',
-      end: '2026-08-31',
-    })
-  })
-
-  it('is null for an unrecognised value', () => {
-    expect(academicYearRange('soon')).toBeNull()
-  })
-})
-
-describe('paymentsInAcademicYear', () => {
-  const payments = [
-    { payment_date: '2025-08-31' },
-    { payment_date: '2025-09-01' },
-    { payment_date: '2026-08-31' },
-    { payment_date: '2026-09-01' },
-  ]
-
-  it('keeps payments inside the year, inclusive of both ends', () => {
-    expect(paymentsInAcademicYear(payments, '2025-26')).toEqual([
-      { payment_date: '2025-09-01' },
-      { payment_date: '2026-08-31' },
-    ])
-  })
-
-  it('keeps every payment when the year is unknown', () => {
-    expect(paymentsInAcademicYear(payments, null)).toHaveLength(4)
-    expect(paymentsInAcademicYear(payments, 'bad')).toHaveLength(4)
   })
 })

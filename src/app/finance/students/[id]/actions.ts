@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 
 import { auth } from '@/auth'
 import {
-  createStudentPayment,
+  addStudentPayment,
   deleteStudentPayment,
   logAuditEvent,
   upsertStudentFeeAccount,
@@ -47,9 +47,10 @@ export async function saveStudentFeeAccountAction(
 
   const parsed = studentFeeAccountSchema.safeParse(extractFormFields(formData))
   if (!parsed.success) return { error: parsed.error.issues[0].message }
+  const { academic_year_id, ...input } = parsed.data
 
   try {
-    await upsertStudentFeeAccount(studentId, parsed.data)
+    await upsertStudentFeeAccount(studentId, academic_year_id, input)
     logAuditEvent({
       staffId: gate.actorId,
       action: 'update',
@@ -80,7 +81,7 @@ export async function addStudentPaymentAction(
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
   try {
-    const payment = await createStudentPayment(studentId, {
+    const payment = await addStudentPayment(studentId, {
       ...parsed.data,
       recorded_by: gate.actorId,
     })

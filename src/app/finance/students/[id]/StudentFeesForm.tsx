@@ -8,6 +8,7 @@ import type { ActionResult } from '@/lib/schemas'
 
 type Props = {
   account: StudentFeeAccountRow | null
+  academicYearId: string
   planOptions: { id: string; label: string }[]
   action: (formData: FormData) => Promise<ActionResult>
 }
@@ -18,6 +19,7 @@ const LABEL = 'block text-sm font-medium text-gray-700'
 
 export default function StudentFeesForm({
   account,
+  academicYearId,
   planOptions,
   action,
 }: Props): React.ReactElement {
@@ -45,6 +47,7 @@ export default function StudentFeesForm({
       className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200"
     >
       <h2 className="text-sm font-semibold text-gray-900">Fee account</h2>
+      <input type="hidden" name="academic_year_id" value={academicYearId} />
 
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
@@ -134,6 +137,34 @@ export default function StudentFeesForm({
               Required for a custom plan: explain the agreed arrangement.
             </p>
           )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            id="settled"
+            name="settled"
+            type="checkbox"
+            defaultChecked={account?.settled ?? false}
+            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+          <label
+            htmlFor="settled"
+            className="text-sm font-medium text-gray-700"
+          >
+            Settled (written off or agreed as paid)
+          </label>
+        </div>
+        <div className="sm:col-span-2">
+          <label htmlFor="settled_note" className={LABEL}>
+            Settled note
+          </label>
+          <textarea
+            id="settled_note"
+            name="settled_note"
+            rows={2}
+            defaultValue={account?.settled_note ?? ''}
+            className={INPUT}
+          />
         </div>
       </div>
 

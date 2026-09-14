@@ -5,17 +5,34 @@ import type { FeePlanWithClasses } from '@/db'
 
 import FeePlanForm from './FeePlanForm'
 
+const YEAR_A = { id: 'year-a', code: '2025-26' }
+const YEAR_B = { id: 'year-b', code: '2026-27' }
+const years = [YEAR_A, YEAR_B]
+
 const classes = [
-  { id: 'c1', name: 'Alpha', year_group: 'Year 1', academic_year: '2025-26' },
-  { id: 'c2', name: 'Beta', year_group: 'Year 2', academic_year: '2025/26' },
-  { id: 'c3', name: 'Gamma', year_group: 'Year 3', academic_year: '2026-27' },
-  { id: 'c4', name: 'Delta', year_group: 'Year 4', academic_year: null },
+  {
+    id: 'c1',
+    name: 'Alpha',
+    year_group: 'Year 1',
+    academic_year_id: YEAR_A.id,
+  },
+  { id: 'c2', name: 'Beta', year_group: 'Year 2', academic_year_id: YEAR_A.id },
+  {
+    id: 'c3',
+    name: 'Gamma',
+    year_group: 'Year 3',
+    academic_year_id: YEAR_B.id,
+  },
 ]
 
 const plan: FeePlanWithClasses = {
   id: 'p1',
   name: 'Standard',
-  academic_year: '2025-26',
+  academic_year: {
+    ...YEAR_A,
+    start_date: '2025-09-01',
+    end_date: '2026-08-31',
+  },
   full_year_amount: 800,
   monthly_instalment_amount: 100,
   termly_instalment_amount: 266.67,
@@ -33,50 +50,66 @@ function checkbox(name: string): HTMLInputElement {
 }
 
 describe('FeePlanForm', () => {
-  it('asks for the academic year before listing classes', () => {
+  it('shows a note when the chosen year has no classes', () => {
     render(
       <FeePlanForm
         plan={null}
-        classes={classes}
+        classes={[]}
+        years={years}
+        defaultAcademicYearId={YEAR_A.id}
         takenBy={{}}
         action={vi.fn()}
         submitLabel="Add fee plan"
       />,
     )
 
-    expect(
-      screen.getByText('Enter the academic year to choose its classes.'),
-    ).toBeTruthy()
+    expect(screen.getByText('No classes in this academic year.')).toBeTruthy()
     expect((screen.getByLabelText('Active') as HTMLInputElement).checked).toBe(
       true,
     )
-
-    fireEvent.change(screen.getByLabelText(/Academic year/), {
-      target: { value: '2030-31' },
-    })
-    expect(screen.getByText('No classes in 2030-31.')).toBeTruthy()
+    expect(
+      screen.getByText(/Inactive plans still apply to their classes/),
+    ).toBeTruthy()
   })
 
-  it('shows only classes from the chosen year, in either year format', () => {
+  it('shows only classes from the chosen year', () => {
     render(
       <FeePlanForm
         plan={null}
         classes={classes}
+        years={years}
+        defaultAcademicYearId={YEAR_A.id}
         takenBy={{ c2: 'Sibling (2025-26)' }}
         action={vi.fn()}
         submitLabel="Add fee plan"
       />,
     )
 
-    fireEvent.change(screen.getByLabelText(/Academic year/), {
-      target: { value: '2025/26' },
-    })
-
     expect(checkbox('Alpha').disabled).toBe(false)
     expect(checkbox('Beta').disabled).toBe(true)
     expect(screen.getByText('On Sibling (2025-26)')).toBeTruthy()
     expect(screen.queryByRole('checkbox', { name: /Gamma/ })).toBeNull()
-    expect(screen.queryByRole('checkbox', { name: /Delta/ })).toBeNull()
+  })
+
+  it('switches the class list when the academic year changes', () => {
+    render(
+      <FeePlanForm
+        plan={null}
+        classes={classes}
+        years={years}
+        defaultAcademicYearId={YEAR_A.id}
+        takenBy={{}}
+        action={vi.fn()}
+        submitLabel="Add fee plan"
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText(/Academic year/), {
+      target: { value: YEAR_B.id },
+    })
+
+    expect(screen.getByRole('checkbox', { name: /Gamma/ })).toBeTruthy()
+    expect(screen.queryByRole('checkbox', { name: /Alpha/ })).toBeNull()
   })
 
   it('prefills an existing plan', () => {
@@ -84,6 +117,7 @@ describe('FeePlanForm', () => {
       <FeePlanForm
         plan={plan}
         classes={classes}
+        years={years}
         takenBy={{}}
         action={vi.fn()}
         submitLabel="Save changes"
@@ -93,6 +127,9 @@ describe('FeePlanForm', () => {
     expect((screen.getByLabelText(/Name/) as HTMLInputElement).value).toBe(
       'Standard',
     )
+    expect(
+      (screen.getByLabelText(/Academic year/) as HTMLSelectElement).value,
+    ).toBe(YEAR_A.id)
     expect(
       (screen.getByLabelText(/Termly instalment/) as HTMLInputElement).value,
     ).toBe('266.67')
@@ -115,6 +152,7 @@ describe('FeePlanForm', () => {
       <FeePlanForm
         plan={plan}
         classes={classes}
+        years={years}
         takenBy={{}}
         action={action}
         submitLabel="Save changes"
@@ -129,7 +167,7 @@ describe('FeePlanForm', () => {
     )
     const fd = action.mock.calls[0][0] as FormData
     expect(fd.getAll('class_ids')).toEqual(['c1', 'c2'])
-    expect(fd.get('academic_year')).toBe('2025-26')
+    expect(fd.get('academic_year_id')).toBe(YEAR_A.id)
     expect(fd.get('active')).toBeNull()
   })
 })

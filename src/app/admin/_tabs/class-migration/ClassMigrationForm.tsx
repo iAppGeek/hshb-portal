@@ -6,11 +6,12 @@ import { useRouter } from 'next/navigation'
 
 import type { ActionResult } from '@/lib/schemas'
 
+export type MigrationYear = { id: string; code: string }
+
 export type MigrationClass = {
   id: string
   name: string
   year_group: string
-  academic_year: string | null
 }
 
 export type MigrationTeacher = {
@@ -27,6 +28,8 @@ export type MigrationStudent = {
 }
 
 type Props = {
+  years: MigrationYear[]
+  targetYearId: string
   classes: MigrationClass[]
   teachers: MigrationTeacher[]
   sourceClassId: string | null
@@ -36,6 +39,8 @@ type Props = {
 }
 
 export default function ClassMigrationForm({
+  years,
+  targetYearId,
   classes,
   teachers,
   sourceClassId,
@@ -47,13 +52,17 @@ export default function ClassMigrationForm({
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
+  function handleTargetYearChange(
+    e: React.ChangeEvent<HTMLSelectElement>,
+  ): void {
+    router.push(`${baseUrl}&targetYearId=${e.target.value}`)
+  }
+
   function handleSourceChange(e: React.ChangeEvent<HTMLSelectElement>): void {
     const value = e.target.value
-    if (value) {
-      router.push(`${baseUrl}&sourceClassId=${value}`)
-    } else {
-      router.push(baseUrl)
-    }
+    router.push(
+      `${baseUrl}&targetYearId=${targetYearId}${value ? `&sourceClassId=${value}` : ''}`,
+    )
   }
 
   function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>): void {
@@ -68,13 +77,42 @@ export default function ClassMigrationForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* ── Section 1: Source Class ──────────────────────────────────── */}
+      <input type="hidden" name="academic_year_id" value={targetYearId} />
+
+      {/* ── Section 1: Target Year & Source Class ────────────────────── */}
       <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
         <h2 className="mb-4 text-sm font-semibold text-gray-900">
-          Source Class
+          Target Year & Source Class
         </h2>
 
         <div>
+          <label
+            htmlFor="target_year_select"
+            className="block text-sm font-medium text-gray-700"
+          >
+            Migrate into academic year
+            <span className="ml-0.5 text-red-500">*</span>
+          </label>
+          <select
+            id="target_year_select"
+            value={targetYearId}
+            onChange={handleTargetYearChange}
+            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+          >
+            {years.map((y) => (
+              <option key={y.id} value={y.id}>
+                {y.code}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-gray-500">
+            Create the new academic year first. After migrating, link that
+            year&apos;s fee plans to the new class in Finance, then make the
+            year current.
+          </p>
+        </div>
+
+        <div className="mt-4">
           <label
             htmlFor="source_class_select"
             className="block text-sm font-medium text-gray-700"
@@ -90,11 +128,15 @@ export default function ClassMigrationForm({
             <option value="">Select a class…</option>
             {classes.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name}
-                {c.academic_year ? ` (${c.academic_year})` : ''}
+                {c.name} (Year {c.year_group})
               </option>
             ))}
           </select>
+          {classes.length === 0 && (
+            <p className="mt-1 text-xs text-gray-500">
+              No active classes in the year before the target year.
+            </p>
+          )}
         </div>
 
         {sourceClassId && (
@@ -133,12 +175,6 @@ export default function ClassMigrationForm({
           <Field label="Class name" name="name" required />
           <Field label="Year group" name="year_group" required />
           <Field label="Room number" name="room_number" />
-          <Field
-            label="Academic year"
-            name="academic_year"
-            required
-            placeholder="e.g. 2026/27"
-          />
           <div className="sm:col-span-2">
             <label
               htmlFor="teacher_id"

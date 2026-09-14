@@ -4,7 +4,8 @@ import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import {
-  getAllClassesIncludingInactive,
+  getAcademicYears,
+  getClassesByAcademicYear,
   getFeePlanById,
   getFeePlans,
 } from '@/db'
@@ -30,15 +31,19 @@ export default async function EditFeePlanPage({
   }
 
   const { id } = await params
-  const [plan, classes, plans] = await Promise.all([
+  const [plan, years, plans] = await Promise.all([
     getFeePlanById(id),
-    getAllClassesIncludingInactive(),
+    getAcademicYears(),
     getFeePlans(),
   ])
 
   if (!plan) {
     redirect('/finance?tab=fee-plans')
   }
+
+  const classes = (
+    await Promise.all(years.map((y) => getClassesByAcademicYear(y.id)))
+  ).flat()
 
   return (
     <div className="max-w-3xl">
@@ -50,7 +55,7 @@ export default async function EditFeePlanPage({
           ← Fee plans
         </Link>
         <h1 className="mt-2 text-2xl font-bold text-gray-900">
-          Edit Fee Plan: {plan.name} ({plan.academic_year})
+          Edit Fee Plan: {plan.name} ({plan.academic_year.code})
         </h1>
         <p className="mt-1 text-sm text-gray-500">
           Fields marked with <span className="text-red-500">*</span> are
@@ -61,6 +66,7 @@ export default async function EditFeePlanPage({
       <FeePlanForm
         plan={plan}
         classes={toClassOptions(classes)}
+        years={years}
         takenBy={takenClassLabels(plans, plan.id)}
         action={updateFeePlanAction.bind(null, plan.id)}
         submitLabel="Save changes"
