@@ -7,18 +7,15 @@ import {
   formatTimeInSchoolTz,
   todayInSchoolTz,
 } from '@/lib/datetime'
+import { summariseAttendance } from '@/lib/attendanceSummary'
 import { canAccessReports, isTeachingStaff } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 import {
-  getStudentCount,
-  getEnrollmentCountsByClass,
-  getAllClasses,
   getAllStaff,
-  getAttendanceSummaryByDate,
-  getAttendanceLateCount,
   getStaffSignedInCount,
   getStaffAttendanceByDateRange,
   getAttendanceByDateRange,
+  getEnrolmentsInRange,
   getIncidentCountsByDateRange,
 } from '@/db'
 
@@ -114,48 +111,38 @@ export default async function ReportsPage({
 
   // ── Day mode ───────────────────────────────────────────────────────────────
   if (mode === 'day') {
-    const [
-      activeStudentCount,
-      enrollmentCounts,
-      classes,
-      staff,
-      attendanceSummary,
-      staffSignedInCount,
-      lateCount,
-    ] = await Promise.all([
-      getStudentCount(),
-      getEnrollmentCountsByClass(),
-      getAllClasses(),
-      getAllStaff(),
-      getAttendanceSummaryByDate(selectedDate),
-      getStaffSignedInCount(selectedDate),
-      getAttendanceLateCount(selectedDate),
-    ])
+    const [staff, staffSignedInCount, attendanceRows, enrolments] =
+      await Promise.all([
+        getAllStaff(),
+        getStaffSignedInCount(selectedDate),
+        getAttendanceByDateRange(selectedDate, selectedDate),
+        getEnrolmentsInRange(selectedDate, selectedDate),
+      ])
 
     const teachingStaff = staff.filter((s) =>
       isTeachingStaff(s.role as StaffRole),
     )
 
-    const presentToday = Object.values(attendanceSummary).reduce(
-      (sum, s) => sum + s.presentCount,
-      0,
-    )
+    const summary = summariseAttendance(attendanceRows, enrolments, [
+      selectedDate,
+    ])
+    const totals = summary.byDate[selectedDate]
+    const showYearCode =
+      new Set(summary.classes.map((c) => c.class.yearCode)).size > 1
 
-    const enrolmentByClass = classes.map((cls) => {
-      const summary = attendanceSummary[cls.id]
-      const enrolled = enrollmentCounts[cls.id] ?? 0
-      return {
-        name: cls.name,
-        enrolled,
-        presentCount: summary?.presentCount ?? null,
-        attendanceCreatedAt: summary
-          ? formatTimeInSchoolTz(summary.createdAt)
-          : null,
-        attendanceUpdatedAt: summary
-          ? formatTimeInSchoolTz(summary.updatedAt)
-          : null,
-      }
-    })
+    const enrolmentByClass = summary.classes.map((cls) => ({
+      name: showYearCode
+        ? `${cls.class.name} (${cls.class.yearCode})`
+        : cls.class.name,
+      enrolled: cls.enrolled,
+      presentCount: cls.firstRecordedAt ? cls.present : null,
+      attendanceCreatedAt: cls.firstRecordedAt
+        ? formatTimeInSchoolTz(cls.firstRecordedAt)
+        : null,
+      attendanceUpdatedAt: cls.lastUpdatedAt
+        ? formatTimeInSchoolTz(cls.lastUpdatedAt)
+        : null,
+    }))
 
     const pct = (n: number, total: number) =>
       total > 0 ? `${Math.round((n / total) * 100)}%` : '—'
@@ -168,12 +155,12 @@ export default async function ReportsPage({
       },
       {
         label: 'Students attendance',
-        value: `${presentToday}/${activeStudentCount}`,
-        sub: pct(presentToday, activeStudentCount),
+        value: `${totals.distinctPresent}/${totals.distinctEnrolled}`,
+        sub: pct(totals.distinctPresent, totals.distinctEnrolled),
       },
       {
         label: 'Students late',
-        value: lateCount,
+        value: totals.distinctLate,
         sub: null,
       },
     ]
@@ -198,15 +185,13 @@ export default async function ReportsPage({
   const [
     staffAttendanceRows,
     attendanceRows,
-    enrollmentCounts,
-    classes,
+    enrolments,
     staff,
     incidentCounts,
   ] = await Promise.all([
     getStaffAttendanceByDateRange(startDate, endDate),
     getAttendanceByDateRange(startDate, endDate),
-    getEnrollmentCountsByClass(),
-    getAllClasses(),
+    getEnrolmentsInRange(startDate, endDate),
     getAllStaff(),
     getIncidentCountsByDateRange(startDate, endDate),
   ])
@@ -259,33 +244,27 @@ export default async function ReportsPage({
     }))
     .sort((a, b) => b.daysWorked - a.daysWorked)
 
-  // Per-class attendance
-  const classCountsMap = new Map<
-    string,
-    { present: number; absent: number; late: number }
-  >()
-  for (const row of attendanceRows) {
-    if (!classCountsMap.has(row.class_id)) {
-      classCountsMap.set(row.class_id, { present: 0, absent: 0, late: 0 })
-    }
-    const entry = classCountsMap.get(row.class_id)!
-    if (row.status === 'present') entry.present++
-    else if (row.status === 'late') {
-      entry.present++ // late counts toward attendance
-      entry.late++
-    } else if (row.status === 'absent') entry.absent++
-  }
+  // Per-class attendance. Untaken registers count as absences against
+  // possible attendance (decision 7), so possible comes from enrolment, not
+  // marks.
+  const summary = summariseAttendance(
+    attendanceRows,
+    enrolments,
+    schoolDayDates.map((d) => d.date),
+  )
+  const showYearCode =
+    new Set(summary.classes.map((c) => c.class.yearCode)).size > 1
 
-  const classSummary = classes.map((cls) => {
-    const counts = classCountsMap.get(cls.id)
-    return {
-      name: cls.name,
-      enrolled: enrollmentCounts[cls.id] ?? 0,
-      presentCount: counts?.present ?? 0,
-      absentCount: counts?.absent ?? 0,
-      lateCount: counts?.late ?? 0,
-    }
-  })
+  const classSummary = summary.classes.map((cls) => ({
+    name: showYearCode
+      ? `${cls.class.name} (${cls.class.yearCode})`
+      : cls.class.name,
+    enrolled: cls.enrolled,
+    presentCount: cls.present,
+    absentCount: cls.absent,
+    lateCount: cls.late,
+    possible: cls.possible,
+  }))
 
   return (
     <>

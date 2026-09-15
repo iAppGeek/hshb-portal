@@ -19,6 +19,7 @@ type ClassSummaryRow = {
   presentCount: number
   absentCount: number
   lateCount: number
+  possible: number
 }
 
 type Props = {
@@ -167,8 +168,7 @@ export default function PeriodReport({
             </thead>
             <tbody className="divide-y divide-gray-200">
               {classSummary.map((row) => {
-                const possibleAttendance = row.enrolled * totalSchoolDays
-                const attendanceRate = pct(row.presentCount, possibleAttendance)
+                const attendanceRate = pct(row.presentCount, row.possible)
                 return (
                   <tr key={row.name} className="hover:bg-gray-50">
                     <td className="px-6 py-3 text-sm font-medium text-gray-900">

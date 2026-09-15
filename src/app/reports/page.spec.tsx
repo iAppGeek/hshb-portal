@@ -12,15 +12,11 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/db', () => ({
-  getStudentCount: vi.fn(),
-  getEnrollmentCountsByClass: vi.fn(),
-  getAllClasses: vi.fn(),
   getAllStaff: vi.fn(),
-  getAttendanceSummaryByDate: vi.fn(),
-  getAttendanceLateCount: vi.fn(),
   getStaffSignedInCount: vi.fn(),
   getStaffAttendanceByDateRange: vi.fn(),
   getAttendanceByDateRange: vi.fn(),
+  getEnrolmentsInRange: vi.fn(),
   getIncidentCountsByDateRange: vi.fn(),
 }))
 
@@ -40,15 +36,11 @@ vi.mock('./_components/PeriodReport', () => ({
 
 import { auth } from '@/auth'
 import {
-  getStudentCount,
-  getEnrollmentCountsByClass,
-  getAllClasses,
   getAllStaff,
-  getAttendanceSummaryByDate,
-  getAttendanceLateCount,
   getStaffSignedInCount,
   getStaffAttendanceByDateRange,
   getAttendanceByDateRange,
+  getEnrolmentsInRange,
   getIncidentCountsByDateRange,
 } from '@/db'
 
@@ -60,16 +52,12 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
   // Day mode defaults
-  vi.mocked(getStudentCount).mockResolvedValue(0)
-  vi.mocked(getEnrollmentCountsByClass).mockResolvedValue({})
-  vi.mocked(getAllClasses).mockResolvedValue([])
   vi.mocked(getAllStaff).mockResolvedValue([])
-  vi.mocked(getAttendanceSummaryByDate).mockResolvedValue({})
-  vi.mocked(getAttendanceLateCount).mockResolvedValue(0)
   vi.mocked(getStaffSignedInCount).mockResolvedValue(0)
+  vi.mocked(getAttendanceByDateRange).mockResolvedValue([])
+  vi.mocked(getEnrolmentsInRange).mockResolvedValue([])
   // Range mode defaults
   vi.mocked(getStaffAttendanceByDateRange).mockResolvedValue([])
-  vi.mocked(getAttendanceByDateRange).mockResolvedValue([])
   vi.mocked(getIncidentCountsByDateRange).mockResolvedValue({
     medical: 0,
     behaviour: 0,
@@ -130,9 +118,15 @@ describe('ReportsPage', () => {
   it('calls day-specific DB functions with selected date', async () => {
     const searchParams = Promise.resolve({ mode: 'day', date: '2024-01-15' })
     render(await ReportsPage({ searchParams }))
-    expect(getAttendanceSummaryByDate).toHaveBeenCalledWith('2024-01-15')
+    expect(getAttendanceByDateRange).toHaveBeenCalledWith(
+      '2024-01-15',
+      '2024-01-15',
+    )
+    expect(getEnrolmentsInRange).toHaveBeenCalledWith(
+      '2024-01-15',
+      '2024-01-15',
+    )
     expect(getStaffSignedInCount).toHaveBeenCalledWith('2024-01-15')
-    expect(getAttendanceLateCount).toHaveBeenCalledWith('2024-01-15')
   })
 
   // ── Month mode ──────────────────────────────────────────────────────────

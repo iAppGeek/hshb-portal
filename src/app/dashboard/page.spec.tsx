@@ -13,7 +13,8 @@ vi.mock('@/db', () => ({
   getTeachers: vi.fn(),
   getIncidentCount: vi.fn(),
   getLessonPlanCountByDate: vi.fn(),
-  getAttendanceSummaryByDate: vi.fn(),
+  getAttendanceByDateRange: vi.fn(),
+  getEnrolmentsInRange: vi.fn(),
   getStaffSignedInCount: vi.fn(),
   getPendingRegistrationCount: vi.fn(),
 }))
@@ -46,12 +47,43 @@ import {
   getTeachers,
   getIncidentCount,
   getLessonPlanCountByDate,
-  getAttendanceSummaryByDate,
+  getAttendanceByDateRange,
+  getEnrolmentsInRange,
   getStaffSignedInCount,
   getPendingRegistrationCount,
 } from '@/db'
+import { todayInSchoolTz } from '@/lib/datetime'
 
 import DashboardPage from './page'
+
+const today = todayInSchoolTz()
+const summaryClass = { id: 'c1', name: 'Class', active: true, yearCode: null }
+
+function enrolment(studentId: string) {
+  return {
+    class_id: 'c1',
+    student_id: studentId,
+    start_date: '2020-01-01',
+    end_date: null,
+    class: summaryClass,
+  }
+}
+
+function attendance(
+  studentId: string,
+  status: 'present' | 'absent' | 'late',
+  classId = 'c1',
+) {
+  return {
+    class_id: classId,
+    student_id: studentId,
+    date: today,
+    status,
+    created_at: `${today}T09:00:00Z`,
+    updated_at: `${today}T09:00:00Z`,
+    class: { ...summaryClass, id: classId },
+  }
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -66,7 +98,8 @@ function mockAdmin() {
   vi.mocked(getTeachers).mockResolvedValue([])
   vi.mocked(getIncidentCount).mockResolvedValue(0)
   vi.mocked(getLessonPlanCountByDate).mockResolvedValue(0)
-  vi.mocked(getAttendanceSummaryByDate).mockResolvedValue({})
+  vi.mocked(getAttendanceByDateRange).mockResolvedValue([])
+  vi.mocked(getEnrolmentsInRange).mockResolvedValue([])
   vi.mocked(getStaffSignedInCount).mockResolvedValue(0)
   vi.mocked(getPendingRegistrationCount).mockResolvedValue(0)
 }
@@ -115,17 +148,36 @@ describe('DashboardPage', () => {
     expect(screen.getByText('5')).toBeTruthy()
   })
 
-  it('shows attendance ratio and percentage for admin', async () => {
+  it('shows distinct-student attendance ratio and percentage for admin', async () => {
     mockAdmin()
-    vi.mocked(getStudentCount).mockResolvedValue(100)
-    vi.mocked(getAttendanceSummaryByDate).mockResolvedValue({
-      'class-1': { presentCount: 20, createdAt: '', updatedAt: '' },
-      'class-2': { presentCount: 30, createdAt: '', updatedAt: '' },
-    })
+    const ids = Array.from({ length: 100 }, (_, i) => `s${i}`)
+    vi.mocked(getEnrolmentsInRange).mockResolvedValue(ids.map(enrolment) as any)
+    vi.mocked(getAttendanceByDateRange).mockResolvedValue(
+      ids.slice(0, 50).map((id) => attendance(id, 'present')) as any,
+    )
 
     render(await DashboardPage())
     expect(screen.getByText('50/100')).toBeTruthy()
     expect(screen.getByText('50%')).toBeTruthy()
+  })
+
+  it('counts a dual-class student once in the attendance ratio', async () => {
+    mockAdmin()
+    vi.mocked(getEnrolmentsInRange).mockResolvedValue([
+      enrolment('dual'),
+      {
+        ...enrolment('dual'),
+        class_id: 'c2',
+        class: { ...summaryClass, id: 'c2' },
+      },
+    ] as any)
+    vi.mocked(getAttendanceByDateRange).mockResolvedValue([
+      attendance('dual', 'present', 'c1'),
+      attendance('dual', 'present', 'c2'),
+    ] as any)
+
+    render(await DashboardPage())
+    expect(screen.getByText('1/1')).toBeTruthy()
   })
 
   it('shows registers submitted ratio for admin', async () => {
@@ -135,9 +187,9 @@ describe('DashboardPage', () => {
       { id: 'c-2' },
       { id: 'c-3' },
     ] as any)
-    vi.mocked(getAttendanceSummaryByDate).mockResolvedValue({
-      'c-1': { presentCount: 10, createdAt: '', updatedAt: '' },
-    })
+    vi.mocked(getAttendanceByDateRange).mockResolvedValue([
+      attendance('s1', 'present', 'c-1'),
+    ] as any)
 
     render(await DashboardPage())
     expect(screen.getByText('1/3')).toBeTruthy()
@@ -192,6 +244,13 @@ describe('DashboardPage', () => {
     expect(getStudentCount).not.toHaveBeenCalled()
   })
 
+  it('does not query attendance data for teacher role', async () => {
+    mockTeacher()
+    await DashboardPage()
+    expect(getAttendanceByDateRange).not.toHaveBeenCalled()
+    expect(getEnrolmentsInRange).not.toHaveBeenCalled()
+  })
+
   it('calls getStudentCount for admin role', async () => {
     mockAdmin()
     vi.mocked(getStudentCount).mockResolvedValue(42)
@@ -223,7 +282,8 @@ describe('DashboardPage', () => {
     vi.mocked(getTeachers).mockResolvedValue([])
     vi.mocked(getIncidentCount).mockResolvedValue(0)
     vi.mocked(getLessonPlanCountByDate).mockResolvedValue(0)
-    vi.mocked(getAttendanceSummaryByDate).mockResolvedValue({})
+    vi.mocked(getAttendanceByDateRange).mockResolvedValue([])
+    vi.mocked(getEnrolmentsInRange).mockResolvedValue([])
     vi.mocked(getStaffSignedInCount).mockResolvedValue(0)
     vi.mocked(getPendingRegistrationCount).mockResolvedValue(0)
 
