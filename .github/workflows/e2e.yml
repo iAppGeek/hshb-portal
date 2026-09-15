@@ -26,6 +26,7 @@ jobs:
       AZURE_AD_TENANT_ID: ci-placeholder
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
       TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
+      VAPID_SUBJECT: mailto:e2e@test.hshb.local
 
     steps:
       - name: Checkout
@@ -39,6 +40,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Generate a throwaway VAPID keypair
+        run: |
+          KEYS=$(npx web-push generate-vapid-keys --json)
+          echo "NEXT_PUBLIC_VAPID_PUBLIC_KEY=$(echo "$KEYS" | jq -r .publicKey)" >> "$GITHUB_ENV"
+          echo "VAPID_PRIVATE_KEY=$(echo "$KEYS" | jq -r .privateKey)" >> "$GITHUB_ENV"
 
       - name: Start local Supabase
         run: npx supabase start
