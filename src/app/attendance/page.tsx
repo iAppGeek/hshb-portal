@@ -10,6 +10,7 @@ import {
   getCurrentAcademicYear,
 } from '@/db'
 import { resolveYearId } from '@/lib/academicYears'
+import { canTakeRegister } from '@/lib/classes'
 import { todayInSchoolTz } from '@/lib/datetime'
 import { isAdmin, isTeacher } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
@@ -72,36 +73,39 @@ export default async function AttendancePage({
   const admin = isAdmin(role)
   const [years, currentYear] = admin
     ? await Promise.all([getAcademicYears(), getCurrentAcademicYear()])
-    : [[], null]
-  const selectedYear = currentYear
+    : [[], await getCurrentAcademicYear()]
+  const selectedYear = admin
     ? (years.find(
         (y) => y.id === resolveYearId(years, qYear, currentYear.id),
       ) ?? currentYear)
-    : null
-  // The current year lists active classes. Another year lists all of its
-  // classes, since a completed class is inactive, and its registers are
-  // read-only.
-  const isNonCurrentYear = Boolean(
-    selectedYear && currentYear && selectedYear.id !== currentYear.id,
-  )
+    : currentYear
+  const isNonCurrentYear = admin && selectedYear.id !== currentYear.id
 
+  // Admins see every class of the selected year, active or not, so a
+  // completed current-year class is still visible (read-only). Everyone
+  // else sees only what they're allowed to take registers for.
   const classes = isTeacher(role)
     ? await getClassesByTeacher(staffId)
-    : isNonCurrentYear && selectedYear
+    : admin
       ? await getClassesByAcademicYear(selectedYear.id)
       : await getAllClasses()
 
-  const defaultDate =
-    isNonCurrentYear && selectedYear
-      ? today >= selectedYear.start_date && today <= selectedYear.end_date
-        ? today
-        : selectedYear.end_date
-      : today
+  const defaultDate = isNonCurrentYear
+    ? today >= selectedYear.start_date && today <= selectedYear.end_date
+      ? today
+      : selectedYear.end_date
+    : today
   const selectedDate = qDate ?? defaultDate
 
-  const selectedClass =
-    classes.find((c) => c.id === qClassId) ?? classes[0] ?? null
+  const requestedClass = qClassId
+    ? (classes.find((c) => c.id === qClassId) ?? null)
+    : null
+  const classUnavailable = Boolean(qClassId) && !requestedClass
+  const selectedClass = requestedClass ?? classes[0] ?? null
   const selectedClassId = selectedClass?.id ?? null
+  const archived = selectedClass
+    ? !canTakeRegister(selectedClass, currentYear)
+    : false
 
   return (
     <div>
@@ -109,7 +113,7 @@ export default async function AttendancePage({
         <h1 className="text-2xl font-bold text-gray-900">
           Attendance Register
         </h1>
-        {admin && selectedYear && (
+        {admin && (
           <YearSelector
             years={years}
             value={selectedYear.id}
@@ -128,22 +132,31 @@ export default async function AttendancePage({
             classes={classes}
             selectedClassId={selectedClassId}
             selectedDate={selectedDate}
-            yearId={admin ? selectedYear?.id : undefined}
+            yearId={admin ? selectedYear.id : undefined}
           />
 
-          {selectedClassId && (
-            <Suspense
-              key={`${selectedClassId}-${selectedDate}`}
-              fallback={<RegisterSkeleton />}
-            >
-              <AttendanceRegister
-                classId={selectedClassId}
-                date={selectedDate}
-                className={selectedClass?.name ?? selectedClassId}
-                role={role}
-                archived={isNonCurrentYear}
-              />
-            </Suspense>
+          {classUnavailable ? (
+            <div className="rounded-xl bg-white p-12 text-center shadow-sm ring-1 ring-gray-200">
+              <p className="text-gray-500">
+                This class isn&apos;t available. It may have been completed or
+                you may not have access.
+              </p>
+            </div>
+          ) : (
+            selectedClassId && (
+              <Suspense
+                key={`${selectedClassId}-${selectedDate}`}
+                fallback={<RegisterSkeleton />}
+              >
+                <AttendanceRegister
+                  classId={selectedClassId}
+                  date={selectedDate}
+                  className={selectedClass?.name ?? selectedClassId}
+                  role={role}
+                  archived={archived}
+                />
+              </Suspense>
+            )
           )}
         </>
       )}

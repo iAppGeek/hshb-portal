@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useTransition } from 'react'
 
-type Class = { id: string; name: string }
+type Class = { id: string; name: string; active: boolean }
 
 type Props = {
   classes: Class[]
@@ -58,7 +58,7 @@ export default function AttendanceFilters({
                   : 'bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50'
               }`}
             >
-              {cls.name}
+              {cls.active ? cls.name : `${cls.name} (completed)`}
             </button>
           ))}
         </div>

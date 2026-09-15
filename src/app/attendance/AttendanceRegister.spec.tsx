@@ -2,21 +2,29 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
 vi.mock('@/db', () => ({
-  getStudentsByClass: vi.fn(),
+  getStudentsByIds: vi.fn(),
   getAttendanceByClassAndDate: vi.fn(),
+  getEnrolmentsForClass: vi.fn(),
 }))
 
 vi.mock('./AttendanceForm', () => ({
   default: vi.fn(() => <div>AttendanceForm</div>),
 }))
 
-import { getStudentsByClass, getAttendanceByClassAndDate } from '@/db'
+import {
+  getStudentsByIds,
+  getAttendanceByClassAndDate,
+  getEnrolmentsForClass,
+} from '@/db'
 
 import AttendanceRegister from './AttendanceRegister'
 import AttendanceForm from './AttendanceForm'
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(getStudentsByIds).mockResolvedValue([])
+  vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
+  vi.mocked(getEnrolmentsForClass).mockResolvedValue([])
 })
 
 const mockStudent = {
@@ -26,9 +34,17 @@ const mockStudent = {
   student_code: 'S001',
 }
 
+const openEnrolment = {
+  class_id: 'class-1',
+  student_id: 'student-1',
+  start_date: '2020-01-01',
+  end_date: null,
+}
+
 describe('AttendanceRegister', () => {
-  it('fetches students and attendance in parallel', async () => {
-    vi.mocked(getStudentsByClass).mockResolvedValue([mockStudent] as any)
+  it('builds the roster from marked and enrolled students', async () => {
+    vi.mocked(getEnrolmentsForClass).mockResolvedValue([openEnrolment] as any)
+    vi.mocked(getStudentsByIds).mockResolvedValue([mockStudent] as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
 
     render(
@@ -40,15 +56,17 @@ describe('AttendanceRegister', () => {
       }),
     )
 
-    expect(getStudentsByClass).toHaveBeenCalledWith('class-1')
+    expect(getEnrolmentsForClass).toHaveBeenCalledWith('class-1')
     expect(getAttendanceByClassAndDate).toHaveBeenCalledWith(
       'class-1',
       '2024-06-15',
     )
+    expect(getStudentsByIds).toHaveBeenCalledWith(['student-1'])
   })
 
   it('renders AttendanceForm with students and existing attendance', async () => {
-    vi.mocked(getStudentsByClass).mockResolvedValue([mockStudent] as any)
+    vi.mocked(getEnrolmentsForClass).mockResolvedValue([openEnrolment] as any)
+    vi.mocked(getStudentsByIds).mockResolvedValue([mockStudent] as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([
       {
         id: 'att-1',
@@ -80,10 +98,52 @@ describe('AttendanceRegister', () => {
     )
   })
 
-  it('shows the class name and date in the summary line', async () => {
-    vi.mocked(getStudentsByClass).mockResolvedValue([mockStudent] as any)
-    vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
+  it('renders the empty-roster message instead of the form when no one was enrolled', async () => {
+    render(
+      await AttendanceRegister({
+        classId: 'class-1',
+        date: '2024-06-15',
+        className: 'Year 3A',
+        role: 'admin',
+      }),
+    )
 
+    expect(
+      screen.getByText('No students were in this class on this date.'),
+    ).toBeTruthy()
+    expect(vi.mocked(AttendanceForm)).not.toHaveBeenCalled()
+  })
+
+  it('includes a leaver with a mark, and a same-day joiner on a taken register', async () => {
+    vi.mocked(getEnrolmentsForClass).mockResolvedValue([
+      {
+        class_id: 'class-1',
+        student_id: 'joiner',
+        start_date: '2024-06-15',
+        end_date: null,
+      },
+    ] as any)
+    vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([
+      {
+        id: 'att-1',
+        student_id: 'leaver',
+        status: 'absent',
+        class_id: 'class-1',
+        date: '2024-06-15',
+      },
+    ] as any)
+
+    await AttendanceRegister({
+      classId: 'class-1',
+      date: '2024-06-15',
+      className: 'Year 3A',
+      role: 'admin',
+    })
+
+    expect(getStudentsByIds).toHaveBeenCalledWith(['joiner', 'leaver'])
+  })
+
+  it('shows the class name and date in the summary line', async () => {
     render(
       await AttendanceRegister({
         classId: 'class-1',
@@ -98,7 +158,6 @@ describe('AttendanceRegister', () => {
   })
 
   it('shows already-taken notice when existing attendance exists', async () => {
-    vi.mocked(getStudentsByClass).mockResolvedValue([mockStudent] as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([
       {
         id: 'att-1',
@@ -122,9 +181,6 @@ describe('AttendanceRegister', () => {
   })
 
   it('does not show already-taken notice when no existing attendance', async () => {
-    vi.mocked(getStudentsByClass).mockResolvedValue([mockStudent] as any)
-    vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
-
     render(
       await AttendanceRegister({
         classId: 'class-1',
@@ -138,9 +194,6 @@ describe('AttendanceRegister', () => {
   })
 
   it('shows Historical label for a past date', async () => {
-    vi.mocked(getStudentsByClass).mockResolvedValue([])
-    vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
-
     render(
       await AttendanceRegister({
         classId: 'class-1',
@@ -154,9 +207,6 @@ describe('AttendanceRegister', () => {
   })
 
   it('shows Future label for a future date', async () => {
-    vi.mocked(getStudentsByClass).mockResolvedValue([])
-    vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
-
     render(
       await AttendanceRegister({
         classId: 'class-1',
@@ -170,9 +220,6 @@ describe('AttendanceRegister', () => {
   })
 
   it("shows Today label for today's date", async () => {
-    vi.mocked(getStudentsByClass).mockResolvedValue([])
-    vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
-
     const today = new Date().toISOString().split('T')[0]
 
     render(
@@ -188,8 +235,8 @@ describe('AttendanceRegister', () => {
   })
 
   it('passes archived to AttendanceForm, defaulting to false', async () => {
-    vi.mocked(getStudentsByClass).mockResolvedValue([mockStudent] as any)
-    vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
+    vi.mocked(getEnrolmentsForClass).mockResolvedValue([openEnrolment] as any)
+    vi.mocked(getStudentsByIds).mockResolvedValue([mockStudent] as any)
 
     render(
       await AttendanceRegister({
