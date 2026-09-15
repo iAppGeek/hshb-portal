@@ -19,6 +19,12 @@ import {
   registrationStatusFilter,
   createClassSchema,
   updateClassSchema,
+  LEAVING_REASONS,
+  leavingReason,
+  LEAVING_REASON_LABELS,
+  leaverSchema,
+  migrationAction,
+  migrateClassSchema,
   updateGuardianSchema,
   createIncidentSchema,
   updateIncidentSchema,
@@ -313,7 +319,7 @@ describe('createClassSchema', () => {
 })
 
 describe('updateClassSchema', () => {
-  it('requires the active field', () => {
+  it('accepts valid class data without an active field', () => {
     const result = updateClassSchema.parse({
       name: 'Year 1',
       year_group: '1',
@@ -321,9 +327,8 @@ describe('updateClassSchema', () => {
       academic_year_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
       teacher_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
       student_ids: [],
-      active: 'true',
     })
-    expect(result.active).toBe(true)
+    expect(result).not.toHaveProperty('active')
   })
 
   it('drops the academic year, which cannot change after creation', () => {
@@ -334,9 +339,96 @@ describe('updateClassSchema', () => {
       academic_year_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
       teacher_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
       student_ids: [],
-      active: 'true',
     })
     expect(result).not.toHaveProperty('academic_year_id')
+  })
+})
+
+describe('leavingReason / LEAVING_REASON_LABELS', () => {
+  it('accepts the three known reasons', () => {
+    for (const reason of LEAVING_REASONS) {
+      expect(leavingReason.parse(reason)).toBe(reason)
+    }
+  })
+
+  it('rejects an unknown reason', () => {
+    expect(() => leavingReason.parse('expelled')).toThrow()
+  })
+
+  it('has a label for every reason', () => {
+    for (const reason of LEAVING_REASONS) {
+      expect(LEAVING_REASON_LABELS[reason]).toBeTruthy()
+    }
+  })
+})
+
+describe('leaverSchema', () => {
+  it('accepts a valid reason', () => {
+    expect(leaverSchema.parse({ reason: 'graduated' }).reason).toBe('graduated')
+  })
+
+  it('rejects a missing reason', () => {
+    expect(() => leaverSchema.parse({ reason: '' })).toThrow()
+  })
+})
+
+describe('migrationAction', () => {
+  it('accepts move, none and the leaving reasons', () => {
+    for (const action of ['move', 'none', ...LEAVING_REASONS]) {
+      expect(migrationAction.parse(action)).toBe(action)
+    }
+  })
+
+  it('rejects an unknown action', () => {
+    expect(() => migrationAction.parse('stay')).toThrow()
+  })
+})
+
+describe('migrateClassSchema', () => {
+  const uuid1 = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'
+  const uuid2 = 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'
+
+  it('requires new-class details when create_new_class is true', () => {
+    const result = migrateClassSchema.parse({
+      create_new_class: 'true',
+      source_class_id: uuid1,
+      student_actions: { [uuid2]: 'move' },
+      name: 'Year 2A',
+      year_group: '2',
+      room_number: '',
+      academic_year_id: uuid1,
+      teacher_id: uuid1,
+    })
+    expect(result.create_new_class).toBe('true')
+  })
+
+  it('rejects create_new_class true without the new-class fields', () => {
+    expect(
+      migrateClassSchema.safeParse({
+        create_new_class: 'true',
+        source_class_id: uuid1,
+        student_actions: { [uuid2]: 'move' },
+      }).success,
+    ).toBe(false)
+  })
+
+  it('accepts create_new_class false without new-class fields', () => {
+    const result = migrateClassSchema.parse({
+      create_new_class: 'false',
+      source_class_id: uuid1,
+      student_actions: { [uuid2]: 'graduated' },
+    })
+    expect(result.create_new_class).toBe('false')
+  })
+
+  it('rejects a move action when create_new_class is false', () => {
+    expect(
+      migrateClassSchema.safeParse({
+        create_new_class: 'false',
+        source_class_id: uuid1,
+        student_actions: { [uuid2]: 'move' },
+      }).success,
+    ).toBe(false)
   })
 })
 
