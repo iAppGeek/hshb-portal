@@ -47,11 +47,7 @@ export function expiryState(
 
 export type PaymentFunding = 'kea' | 'school'
 export type IdType =
-  | 'passport'
-  | 'driving_licence'
-  | 'brp'
-  | 'birth_certificate'
-  | 'other'
+  'passport' | 'driving_licence' | 'brp' | 'birth_certificate' | 'other'
 export type DbsLevel = 'enhanced' | 'standard' | 'basic'
 
 export const PAYMENT_FUNDING_LABELS: Record<PaymentFunding, string> = {
