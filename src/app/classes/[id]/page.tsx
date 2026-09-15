@@ -9,27 +9,16 @@ import { guardianEmailsForMailto, mailtoWithBcc } from '@/lib/mailto'
 import { isTeacher } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
-import EmptyState from '../../_components/EmptyState'
+import PrintButton from '../PrintButton'
 
+import ClassRegisterCard, { type RegisterStudent } from './ClassRegisterCard'
 import EnrolmentHistoryTable, {
   type EnrolmentHistoryRow,
 } from './EnrolmentHistoryTable'
-import PrintButton from './PrintButton'
 
 export const metadata: Metadata = { title: 'Class Register' }
 
-type Student = {
-  id: string
-  student_code: string | null
-  first_name: string
-  last_name: string
-  allergies: string | null
-  primary_guardian: {
-    first_name: string
-    last_name: string
-    phone: string | null
-    email: string | null
-  } | null
+type Student = RegisterStudent & {
   secondary_guardian: {
     first_name: string
     last_name: string
@@ -83,9 +72,6 @@ export default async function ClassRegisterPage({
     subject: `${cls.name} — Class register`,
   })
 
-  const LABEL =
-    'text-xs font-medium tracking-wide text-gray-500 uppercase print:font-bold print:text-gray-900'
-
   return (
     <div className="max-w-5xl print:max-w-none">
       <style>{`@page { size: A4 portrait; margin: 10mm; } @media print { a[href]::after { content: none !important; } }`}</style>
@@ -122,124 +108,18 @@ export default async function ClassRegisterPage({
         <h1 className="text-xl font-bold">{cls.name} — Class Register</h1>
       </div>
 
-      {/* Class info */}
-      <div className="mb-6 grid grid-cols-2 gap-4 rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200 sm:grid-cols-4 print:mb-4 print:rounded-none print:p-px print:shadow-none print:ring-0">
-        <div>
-          <p className={LABEL}>Teacher</p>
-          <p className="mt-1 text-sm font-medium text-gray-900">
-            {teacherName}
-          </p>
-          {teacher?.email && (
-            <a
-              href={`mailto:${teacher.email}`}
-              className="text-sm break-all text-blue-600 hover:text-blue-800"
-            >
-              {teacher.email}
-            </a>
-          )}
-        </div>
-        <div>
-          <p className={LABEL}>Year Group</p>
-          <p className="mt-1 text-sm font-medium text-gray-900">
-            Year {cls.year_group}
-          </p>
-        </div>
-        <div>
-          <p className={LABEL}>Academic Year</p>
-          <p className="mt-1 text-sm font-medium text-gray-900">
-            {cls.academic_year ?? '—'}
-          </p>
-        </div>
-        <div>
-          <p className={LABEL}>Date</p>
-          <p className="mt-1 min-w-[100px] border-b border-gray-300 pb-1 text-sm">
-            &nbsp;
-          </p>
-        </div>
-      </div>
-
-      {/* Students */}
-      {students.length === 0 ? (
-        <div className="print:hidden">
-          <EmptyState
-            message={
-              enrolmentHistory.length > 0
-                ? 'No current students. See enrolment history below.'
-                : 'No students enrolled in this class.'
-            }
-          />
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-gray-200 print:overflow-visible print:rounded-none print:shadow-none print:ring-0">
-          <table className="min-w-full border-collapse">
-            <thead className="bg-gray-50 print:bg-white">
-              <tr>
-                {[
-                  { label: '#', mobileHidden: true },
-                  { label: 'Student ID', mobileHidden: true },
-                  { label: 'First Name', mobileHidden: false },
-                  { label: 'Surname', mobileHidden: false },
-                  { label: 'Primary Contact', mobileHidden: false },
-                  { label: 'Allergies', mobileHidden: false },
-                  { label: 'Attendance', mobileHidden: false },
-                ].map(({ label, mobileHidden }) => (
-                  <th
-                    key={label}
-                    className={`border border-gray-200 px-3 py-2 text-left text-xs font-medium tracking-wide text-gray-500 uppercase sm:px-6 sm:py-3 print:table-cell print:border-gray-400 print:p-px print:text-xs print:font-bold print:text-gray-900 ${mobileHidden ? 'hidden sm:table-cell' : ''}`}
-                  >
-                    {label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {students.map((student, i) => (
-                <tr
-                  key={student.id}
-                  className="hover:bg-gray-50 print:hover:bg-white"
-                >
-                  <td className="hidden border border-gray-200 px-3 py-2 text-sm text-gray-500 sm:table-cell sm:px-6 sm:py-3 print:table-cell print:border-gray-400 print:p-px print:text-xs">
-                    {i + 1}
-                  </td>
-                  <td className="hidden border border-gray-200 px-3 py-2 text-sm text-gray-700 sm:table-cell sm:px-6 sm:py-3 print:table-cell print:border-gray-400 print:p-px print:text-xs">
-                    {student.student_code ?? '—'}
-                  </td>
-                  <td className="border border-gray-200 px-3 py-2 text-sm text-gray-900 sm:px-6 sm:py-3 print:border-gray-400 print:p-px print:text-xs">
-                    {student.first_name}
-                  </td>
-                  <td className="border border-gray-200 px-3 py-2 text-sm font-medium text-gray-900 sm:px-6 sm:py-3 print:border-gray-400 print:p-px print:text-xs">
-                    {student.last_name}
-                  </td>
-                  <td className="border border-gray-200 px-3 py-2 text-sm text-gray-700 sm:px-6 sm:py-3 print:border-gray-400 print:p-px print:text-xs">
-                    {student.primary_guardian ? (
-                      <>
-                        <span className="block">
-                          {student.primary_guardian.first_name}{' '}
-                          {student.primary_guardian.last_name}
-                        </span>
-                        {student.primary_guardian.phone && (
-                          <a
-                            href={`tel:${student.primary_guardian.phone}`}
-                            className="block text-blue-600 hover:text-blue-800"
-                          >
-                            {student.primary_guardian.phone}
-                          </a>
-                        )}
-                      </>
-                    ) : (
-                      '—'
-                    )}
-                  </td>
-                  <td className="border border-gray-200 px-3 py-2 text-sm text-gray-700 sm:px-6 sm:py-3 print:border-gray-400 print:p-px print:text-xs">
-                    {student.allergies ?? '—'}
-                  </td>
-                  <td className="w-16 border border-gray-200 px-3 py-2 sm:px-6 sm:py-3 print:w-16 print:border-gray-400 print:p-px" />
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <ClassRegisterCard
+        teacherName={teacherName}
+        teacherEmail={teacher?.email ?? null}
+        yearGroup={cls.year_group}
+        academicYear={cls.academic_year}
+        students={students}
+        emptyMessage={
+          enrolmentHistory.length > 0
+            ? 'No current students. See enrolment history below.'
+            : 'No students enrolled in this class.'
+        }
+      />
 
       <div className="print:hidden">
         <EnrolmentHistoryTable rows={enrolmentHistory} />
