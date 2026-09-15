@@ -43,7 +43,7 @@
   "devDependencies": {
     "@commitlint/cli": "21.2.2",
     "@commitlint/config-conventional": "21.2.2",
-    "@eslint/js": "9.39.4",
+    "@eslint/js": "10.0.1",
     "@netlify/plugin-nextjs": "5.15.13",
     "@playwright/test": "1.63.0",
     "@tailwindcss/forms": "0.5.11",
