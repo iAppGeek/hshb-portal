@@ -26,7 +26,7 @@ const mockClasses: ClassRow[] = [
     academic_year: '2024/25',
     academic_year_id: 'year-1',
     active: true,
-    completed: false,
+    editable: true,
     teacher: { first_name: 'Jane', last_name: 'Smith' },
   },
   {
@@ -37,7 +37,7 @@ const mockClasses: ClassRow[] = [
     academic_year: null,
     academic_year_id: 'year-0',
     active: false,
-    completed: true,
+    editable: false,
     teacher: null,
   },
 ]
@@ -80,11 +80,11 @@ describe('ClassesTable', () => {
     expect(screen.queryByRole('link', { name: 'Edit' })).toBeNull()
   })
 
-  it('shows Edit links when canEdit is true, but not for a completed class', () => {
+  it('shows Edit links when canEdit is true, but not for a read-only class', () => {
     render(<ClassesTable classes={mockClasses} canEdit={true} role="admin" />)
     const editLinks = screen.getAllByRole('link', { name: 'Edit' })
-    // Only class-1 (not completed) gets an Edit link, in both the mobile
-    // name cell and desktop actions cell — class-2 is completed.
+    // Only class-1 (editable) gets an Edit link, in both the mobile name cell
+    // and desktop actions cell — class-2 is read-only.
     expect(editLinks).toHaveLength(2)
     expect(editLinks[0].getAttribute('href')).toBe('/classes/class-1/edit')
     expect(editLinks[1].getAttribute('href')).toBe('/classes/class-1/edit')

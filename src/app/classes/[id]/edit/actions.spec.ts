@@ -7,7 +7,6 @@ import {
   updateClass,
   setClassStudents,
   getClassById,
-  getAcademicYears,
   getCurrentAcademicYear,
 } from '@/db'
 
@@ -20,7 +19,6 @@ vi.mock('@/db', () => ({
   updateClass: vi.fn(),
   setClassStudents: vi.fn(),
   getClassById: vi.fn(),
-  getAcademicYears: vi.fn(),
   getCurrentAcademicYear: vi.fn(),
   logAuditEvent: vi.fn(),
 }))
@@ -47,7 +45,6 @@ beforeEach(() => {
     active: true,
     academic_year_id: YEAR_ID,
   } as any)
-  vi.mocked(getAcademicYears).mockResolvedValue([currentYear] as any)
   vi.mocked(getCurrentAcademicYear).mockResolvedValue(currentYear as any)
 })
 
@@ -119,16 +116,24 @@ describe('updateClassAction', () => {
     expect(redirect).toHaveBeenCalledWith('/classes')
   })
 
-  it('refuses to edit a completed class', async () => {
-    vi.mocked(getClassById).mockResolvedValue({
-      id: CLASS_ID,
-      active: false,
-      academic_year_id: YEAR_ID,
-    } as any)
+  it.each([
+    ['an inactive class', { active: false, academic_year_id: YEAR_ID }],
+    [
+      'an active class from another year',
+      {
+        active: true,
+        academic_year_id: '00000000-0000-4000-8000-000000000041',
+      },
+    ],
+  ])('refuses to edit %s', async (_label, cls) => {
+    vi.mocked(getClassById).mockResolvedValue({ id: CLASS_ID, ...cls } as any)
 
     const result = await updateClassAction(CLASS_ID, makeFormData(baseFields))
-    expect(result).toEqual({ error: "Completed classes can't be edited." })
+    expect(result).toEqual({
+      error: 'Only active classes in the current academic year can be edited.',
+    })
     expect(updateClass).not.toHaveBeenCalled()
+    expect(setClassStudents).not.toHaveBeenCalled()
   })
 
   it('passes selected student ids to setClassStudents', async () => {

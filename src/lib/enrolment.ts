@@ -1,5 +1,10 @@
 // Pure enrolment-history helpers. student_classes rows are dated stays:
-// start_date inclusive, end_date exclusive, null = open. See plans/enrolment-history.md.
+// start_date inclusive, end_date exclusive, null = open.
+//
+// Two questions, two rules:
+// - "Current classes" (membership): stays with no end date, including one that
+//   starts in the future. Queried via withCurrentClasses in @/db/membership.
+// - "In the class on a date": isEnrolledOn / buildRegisterRoster below.
 
 export type EnrolmentRow = {
   class_id: string
@@ -36,18 +41,23 @@ export function buildRegisterRoster(
 }
 
 /**
- * The classes whose fee plan applies for one student in one year: their open
- * rows in that year if any, otherwise the rows with the latest end_date.
+ * The classes whose fee plan applies for one student in one year: their
+ * current stays in that year if any, otherwise the stays that ended last.
+ * A zero-length stay (added and removed the same day) never counts.
  */
 export function feeClassesForYear<
   T extends { start_date: string; end_date: string | null },
 >(rows: T[]): T[] {
-  if (rows.length === 0) return []
-  const open = rows.filter((r) => r.end_date === null)
-  if (open.length > 0) return open
-  const maxEndDate = rows.reduce(
-    (max, r) => (r.end_date! > max ? r.end_date! : max),
-    rows[0].end_date!,
+  const stays = rows.filter((r) => r.end_date !== r.start_date)
+  const current = stays.filter((r) => r.end_date === null)
+  if (current.length > 0) return current
+  const ended = stays.filter(
+    (r): r is T & { end_date: string } => r.end_date !== null,
   )
-  return rows.filter((r) => r.end_date === maxEndDate)
+  if (ended.length === 0) return []
+  const lastEndDate = ended.reduce(
+    (max, r) => (r.end_date > max ? r.end_date : max),
+    ended[0].end_date,
+  )
+  return ended.filter((r) => r.end_date === lastEndDate)
 }

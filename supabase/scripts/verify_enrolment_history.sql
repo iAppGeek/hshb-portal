@@ -74,13 +74,41 @@ BEGIN
     RAISE EXCEPTION 'FAIL 2: Alice (unchanged) row should be untouched and still open';
   END IF;
 
-  -- Completed class raises.
+  -- Inactive class raises.
   UPDATE classes SET active = false WHERE id = '10000000-0000-0000-0000-000000000002';
   BEGIN
     PERFORM set_enrolments(NULL, '10000000-0000-0000-0000-000000000002', ARRAY[]::uuid[]);
-    RAISE EXCEPTION 'FAIL 2: completed class should have raised';
+    RAISE EXCEPTION 'FAIL 2: inactive class should have raised';
   EXCEPTION WHEN OTHERS THEN
-    IF SQLERRM NOT LIKE 'Completed classes%' THEN RAISE; END IF;
+    IF SQLERRM NOT LIKE 'Only active classes in the current academic year%' THEN RAISE; END IF;
+  END;
+END $$;
+ROLLBACK;
+
+-- ─── 2b. set_enrolments class mode with leavers ─────────────────────────────
+BEGIN;
+DO $$
+BEGIN
+  -- Bob made inactive by hand without closing his Alpha row: saving Alpha with
+  -- him still ticked keeps that row as-is.
+  UPDATE students SET active = false WHERE id = '30000000-0000-0000-0000-000000000002';
+  PERFORM set_enrolments(NULL, '10000000-0000-0000-0000-000000000001',
+    ARRAY['30000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000002']::uuid[]);
+  IF NOT EXISTS (
+    SELECT 1 FROM student_classes WHERE id = '40000000-0000-0000-0000-000000000002' AND end_date IS NULL
+  ) THEN
+    RAISE EXCEPTION 'FAIL 2b: Bob''s existing open row should be kept';
+  END IF;
+
+  -- A leaver who isn't on the class can't be added.
+  UPDATE students SET active = false WHERE id = '30000000-0000-0000-0000-000000000003';
+  BEGIN
+    PERFORM set_enrolments(NULL, '10000000-0000-0000-0000-000000000001',
+      ARRAY['30000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000002',
+            '30000000-0000-0000-0000-000000000003']::uuid[]);
+    RAISE EXCEPTION 'FAIL 2b: adding a leaver should have raised';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM NOT LIKE 'Leavers can''t be enrolled%' THEN RAISE; END IF;
   END;
 END $$;
 ROLLBACK;
@@ -129,7 +157,6 @@ DO $$
 DECLARE
   v_future_year_id uuid;
   v_future_class_id uuid;
-  v_row student_classes%ROWTYPE;
 BEGIN
   INSERT INTO academic_years (code, start_date, end_date)
   VALUES ('2027-28', '2027-09-01', '2028-08-31')
@@ -139,13 +166,14 @@ BEGIN
   VALUES ('Future Class', 'Year 1', 'R9', '00000000-0000-0000-0000-000000000003', v_future_year_id, true)
   RETURNING id INTO v_future_class_id;
 
-  PERFORM set_enrolments(NULL, v_future_class_id, ARRAY['30000000-0000-0000-0000-000000000003']::uuid[]);
-
-  SELECT * INTO v_row FROM student_classes
-    WHERE class_id = v_future_class_id AND student_id = '30000000-0000-0000-0000-000000000003';
-  IF v_row.start_date <> '2027-09-01' THEN
-    RAISE EXCEPTION 'FAIL 4: expected start_date 2027-09-01, got %', v_row.start_date;
-  END IF;
+  -- Only the current year's classes are open; a future class is read-only
+  -- until its year is made current.
+  BEGIN
+    PERFORM set_enrolments(NULL, v_future_class_id, ARRAY['30000000-0000-0000-0000-000000000003']::uuid[]);
+    RAISE EXCEPTION 'FAIL 4: future-year class should have raised';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM NOT LIKE 'Only active classes in the current academic year%' THEN RAISE; END IF;
+  END;
 END $$;
 ROLLBACK;
 
@@ -156,6 +184,13 @@ DECLARE
   v_open_count int;
   v_reason text;
 BEGIN
+  BEGIN
+    PERFORM mark_student_as_leaver('30000000-0000-0000-0000-000000000001', NULL);
+    RAISE EXCEPTION 'FAIL 5: a missing reason should have raised';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM NOT LIKE 'Choose a leaving reason%' THEN RAISE; END IF;
+  END;
+
   PERFORM mark_student_as_leaver('30000000-0000-0000-0000-000000000001', 'graduated');
 
   SELECT count(*) INTO v_open_count FROM student_classes
@@ -214,10 +249,16 @@ BEGIN
 
   SELECT EXISTS (
     SELECT 1 FROM student_classes
-    WHERE student_id = '30000000-0000-0000-0000-000000000001' AND class_id = v_new_class_id AND end_date IS NULL
+    WHERE student_id = '30000000-0000-0000-0000-000000000001' AND class_id = v_new_class_id
+      AND end_date IS NULL AND start_date = '2027-09-01'
   ) INTO v_moved_open;
   IF NOT v_moved_open THEN
-    RAISE EXCEPTION 'FAIL 6: Alice should have an open row in the new class';
+    RAISE EXCEPTION 'FAIL 6: Alice should have an open row in the new class from the target year start';
+  END IF;
+
+  -- The source stay ends with the source year, not on the day of migration.
+  IF (SELECT end_date FROM student_classes WHERE id = '40000000-0000-0000-0000-000000000001') <> '2027-09-01' THEN
+    RAISE EXCEPTION 'FAIL 6: Alice''s Alpha row should end 2027-09-01 (source year end + 1)';
   END IF;
 
   SELECT active INTO v_bob_active FROM students WHERE id = '30000000-0000-0000-0000-000000000002';
@@ -265,14 +306,18 @@ BEGIN
     IF SQLERRM NOT LIKE 'The class changed since the form was loaded%' THEN RAISE; END IF;
   END;
 
-  -- Close date: today when before year end (Gamma, current year, holding
-  -- Carol from the setup above).
+  -- Close date: the source year's end + 1 even when that is still ahead
+  -- (Gamma, current year, holding Carol from the setup above).
   v_result := migrate_class(
     '10000000-0000-0000-0000-000000000003',
     jsonb_build_object('30000000-0000-0000-0000-000000000003', 'none')
   );
   IF (v_result->>'new_class_id') IS NOT NULL THEN
     RAISE EXCEPTION 'FAIL 6: expected no new class for Gamma';
+  END IF;
+  IF (SELECT end_date FROM student_classes
+      WHERE student_id = '30000000-0000-0000-0000-000000000003' AND class_id = '10000000-0000-0000-0000-000000000003') <> '2027-09-01' THEN
+    RAISE EXCEPTION 'FAIL 6: Carol''s Gamma row should end 2027-09-01';
   END IF;
 
   -- Close date: year end + 1 when the source year has already ended
@@ -297,6 +342,76 @@ BEGIN
     IF v_close_row.end_date <> '2026-09-01' THEN
       RAISE EXCEPTION 'FAIL 6: expected close date 2026-09-01 (year end + 1), got %', v_close_row.end_date;
     END IF;
+  END;
+END $$;
+ROLLBACK;
+
+-- ─── 6b. migrating last year's class after the new year is current ─────────
+BEGIN;
+DO $$
+DECLARE
+  v_past_class_id uuid;
+  v_alice_row_id uuid;
+  v_bob_row_id uuid;
+  v_result json;
+  v_new_class_id uuid;
+  v_new_row student_classes%ROWTYPE;
+  v_older_year_id uuid;
+  v_older_class_id uuid;
+BEGIN
+  -- A 2025-26 class that wasn't migrated before 2026-27 became current (e.g.
+  -- migrating on 5 September). Alice is still on it; Bob was made inactive by
+  -- hand without his row being closed.
+  INSERT INTO classes (name, year_group, room_number, teacher_id, academic_year_id, active)
+  VALUES ('Last Year', 'Year 3', 'R7', '00000000-0000-0000-0000-000000000003',
+          '05000000-0000-4000-8000-000000000002', true)
+  RETURNING id INTO v_past_class_id;
+  INSERT INTO student_classes (student_id, class_id, start_date)
+  VALUES ('30000000-0000-0000-0000-000000000001', v_past_class_id, '2025-09-01')
+  RETURNING id INTO v_alice_row_id;
+  INSERT INTO student_classes (student_id, class_id, start_date)
+  VALUES ('30000000-0000-0000-0000-000000000002', v_past_class_id, '2025-09-01')
+  RETURNING id INTO v_bob_row_id;
+  UPDATE students SET active = false WHERE id = '30000000-0000-0000-0000-000000000002';
+
+  -- Only active students need an action, so Bob is left out of the map.
+  v_result := migrate_class(
+    v_past_class_id,
+    jsonb_build_object('30000000-0000-0000-0000-000000000001', 'move'),
+    '05000000-0000-4000-8000-000000000001', 'This Year', 'Year 4', 'R7', '00000000-0000-0000-0000-000000000002'
+  );
+  v_new_class_id := (v_result->>'new_class_id')::uuid;
+
+  IF (SELECT end_date FROM student_classes WHERE id = v_alice_row_id) <> '2026-09-01' THEN
+    RAISE EXCEPTION 'FAIL 6b: Alice''s old stay should end 2026-09-01';
+  END IF;
+  SELECT * INTO v_new_row FROM student_classes
+    WHERE student_id = '30000000-0000-0000-0000-000000000001' AND class_id = v_new_class_id AND end_date IS NULL;
+  IF NOT FOUND OR v_new_row.start_date <> '2026-09-01' THEN
+    RAISE EXCEPTION 'FAIL 6b: Alice should start the new class on 2026-09-01, got %', v_new_row.start_date;
+  END IF;
+  IF (SELECT end_date FROM student_classes WHERE id = v_bob_row_id) IS NULL THEN
+    RAISE EXCEPTION 'FAIL 6b: inactive Bob''s row should have been closed';
+  END IF;
+  IF NOT is_class_open(v_new_class_id) THEN
+    RAISE EXCEPTION 'FAIL 6b: the new class should be open in the current year';
+  END IF;
+
+  -- A new class can't be created in a year before the current one.
+  INSERT INTO academic_years (code, start_date, end_date)
+  VALUES ('2024-25', '2024-09-01', '2025-08-31')
+  RETURNING id INTO v_older_year_id;
+  INSERT INTO classes (name, year_group, room_number, teacher_id, academic_year_id, active)
+  VALUES ('Two Years Ago', 'Year 2', 'R6', '00000000-0000-0000-0000-000000000003', v_older_year_id, true)
+  RETURNING id INTO v_older_class_id;
+  BEGIN
+    PERFORM migrate_class(
+      v_older_class_id, '{}'::jsonb,
+      '05000000-0000-4000-8000-000000000002', 'Last Year 2', 'Year 3', NULL, '00000000-0000-0000-0000-000000000002'
+    );
+    RAISE EXCEPTION 'FAIL 6b: migrating into a past year should have raised';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM NOT LIKE 'Students can''t be moved into a past academic year%' THEN RAISE; END IF;
   END;
 END $$;
 ROLLBACK;
@@ -360,6 +475,23 @@ BEGIN
       WHERE student_id = v_student_id AND class_id = '10000000-0000-0000-0000-000000000001' AND end_date IS NULL) <> 1 THEN
     RAISE EXCEPTION 'FAIL 7: expected exactly one new open row for the returning student';
   END IF;
+
+  -- A class that isn't open can't receive a student.
+  UPDATE classes SET active = false WHERE id = '10000000-0000-0000-0000-000000000002';
+  INSERT INTO registration_submissions (
+    id, status, child_first_name, child_last_name, date_of_birth,
+    address_line_1, city, postcode, consent_privacy_notice, consent_emergency_first_aid, declaration_name
+  ) VALUES (
+    gen_random_uuid(), 'pending', 'Verify', 'Closed', '2020-01-01',
+    '1 Verify St', 'London', 'N1 9ZZ', true, true, 'Verify Parent'
+  ) RETURNING id INTO v_submission_id;
+  BEGIN
+    PERFORM approve_registration(v_submission_id, '00000000-0000-0000-0000-000000000001',
+      'VER-002', '10000000-0000-0000-0000-000000000002');
+    RAISE EXCEPTION 'FAIL 7: approving into an inactive class should have raised';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM NOT LIKE 'Students can only be enrolled in active classes%' THEN RAISE; END IF;
+  END;
 END $$;
 ROLLBACK;
 

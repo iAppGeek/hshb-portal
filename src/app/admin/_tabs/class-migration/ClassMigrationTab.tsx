@@ -57,10 +57,17 @@ export default async function ClassMigrationTab({
     ? years.find((y) => y.id === selectedSource.academicYearId)
     : undefined
 
-  // Target years for a new class: only years after the source class's own
-  // year, so migrating never moves students backwards.
+  // Target years for a new class: after the source class's own year, and never
+  // before the current year. Earliest first, so the default for last year's
+  // class is the current year and for a current-year class is the next year.
   const availableTargetYears = sourceYear
-    ? years.filter((y) => y.start_date > sourceYear.start_date)
+    ? years
+        .filter(
+          (y) =>
+            y.start_date > sourceYear.start_date &&
+            y.start_date >= currentYear.start_date,
+        )
+        .sort((a, b) => a.start_date.localeCompare(b.start_date))
     : []
 
   const selectedTargetYearId =

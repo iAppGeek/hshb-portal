@@ -1,7 +1,7 @@
 // Pure attendance-summary helpers, built on dated enrolment rows so past
 // dates reflect who was actually enrolled at the time. See plans/enrolment-history.md.
 
-import { isEnrolledOn, type EnrolmentRow } from './enrolment'
+import { buildRegisterRoster, type EnrolmentRow } from './enrolment'
 
 export type SummaryClass = {
   id: string
@@ -69,24 +69,53 @@ export function summariseAttendance(
   for (const row of rangeAttendance) classesById.set(row.class_id, row.class)
   for (const row of enrolments) classesById.set(row.class_id, row.class)
 
-  const summariesByClass = new Map<string, ClassAttendanceSummary>()
-  for (const [classId, cls] of classesById) {
-    summariesByClass.set(classId, emptyClassSummary(cls))
+  const enrolmentsByClass = new Map<string, EnrolmentRangeRow[]>()
+  for (const row of enrolments) {
+    const list = enrolmentsByClass.get(row.class_id) ?? []
+    list.push(row)
+    enrolmentsByClass.set(row.class_id, list)
+  }
+  const markedByClassDate = new Map<string, string[]>()
+  for (const row of rangeAttendance) {
+    const key = `${row.class_id}|${row.date}`
+    const list = markedByClassDate.get(key) ?? []
+    list.push(row.student_id)
+    markedByClassDate.set(key, list)
   }
 
+  // A class's roster on a date uses the same rule as its register: everyone
+  // enrolled that day plus anyone marked. A student marked and then moved or
+  // made a leaver the same day still counts towards possible and enrolled.
+  const rostersByClass = new Map<string, Map<string, string[]>>()
+  for (const classId of classesById.keys()) {
+    const classEnrolments = enrolmentsByClass.get(classId) ?? []
+    const byDate = new Map<string, string[]>()
+    for (const date of dates) {
+      byDate.set(
+        date,
+        buildRegisterRoster(
+          markedByClassDate.get(`${classId}|${date}`) ?? [],
+          classEnrolments,
+          date,
+        ),
+      )
+    }
+    rostersByClass.set(classId, byDate)
+  }
+
+  const summariesByClass = new Map<string, ClassAttendanceSummary>()
   const lastDate = dates[dates.length - 1]
-  for (const [classId, summary] of summariesByClass) {
-    const classEnrolments = enrolments.filter((e) => e.class_id === classId)
+  for (const [classId, cls] of classesById) {
+    const summary = emptyClassSummary(cls)
+    const rosters = rostersByClass.get(classId)!
     if (lastDate !== undefined) {
-      summary.enrolled = classEnrolments.filter((e) =>
-        isEnrolledOn(e, lastDate),
-      ).length
+      summary.enrolled = rosters.get(lastDate)!.length
     }
     summary.possible = dates.reduce(
-      (sum, date) =>
-        sum + classEnrolments.filter((e) => isEnrolledOn(e, date)).length,
+      (sum, date) => sum + rosters.get(date)!.length,
       0,
     )
+    summariesByClass.set(classId, summary)
   }
 
   for (const row of rangeAttendance) {
@@ -129,7 +158,7 @@ export function summariseAttendance(
         .map((row) => row.student_id),
     )
     const enrolledStudentIds = new Set(
-      enrolments.filter((e) => isEnrolledOn(e, date)).map((e) => e.student_id),
+      [...rostersByClass.values()].flatMap((rosters) => rosters.get(date)!),
     )
     byDate[date] = {
       distinctPresent: presentStudentIds.size,

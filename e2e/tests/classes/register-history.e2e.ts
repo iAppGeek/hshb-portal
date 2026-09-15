@@ -352,6 +352,72 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
     }
   })
 
+  test('class edit keeps members hidden by the search and a leaver still on the class', async ({
+    page,
+    isMobile,
+  }, testInfo) => {
+    const suffix = testInfo.testId.replace(/[^a-z0-9]/gi, '')
+    const teacherId = await createTeacher(
+      `Search${suffix}`,
+      `e2e.search.${suffix}@test.hshb.local`,
+    )
+    const classId = await createClass(
+      `E2ESearch${suffix}`,
+      teacherId,
+      SEED_IDS.academicYears.current,
+    )
+    const memberId = await createStudent('Member', `Search${suffix}`)
+    const joinerId = await createStudent('Joiner', `Search${suffix}`)
+    const leaverId = await createStudent('Leaver', `Search${suffix}`)
+    await enrol(memberId, classId, PAST_DATE)
+    // A leaver whose stay was never closed, e.g. after a manual DB change.
+    await enrol(leaverId, classId, PAST_DATE)
+    await db
+      .from('students')
+      .update({ active: false, leaving_reason: 'left' })
+      .eq('id', leaverId)
+
+    try {
+      await gotoFresh(page, isMobile, `/classes/${classId}/edit`, async () => {
+        await expect(
+          page.locator(`input[name="student_ids"][value="${joinerId}"]`),
+        ).toBeVisible({ timeout: 3_000 })
+        await expect(
+          page.locator(`input[name="student_ids"][value="${leaverId}"]`),
+        ).toBeChecked({ timeout: 3_000 })
+      })
+      await expect(
+        page.locator('label', { hasText: `Search${suffix}, Leaver` }),
+      ).toContainText('Left')
+
+      // Search for the joiner only: the member and leaver rows are hidden.
+      await page
+        .getByPlaceholder('Filter students by name…')
+        .fill(`Joiner Search${suffix}`)
+      await expect(
+        page.locator(`input[name="student_ids"][value="${memberId}"]`),
+      ).toBeHidden()
+      await page
+        .locator(`input[name="student_ids"][value="${joinerId}"]`)
+        .check()
+      await page.getByRole('button', { name: 'Save changes' }).click()
+      await expect(page).toHaveURL('/classes')
+
+      const { data: current } = await db
+        .from('student_classes')
+        .select('student_id')
+        .eq('class_id', classId)
+        .is('end_date', null)
+      expect(current?.map((r) => r.student_id).sort()).toEqual(
+        [memberId, joinerId, leaverId].sort(),
+      )
+    } finally {
+      await cleanupStudents([memberId, joinerId, leaverId])
+      await cleanupClasses([classId])
+      await cleanupTeachers([teacherId])
+    }
+  })
+
   test('a late joiner appears unmarked on an already-taken register', async ({
     page,
     isMobile,
@@ -910,6 +976,87 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
       await db.from('fee_plans').delete().in('id', [planA!.id, planB!.id])
       await cleanupStudents([studentId])
       await cleanupClasses([classAId, classBId])
+      await cleanupTeachers([teacherId])
+    }
+  })
+
+  test("migrating last year's class after the new year is current starts students with the current year", async ({
+    page,
+    isMobile,
+  }, testInfo) => {
+    const suffix = testInfo.testId.replace(/[^a-z0-9]/gi, '')
+    const teacherId = await createTeacher(
+      `LastYear${suffix}`,
+      `e2e.lastyear.${suffix}@test.hshb.local`,
+    )
+    // Not migrated before the current year started: still active, with the
+    // student's stay still open.
+    const sourceClassId = await createClass(
+      `E2ELastYearSource${suffix}`,
+      teacherId,
+      SEED_IDS.academicYears.previous,
+    )
+    const moverId = await createStudent('Mover', `LastYear${suffix}`)
+    const sourceRowId = await enrol(moverId, sourceClassId, '2025-09-01')
+    const newClassName = `E2ELastYearTarget${suffix}`
+    let newClassId = ''
+
+    try {
+      await gotoFresh(
+        page,
+        isMobile,
+        `/admin?tab=class-migration&sourceClassId=${sourceClassId}`,
+        async () => {
+          await expect(
+            page.locator(`select[name="action_${moverId}"]`),
+          ).toBeVisible({ timeout: 3_000 })
+          await expect(
+            page.locator(`#teacher_id option[value="${teacherId}"]`),
+          ).toHaveCount(1, { timeout: 3_000 })
+        },
+      )
+      // Last year's class defaults to the current year, never a past one.
+      await expect(page.locator('#target_year_select')).toHaveValue(
+        SEED_IDS.academicYears.current,
+      )
+
+      await page.locator('input[name="name"]').fill(newClassName)
+      await page.locator('input[name="year_group"]').fill('4')
+      await page.locator('#teacher_id').selectOption(teacherId)
+      await page
+        .locator(`select[name="action_${moverId}"]`)
+        .selectOption('move')
+
+      await page.getByRole('button', { name: 'Migrate Class' }).click()
+      await expect(page).toHaveURL('/admin')
+
+      const { data: newClass } = await db
+        .from('classes')
+        .select('id, academic_year_id, active')
+        .eq('name', newClassName)
+        .single()
+      newClassId = newClass!.id
+      expect(newClass?.academic_year_id).toBe(SEED_IDS.academicYears.current)
+      expect(newClass?.active).toBe(true)
+
+      // Dates come from the academic years, not the day the migration ran.
+      const { data: sourceRow } = await db
+        .from('student_classes')
+        .select('end_date')
+        .eq('id', sourceRowId)
+        .single()
+      expect(sourceRow?.end_date).toBe('2026-09-01')
+
+      const { data: newRow } = await db
+        .from('student_classes')
+        .select('start_date, end_date')
+        .eq('student_id', moverId)
+        .eq('class_id', newClassId)
+        .single()
+      expect(newRow).toEqual({ start_date: '2026-09-01', end_date: null })
+    } finally {
+      await cleanupStudents([moverId])
+      await cleanupClasses([newClassId, sourceClassId])
       await cleanupTeachers([teacherId])
     }
   })

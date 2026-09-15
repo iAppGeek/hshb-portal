@@ -133,6 +133,22 @@ describe('feeClassesForYear', () => {
     expect(feeClassesForYear(rows)).toEqual(rows)
   })
 
+  it('ignores a zero-length stay even when it ended last', () => {
+    const rows = [
+      { id: 'real', start_date: '2026-09-01', end_date: '2027-01-10' },
+      { id: 'mistake', start_date: '2027-01-12', end_date: '2027-01-12' },
+    ]
+    expect(feeClassesForYear(rows)).toEqual([rows[0]])
+  })
+
+  it('returns [] when every stay is zero-length', () => {
+    expect(
+      feeClassesForYear([
+        { id: 'a', start_date: '2027-01-12', end_date: '2027-01-12' },
+      ]),
+    ).toEqual([])
+  })
+
   it('returns the rows with the latest end_date when all are closed with different dates', () => {
     const rows = [
       { id: 'a', start_date: '2025-09-01', end_date: '2025-12-01' },

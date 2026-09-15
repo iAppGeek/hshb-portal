@@ -187,6 +187,44 @@ describe('ClassMigrationTab', () => {
     expect(screen.getByTestId('target-year-id').textContent).toBe(nextYear.id)
   })
 
+  it("offers last year's class the current year first, and never a past year", async () => {
+    const PAST_CLASS_ID = '00000000-0000-4000-8000-000000000003'
+    const olderYear = {
+      id: 'year-0',
+      code: '2024-25',
+      start_date: '2024-09-01',
+      end_date: '2025-08-31',
+    }
+    vi.mocked(getAcademicYears).mockResolvedValue([
+      nextYear,
+      currentYear,
+      previousYear,
+      olderYear,
+    ] as any)
+    vi.mocked(getClassesByAcademicYear).mockImplementation(
+      async (yearId: string) =>
+        yearId === olderYear.id
+          ? ([{ id: PAST_CLASS_ID, name: 'Year 5A', active: true }] as any)
+          : ([] as any),
+    )
+
+    render(
+      await ClassMigrationTab({
+        sourceClassId: PAST_CLASS_ID,
+        targetYearId: previousYear.id,
+      }),
+    )
+
+    expect(screen.getByTestId('source-class-id').textContent).toBe(
+      PAST_CLASS_ID,
+    )
+    // 2025-26 is after the source year but before the current year.
+    expect(screen.getByTestId('available-years').textContent).toBe('2')
+    expect(screen.getByTestId('target-year-id').textContent).toBe(
+      currentYear.id,
+    )
+  })
+
   it('respects an explicit targetYearId that is a valid later year', async () => {
     render(
       await ClassMigrationTab({

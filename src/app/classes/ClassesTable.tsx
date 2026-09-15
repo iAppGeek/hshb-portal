@@ -20,7 +20,8 @@ export type ClassRow = {
   academic_year_id: string
   active: boolean
   teacher: Teacher
-  completed: boolean
+  /** Open (active, current year) — every other class is read-only. */
+  editable: boolean
 }
 
 type Props = {
@@ -79,7 +80,7 @@ export default function ClassesTable({ classes, canEdit, role }: Props) {
                       <span className="sm:hidden">
                         <StatusBadge active={cls.active} />
                       </span>
-                      {canEdit && !cls.completed ? (
+                      {canEdit && cls.editable ? (
                         <Link
                           href={`/classes/${cls.id}/edit`}
                           className="ml-auto shrink-0 text-sm text-gray-500 hover:text-gray-700 sm:hidden"
@@ -131,7 +132,7 @@ export default function ClassesTable({ classes, canEdit, role }: Props) {
                   </td>
                   <td className="hidden px-3 py-4 text-right text-sm font-medium sm:table-cell sm:px-6">
                     <div className="flex items-center justify-end gap-3">
-                      {canEdit && !cls.completed ? (
+                      {canEdit && cls.editable ? (
                         <Link
                           href={`/classes/${cls.id}/edit`}
                           className="text-gray-500 hover:text-gray-700"

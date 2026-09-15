@@ -14,7 +14,7 @@ import {
   saveAttendance,
   logAuditEvent,
 } from '@/db'
-import { canTakeRegister } from '@/lib/classes'
+import { isClassOpen } from '@/lib/classes'
 import { buildRegisterRoster } from '@/lib/enrolment'
 import { canUpdateAttendance } from '@/lib/permissions'
 import { uuid, isoDate, attendanceStatus, optionalString } from '@/lib/schemas'
@@ -51,7 +51,7 @@ export async function saveAttendanceAction(
     getCurrentAcademicYear(),
   ])
   if (!cls) return { error: 'Class not found' }
-  if (!canTakeRegister(cls, currentYear)) {
+  if (!isClassOpen(cls, currentYear)) {
     return {
       error:
         "This register can't be changed. The class has been completed or is not in the current academic year.",

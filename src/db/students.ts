@@ -4,12 +4,12 @@ import type { LeavingReason } from '@/lib/schemas'
 import type { Database } from '@/types/database'
 
 import { supabase } from './client'
+import { currentStays, withCurrentClasses } from './membership'
 
 const STUDENT_LIST_SELECT = 'id, first_name, last_name, student_code'
 
-// The student_classes embed is filtered to open rows only (current classes)
-// with `.is('student_classes.end_date', null)` at every call site below —
-// never `!inner`, which would drop students with no class.
+// The student_classes embed lists current classes, so every query using these
+// selects goes through withCurrentClasses.
 const STUDENT_SELECT = `
   *,
   student_classes(class:classes(id, name, year_group, academic_year:academic_years(code))),
@@ -128,23 +128,24 @@ export const getStudentsByTeacher = unstable_cache(
 
     const classIds = classes.map((c) => c.id)
 
-    const { data: enrollments } = await supabase
-      .from('student_classes')
-      .select('student_id')
-      .in('class_id', classIds)
-      .is('end_date', null)
+    const { data: enrollments } = await currentStays(
+      supabase
+        .from('student_classes')
+        .select('student_id')
+        .in('class_id', classIds),
+    )
 
     if (!enrollments?.length) return []
 
     const studentIds = [...new Set(enrollments.map((e) => e.student_id))]
 
-    const { data } = await supabase
-      .from('students')
-      .select(STUDENT_SELECT)
-      .in('id', studentIds)
-      .eq('active', true)
-      .is('student_classes.end_date', null)
-      .order('last_name')
+    const { data } = await withCurrentClasses(
+      supabase
+        .from('students')
+        .select(STUDENT_SELECT)
+        .in('id', studentIds)
+        .eq('active', true),
+    ).order('last_name')
     return (data ?? []).map(withClassYearCodes)
   },
   ['students-by-teacher'],
@@ -163,11 +164,12 @@ export const getStudentIdsByTeacher = unstable_cache(
 
     const classIds = classes.map((c) => c.id)
 
-    const { data: enrollments } = await supabase
-      .from('student_classes')
-      .select('student_id')
-      .in('class_id', classIds)
-      .is('end_date', null)
+    const { data: enrollments } = await currentStays(
+      supabase
+        .from('student_classes')
+        .select('student_id')
+        .in('class_id', classIds),
+    )
 
     return [...new Set(enrollments?.map((e) => e.student_id) ?? [])]
   },
@@ -203,10 +205,9 @@ export const getStudentsWithAllergiesCount = unstable_cache(
 
 export const getAllStudents = unstable_cache(
   async (includeInactive: boolean) => {
-    let query = supabase
-      .from('students')
-      .select(STUDENT_SELECT)
-      .is('student_classes.end_date', null)
+    let query = withCurrentClasses(
+      supabase.from('students').select(STUDENT_SELECT),
+    )
     if (!includeInactive) query = query.eq('active', true)
     const { data } = await query.order('last_name')
     return (data ?? []).map(withClassYearCodes)
@@ -217,23 +218,24 @@ export const getAllStudents = unstable_cache(
 
 export const getStudentsByClass = unstable_cache(
   async (classId: string) => {
-    const { data: enrollments } = await supabase
-      .from('student_classes')
-      .select('student_id')
-      .eq('class_id', classId)
-      .is('end_date', null)
+    const { data: enrollments } = await currentStays(
+      supabase
+        .from('student_classes')
+        .select('student_id')
+        .eq('class_id', classId),
+    )
 
     if (!enrollments?.length) return []
 
     const studentIds = enrollments.map((e) => e.student_id)
 
-    const { data } = await supabase
-      .from('students')
-      .select(STUDENT_SELECT)
-      .in('id', studentIds)
-      .eq('active', true)
-      .is('student_classes.end_date', null)
-      .order('last_name')
+    const { data } = await withCurrentClasses(
+      supabase
+        .from('students')
+        .select(STUDENT_SELECT)
+        .in('id', studentIds)
+        .eq('active', true),
+    ).order('last_name')
     return (data ?? []).map(withClassYearCodes)
   },
   ['students-by-class'],
@@ -242,12 +244,12 @@ export const getStudentsByClass = unstable_cache(
 
 export const getStudentById = unstable_cache(
   async (id: string) => {
-    const { data } = await supabase
-      .from('students')
-      .select(STUDENT_SELECT_WITH_TEACHER)
-      .eq('id', id)
-      .is('student_classes.end_date', null)
-      .single()
+    const { data } = await withCurrentClasses(
+      supabase
+        .from('students')
+        .select(STUDENT_SELECT_WITH_TEACHER)
+        .eq('id', id),
+    ).single()
     return data
   },
   ['student-by-id'],
@@ -258,12 +260,9 @@ export const getStudentById = unstable_cache(
 export const getStudentsByIds = unstable_cache(
   async (ids: string[]) => {
     if (ids.length === 0) return []
-    const { data } = await supabase
-      .from('students')
-      .select(STUDENT_SELECT)
-      .in('id', ids)
-      .is('student_classes.end_date', null)
-      .order('last_name')
+    const { data } = await withCurrentClasses(
+      supabase.from('students').select(STUDENT_SELECT).in('id', ids),
+    ).order('last_name')
     return (data ?? []).map(withClassYearCodes)
   },
   ['students-by-ids'],

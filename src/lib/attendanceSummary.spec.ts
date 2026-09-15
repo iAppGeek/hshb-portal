@@ -152,12 +152,48 @@ describe('summariseAttendance', () => {
     expect(summary.lastUpdatedAt).toBeNull()
   })
 
-  it('a class with marks but no enrolment in range still appears, with possible 0', () => {
+  it('counts a marked student with no enrolment towards possible on the marked date', () => {
     const attendanceRows = [attendance({ class: classA, student_id: 'alice' })]
     const result = summariseAttendance(attendanceRows, [], dates)
     expect(result.classes).toHaveLength(1)
-    expect(result.classes[0].possible).toBe(0)
+    expect(result.classes[0].possible).toBe(1)
     expect(result.classes[0].present).toBe(1)
+    expect(result.byDate['2026-09-01'].distinctEnrolled).toBe(1)
+  })
+
+  it('never reports more present than possible for a student marked then moved the same day', () => {
+    // Marked present on 09-02, then moved out that day (end_date exclusive).
+    const attendanceRows = [
+      attendance({ class: classA, student_id: 'mover', date: '2026-09-02' }),
+    ]
+    const enrolmentRows = [
+      enrolment({
+        class: classA,
+        student_id: 'mover',
+        start_date: '2026-09-01',
+        end_date: '2026-09-02',
+      }),
+    ]
+    const result = summariseAttendance(attendanceRows, enrolmentRows, dates)
+    const alpha = result.classes[0]
+    expect(alpha.possible).toBe(2)
+    expect(alpha.present).toBe(1)
+    expect(result.byDate['2026-09-02'].distinctPresent).toBe(1)
+    expect(result.byDate['2026-09-02'].distinctEnrolled).toBe(1)
+  })
+
+  it('counts a student once per class and date even with overlapping stays', () => {
+    const enrolmentRows = [
+      enrolment({ class: classA, student_id: 'alice', end_date: '2026-09-03' }),
+      enrolment({
+        class: classA,
+        student_id: 'alice',
+        start_date: '2026-09-02',
+      }),
+    ]
+    const result = summariseAttendance([], enrolmentRows, dates)
+    expect(result.classes[0].possible).toBe(3)
+    expect(result.classes[0].enrolled).toBe(1)
   })
 
   it('returns no byDate entries for an empty date list', () => {

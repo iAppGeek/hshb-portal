@@ -8,11 +8,10 @@ import {
   updateClass,
   setClassStudents,
   getClassById,
-  getAcademicYears,
   getCurrentAcademicYear,
   logAuditEvent,
 } from '@/db'
-import { isClassCompleted } from '@/lib/classes'
+import { isClassOpen } from '@/lib/classes'
 import { getUserFriendlyDbError } from '@/lib/db-error'
 import { canEditClasses } from '@/lib/permissions'
 import {
@@ -32,14 +31,15 @@ export async function updateClassAction(
   if (!canEditClasses(role)) return { error: 'Not authorised' }
   const staffId = session.user.staffId ?? null
 
-  const [cls, years, currentYear] = await Promise.all([
+  const [cls, currentYear] = await Promise.all([
     getClassById(id),
-    getAcademicYears(),
     getCurrentAcademicYear(),
   ])
   if (!cls) return { error: 'Class not found' }
-  if (isClassCompleted(cls, years, currentYear)) {
-    return { error: "Completed classes can't be edited." }
+  if (!isClassOpen(cls, currentYear)) {
+    return {
+      error: 'Only active classes in the current academic year can be edited.',
+    }
   }
 
   const raw = extractFormFields(formData, ['student_ids'])

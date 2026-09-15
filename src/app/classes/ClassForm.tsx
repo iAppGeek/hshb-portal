@@ -3,6 +3,8 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 
+import LeaverBadge from '@/components/LeaverBadge'
+
 export type ClassFormTeacher = {
   id: string
   first_name: string
@@ -17,6 +19,13 @@ export type ClassFormStudent = {
   student_code: string | null
 }
 
+export type ClassFormMember = {
+  student_id: string
+  student:
+    | (ClassFormStudent & { active: boolean; leaving_reason: string | null })
+    | null
+}
+
 export type ClassFormData = {
   id: string
   name: string
@@ -24,7 +33,13 @@ export type ClassFormData = {
   room_number: string | null
   academic_year_id: string
   teacher_id: string | null
-  student_classes: Array<{ student_id: string }>
+  student_classes: ClassFormMember[]
+}
+
+type StudentRow = ClassFormStudent & {
+  enrolled: boolean
+  leavingReason: string | null
+  leaver: boolean
 }
 
 export type ClassFormAcademicYear = { id: string; code: string }
@@ -41,15 +56,48 @@ type Props = {
 
 const SEARCH_MIN = 2
 
-function filterStudents(
-  students: ClassFormStudent[],
-  query: string,
-): ClassFormStudent[] {
+function matchesSearch(student: ClassFormStudent, query: string): boolean {
   const q = query.trim().toLowerCase()
-  if (q.length < SEARCH_MIN) return students
-  return students.filter((s) =>
-    `${s.first_name} ${s.last_name}`.toLowerCase().includes(q),
+  if (q.length < SEARCH_MIN) return true
+  return `${student.first_name} ${student.last_name}`.toLowerCase().includes(q)
+}
+
+/**
+ * Every row the form submits: leavers still on the class first (they aren't
+ * in the selectable active list), then current members, then everyone else.
+ */
+function buildStudentRows(
+  students: ClassFormStudent[],
+  members: ClassFormMember[],
+): StudentRow[] {
+  const enrolledIds = new Set(members.map((m) => m.student_id))
+  const selectableIds = new Set(students.map((s) => s.id))
+  const leavers: StudentRow[] = members.flatMap((m) =>
+    m.student && !m.student.active && !selectableIds.has(m.student_id)
+      ? [
+          {
+            id: m.student.id,
+            first_name: m.student.first_name,
+            last_name: m.student.last_name,
+            student_code: m.student.student_code,
+            enrolled: true,
+            leavingReason: m.student.leaving_reason,
+            leaver: true,
+          },
+        ]
+      : [],
   )
+  const selectable: StudentRow[] = students.map((s) => ({
+    ...s,
+    enrolled: enrolledIds.has(s.id),
+    leavingReason: null,
+    leaver: false,
+  }))
+  return [
+    ...leavers,
+    ...selectable.filter((s) => s.enrolled),
+    ...selectable.filter((s) => !s.enrolled),
+  ]
 }
 
 export default function ClassForm({
@@ -61,18 +109,11 @@ export default function ClassForm({
   action,
   submitLabel,
 }: Props) {
-  const enrolledIds = new Set(
-    classData?.student_classes.map((sc) => sc.student_id) ?? [],
-  )
   const [search, setSearch] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  const sorted = [
-    ...students.filter((s) => enrolledIds.has(s.id)),
-    ...students.filter((s) => !enrolledIds.has(s.id)),
-  ]
-  const visible = filterStudents(sorted, search)
+  const rows = buildStudentRows(students, classData?.student_classes ?? [])
 
   function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -193,26 +234,31 @@ export default function ClassForm({
           />
         </div>
 
-        {students.length === 0 ? (
+        {rows.length === 0 ? (
           <p className="text-sm text-gray-400">No students found.</p>
         ) : (
+          // Search only hides rows: every checkbox stays in the form so a
+          // hidden member is still submitted and kept on save.
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {visible.map((s) => (
+            {rows.map((s) => (
               <label
                 key={s.id}
-                className="flex items-center gap-2 text-sm text-gray-700"
+                className={`flex items-center gap-2 text-sm text-gray-700 ${
+                  matchesSearch(s, search) ? '' : 'hidden'
+                }`}
               >
                 <input
                   type="checkbox"
                   name="student_ids"
                   value={s.id}
-                  defaultChecked={enrolledIds.has(s.id)}
+                  defaultChecked={s.enrolled}
                   className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 {s.last_name}, {s.first_name}
                 {s.student_code && (
                   <span className="text-gray-400">({s.student_code})</span>
                 )}
+                {s.leaver && <LeaverBadge reason={s.leavingReason} />}
               </label>
             ))}
           </div>

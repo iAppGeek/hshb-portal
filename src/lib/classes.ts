@@ -1,20 +1,11 @@
-// Pure class-status helpers. See plans/enrolment-history.md decision 14.
+// Pure class-status helpers. Mirrors is_class_open in the database.
 
-type YearRef = { id: string; start_date: string }
-
-/** A completed class is read-only everywhere: inactive, or from a past year. */
-export function isClassCompleted(
-  cls: { active: boolean; academic_year_id: string },
-  years: YearRef[],
-  currentYear: YearRef,
-): boolean {
-  const year = years.find((y) => y.id === cls.academic_year_id)
-  if (!year) return true
-  return !cls.active || year.start_date < currentYear.start_date
-}
-
-/** Registers can only be taken for an active class in the current year. */
-export function canTakeRegister(
+/**
+ * An open class is active and in the current academic year. Only open classes
+ * can take registers or have their enrolments and details changed; every other
+ * class (inactive, or from any other year) is read-only.
+ */
+export function isClassOpen(
   cls: { active: boolean; academic_year_id: string },
   currentYear: { id: string },
 ): boolean {

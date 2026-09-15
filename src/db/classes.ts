@@ -6,6 +6,7 @@ import type { Database } from '@/types/database'
 
 import { getCurrentAcademicYear } from './academic-years'
 import { supabase } from './client'
+import { withCurrentClasses } from './membership'
 import { fetchAllPages } from './paging'
 
 const CLASS_SELECT =
@@ -62,12 +63,16 @@ export const getClassesByAcademicYear = unstable_cache(
 
 export const getClassById = unstable_cache(
   async (id: string) => {
-    const { data } = await supabase
-      .from('classes')
-      .select(`${CLASS_SELECT}, student_classes(student_id)`)
-      .eq('id', id)
-      .is('student_classes.end_date', null)
-      .single()
+    // Member details let the class form show a leaver still on the class,
+    // who isn't in the selectable (active) student list.
+    const { data } = await withCurrentClasses(
+      supabase
+        .from('classes')
+        .select(
+          `${CLASS_SELECT}, student_classes(student_id, student:students(id, first_name, last_name, student_code, active, leaving_reason))`,
+        )
+        .eq('id', id),
+    ).single()
     return data ? withYearCode(data) : data
   },
   ['class-by-id'],
@@ -96,7 +101,7 @@ export async function getClassesByTeacher(teacherId: string) {
 
 export const getClassWithStudents = unstable_cache(
   async (id: string) => {
-    const { data } = await supabase
+    const query = supabase
       .from('classes')
       .select(
         `*, teacher:staff(first_name, last_name, display_name, email),
@@ -114,8 +119,8 @@ export const getClassWithStudents = unstable_cache(
       )`,
       )
       .eq('id', id)
-      .is('student_classes.end_date', null)
-      .single()
+    // Only the roster embed is filtered; enrolment_history keeps every stay.
+    const { data } = await withCurrentClasses(query).single()
     return data ? withYearCode(data) : data
   },
   ['class-with-students'],

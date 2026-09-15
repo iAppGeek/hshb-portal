@@ -1306,7 +1306,6 @@ export type Database = {
         Args: { p_contacts: Json; p_submission: Json }
         Returns: string
       }
-      enrolment_start_date: { Args: { p_class_id: string }; Returns: string }
       find_guardian_matches: {
         Args: { p_email: string; p_last_name: string; p_phone: string }
         Returns: {
@@ -1338,7 +1337,7 @@ export type Database = {
           student_code: string
         }[]
       }
-      is_class_completed: { Args: { p_class_id: string }; Returns: boolean }
+      is_class_open: { Args: { p_class_id: string }; Returns: boolean }
       mark_student_as_leaver: {
         Args: { p_reason: string; p_student_id: string }
         Returns: undefined

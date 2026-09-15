@@ -10,7 +10,7 @@ import {
   getCurrentAcademicYear,
 } from '@/db'
 import { resolveYearId } from '@/lib/academicYears'
-import { canTakeRegister } from '@/lib/classes'
+import { isClassOpen } from '@/lib/classes'
 import { todayInSchoolTz } from '@/lib/datetime'
 import { isAdmin, isTeacher } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
@@ -104,7 +104,7 @@ export default async function AttendancePage({
   const selectedClass = requestedClass ?? classes[0] ?? null
   const selectedClassId = selectedClass?.id ?? null
   const archived = selectedClass
-    ? !canTakeRegister(selectedClass, currentYear)
+    ? !isClassOpen(selectedClass, currentYear)
     : false
 
   return (

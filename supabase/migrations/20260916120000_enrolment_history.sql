@@ -19,29 +19,21 @@ ALTER FUNCTION "public"."today_london"() OWNER TO "postgres";
 REVOKE ALL ON FUNCTION "public"."today_london"() FROM PUBLIC, "anon", "authenticated";
 GRANT ALL ON FUNCTION "public"."today_london"() TO "service_role";
 
-CREATE FUNCTION "public"."is_class_completed"("p_class_id" "uuid") RETURNS boolean
+-- A class is open (registers, enrolments and details can change) only while it
+-- is active and in the current academic year. Every other class is read-only.
+CREATE FUNCTION "public"."is_class_open"("p_class_id" "uuid") RETURNS boolean
     LANGUAGE "sql" STABLE
     AS $$
-  SELECT NOT "c"."active" OR "ay"."start_date" < (SELECT "start_date" FROM "public"."academic_years" WHERE "is_current")
-  FROM "public"."classes" "c" JOIN "public"."academic_years" "ay" ON "ay"."id" = "c"."academic_year_id"
-  WHERE "c"."id" = "p_class_id"
+  SELECT COALESCE((
+    SELECT "c"."active" AND "ay"."is_current"
+    FROM "public"."classes" "c" JOIN "public"."academic_years" "ay" ON "ay"."id" = "c"."academic_year_id"
+    WHERE "c"."id" = "p_class_id"
+  ), false)
 $$;
 
-ALTER FUNCTION "public"."is_class_completed"("p_class_id" "uuid") OWNER TO "postgres";
-REVOKE ALL ON FUNCTION "public"."is_class_completed"("p_class_id" "uuid") FROM PUBLIC, "anon", "authenticated";
-GRANT ALL ON FUNCTION "public"."is_class_completed"("p_class_id" "uuid") TO "service_role";
-
-CREATE FUNCTION "public"."enrolment_start_date"("p_class_id" "uuid") RETURNS "date"
-    LANGUAGE "sql" STABLE
-    AS $$
-  SELECT GREATEST("public"."today_london"(), "ay"."start_date")
-  FROM "public"."classes" "c" JOIN "public"."academic_years" "ay" ON "ay"."id" = "c"."academic_year_id"
-  WHERE "c"."id" = "p_class_id"
-$$;
-
-ALTER FUNCTION "public"."enrolment_start_date"("p_class_id" "uuid") OWNER TO "postgres";
-REVOKE ALL ON FUNCTION "public"."enrolment_start_date"("p_class_id" "uuid") FROM PUBLIC, "anon", "authenticated";
-GRANT ALL ON FUNCTION "public"."enrolment_start_date"("p_class_id" "uuid") TO "service_role";
+ALTER FUNCTION "public"."is_class_open"("p_class_id" "uuid") OWNER TO "postgres";
+REVOKE ALL ON FUNCTION "public"."is_class_open"("p_class_id" "uuid") FROM PUBLIC, "anon", "authenticated";
+GRANT ALL ON FUNCTION "public"."is_class_open"("p_class_id" "uuid") TO "service_role";
 
 -- ─── student_classes: dated stays ───────────────────────────────────────────
 ALTER TABLE "public"."student_classes"
@@ -53,20 +45,19 @@ UPDATE "public"."student_classes" "sc" SET "start_date" = "ay"."start_date"
 FROM "public"."classes" "c" JOIN "public"."academic_years" "ay" ON "ay"."id" = "c"."academic_year_id"
 WHERE "c"."id" = "sc"."class_id";
 
--- Rows belonging to a completed (past-year) class close at that year's end.
-UPDATE "public"."student_classes" "sc" SET "end_date" = "ay"."end_date" + 1
-FROM "public"."classes" "c" JOIN "public"."academic_years" "ay" ON "ay"."id" = "c"."academic_year_id"
+-- Rows of an inactive class or an inactive student are already history: close
+-- them at their year's end, or today if that year hasn't ended. Rows in an
+-- active class stay open whatever its year, so a class still awaiting
+-- migration (e.g. last year's class after the new year is made current) keeps
+-- its students.
+UPDATE "public"."student_classes" "sc"
+SET "end_date" = GREATEST("sc"."start_date", LEAST("public"."today_london"(), "ay"."end_date" + 1))
+FROM "public"."classes" "c"
+  JOIN "public"."academic_years" "ay" ON "ay"."id" = "c"."academic_year_id",
+  "public"."students" "s"
 WHERE "c"."id" = "sc"."class_id"
-  AND "ay"."start_date" < (SELECT "start_date" FROM "public"."academic_years" WHERE "is_current");
-
-DO $$ BEGIN
-  IF EXISTS (
-    SELECT 1 FROM "public"."student_classes" "sc" JOIN "public"."students" "s" ON "s"."id" = "sc"."student_id"
-    WHERE NOT "s"."active" AND "sc"."end_date" IS NULL
-  ) THEN
-    RAISE EXCEPTION 'Inactive students still have open class enrolments; resolve them before migrating';
-  END IF;
-END $$;
+  AND "s"."id" = "sc"."student_id"
+  AND (NOT "c"."active" OR NOT "s"."active");
 
 ALTER TABLE "public"."student_classes"
   ALTER COLUMN "start_date" SET NOT NULL,
@@ -113,8 +104,19 @@ BEGIN
 
   IF p_class_id IS NOT NULL THEN
     -- Class mode: v_ids are student ids.
-    IF "public"."is_class_completed"(p_class_id) THEN
-      RAISE EXCEPTION 'Completed classes can''t be changed.';
+    IF NOT "public"."is_class_open"(p_class_id) THEN
+      RAISE EXCEPTION 'Only active classes in the current academic year can be changed.';
+    END IF;
+
+    -- A leaver already on the class keeps their row; a leaver can't be added.
+    IF EXISTS (
+      SELECT 1 FROM unnest(v_ids) s
+      JOIN students st ON st.id = s
+      WHERE NOT st.active AND NOT EXISTS (
+        SELECT 1 FROM student_classes WHERE student_id = s AND class_id = p_class_id AND end_date IS NULL
+      )
+    ) THEN
+      RAISE EXCEPTION 'Leavers can''t be enrolled in classes.';
     END IF;
 
     PERFORM "public"."close_enrolments"(
@@ -126,41 +128,34 @@ BEGIN
     );
 
     INSERT INTO student_classes (student_id, class_id, start_date)
-    SELECT s, p_class_id, "public"."enrolment_start_date"(p_class_id)
+    SELECT s, p_class_id, "public"."today_london"()
     FROM unnest(v_ids) s
     WHERE NOT EXISTS (
       SELECT 1 FROM student_classes WHERE student_id = s AND class_id = p_class_id AND end_date IS NULL
     );
   ELSE
     -- Student mode: v_ids are class ids. Scope = the student's open rows in
-    -- active classes of the current year.
+    -- open classes.
     IF NOT (SELECT active FROM students WHERE id = p_student_id) THEN
       RAISE EXCEPTION 'Leavers can''t be enrolled in classes.';
     END IF;
 
-    IF EXISTS (
-      SELECT 1 FROM unnest(v_ids) c
-      JOIN classes cl ON cl.id = c
-      JOIN academic_years ay ON ay.id = cl.academic_year_id
-      WHERE NOT cl.active OR NOT ay.is_current
-    ) OR (SELECT count(*) FROM classes WHERE id = ANY(v_ids)) <> cardinality(v_ids) THEN
+    IF EXISTS (SELECT 1 FROM unnest(v_ids) c WHERE NOT "public"."is_class_open"(c)) THEN
       RAISE EXCEPTION 'Students can only be enrolled in active classes of the current year.';
     END IF;
 
     PERFORM "public"."close_enrolments"(
       ARRAY(
-        SELECT sc.id FROM student_classes sc
-        JOIN classes cl ON cl.id = sc.class_id
-        JOIN academic_years ay ON ay.id = cl.academic_year_id
-        WHERE sc.student_id = p_student_id AND sc.end_date IS NULL
-          AND cl.active AND ay.is_current
-          AND sc.class_id <> ALL(v_ids)
+        SELECT id FROM student_classes
+        WHERE student_id = p_student_id AND end_date IS NULL
+          AND "public"."is_class_open"(class_id)
+          AND class_id <> ALL(v_ids)
       ),
       "public"."today_london"()
     );
 
     INSERT INTO student_classes (student_id, class_id, start_date)
-    SELECT p_student_id, c, "public"."enrolment_start_date"(c)
+    SELECT p_student_id, c, "public"."today_london"()
     FROM unnest(v_ids) c
     WHERE NOT EXISTS (
       SELECT 1 FROM student_classes WHERE student_id = p_student_id AND class_id = c AND end_date IS NULL
@@ -186,6 +181,9 @@ BEGIN
   END IF;
   IF NOT v_active THEN
     RAISE EXCEPTION 'This student has already left.';
+  END IF;
+  IF p_reason IS NULL OR p_reason NOT IN ('left', 'graduated', 'transferred') THEN
+    RAISE EXCEPTION 'Choose a leaving reason.';
   END IF;
 
   PERFORM "public"."close_enrolments"(
@@ -219,9 +217,9 @@ DECLARE
   v_source RECORD;
   v_new_class_id uuid;
   v_create boolean := p_name IS NOT NULL;
+  v_target_start date;
   v_expected_ids uuid[];
   v_actual_ids uuid[];
-  v_close_on date;
   v_key text;
   v_action text;
   v_student_id uuid;
@@ -250,8 +248,13 @@ BEGIN
     RAISE EXCEPTION 'Students can only move when a new class is created';
   END IF;
 
-  SELECT ARRAY(SELECT student_id FROM student_classes WHERE class_id = p_source_class_id AND end_date IS NULL)
-    INTO v_expected_ids;
+  -- Only active students need an action. A leaver still on the class (e.g.
+  -- after a manual fix) has no choice to make; their row closes with the rest.
+  SELECT ARRAY(
+    SELECT sc.student_id FROM student_classes sc
+    JOIN students s ON s.id = sc.student_id
+    WHERE sc.class_id = p_source_class_id AND sc.end_date IS NULL AND s.active
+  ) INTO v_expected_ids;
   SELECT ARRAY(SELECT (key)::uuid FROM jsonb_each_text(p_student_actions)) INTO v_actual_ids;
 
   IF NOT (
@@ -270,8 +273,12 @@ BEGIN
   END IF;
 
   IF v_create THEN
-    IF (SELECT start_date FROM academic_years WHERE id = p_academic_year_id) <= v_source.start_date THEN
+    SELECT start_date INTO v_target_start FROM academic_years WHERE id = p_academic_year_id;
+    IF v_target_start <= v_source.start_date THEN
       RAISE EXCEPTION 'Target academic year must be after the source class''s academic year';
+    END IF;
+    IF v_target_start < (SELECT start_date FROM academic_years WHERE is_current) THEN
+      RAISE EXCEPTION 'Students can''t be moved into a past academic year';
     END IF;
 
     INSERT INTO classes (name, year_group, room_number, academic_year_id, teacher_id, active)
@@ -279,10 +286,12 @@ BEGIN
     RETURNING id INTO v_new_class_id;
   END IF;
 
-  v_close_on := LEAST("public"."today_london"(), v_source.end_date + 1);
+  -- Migration is a year-boundary change, so its dates come from the academic
+  -- years, not the day it runs: stays in the source class end with its year
+  -- and moved students start with the target year.
   PERFORM "public"."close_enrolments"(
     ARRAY(SELECT id FROM student_classes WHERE class_id = p_source_class_id AND end_date IS NULL),
-    v_close_on
+    v_source.end_date + 1
   );
 
   FOR v_key, v_action IN SELECT key, value FROM jsonb_each_text(p_student_actions)
@@ -290,7 +299,7 @@ BEGIN
     v_student_id := v_key::uuid;
     IF v_action = 'move' THEN
       INSERT INTO student_classes (student_id, class_id, start_date)
-      VALUES (v_student_id, v_new_class_id, "public"."enrolment_start_date"(v_new_class_id));
+      VALUES (v_student_id, v_new_class_id, v_target_start);
       v_moved := v_moved + 1;
     ELSIF v_action = 'none' THEN
       v_unassigned := v_unassigned + 1;
@@ -346,6 +355,10 @@ BEGIN
     WHERE id = p_submission_id AND status = 'pending' FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Submission not found or already actioned';
+  END IF;
+
+  IF p_class_id IS NOT NULL AND NOT "public"."is_class_open"(p_class_id) THEN
+    RAISE EXCEPTION 'Students can only be enrolled in active classes of the current year.';
   END IF;
 
   -- Resolve each contact to a guardian row. De-dup (when p_reuse_guardians):
@@ -508,7 +521,7 @@ BEGIN
 
   IF p_class_id IS NOT NULL THEN
     INSERT INTO student_classes (student_id, class_id, start_date)
-    VALUES (v_student_id, p_class_id, "public"."enrolment_start_date"(p_class_id))
+    VALUES (v_student_id, p_class_id, "public"."today_london"())
     ON CONFLICT (student_id, class_id) WHERE end_date IS NULL DO NOTHING;
   END IF;
 

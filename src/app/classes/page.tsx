@@ -11,7 +11,7 @@ import {
 } from '@/db'
 import Tooltip from '@/components/Tooltip'
 import { resolveYearId } from '@/lib/academicYears'
-import { isClassCompleted } from '@/lib/classes'
+import { isClassOpen } from '@/lib/classes'
 import {
   canEditClasses,
   canCreateClasses,
@@ -58,12 +58,10 @@ export default async function ClassesPage({
     ? await getClassesByAcademicYear(selectedYearId)
     : await getClassesByTeacher(session.user.staffId)
 
-  const classRows: ClassRow[] = (classes as Omit<ClassRow, 'completed'>[]).map(
+  const classRows: ClassRow[] = (classes as Omit<ClassRow, 'editable'>[]).map(
     (cls) => ({
       ...cls,
-      completed: currentYear
-        ? isClassCompleted(cls, years, currentYear)
-        : false,
+      editable: currentYear ? isClassOpen(cls, currentYear) : false,
     }),
   )
 

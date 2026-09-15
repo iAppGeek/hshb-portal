@@ -22,13 +22,13 @@ vi.mock('./ClassesTable', () => ({
   default: ({
     classes,
   }: {
-    classes: { id: string; name: string; completed: boolean }[]
+    classes: { id: string; name: string; editable: boolean }[]
   }) => (
     <div data-testid="classes-table">
       {classes.map((c) => (
         <span key={c.id}>
           {c.name}
-          {c.completed ? ' (completed)' : ''}
+          {c.editable ? '' : ' (read-only)'}
         </span>
       ))}
     </div>
@@ -247,7 +247,7 @@ describe('ClassesPage', () => {
     expect(screen.queryByTestId('year-selector')).toBeNull()
   })
 
-  it('marks an inactive class as completed', async () => {
+  it('marks an inactive class as read-only', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
@@ -256,10 +256,10 @@ describe('ClassesPage', () => {
     ] as any)
 
     render(await ClassesPage(noSearchParams()))
-    expect(screen.getByText('Year 1A (completed)')).toBeTruthy()
+    expect(screen.getByText('Year 1A (read-only)')).toBeTruthy()
   })
 
-  it('marks a class from a past year as completed', async () => {
+  it('marks an active class from another year as read-only', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
@@ -270,10 +270,10 @@ describe('ClassesPage', () => {
     render(
       await ClassesPage({ searchParams: Promise.resolve({ year: 'year-0' }) }),
     )
-    expect(screen.getByText('Year 1A (completed)')).toBeTruthy()
+    expect(screen.getByText('Year 1A (read-only)')).toBeTruthy()
   })
 
-  it('does not mark an active current-year class as completed', async () => {
+  it('keeps an active current-year class editable', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
@@ -281,7 +281,7 @@ describe('ClassesPage', () => {
 
     render(await ClassesPage(noSearchParams()))
     expect(screen.getByText('Year 1A')).toBeTruthy()
-    expect(screen.queryByText('Year 1A (completed)')).toBeNull()
+    expect(screen.queryByText('Year 1A (read-only)')).toBeNull()
   })
 
   it('does not show Add Class button for secretary', async () => {

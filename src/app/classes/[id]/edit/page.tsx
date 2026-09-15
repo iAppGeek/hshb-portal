@@ -9,7 +9,7 @@ import {
   getTeachers,
   getStudentsForList,
 } from '@/db'
-import { isClassCompleted } from '@/lib/classes'
+import { isClassOpen } from '@/lib/classes'
 import { canEditClasses } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -51,7 +51,7 @@ export default async function EditClassPage({
     redirect('/classes')
   }
 
-  if (isClassCompleted(classData, years, currentYear)) {
+  if (!isClassOpen(classData, currentYear)) {
     redirect(`/classes/${id}`)
   }
 
