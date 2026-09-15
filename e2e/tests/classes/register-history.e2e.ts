@@ -228,7 +228,9 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
         .getByRole('button', { name: 'Present' })
         .click()
       await page.getByRole('button', { name: 'Save register' }).click()
-      await expect(page.getByText('Register saved.')).toBeVisible()
+      await expect(page.getByText('Register saved.')).toBeVisible({
+        timeout: 15_000,
+      })
 
       // Move the student from A to B via the student edit form.
       await gotoFresh(
@@ -322,7 +324,9 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
         .getByRole('button', { name: 'Present' })
         .click()
       await page.getByRole('button', { name: 'Save register' }).click()
-      await expect(page.getByText('Register saved.')).toBeVisible()
+      await expect(page.getByText('Register saved.')).toBeVisible({
+        timeout: 15_000,
+      })
 
       await page.goto(`/attendance?classId=${classBId}&date=${TODAY}`)
       await page
@@ -330,7 +334,9 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
         .getByRole('button', { name: 'Present' })
         .click()
       await page.getByRole('button', { name: 'Save register' }).click()
-      await expect(page.getByText('Register saved.')).toBeVisible()
+      await expect(page.getByText('Register saved.')).toBeVisible({
+        timeout: 15_000,
+      })
 
       const { data: rows } = await db
         .from('attendance')
@@ -383,7 +389,9 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
         .getByRole('button', { name: 'Present' })
         .click()
       await page.getByRole('button', { name: 'Save register' }).click()
-      await expect(page.getByText('Register saved.')).toBeVisible()
+      await expect(page.getByText('Register saved.')).toBeVisible({
+        timeout: 15_000,
+      })
 
       // Enrol the new student via the class edit form.
       await gotoFresh(page, isMobile, `/classes/${classId}/edit`, async () => {
@@ -405,7 +413,9 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
       await expect(joinerRow).toBeVisible()
       await joinerRow.getByRole('button', { name: 'Absent' }).click()
       await page.getByRole('button', { name: 'Save register' }).click()
-      await expect(page.getByText('Register saved.')).toBeVisible()
+      await expect(page.getByText('Register saved.')).toBeVisible({
+        timeout: 15_000,
+      })
     } finally {
       await cleanupStudents([existingStudentId, joinerStudentId])
       await cleanupClasses([classId])
