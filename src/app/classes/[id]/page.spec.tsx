@@ -29,7 +29,7 @@ vi.mock('@/clientComponents/BulkEmailDropdown', () => ({
   default: () => <div>BulkEmailDropdown</div>,
 }))
 
-vi.mock('./PrintButton', () => ({
+vi.mock('../PrintButton', () => ({
   default: () => <button>Print</button>,
 }))
 

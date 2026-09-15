@@ -293,4 +293,42 @@ describe('ClassesPage', () => {
     render(await ClassesPage(noSearchParams()))
     expect(screen.queryByRole('link', { name: 'Add Class' })).toBeNull()
   })
+
+  it('shows a Print All Registers link when there is more than one class', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue([
+      mockClasses[0],
+      { ...mockClasses[0], id: 'class-2', name: 'Year 1B' },
+    ] as any)
+
+    render(await ClassesPage(noSearchParams()))
+    const link = screen.getByRole('link', { name: 'Print All Registers' })
+    expect(link).toHaveAttribute('href', '/classes/print?year=year-1')
+  })
+
+  it('hides the Print All Registers link when there are no classes', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue([])
+
+    render(await ClassesPage(noSearchParams()))
+    expect(
+      screen.queryByRole('link', { name: 'Print All Registers' }),
+    ).toBeNull()
+  })
+
+  it('hides the Print All Registers link when there is only one class', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'teacher', staffId: 'staff-1' },
+    } as any)
+    vi.mocked(getClassesByTeacher).mockResolvedValue(mockClasses as any)
+
+    render(await ClassesPage(noSearchParams()))
+    expect(
+      screen.queryByRole('link', { name: 'Print All Registers' }),
+    ).toBeNull()
+  })
 })

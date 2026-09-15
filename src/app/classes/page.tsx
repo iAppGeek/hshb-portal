@@ -70,20 +70,34 @@ export default async function ClassesPage({
       <PageHeader
         title="Classes"
         action={
-          canCreateClasses(role) ? (
-            <Link
-              href="/classes/new"
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
-            >
-              Add Class
-            </Link>
-          ) : canSeeAllData(role) ? (
-            <Tooltip text="You don't have permission to add classes">
-              <span className="cursor-not-allowed rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white opacity-50 shadow-sm">
+          <div className="flex items-center gap-3">
+            {classRows.length > 1 && (
+              <Link
+                href={
+                  selectedYearId
+                    ? `/classes/print?year=${selectedYearId}`
+                    : '/classes/print'
+                }
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
+              >
+                Print All Registers
+              </Link>
+            )}
+            {canCreateClasses(role) ? (
+              <Link
+                href="/classes/new"
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+              >
                 Add Class
-              </span>
-            </Tooltip>
-          ) : null
+              </Link>
+            ) : canSeeAllData(role) ? (
+              <Tooltip text="You don't have permission to add classes">
+                <span className="cursor-not-allowed rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white opacity-50 shadow-sm">
+                  Add Class
+                </span>
+              </Tooltip>
+            ) : null}
+          </div>
         }
       />
 
