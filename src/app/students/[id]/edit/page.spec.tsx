@@ -24,12 +24,20 @@ vi.mock('next/navigation', () => ({
 vi.mock('./EditStudentForm', () => ({
   default: ({
     student,
+    classes,
   }: {
     student: { first_name: string; last_name: string }
+    classes?: unknown[]
   }) => (
-    <div data-testid="edit-student-form">
+    <div data-testid="edit-student-form" data-has-classes={Boolean(classes)}>
       {student.last_name}, {student.first_name}
     </div>
+  ),
+}))
+
+vi.mock('./LeaverSection', () => ({
+  default: ({ studentId }: { studentId: string }) => (
+    <div data-testid="leaver-section">{studentId}</div>
   ),
 }))
 
@@ -65,6 +73,9 @@ const mockStudent = {
   allergies: null,
   medical_details: null,
   notes: null,
+  active: true,
+  leaving_reason: null,
+  enrolment_end_dates: [],
 }
 
 describe('EditStudentPage', () => {
@@ -115,6 +126,60 @@ describe('EditStudentPage', () => {
       EditStudentPage({ params: Promise.resolve({ id: 'student-1' }) }),
     ).rejects.toThrow('NEXT_REDIRECT')
     expect(redirect).toHaveBeenCalledWith('/students')
+  })
+
+  it('shows the LeaverSection for an active student when the role can edit students', async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(getStudentById).mockResolvedValue(mockStudent as any)
+    vi.mocked(getAllGuardians).mockResolvedValue([])
+    vi.mocked(getAllClasses).mockResolvedValue([])
+
+    render(
+      await EditStudentPage({ params: Promise.resolve({ id: 'student-1' }) }),
+    )
+    expect(screen.getByTestId('leaver-section')).toBeTruthy()
+    expect(
+      screen.getByTestId('edit-student-form').getAttribute('data-has-classes'),
+    ).toBe('true')
+  })
+
+  it('shows a leaver panel and hides class checkboxes for an inactive student', async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(getStudentById).mockResolvedValue({
+      ...mockStudent,
+      active: false,
+      leaving_reason: 'graduated',
+      enrolment_end_dates: [{ end_date: '2026-07-01' }],
+    } as any)
+    vi.mocked(getAllGuardians).mockResolvedValue([])
+    vi.mocked(getAllClasses).mockResolvedValue([])
+
+    render(
+      await EditStudentPage({ params: Promise.resolve({ id: 'student-1' }) }),
+    )
+    expect(screen.getByText('Graduated')).toBeTruthy()
+    expect(screen.getByText(/Left on/)).toBeTruthy()
+    expect(screen.queryByTestId('leaver-section')).toBeNull()
+    expect(
+      screen.getByTestId('edit-student-form').getAttribute('data-has-classes'),
+    ).toBe('false')
+  })
+
+  it('shows "Left" with no date when there is no enrolment history', async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(getStudentById).mockResolvedValue({
+      ...mockStudent,
+      active: false,
+      leaving_reason: 'left',
+      enrolment_end_dates: [],
+    } as any)
+    vi.mocked(getAllGuardians).mockResolvedValue([])
+    vi.mocked(getAllClasses).mockResolvedValue([])
+
+    render(
+      await EditStudentPage({ params: Promise.resolve({ id: 'student-1' }) }),
+    )
+    expect(screen.getByText('Left', { selector: 'p' })).toBeTruthy()
   })
 
   it('redirects to students list when student not found', async () => {

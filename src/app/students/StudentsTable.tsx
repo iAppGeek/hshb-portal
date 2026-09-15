@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 
+import LeaverBadge from '@/components/LeaverBadge'
 import StudentDetailsModal, {
   type StudentForModal,
 } from '@/components/StudentDetailsModal'
@@ -12,6 +13,8 @@ import type { StaffRole } from '@/types/next-auth'
 
 type Student = StudentForModal & {
   student_code: string | null
+  active: boolean
+  leaving_reason: string | null
 }
 
 type Props = {
@@ -83,8 +86,11 @@ export default function StudentsTable({ students, role }: Props) {
                     {/* Name — on mobile: name left, Edit link right */}
                     <td className="block px-4 pt-4 pb-0 text-sm font-medium text-gray-900 sm:table-cell sm:px-6 sm:py-4 sm:whitespace-nowrap">
                       <div className="flex items-center justify-between gap-2 sm:block">
-                        <span>
+                        <span className="inline-flex items-center gap-2">
                           {student.last_name}, {student.first_name}
+                          {!student.active && (
+                            <LeaverBadge reason={student.leaving_reason} />
+                          )}
                         </span>
                         {canEditStudents(role) ? (
                           <Link

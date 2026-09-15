@@ -84,7 +84,7 @@ describe('StudentsPage', () => {
     } as any)
     vi.mocked(getAllStudents).mockResolvedValue([])
 
-    render(await StudentsPage())
+    render(await StudentsPage({ searchParams: Promise.resolve({}) }))
     expect(screen.getByText('Students')).toBeTruthy()
   })
 
@@ -94,7 +94,7 @@ describe('StudentsPage', () => {
     } as any)
     vi.mocked(getAllStudents).mockResolvedValue([])
 
-    render(await StudentsPage())
+    render(await StudentsPage({ searchParams: Promise.resolve({}) }))
     expect(screen.getByText('Add student')).toBeTruthy()
   })
 
@@ -104,7 +104,7 @@ describe('StudentsPage', () => {
     } as any)
     vi.mocked(getStudentsByTeacher).mockResolvedValue([])
 
-    render(await StudentsPage())
+    render(await StudentsPage({ searchParams: Promise.resolve({}) }))
     expect(screen.queryByText('Add student')).toBeNull()
   })
 
@@ -114,7 +114,7 @@ describe('StudentsPage', () => {
     } as any)
     vi.mocked(getAllStudents).mockResolvedValue([])
 
-    render(await StudentsPage())
+    render(await StudentsPage({ searchParams: Promise.resolve({}) }))
     const btn = screen.getByText('Add student')
     expect(btn.tagName).toBe('SPAN')
     expect(btn.className).toContain('cursor-not-allowed')
@@ -126,7 +126,7 @@ describe('StudentsPage', () => {
     } as any)
     vi.mocked(getAllStudents).mockResolvedValue([mockStudent] as any)
 
-    render(await StudentsPage())
+    render(await StudentsPage({ searchParams: Promise.resolve({}) }))
     expect(screen.getByText(/StudentsTable/)).toBeTruthy()
   })
 
@@ -136,7 +136,7 @@ describe('StudentsPage', () => {
     } as any)
     vi.mocked(getAllStudents).mockResolvedValue([])
 
-    render(await StudentsPage())
+    render(await StudentsPage({ searchParams: Promise.resolve({}) }))
     expect(screen.getByText('No students found.')).toBeTruthy()
   })
 
@@ -146,7 +146,7 @@ describe('StudentsPage', () => {
     } as any)
     vi.mocked(getStudentsByTeacher).mockResolvedValue([mockStudent] as any)
 
-    await StudentsPage()
+    await StudentsPage({ searchParams: Promise.resolve({}) })
     expect(getStudentsByTeacher).toHaveBeenCalledWith('staff-2')
     expect(getAllStudents).not.toHaveBeenCalled()
   })
@@ -157,7 +157,7 @@ describe('StudentsPage', () => {
     } as any)
     vi.mocked(getAllStudents).mockResolvedValue([mockStudent] as any)
 
-    render(await StudentsPage())
+    render(await StudentsPage({ searchParams: Promise.resolve({}) }))
     expect(getAllStudents).toHaveBeenCalled()
     expect(getStudentsByTeacher).not.toHaveBeenCalled()
     expect(screen.getByText(/StudentsTable/)).toBeTruthy()
@@ -169,9 +169,45 @@ describe('StudentsPage', () => {
     } as any)
     vi.mocked(getAllStudents).mockResolvedValue([])
 
-    render(await StudentsPage())
+    render(await StudentsPage({ searchParams: Promise.resolve({}) }))
     const btn = screen.getByText('Add student')
     expect(btn.tagName).toBe('SPAN')
     expect(btn.className).toContain('cursor-not-allowed')
+  })
+
+  it('calls getAllStudents(false) and shows a "Show leavers" link by default', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
+    vi.mocked(getAllStudents).mockResolvedValue([])
+
+    render(await StudentsPage({ searchParams: Promise.resolve({}) }))
+    expect(getAllStudents).toHaveBeenCalledWith(false)
+    const link = screen.getByText('Show leavers')
+    expect(link.getAttribute('href')).toBe('/students?leavers=1')
+  })
+
+  it('calls getAllStudents(true) and shows a "Hide leavers" link when leavers=1', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
+    vi.mocked(getAllStudents).mockResolvedValue([])
+
+    render(
+      await StudentsPage({ searchParams: Promise.resolve({ leavers: '1' }) }),
+    )
+    expect(getAllStudents).toHaveBeenCalledWith(true)
+    const link = screen.getByText('Hide leavers')
+    expect(link.getAttribute('href')).toBe('/students')
+  })
+
+  it('hides the leavers toggle for teacher', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'teacher', staffId: 'staff-2' },
+    } as any)
+    vi.mocked(getStudentsByTeacher).mockResolvedValue([])
+
+    render(await StudentsPage({ searchParams: Promise.resolve({}) }))
+    expect(screen.queryByText('Show leavers')).toBeNull()
   })
 })

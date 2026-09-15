@@ -6,11 +6,13 @@ import { auth } from '@/auth'
 import {
   createGuardian,
   getGuardianById,
+  getStudentById,
   updateStudent,
   updateStudentClasses,
+  markStudentAsLeaver,
 } from '@/db'
 
-import { updateStudentAction } from './actions'
+import { updateStudentAction, markStudentAsLeaverAction } from './actions'
 
 vi.mock('@/auth', () => ({ auth: vi.fn() }))
 vi.mock('next/navigation', () => ({ redirect: vi.fn() }))
@@ -18,8 +20,10 @@ vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/db', () => ({
   createGuardian: vi.fn(),
   getGuardianById: vi.fn(),
+  getStudentById: vi.fn(),
   updateStudent: vi.fn(),
   updateStudentClasses: vi.fn(),
+  markStudentAsLeaver: vi.fn(),
   logAuditEvent: vi.fn(),
 }))
 
@@ -34,6 +38,7 @@ const adminSession = { user: { staffId: 'admin-1', role: 'admin' } }
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(auth).mockResolvedValue(adminSession as any)
+  vi.mocked(getStudentById).mockResolvedValue({ active: true } as any)
 })
 
 function makeFormData(fields: Record<string, string | string[]>): FormData {
@@ -301,5 +306,89 @@ describe('updateStudentAction', () => {
       error: expect.stringContaining('Enter an address'),
     })
     expect(updateStudent).not.toHaveBeenCalled()
+  })
+
+  it('does not touch class enrolments for an inactive student', async () => {
+    vi.mocked(getStudentById).mockResolvedValue({ active: false } as any)
+    vi.mocked(updateStudent).mockResolvedValue(undefined)
+    vi.mocked(redirect).mockImplementation(() => {
+      throw new Error('NEXT_REDIRECT')
+    })
+
+    await expect(
+      updateStudentAction(STUDENT_ID, makeFormData(baseFields)),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(updateStudentClasses).not.toHaveBeenCalled()
+  })
+})
+
+describe('markStudentAsLeaverAction', () => {
+  beforeEach(() => {
+    vi.mocked(auth).mockResolvedValue(adminSession as any)
+  })
+
+  it('returns error when not authenticated', async () => {
+    vi.mocked(auth).mockResolvedValue(null as any)
+
+    const result = await markStudentAsLeaverAction(
+      STUDENT_ID,
+      makeFormData({ reason: 'left' }),
+    )
+    expect(result).toEqual({ error: 'Not authenticated' })
+    expect(markStudentAsLeaver).not.toHaveBeenCalled()
+  })
+
+  it('returns error when not authorised', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { staffId: 'teacher-1', role: 'teacher' },
+    } as any)
+
+    const result = await markStudentAsLeaverAction(
+      STUDENT_ID,
+      makeFormData({ reason: 'left' }),
+    )
+    expect(result).toEqual({ error: 'Not authorised' })
+    expect(markStudentAsLeaver).not.toHaveBeenCalled()
+  })
+
+  it('rejects an invalid reason', async () => {
+    const result = await markStudentAsLeaverAction(
+      STUDENT_ID,
+      makeFormData({ reason: 'expelled' }),
+    )
+    expect(result).toEqual({ error: expect.any(String) })
+    expect(markStudentAsLeaver).not.toHaveBeenCalled()
+  })
+
+  it('marks the student as a leaver, logs, revalidates and redirects', async () => {
+    vi.mocked(markStudentAsLeaver).mockResolvedValue(undefined)
+    vi.mocked(redirect).mockImplementation(() => {
+      throw new Error('NEXT_REDIRECT')
+    })
+
+    await expect(
+      markStudentAsLeaverAction(
+        STUDENT_ID,
+        makeFormData({ reason: 'graduated' }),
+      ),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(markStudentAsLeaver).toHaveBeenCalledWith(STUDENT_ID, 'graduated')
+    expect(revalidatePath).toHaveBeenCalledWith('/students')
+    expect(redirect).toHaveBeenCalledWith('/students')
+  })
+
+  it('returns a user-friendly error when markStudentAsLeaver throws', async () => {
+    vi.mocked(markStudentAsLeaver).mockRejectedValue(new Error('DB error'))
+
+    const result = await markStudentAsLeaverAction(
+      STUDENT_ID,
+      makeFormData({ reason: 'left' }),
+    )
+    expect(result).toEqual({
+      error: 'Failed to mark student as a leaver. Please try again.',
+    })
+    expect(redirect).not.toHaveBeenCalled()
   })
 })

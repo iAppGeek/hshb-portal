@@ -8,8 +8,10 @@ import { auth } from '@/auth'
 import {
   createGuardian,
   getGuardianById,
+  getStudentById,
   updateStudent,
   updateStudentClasses,
+  markStudentAsLeaver,
   logAuditEvent,
 } from '@/db'
 import { getUserFriendlyDbError } from '@/lib/db-error'
@@ -18,6 +20,7 @@ import {
   updateStudentSchema,
   guardianSchema,
   guardianSchemaWithOccupation,
+  leaverSchema,
   extractFormFields,
   extractGuardianFields,
   type ActionResult,
@@ -155,7 +158,10 @@ export async function updateStudentAction(
       consent_comms_email_sms: d.consent_comms_email_sms,
     })
 
-    await updateStudentClasses(id, d.class_ids)
+    const student = await getStudentById(id)
+    if (student?.active) {
+      await updateStudentClasses(id, d.class_ids)
+    }
     logAuditEvent({
       staffId,
       action: 'update',
@@ -170,6 +176,42 @@ export async function updateStudentAction(
       error: getUserFriendlyDbError(
         err,
         'Failed to save student. Please try again.',
+      ),
+    }
+  }
+
+  redirect('/students')
+}
+
+export async function markStudentAsLeaverAction(
+  studentId: string,
+  formData: FormData,
+): Promise<ActionResult> {
+  const session = await auth()
+  if (!session) return { error: 'Not authenticated' }
+  const role = session.user.role as StaffRole
+  if (!canEditStudents(role)) return { error: 'Not authorised' }
+  const staffId = session.user.staffId ?? null
+
+  const parsed = leaverSchema.safeParse(extractFormFields(formData))
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  try {
+    await markStudentAsLeaver(studentId, parsed.data.reason)
+    logAuditEvent({
+      staffId,
+      action: 'update',
+      entity: 'student',
+      entityId: studentId,
+      details: { leaving_reason: parsed.data.reason },
+    })
+    revalidatePath('/students')
+  } catch (err) {
+    console.error('[markStudentAsLeaverAction] error:', err)
+    return {
+      error: getUserFriendlyDbError(
+        err,
+        'Failed to mark student as a leaver. Please try again.',
       ),
     }
   }
