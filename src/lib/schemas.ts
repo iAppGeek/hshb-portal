@@ -154,6 +154,7 @@ export const updateClassSchema = createClassSchema.omit({
 
 export const LEAVING_REASONS = ['left', 'graduated', 'transferred'] as const
 export const leavingReason = z.enum(LEAVING_REASONS)
+export type LeavingReason = z.infer<typeof leavingReason>
 export const LEAVING_REASON_LABELS: Record<
   (typeof LEAVING_REASONS)[number],
   string

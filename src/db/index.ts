@@ -28,10 +28,11 @@ export {
   getStudentsWithAllergiesCount,
   getStudentsByClass,
   getStudentById,
+  getStudentsByIds,
   createStudent,
-  enrollStudentInClasses,
   updateStudent,
   updateStudentClasses,
+  markStudentAsLeaver,
   findStudentMatches,
   getStudentsForLinking,
 } from './students'
@@ -84,12 +85,14 @@ export {
   getClassById,
   getClassWithStudents,
   getClassesByTeacher,
-  getEnrollmentCountsByClass,
+  getEnrolmentsForClass,
+  getEnrolmentsInRange,
   createClass,
   updateClass,
   setClassStudents,
   migrateClass,
 } from './classes'
+export type { MigrationAction, MigrateClassResult } from './classes'
 export { getAllTimetableSlots, getTimetableByClass } from './timetable'
 export {
   getIncidentCount,
@@ -121,13 +124,11 @@ export type {
 } from './push-subscriptions'
 export {
   getAttendanceByClassAndDate,
-  getAttendanceSummaryByDate,
-  getAttendanceLateCount,
   getAttendanceByDateRange,
-  getAttendanceLateCountByDateRange,
   saveAttendance,
 } from './attendance'
 export type { AttendanceStatus, AttendanceInsert } from './attendance'
+export { fetchAllPages } from './paging'
 export {
   getStaffAttendanceForToday,
   getStaffAttendanceByDate,

@@ -1,5 +1,6 @@
 import { unstable_cache, updateTag } from 'next/cache'
 
+import { feeClassesForYear } from '@/lib/enrolment'
 import {
   feeStatus,
   resolveFeePlan,
@@ -12,6 +13,7 @@ import type { Database } from '@/types/database'
 import { getAcademicYears, type AcademicYearRow } from './academic-years'
 import { supabase } from './client'
 import { getFeePlans } from './fee-plans'
+import { fetchAllPages } from './paging'
 
 type Tables = Database['public']['Tables']
 
@@ -45,6 +47,8 @@ export type StudentFeeListItem = {
   first_name: string
   last_name: string
   student_code: string | null
+  active: boolean
+  leaving_reason: string | null
   classes: FeeClass[]
   account: StudentFeeAccountRow | null
   payments: PaymentSummary[]
@@ -60,6 +64,8 @@ export type StudentFeeDetail = {
     first_name: string
     last_name: string
     student_code: string | null
+    active: boolean
+    leaving_reason: string | null
   }
   classes: FeeClass[]
   account: StudentFeeAccountRow | null
@@ -73,42 +79,53 @@ export type StudentFeeYear = {
   payments: PaymentSummary[]
 }
 
-type Enrolment = { student_id: string; class: FeeClass | null }
+type DatedEnrolment = {
+  student_id: string
+  start_date: string
+  end_date: string | null
+  class: FeeClass | null
+}
 
-const PAGE_SIZE = 1000
 const TAGS = ['students', 'classes', 'student-fees']
 
 // PostgREST caps a response at 1000 rows; payments accumulate every year.
 async function getAllPaymentSummaries(
   yearId: string,
 ): Promise<(PaymentSummary & { student_id: string })[]> {
-  const rows: (PaymentSummary & { student_id: string })[] = []
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await supabase
+  return fetchAllPages((from, to) =>
+    supabase
       .from('student_payments')
       .select('student_id, amount, payment_date')
       .eq('academic_year_id', yearId)
       .order('id')
-      .range(from, from + PAGE_SIZE - 1)
-    if (error) throw error
-    rows.push(...(data ?? []))
-    if (!data || data.length < PAGE_SIZE) return rows
-  }
+      .range(from, to),
+  )
+}
+
+async function getAllEnrolmentsForYear(
+  yearId: string,
+): Promise<DatedEnrolment[]> {
+  return fetchAllPages((from, to) =>
+    supabase
+      .from('student_classes')
+      .select('student_id, start_date, end_date, class:classes!inner(id, name)')
+      .eq('class.academic_year_id', yearId)
+      .order('id')
+      .range(from, to),
+  )
 }
 
 export const getStudentFeeList = unstable_cache(
   async (yearId: string): Promise<StudentFeeListItem[]> => {
-    const [{ data: students }, { data: enrolments }, { data: accounts }] =
+    const [{ data: students }, enrolments, { data: accounts }] =
       await Promise.all([
         supabase
           .from('students')
-          .select('id, first_name, last_name, student_code')
-          .eq('active', true)
+          .select(
+            'id, first_name, last_name, student_code, active, leaving_reason',
+          )
           .order('last_name'),
-        supabase
-          .from('student_classes')
-          .select('student_id, class:classes!inner(id, name)')
-          .eq('class.academic_year_id', yearId),
+        getAllEnrolmentsForYear(yearId),
         supabase
           .from('student_fee_accounts')
           .select('*')
@@ -116,11 +133,11 @@ export const getStudentFeeList = unstable_cache(
       ])
     const payments = await getAllPaymentSummaries(yearId)
 
-    const enrolmentsByStudent = new Map<string, FeeClass[]>()
-    for (const e of (enrolments ?? []) as Enrolment[]) {
+    const enrolmentsByStudent = new Map<string, DatedEnrolment[]>()
+    for (const e of enrolments) {
       if (!e.class) continue
       const list = enrolmentsByStudent.get(e.student_id) ?? []
-      list.push(e.class)
+      list.push(e)
       enrolmentsByStudent.set(e.student_id, list)
     }
     const accountByStudent = new Map(
@@ -133,12 +150,27 @@ export const getStudentFeeList = unstable_cache(
       paymentsByStudent.set(student_id, list)
     }
 
-    return (students ?? []).map((s) => ({
-      ...s,
-      classes: enrolmentsByStudent.get(s.id) ?? [],
-      account: accountByStudent.get(s.id) ?? null,
-      payments: paymentsByStudent.get(s.id) ?? [],
-    }))
+    return (students ?? [])
+      .map((s) => {
+        const studentEnrolments = enrolmentsByStudent.get(s.id) ?? []
+        return {
+          ...s,
+          classes: feeClassesForYear(studentEnrolments).map(
+            (e) => e.class as FeeClass,
+          ),
+          account: accountByStudent.get(s.id) ?? null,
+          payments: paymentsByStudent.get(s.id) ?? [],
+          hasEnrolment: studentEnrolments.length > 0,
+        }
+      })
+      .filter(
+        (s) =>
+          s.active ||
+          s.hasEnrolment ||
+          accountByStudent.has(s.id) ||
+          paymentsByStudent.has(s.id),
+      )
+      .map(({ hasEnrolment: _hasEnrolment, ...rest }) => rest)
   },
   ['student-fee-list'],
   { revalidate: 60, tags: TAGS },
@@ -151,7 +183,7 @@ export const getStudentFeeDetail = unstable_cache(
   ): Promise<StudentFeeDetail | null> => {
     const { data: student } = await supabase
       .from('students')
-      .select('id, first_name, last_name, student_code')
+      .select('id, first_name, last_name, student_code, active, leaving_reason')
       .eq('id', studentId)
       .maybeSingle()
     if (!student) return null
@@ -160,7 +192,9 @@ export const getStudentFeeDetail = unstable_cache(
       await Promise.all([
         supabase
           .from('student_classes')
-          .select('student_id, class:classes!inner(id, name)')
+          .select(
+            'student_id, start_date, end_date, class:classes!inner(id, name)',
+          )
           .eq('student_id', studentId)
           .eq('class.academic_year_id', yearId),
         supabase
@@ -180,9 +214,9 @@ export const getStudentFeeDetail = unstable_cache(
 
     return {
       student,
-      classes: ((enrolments ?? []) as Enrolment[])
-        .map((e) => e.class)
-        .filter((c): c is FeeClass => Boolean(c)),
+      classes: feeClassesForYear(
+        ((enrolments ?? []) as DatedEnrolment[]).filter((e) => e.class),
+      ).map((e) => e.class as FeeClass),
       account: account ?? null,
       payments: (payments ?? []) as StudentPaymentWithRecorder[],
     }
@@ -200,7 +234,9 @@ export const getStudentFeeYears = unstable_cache(
       await Promise.all([
         supabase
           .from('student_classes')
-          .select('class:classes(id, name, academic_year_id)')
+          .select(
+            'start_date, end_date, class:classes(id, name, academic_year_id)',
+          )
           .eq('student_id', studentId),
         supabase
           .from('student_fee_accounts')
@@ -212,17 +248,30 @@ export const getStudentFeeYears = unstable_cache(
           .eq('student_id', studentId),
       ])
 
+    type YearEnrolment = {
+      start_date: string
+      end_date: string | null
+      class: { id: string; name: string; academic_year_id: string } | null
+    }
+    const enrolmentsByYear = new Map<
+      string,
+      (YearEnrolment & { class: NonNullable<YearEnrolment['class']> })[]
+    >()
+    for (const e of (enrolments ?? []) as YearEnrolment[]) {
+      if (!e.class) continue
+      const list = enrolmentsByYear.get(e.class.academic_year_id) ?? []
+      list.push({ ...e, class: e.class })
+      enrolmentsByYear.set(e.class.academic_year_id, list)
+    }
     const classesByYear = new Map<string, FeeClass[]>()
-    for (const e of enrolments ?? []) {
-      const cls = e.class as {
-        id: string
-        name: string
-        academic_year_id: string
-      } | null
-      if (!cls) continue
-      const list = classesByYear.get(cls.academic_year_id) ?? []
-      list.push({ id: cls.id, name: cls.name })
-      classesByYear.set(cls.academic_year_id, list)
+    for (const [yearId, yearEnrolments] of enrolmentsByYear) {
+      classesByYear.set(
+        yearId,
+        feeClassesForYear(yearEnrolments).map((e) => ({
+          id: e.class.id,
+          name: e.class.name,
+        })),
+      )
     }
     const accountByYear = new Map(
       (accounts ?? []).map((a) => [a.academic_year_id, a]),

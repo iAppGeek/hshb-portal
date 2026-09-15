@@ -6,12 +6,16 @@ import {
   getClassesByAcademicYear,
   getClassById,
   getClassesByTeacher,
+  getEnrolmentsForClass,
+  getEnrolmentsInRange,
   createClass,
   updateClass,
   setClassStudents,
+  migrateClass,
 } from './classes'
 
 const mockFrom = vi.hoisted(() => vi.fn())
+const mockRpc = vi.hoisted(() => vi.fn())
 const mockGetCurrentAcademicYear = vi.hoisted(() => vi.fn())
 
 vi.mock('next/cache', () => ({
@@ -20,7 +24,7 @@ vi.mock('next/cache', () => ({
 }))
 
 vi.mock('./client', () => ({
-  supabase: { from: mockFrom },
+  supabase: { from: mockFrom, rpc: mockRpc },
 }))
 
 vi.mock('./academic-years', () => ({
@@ -169,16 +173,17 @@ describe('getClassesByAcademicYear', () => {
 })
 
 describe('getClassById', () => {
-  it('returns a class with student enrollments, flattening the year to its code', async () => {
+  it('returns a class with open student enrolments, flattening the year to its code', async () => {
     const mockData = {
       ...mockRawClass,
       student_classes: [{ student_id: 'student-1' }],
     }
+    const mockIs = vi.fn().mockReturnValue({
+      single: vi.fn().mockResolvedValue({ data: mockData }),
+    })
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ data: mockData }),
-        }),
+        eq: vi.fn().mockReturnValue({ is: mockIs }),
       }),
     })
 
@@ -188,19 +193,124 @@ describe('getClassById', () => {
       student_classes: [{ student_id: 'student-1' }],
     })
     expect(mockFrom).toHaveBeenCalledWith('classes')
+    expect(mockIs).toHaveBeenCalledWith('student_classes.end_date', null)
   })
 
   it('returns null when class not found', async () => {
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ data: null }),
+          is: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: null }),
+          }),
         }),
       }),
     })
 
     const result = await getClassById('nonexistent')
     expect(result).toBeNull()
+  })
+})
+
+describe('getEnrolmentsForClass', () => {
+  it('returns dated enrolment rows for the class', async () => {
+    const rows = [
+      {
+        class_id: 'class-1',
+        student_id: 'student-1',
+        start_date: '2026-09-01',
+        end_date: null,
+      },
+    ]
+    const mockEq = vi.fn().mockResolvedValue({ data: rows, error: null })
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({ eq: mockEq }),
+    })
+
+    const result = await getEnrolmentsForClass('class-1')
+    expect(result).toEqual(rows)
+    expect(mockFrom).toHaveBeenCalledWith('student_classes')
+    expect(mockEq).toHaveBeenCalledWith('class_id', 'class-1')
+  })
+
+  it('throws on error', async () => {
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ data: null, error: new Error('boom') }),
+      }),
+    })
+
+    await expect(getEnrolmentsForClass('class-1')).rejects.toThrow('boom')
+  })
+})
+
+describe('getEnrolmentsInRange', () => {
+  it('pages results and flattens the class embed to a SummaryClass', async () => {
+    const rawRow = {
+      class_id: 'class-1',
+      student_id: 'student-1',
+      start_date: '2026-09-01',
+      end_date: null,
+      class: {
+        id: 'class-1',
+        name: 'Alpha',
+        active: true,
+        academic_year: { code: '2026-27' },
+      },
+    }
+    const mockRange = vi.fn().mockResolvedValue({ data: [rawRow], error: null })
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lte: vi.fn().mockReturnValue({
+          or: vi.fn().mockReturnValue({
+            order: vi.fn().mockReturnValue({ range: mockRange }),
+          }),
+        }),
+      }),
+    })
+
+    const result = await getEnrolmentsInRange('2026-09-01', '2026-09-30')
+    expect(result).toEqual([
+      {
+        class_id: 'class-1',
+        student_id: 'student-1',
+        start_date: '2026-09-01',
+        end_date: null,
+        class: {
+          id: 'class-1',
+          name: 'Alpha',
+          active: true,
+          yearCode: '2026-27',
+        },
+      },
+    ])
+  })
+
+  it('drops rows whose class join failed', async () => {
+    const mockRange = vi.fn().mockResolvedValue({
+      data: [
+        {
+          class_id: 'class-1',
+          student_id: 'student-1',
+          start_date: '2026-09-01',
+          end_date: null,
+          class: null,
+        },
+      ],
+      error: null,
+    })
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lte: vi.fn().mockReturnValue({
+          or: vi.fn().mockReturnValue({
+            order: vi.fn().mockReturnValue({ range: mockRange }),
+          }),
+        }),
+      }),
+    })
+
+    const result = await getEnrolmentsInRange('2026-09-01', '2026-09-30')
+    expect(result).toEqual([])
   })
 })
 
@@ -252,13 +362,13 @@ describe('createClass', () => {
 })
 
 describe('updateClass', () => {
-  it('calls update with the correct data', async () => {
+  it('calls update with the correct data, without an active field', async () => {
     const mockEq = vi.fn().mockResolvedValue({ error: null })
     mockFrom.mockReturnValue({
       update: vi.fn().mockReturnValue({ eq: mockEq }),
     })
 
-    await updateClass('class-1', { name: 'Year 1B', active: false })
+    await updateClass('class-1', { name: 'Year 1B' })
     expect(mockFrom).toHaveBeenCalledWith('classes')
     expect(mockEq).toHaveBeenCalledWith('id', 'class-1')
     expect(updateTag).toHaveBeenCalledWith('classes')
@@ -280,48 +390,102 @@ describe('updateClass', () => {
 })
 
 describe('setClassStudents', () => {
-  it('deletes existing enrollments then inserts new ones', async () => {
-    const mockInsert = vi.fn().mockResolvedValue({ error: null })
-    const mockDeleteEq = vi.fn().mockResolvedValue({ error: null })
-    mockFrom
-      .mockReturnValueOnce({
-        delete: vi.fn().mockReturnValue({ eq: mockDeleteEq }),
-      })
-      .mockReturnValueOnce({ insert: mockInsert })
+  it('calls set_enrolments in class mode and never deletes', async () => {
+    mockRpc.mockResolvedValue({ error: null })
 
     await setClassStudents('class-1', ['student-1', 'student-2'])
 
-    expect(mockDeleteEq).toHaveBeenCalledWith('class_id', 'class-1')
-    expect(mockInsert).toHaveBeenCalledWith([
-      { class_id: 'class-1', student_id: 'student-1' },
-      { class_id: 'class-1', student_id: 'student-2' },
-    ])
+    expect(mockRpc).toHaveBeenCalledWith('set_enrolments', {
+      p_student_id: null,
+      p_class_id: 'class-1',
+      p_ids: ['student-1', 'student-2'],
+    })
+    expect(mockFrom).not.toHaveBeenCalled()
     expect(updateTag).toHaveBeenCalledWith('classes')
     expect(updateTag).toHaveBeenCalledWith('students')
   })
 
-  it('skips insert when studentIds is empty', async () => {
-    const mockDeleteEq = vi.fn().mockResolvedValue({ error: null })
-    mockFrom.mockReturnValue({
-      delete: vi.fn().mockReturnValue({ eq: mockDeleteEq }),
-    })
+  it('throws on rpc error', async () => {
+    mockRpc.mockResolvedValue({ error: new Error('Completed classes') })
 
-    await setClassStudents('class-1', [])
-    expect(mockFrom).toHaveBeenCalledTimes(1)
-    expect(updateTag).toHaveBeenCalledWith('classes')
-    expect(updateTag).toHaveBeenCalledWith('students')
-  })
-
-  it('throws when delete fails', async () => {
-    mockFrom.mockReturnValue({
-      delete: vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ error: new Error('delete error') }),
-      }),
-    })
-
-    await expect(setClassStudents('class-1', ['s-1'])).rejects.toThrow(
-      'delete error',
+    await expect(setClassStudents('class-1', [])).rejects.toThrow(
+      'Completed classes',
     )
+    expect(updateTag).not.toHaveBeenCalled()
+  })
+})
+
+describe('migrateClass', () => {
+  it('passes student actions and new-class fields through to the rpc', async () => {
+    mockRpc.mockResolvedValue({
+      data: { new_class_id: 'class-2', moved: 1, unassigned: 0, leavers: 1 },
+      error: null,
+    })
+
+    const result = await migrateClass({
+      sourceClassId: 'class-1',
+      studentActions: { 'student-1': 'move', 'student-2': 'graduated' },
+      newClass: {
+        name: 'Year 2A',
+        year_group: '2',
+        room_number: null,
+        academic_year_id: 'year-2',
+        teacher_id: 'staff-1',
+      },
+    })
+
+    expect(result).toEqual({
+      new_class_id: 'class-2',
+      moved: 1,
+      unassigned: 0,
+      leavers: 1,
+    })
+    expect(mockRpc).toHaveBeenCalledWith('migrate_class', {
+      p_source_class_id: 'class-1',
+      p_student_actions: { 'student-1': 'move', 'student-2': 'graduated' },
+      p_academic_year_id: 'year-2',
+      p_name: 'Year 2A',
+      p_year_group: '2',
+      p_room_number: undefined,
+      p_teacher_id: 'staff-1',
+    })
+    expect(updateTag).toHaveBeenCalledWith('classes')
+    expect(updateTag).toHaveBeenCalledWith('students')
+  })
+
+  it('passes undefined new-class fields when no new class is created', async () => {
+    mockRpc.mockResolvedValue({
+      data: { new_class_id: null, moved: 0, unassigned: 1, leavers: 0 },
+      error: null,
+    })
+
+    await migrateClass({
+      sourceClassId: 'class-1',
+      studentActions: { 'student-1': 'none' },
+      newClass: null,
+    })
+
+    expect(mockRpc).toHaveBeenCalledWith('migrate_class', {
+      p_source_class_id: 'class-1',
+      p_student_actions: { 'student-1': 'none' },
+      p_academic_year_id: undefined,
+      p_name: undefined,
+      p_year_group: undefined,
+      p_room_number: undefined,
+      p_teacher_id: undefined,
+    })
+  })
+
+  it('throws on rpc error', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: new Error('DB error') })
+
+    await expect(
+      migrateClass({
+        sourceClassId: 'class-1',
+        studentActions: {},
+        newClass: null,
+      }),
+    ).rejects.toThrow('DB error')
     expect(updateTag).not.toHaveBeenCalled()
   })
 })
