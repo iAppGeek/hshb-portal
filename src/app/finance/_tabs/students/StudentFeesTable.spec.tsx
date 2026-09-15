@@ -13,6 +13,8 @@ const rows: StudentFeeRow[] = [
     id: 's1',
     name: 'Student, Alice',
     studentCode: 'A-001',
+    active: true,
+    leavingReason: null,
     classes: [alpha],
     paymentPlan: 'monthly',
     feePlanName: 'Standard (2025-26)',
@@ -26,6 +28,8 @@ const rows: StudentFeeRow[] = [
     id: 's2',
     name: 'Jones, Bob',
     studentCode: null,
+    active: true,
+    leavingReason: null,
     classes: [alpha, beta],
     paymentPlan: null,
     feePlanName: null,
@@ -39,6 +43,8 @@ const rows: StudentFeeRow[] = [
     id: 's3',
     name: 'Brown, Carol',
     studentCode: null,
+    active: false,
+    leavingReason: 'left',
     classes: [],
     paymentPlan: 'yearly',
     feePlanName: 'Standard (2025-26)',
@@ -136,5 +142,20 @@ describe('StudentFeesTable', () => {
     })
     expect(screen.getByText('No students match these filters.')).toBeTruthy()
     expect(screen.getByText('Showing 0 of 3 students')).toBeTruthy()
+  })
+
+  it('shows a leaver badge next to an inactive student', () => {
+    render(<StudentFeesTable rows={rows} yearId="year-1" />)
+    expect(screen.getByText('Left')).toBeTruthy()
+  })
+
+  it('does not show a leaver badge for active students', () => {
+    render(
+      <StudentFeesTable
+        rows={rows.filter((r) => r.id !== 's3')}
+        yearId="year-1"
+      />,
+    )
+    expect(screen.queryByText('Left')).toBeNull()
   })
 })

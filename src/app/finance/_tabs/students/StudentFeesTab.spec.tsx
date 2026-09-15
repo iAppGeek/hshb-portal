@@ -32,10 +32,10 @@ beforeEach(() => {
 })
 
 describe('StudentFeesTab', () => {
-  it('shows an empty state with no active students', async () => {
+  it('shows an empty state with no students', async () => {
     vi.mocked(getStudentFeeList).mockResolvedValue([])
     render(await StudentFeesTab({ yearId: 'year-1' }))
-    expect(screen.getByText('No active students.')).toBeTruthy()
+    expect(screen.getByText('No students.')).toBeTruthy()
   })
 
   it('builds a row per student for the table, including prior-year balances', async () => {
@@ -45,6 +45,8 @@ describe('StudentFeesTab', () => {
         first_name: 'Alice',
         last_name: 'Student',
         student_code: null,
+        active: true,
+        leaving_reason: null,
         classes: [],
         account: null,
         payments: [],

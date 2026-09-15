@@ -68,6 +68,8 @@ export type StudentFeeRow = {
   id: string
   name: string
   studentCode: string | null
+  active: boolean
+  leavingReason: string | null
   classes: FeeClass[]
   paymentPlan: PaymentPlan | null
   feePlanName: string | null
@@ -90,6 +92,8 @@ export function buildStudentFeeRows(
       id: s.id,
       name: `${s.last_name}, ${s.first_name}`,
       studentCode: s.student_code,
+      active: s.active,
+      leavingReason: s.leaving_reason,
       classes: s.classes,
       paymentPlan: summary.paymentPlan,
       feePlanName: summary.feePlan

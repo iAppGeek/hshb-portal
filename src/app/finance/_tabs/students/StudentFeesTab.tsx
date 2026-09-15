@@ -20,7 +20,7 @@ export default async function StudentFeesTab({
   ])
 
   if (students.length === 0) {
-    return <EmptyState message="No active students." />
+    return <EmptyState message="No students." />
   }
 
   return (
