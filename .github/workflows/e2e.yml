@@ -17,10 +17,12 @@ jobs:
     env:
       E2E_TEST: 'true'
       E2E_TEST_SECRET: ${{ secrets.E2E_TEST_SECRET }}
-      AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+      AUTH_SECRET: e2e-ci-secret
       AUTH_URL: http://localhost:3000
       NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY_LOCAL }}
+      # Supabase CLI's public local-dev demo key — fixed, identical on every
+      # machine, and only valid against the ephemeral instance this job starts.
+      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
       AZURE_AD_CLIENT_ID: ci-placeholder
       AZURE_AD_CLIENT_SECRET: ci-placeholder
       AZURE_AD_TENANT_ID: ci-placeholder
