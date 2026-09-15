@@ -1,6 +1,11 @@
 import BulkEmailDropdown from '@/clientComponents/BulkEmailDropdown'
-import { getStudentsByClass, getAttendanceByClassAndDate } from '@/db'
+import {
+  getStudentsByIds,
+  getAttendanceByClassAndDate,
+  getEnrolmentsForClass,
+} from '@/db'
 import type { AttendanceStatus } from '@/db'
+import { buildRegisterRoster } from '@/lib/enrolment'
 import { todayInSchoolTz } from '@/lib/datetime'
 import { guardianEmailsForMailto, mailtoWithBcc } from '@/lib/mailto'
 import type { StaffRole } from '@/types/next-auth'
@@ -23,10 +28,17 @@ export default async function AttendanceRegister({
   role,
   archived = false,
 }: Props) {
-  const [students, existingRows] = await Promise.all([
-    getStudentsByClass(classId),
+  const [existingRows, enrolments] = await Promise.all([
     getAttendanceByClassAndDate(classId, date),
+    getEnrolmentsForClass(classId),
   ])
+
+  const roster = buildRegisterRoster(
+    existingRows.map((r) => r.student_id),
+    enrolments,
+    date,
+  )
+  const students = await getStudentsByIds(roster)
 
   const existing: Record<string, AttendanceStatus> = {}
   for (const row of existingRows) {
@@ -69,15 +81,23 @@ export default async function AttendanceRegister({
           </div>
         )}
       </div>
-      <AttendanceForm
-        classId={classId}
-        date={date}
-        students={students}
-        existing={existing}
-        role={role}
-        hasExisting={existingRows.length > 0}
-        archived={archived}
-      />
+      {roster.length === 0 ? (
+        <div className="rounded-xl bg-white p-12 text-center shadow-sm ring-1 ring-gray-200">
+          <p className="text-gray-500">
+            No students were in this class on this date.
+          </p>
+        </div>
+      ) : (
+        <AttendanceForm
+          classId={classId}
+          date={date}
+          students={students}
+          existing={existing}
+          role={role}
+          hasExisting={existingRows.length > 0}
+          archived={archived}
+        />
+      )}
     </>
   )
 }

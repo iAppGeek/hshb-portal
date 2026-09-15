@@ -87,6 +87,8 @@ const students = [
     consent_photo_media: false,
     consent_home_school: false,
     consent_comms_email_sms: false,
+    active: true,
+    leaving_reason: null,
   },
   {
     id: 'student-2',
@@ -140,6 +142,8 @@ const students = [
     consent_photo_media: false,
     consent_home_school: false,
     consent_comms_email_sms: false,
+    active: true,
+    leaving_reason: null,
   },
 ]
 
@@ -264,5 +268,26 @@ describe('StudentsTable', () => {
   it('does not show Edit links for headteacher', () => {
     render(<StudentsTable students={students} role="headteacher" />)
     expect(screen.queryByRole('link', { name: 'Edit' })).toBeNull()
+  })
+
+  it('shows a leaver badge for an inactive student', () => {
+    render(
+      <StudentsTable
+        students={[
+          { ...students[0], active: false, leaving_reason: 'graduated' },
+          students[1],
+        ]}
+        role="admin"
+      />,
+    )
+    expect(screen.getAllByText('Graduated').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Left')).toBeNull()
+  })
+
+  it('does not show a leaver badge for an active student', () => {
+    render(<StudentsTable students={students} role="admin" />)
+    expect(screen.queryByText('Left')).toBeNull()
+    expect(screen.queryByText('Graduated')).toBeNull()
+    expect(screen.queryByText('Transferred')).toBeNull()
   })
 })

@@ -71,6 +71,8 @@ const mockClass = {
   name: 'Year 3A',
   year_group: '3',
   academic_year: '2026-27',
+  academic_year_id: 'year-1',
+  active: true,
 }
 
 const pastClass = {
@@ -78,6 +80,7 @@ const pastClass = {
   name: 'Year 2A',
   year_group: '2',
   academic_year: '2025-26',
+  academic_year_id: 'year-0',
   active: false,
 }
 
@@ -94,7 +97,10 @@ beforeEach(() => {
   vi.mocked(getAcademicYears).mockResolvedValue([currentYear, pastYear] as any)
   vi.mocked(getCurrentAcademicYear).mockResolvedValue(currentYear as any)
   vi.mocked(getAllClasses).mockResolvedValue([mockClass] as any)
-  vi.mocked(getClassesByAcademicYear).mockResolvedValue([pastClass] as any)
+  vi.mocked(getClassesByAcademicYear).mockImplementation(
+    async (yearId: string) =>
+      (yearId === 'year-1' ? [mockClass] : [pastClass]) as any,
+  )
   vi.mocked(getClassesByTeacher).mockResolvedValue([mockClass] as any)
 })
 
@@ -114,12 +120,12 @@ describe('AttendancePage', () => {
     expect(screen.getByText('No classes assigned.')).toBeTruthy()
   })
 
-  it('lists active current-year classes with a year selector for admin', async () => {
+  it('lists every current-year class (active or not) with a year selector for admin', async () => {
     mockUser('admin')
 
     render(await AttendancePage(params()))
-    expect(getAllClasses).toHaveBeenCalled()
-    expect(getClassesByAcademicYear).not.toHaveBeenCalled()
+    expect(getClassesByAcademicYear).toHaveBeenCalledWith('year-1')
+    expect(getAllClasses).not.toHaveBeenCalled()
     expect(screen.getByTestId('year-selector').textContent).toBe('year-1')
     expect(vi.mocked(AttendanceRegister)).toHaveBeenCalledWith(
       expect.objectContaining({ classId: 'class-1', archived: false }),
@@ -147,8 +153,33 @@ describe('AttendancePage', () => {
     mockUser('admin')
 
     render(await AttendancePage(params({ year: 'not-a-year' })))
-    expect(getAllClasses).toHaveBeenCalled()
-    expect(getClassesByAcademicYear).not.toHaveBeenCalled()
+    expect(getClassesByAcademicYear).toHaveBeenCalledWith('year-1')
+    expect(getAllClasses).not.toHaveBeenCalled()
+  })
+
+  it('admin viewing an inactive current-year class sees it read-only', async () => {
+    mockUser('admin')
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue([
+      { ...mockClass, id: 'class-1', active: false },
+    ] as any)
+
+    render(await AttendancePage(params()))
+    expect(vi.mocked(AttendanceRegister)).toHaveBeenCalledWith(
+      expect.objectContaining({ classId: 'class-1', archived: true }),
+      undefined,
+    )
+  })
+
+  it('shows an error panel when the requested classId is not in the list', async () => {
+    mockUser('teacher')
+
+    render(await AttendancePage(params({ classId: 'not-my-class' })))
+    expect(
+      screen.getByText(
+        "This class isn't available. It may have been completed or you may not have access.",
+      ),
+    ).toBeTruthy()
+    expect(vi.mocked(AttendanceRegister)).not.toHaveBeenCalled()
   })
 
   it.each(['headteacher', 'secretary'])(
@@ -241,17 +272,6 @@ describe('AttendancePage', () => {
     mockUser('admin')
 
     render(await AttendancePage(params()))
-
-    expect(vi.mocked(AttendanceRegister)).toHaveBeenCalledWith(
-      expect.objectContaining({ classId: 'class-1' }),
-      undefined,
-    )
-  })
-
-  it('ignores a classId that is not in the listed classes', async () => {
-    mockUser('teacher')
-
-    render(await AttendancePage(params({ classId: 'someone-elses-class' })))
 
     expect(vi.mocked(AttendanceRegister)).toHaveBeenCalledWith(
       expect.objectContaining({ classId: 'class-1' }),

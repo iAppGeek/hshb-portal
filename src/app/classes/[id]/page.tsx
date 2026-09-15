@@ -11,6 +11,9 @@ import type { StaffRole } from '@/types/next-auth'
 
 import EmptyState from '../../_components/EmptyState'
 
+import EnrolmentHistoryTable, {
+  type EnrolmentHistoryRow,
+} from './EnrolmentHistoryTable'
 import PrintButton from './PrintButton'
 
 export const metadata: Metadata = { title: 'Class Register' }
@@ -71,6 +74,9 @@ export default async function ClassRegisterPage({
       const lnc = a.last_name.localeCompare(b.last_name)
       return lnc !== 0 ? lnc : a.first_name.localeCompare(b.first_name)
     })
+
+  const enrolmentHistory = (cls.enrolment_history ??
+    []) as EnrolmentHistoryRow[]
 
   const classBccEmails = guardianEmailsForMailto(students)
   const classMailtoHref = mailtoWithBcc(classBccEmails, {
@@ -155,7 +161,13 @@ export default async function ClassRegisterPage({
       {/* Students */}
       {students.length === 0 ? (
         <div className="print:hidden">
-          <EmptyState message="No students enrolled in this class." />
+          <EmptyState
+            message={
+              enrolmentHistory.length > 0
+                ? 'No current students. See enrolment history below.'
+                : 'No students enrolled in this class.'
+            }
+          />
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-gray-200 print:overflow-visible print:rounded-none print:shadow-none print:ring-0">
@@ -228,6 +240,10 @@ export default async function ClassRegisterPage({
           </table>
         </div>
       )}
+
+      <div className="print:hidden">
+        <EnrolmentHistoryTable rows={enrolmentHistory} />
+      </div>
     </div>
   )
 }

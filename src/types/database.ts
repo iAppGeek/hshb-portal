@@ -926,20 +926,26 @@ export type Database = {
       student_classes: {
         Row: {
           class_id: string
+          end_date: string | null
           enrolled_at: string | null
           id: string
+          start_date: string
           student_id: string
         }
         Insert: {
           class_id: string
+          end_date?: string | null
           enrolled_at?: string | null
           id?: string
+          start_date?: string
           student_id: string
         }
         Update: {
           class_id?: string
+          end_date?: string | null
           enrolled_at?: string | null
           id?: string
+          start_date?: string
           student_id?: string
         }
         Relationships: [
@@ -1111,6 +1117,7 @@ export type Database = {
           first_name: string
           id: string
           last_name: string
+          leaving_reason: string | null
           medical_details: string | null
           notes: string | null
           postcode: string | null
@@ -1144,6 +1151,7 @@ export type Database = {
           first_name: string
           id?: string
           last_name: string
+          leaving_reason?: string | null
           medical_details?: string | null
           notes?: string | null
           postcode?: string | null
@@ -1177,6 +1185,7 @@ export type Database = {
           first_name?: string
           id?: string
           last_name?: string
+          leaving_reason?: string | null
           medical_details?: string | null
           notes?: string | null
           postcode?: string | null
@@ -1289,6 +1298,10 @@ export type Database = {
         }
         Returns: Json
       }
+      close_enrolments: {
+        Args: { p_ids: string[]; p_on: string }
+        Returns: undefined
+      }
       create_registration_submission: {
         Args: { p_contacts: Json; p_submission: Json }
         Returns: string
@@ -1324,23 +1337,20 @@ export type Database = {
           student_code: string
         }[]
       }
-      get_attendance_summary: {
-        Args: { p_date: string }
-        Returns: {
-          class_id: string
-          max_updated_at: string
-          min_created_at: string
-          present_count: number
-        }[]
+      is_class_open: { Args: { p_class_id: string }; Returns: boolean }
+      mark_student_as_leaver: {
+        Args: { p_reason: string; p_student_id: string }
+        Returns: undefined
       }
       migrate_class: {
         Args: {
-          p_academic_year_id: string
-          p_name: string
-          p_room_number: string
+          p_academic_year_id?: string
+          p_name?: string
+          p_room_number?: string
           p_source_class_id: string
-          p_teacher_id: string
-          p_year_group: string
+          p_student_actions: Json
+          p_teacher_id?: string
+          p_year_group?: string
         }
         Returns: Json
       }
@@ -1359,6 +1369,11 @@ export type Database = {
         Returns: string
       }
       set_current_academic_year: { Args: { p_id: string }; Returns: undefined }
+      set_enrolments: {
+        Args: { p_class_id: string; p_ids: string[]; p_student_id: string }
+        Returns: undefined
+      }
+      today_london: { Args: never; Returns: string }
     }
     Enums: {
       contact_role: 'primary' | 'secondary' | 'additional_1' | 'additional_2'

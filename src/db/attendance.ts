@@ -1,6 +1,8 @@
+import type { AttendanceRangeRow, SummaryClass } from '@/lib/attendanceSummary'
 import type { TablesInsert } from '@/types/database'
 
 import { supabase } from './client'
+import { fetchAllPages } from './paging'
 
 export type AttendanceStatus = 'present' | 'absent' | 'late'
 export type AttendanceInsert = TablesInsert<'attendance'>
@@ -18,84 +20,64 @@ export async function getAttendanceByClassAndDate(
   return data
 }
 
-export type AttendanceClassSummary = {
-  createdAt: string
-  updatedAt: string
-  presentCount: number
+type AttendanceRangeQueryRow = {
+  class_id: string
+  student_id: string
+  date: string
+  status: AttendanceStatus
+  created_at: string
+  updated_at: string
+  class: {
+    id: string
+    name: string
+    active: boolean
+    academic_year: { code: string } | null
+  } | null
 }
 
-/**
- * Returns attendance summary per class for a given date using a SQL aggregate
- * function (get_attendance_summary RPC). Must be registered in Supabase first —
- * see supabase/schema.sql.
- */
-export async function getAttendanceSummaryByDate(
-  date: string,
-): Promise<Record<string, AttendanceClassSummary>> {
-  const { data, error } = await supabase.rpc('get_attendance_summary', {
-    p_date: date,
-  })
-  if (error) throw error
-  if (!data) return {}
-  const result: Record<string, AttendanceClassSummary> = {}
-  for (const row of data as {
-    class_id: string
-    present_count: number
-    min_created_at: string
-    max_updated_at: string
-  }[]) {
-    result[row.class_id] = {
-      presentCount: row.present_count,
-      createdAt: row.min_created_at,
-      updatedAt: row.max_updated_at,
-    }
-  }
-  return result
-}
-
-export async function getAttendanceLateCount(date: string): Promise<number> {
-  const { count, error } = await supabase
-    .from('attendance')
-    .select('*', { count: 'exact', head: true })
-    .eq('date', date)
-    .eq('status', 'late')
-  if (error) throw error
-  return count ?? 0
-}
-
-/** Fetch attendance rows across a date range for aggregation (class_id, date, status). */
+/** Fetch attendance rows across a date range for aggregation, paged past
+ * PostgREST's 1000-row cap. */
 export async function getAttendanceByDateRange(
   startDate: string,
   endDate: string,
-) {
-  const { data, error } = await supabase
-    .from('attendance')
-    .select('class_id, date, status')
-    .gte('date', startDate)
-    .lte('date', endDate)
-  if (error) throw error
-  return data ?? []
-}
-
-/** Count late students across a date range. */
-export async function getAttendanceLateCountByDateRange(
-  startDate: string,
-  endDate: string,
-): Promise<number> {
-  const { count, error } = await supabase
-    .from('attendance')
-    .select('*', { count: 'exact', head: true })
-    .gte('date', startDate)
-    .lte('date', endDate)
-    .eq('status', 'late')
-  if (error) throw error
-  return count ?? 0
+): Promise<(AttendanceRangeRow & { class: SummaryClass })[]> {
+  const rows = await fetchAllPages<AttendanceRangeQueryRow>(
+    (from, to) =>
+      supabase
+        .from('attendance')
+        .select(
+          'class_id, student_id, date, status, created_at, updated_at, class:classes!inner(id, name, active, academic_year:academic_years(code))',
+        )
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('id')
+        .range(from, to) as unknown as PromiseLike<{
+        data: AttendanceRangeQueryRow[] | null
+        error: unknown
+      }>,
+  )
+  return rows
+    .filter((r) => r.class)
+    .map((r) => ({
+      class_id: r.class_id,
+      student_id: r.student_id,
+      date: r.date,
+      status: r.status,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+      class: {
+        id: r.class!.id,
+        name: r.class!.name,
+        active: r.class!.active,
+        yearCode: r.class!.academic_year?.code ?? null,
+      } satisfies SummaryClass,
+    }))
 }
 
 export async function saveAttendance(records: AttendanceInsert[]) {
   const { data, error } = await supabase
     .from('attendance')
-    .upsert(records, { onConflict: 'student_id,date' })
+    .upsert(records, { onConflict: 'class_id,student_id,date' })
     .select()
   if (error) throw error
   return data

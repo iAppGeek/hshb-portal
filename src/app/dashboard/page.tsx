@@ -17,10 +17,12 @@ import {
   getTeachers,
   getIncidentCount,
   getLessonPlanCountByDate,
-  getAttendanceSummaryByDate,
+  getAttendanceByDateRange,
+  getEnrolmentsInRange,
   getStaffSignedInCount,
   getPendingRegistrationCount,
 } from '@/db'
+import { summariseAttendance, type DateTotals } from '@/lib/attendanceSummary'
 import { todayInSchoolTz } from '@/lib/datetime'
 import { isTeacher, canReviewRegistrations } from '@/lib/permissions'
 import { roleLabels } from '@/lib/roleLabels'
@@ -38,13 +40,21 @@ export default async function DashboardPage() {
   const teacherOnly = isTeacher(role)
   const today = todayInSchoolTz()
 
+  const emptyTotals: DateTotals = {
+    distinctPresent: 0,
+    distinctEnrolled: 0,
+    distinctLate: 0,
+    classesTaken: 0,
+  }
+
   const [
     studentCount,
     classes,
     teachers,
     incidentCount,
     lessonPlanCount,
-    attendanceSummary,
+    attendanceRows,
+    enrolments,
     staffSignedInCount,
     pendingRegistrationCount,
   ] = await Promise.all([
@@ -55,20 +65,21 @@ export default async function DashboardPage() {
     teacherOnly ? Promise.resolve([] as { id: string }[]) : getTeachers(),
     teacherOnly ? Promise.resolve(null) : getIncidentCount(),
     teacherOnly ? Promise.resolve(null) : getLessonPlanCountByDate(today),
-    teacherOnly
-      ? Promise.resolve({} as Record<string, { presentCount: number }>)
-      : getAttendanceSummaryByDate(today),
+    teacherOnly ? Promise.resolve([]) : getAttendanceByDateRange(today, today),
+    teacherOnly ? Promise.resolve([]) : getEnrolmentsInRange(today, today),
     teacherOnly ? Promise.resolve(null) : getStaffSignedInCount(today),
     canReviewRegistrations(role)
       ? getPendingRegistrationCount()
       : Promise.resolve(null),
   ])
 
-  const presentToday = Object.values(attendanceSummary).reduce(
-    (sum, s) => sum + s.presentCount,
-    0,
-  )
-  const registersSubmitted = Object.keys(attendanceSummary).length
+  const totals = teacherOnly
+    ? emptyTotals
+    : (summariseAttendance(attendanceRows, enrolments, [today]).byDate[today] ??
+      emptyTotals)
+  const presentToday = totals.distinctPresent
+  const enrolledToday = totals.distinctEnrolled
+  const registersSubmitted = totals.classesTaken
 
   return (
     <>
@@ -89,10 +100,10 @@ export default async function DashboardPage() {
             <p className="text-sm text-gray-500">Students attendance today</p>
             <p className="mt-1 flex items-center gap-2">
               <span className="text-3xl font-bold text-gray-900">
-                {presentToday}/{studentCount}
+                {presentToday}/{enrolledToday}
               </span>
               <span className="text-sm font-medium text-gray-500">
-                {pct(presentToday, studentCount as number)}
+                {pct(presentToday, enrolledToday)}
               </span>
             </p>
           </Link>

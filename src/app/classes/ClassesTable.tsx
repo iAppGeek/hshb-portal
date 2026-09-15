@@ -17,8 +17,11 @@ export type ClassRow = {
   year_group: string
   room_number: string | null
   academic_year: string | null
+  academic_year_id: string
   active: boolean
   teacher: Teacher
+  /** Open (active, current year) — every other class is read-only. */
+  editable: boolean
 }
 
 type Props = {
@@ -77,7 +80,7 @@ export default function ClassesTable({ classes, canEdit, role }: Props) {
                       <span className="sm:hidden">
                         <StatusBadge active={cls.active} />
                       </span>
-                      {canEdit ? (
+                      {canEdit && cls.editable ? (
                         <Link
                           href={`/classes/${cls.id}/edit`}
                           className="ml-auto shrink-0 text-sm text-gray-500 hover:text-gray-700 sm:hidden"
@@ -85,6 +88,7 @@ export default function ClassesTable({ classes, canEdit, role }: Props) {
                           Edit
                         </Link>
                       ) : (
+                        canEdit === false &&
                         canSeeAllData(role) && (
                           <Tooltip text="You don't have permission to edit classes">
                             <span className="ml-auto shrink-0 cursor-not-allowed text-sm text-gray-400 sm:hidden">
@@ -128,7 +132,7 @@ export default function ClassesTable({ classes, canEdit, role }: Props) {
                   </td>
                   <td className="hidden px-3 py-4 text-right text-sm font-medium sm:table-cell sm:px-6">
                     <div className="flex items-center justify-end gap-3">
-                      {canEdit ? (
+                      {canEdit && cls.editable ? (
                         <Link
                           href={`/classes/${cls.id}/edit`}
                           className="text-gray-500 hover:text-gray-700"
@@ -136,6 +140,7 @@ export default function ClassesTable({ classes, canEdit, role }: Props) {
                           Edit
                         </Link>
                       ) : (
+                        canEdit === false &&
                         canSeeAllData(role) && (
                           <Tooltip text="You don't have permission to edit classes">
                             <span className="cursor-not-allowed text-gray-400">

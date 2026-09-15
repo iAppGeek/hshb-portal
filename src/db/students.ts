@@ -1,9 +1,15 @@
 import { unstable_cache, updateTag } from 'next/cache'
 
+import type { LeavingReason } from '@/lib/schemas'
+import type { Database } from '@/types/database'
+
 import { supabase } from './client'
+import { currentStays, withCurrentClasses } from './membership'
 
 const STUDENT_LIST_SELECT = 'id, first_name, last_name, student_code'
 
+// The student_classes embed lists current classes, so every query using these
+// selects goes through withCurrentClasses.
 const STUDENT_SELECT = `
   *,
   student_classes(class:classes(id, name, year_group, academic_year:academic_years(code))),
@@ -29,6 +35,7 @@ const STUDENT_SELECT = `
 const STUDENT_SELECT_WITH_TEACHER = `
   *,
   student_classes(class:classes(id, name, year_group, teacher_id)),
+  enrolment_end_dates:student_classes(end_date),
   primary_guardian:guardians!students_primary_guardian_id_fkey(
     first_name, last_name, phone, email, occupation,
     address_line_1, address_line_2, city, postcode, notes
@@ -121,21 +128,24 @@ export const getStudentsByTeacher = unstable_cache(
 
     const classIds = classes.map((c) => c.id)
 
-    const { data: enrollments } = await supabase
-      .from('student_classes')
-      .select('student_id')
-      .in('class_id', classIds)
+    const { data: enrollments } = await currentStays(
+      supabase
+        .from('student_classes')
+        .select('student_id')
+        .in('class_id', classIds),
+    )
 
     if (!enrollments?.length) return []
 
     const studentIds = [...new Set(enrollments.map((e) => e.student_id))]
 
-    const { data } = await supabase
-      .from('students')
-      .select(STUDENT_SELECT)
-      .in('id', studentIds)
-      .eq('active', true)
-      .order('last_name')
+    const { data } = await withCurrentClasses(
+      supabase
+        .from('students')
+        .select(STUDENT_SELECT)
+        .in('id', studentIds)
+        .eq('active', true),
+    ).order('last_name')
     return (data ?? []).map(withClassYearCodes)
   },
   ['students-by-teacher'],
@@ -154,10 +164,12 @@ export const getStudentIdsByTeacher = unstable_cache(
 
     const classIds = classes.map((c) => c.id)
 
-    const { data: enrollments } = await supabase
-      .from('student_classes')
-      .select('student_id')
-      .in('class_id', classIds)
+    const { data: enrollments } = await currentStays(
+      supabase
+        .from('student_classes')
+        .select('student_id')
+        .in('class_id', classIds),
+    )
 
     return [...new Set(enrollments?.map((e) => e.student_id) ?? [])]
   },
@@ -192,12 +204,12 @@ export const getStudentsWithAllergiesCount = unstable_cache(
 )
 
 export const getAllStudents = unstable_cache(
-  async () => {
-    const { data } = await supabase
-      .from('students')
-      .select(STUDENT_SELECT)
-      .eq('active', true)
-      .order('last_name')
+  async (includeInactive: boolean) => {
+    let query = withCurrentClasses(
+      supabase.from('students').select(STUDENT_SELECT),
+    )
+    if (!includeInactive) query = query.eq('active', true)
+    const { data } = await query.order('last_name')
     return (data ?? []).map(withClassYearCodes)
   },
   ['all-students'],
@@ -206,21 +218,24 @@ export const getAllStudents = unstable_cache(
 
 export const getStudentsByClass = unstable_cache(
   async (classId: string) => {
-    const { data: enrollments } = await supabase
-      .from('student_classes')
-      .select('student_id')
-      .eq('class_id', classId)
+    const { data: enrollments } = await currentStays(
+      supabase
+        .from('student_classes')
+        .select('student_id')
+        .eq('class_id', classId),
+    )
 
     if (!enrollments?.length) return []
 
     const studentIds = enrollments.map((e) => e.student_id)
 
-    const { data } = await supabase
-      .from('students')
-      .select(STUDENT_SELECT)
-      .in('id', studentIds)
-      .eq('active', true)
-      .order('last_name')
+    const { data } = await withCurrentClasses(
+      supabase
+        .from('students')
+        .select(STUDENT_SELECT)
+        .in('id', studentIds)
+        .eq('active', true),
+    ).order('last_name')
     return (data ?? []).map(withClassYearCodes)
   },
   ['students-by-class'],
@@ -229,15 +244,29 @@ export const getStudentsByClass = unstable_cache(
 
 export const getStudentById = unstable_cache(
   async (id: string) => {
-    const { data } = await supabase
-      .from('students')
-      .select(STUDENT_SELECT_WITH_TEACHER)
-      .eq('id', id)
-      .single()
+    const { data } = await withCurrentClasses(
+      supabase
+        .from('students')
+        .select(STUDENT_SELECT_WITH_TEACHER)
+        .eq('id', id),
+    ).single()
     return data
   },
   ['student-by-id'],
   OPTS,
+)
+
+/** Returns [] for empty input rather than issuing an unfiltered `.in()`. */
+export const getStudentsByIds = unstable_cache(
+  async (ids: string[]) => {
+    if (ids.length === 0) return []
+    const { data } = await withCurrentClasses(
+      supabase.from('students').select(STUDENT_SELECT).in('id', ids),
+    ).order('last_name')
+    return (data ?? []).map(withClassYearCodes)
+  },
+  ['students-by-ids'],
+  { revalidate: 60, tags: ['students', 'classes'] },
 )
 
 export type StudentMatch = {
@@ -321,21 +350,6 @@ export async function createStudent(data: StudentInsert) {
   return student
 }
 
-export async function enrollStudentInClasses(
-  studentId: string,
-  classIds: string[],
-) {
-  if (!classIds.length) return
-  const { error } = await supabase
-    .from('student_classes')
-    .insert(
-      classIds.map((classId) => ({ student_id: studentId, class_id: classId })),
-    )
-  if (error) throw error
-  updateTag('students')
-  updateTag('classes')
-}
-
 type StudentUpdate = Partial<StudentInsert>
 
 export async function updateStudent(id: string, data: StudentUpdate) {
@@ -348,15 +362,29 @@ export async function updateStudentClasses(
   studentId: string,
   classIds: string[],
 ) {
-  const { error: deleteError } = await supabase
-    .from('student_classes')
-    .delete()
-    .eq('student_id', studentId)
-  if (deleteError) throw deleteError
-  if (classIds.length > 0) {
-    await enrollStudentInClasses(studentId, classIds)
-  } else {
-    updateTag('students')
-    updateTag('classes')
-  }
+  // Supabase codegen marks p_class_id as a required string — the SQL function
+  // treats a NULL p_class_id as "student mode" (p_ids are class ids).
+  const { error } = await supabase.rpc('set_enrolments', {
+    p_student_id: studentId,
+    p_class_id: null,
+    p_ids: classIds,
+  } as unknown as Database['public']['Functions']['set_enrolments']['Args'])
+  if (error) throw error
+  updateTag('students')
+  updateTag('classes')
+  updateTag('student-fees')
+}
+
+export async function markStudentAsLeaver(
+  studentId: string,
+  reason: LeavingReason,
+): Promise<void> {
+  const { error } = await supabase.rpc('mark_student_as_leaver', {
+    p_student_id: studentId,
+    p_reason: reason,
+  })
+  if (error) throw error
+  updateTag('students')
+  updateTag('classes')
+  updateTag('student-fees')
 }

@@ -14,14 +14,21 @@ import StudentsTable from './StudentsTable'
 
 export const metadata: Metadata = { title: 'Students' }
 
-export default async function StudentsPage() {
+export default async function StudentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ leavers?: string }>
+}) {
   const session = await auth()
   const role = session?.user?.role as StaffRole
   const staffId = session?.user?.staffId
+  const { leavers } = await searchParams
+  const showLeavers = leavers === '1'
+  const teacherOnly = isTeacher(role)
 
-  const students = isTeacher(role)
+  const students = teacherOnly
     ? await getStudentsByTeacher(staffId!)
-    : await getAllStudents()
+    : await getAllStudents(showLeavers)
 
   return (
     <>
@@ -44,6 +51,17 @@ export default async function StudentsPage() {
           ) : null
         }
       />
+
+      {!teacherOnly && (
+        <div className="mb-4">
+          <Link
+            href={showLeavers ? '/students' : '/students?leavers=1'}
+            className="text-sm font-medium text-blue-600 hover:text-blue-800"
+          >
+            {showLeavers ? 'Hide leavers' : 'Show leavers'}
+          </Link>
+        </div>
+      )}
 
       {students.length === 0 ? (
         <EmptyState message="No students found." />

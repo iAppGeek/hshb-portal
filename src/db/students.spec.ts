@@ -11,10 +11,11 @@ import {
   getStudentsWithAllergiesCount,
   getStudentsByClass,
   getStudentById,
+  getStudentsByIds,
   createStudent,
-  enrollStudentInClasses,
   updateStudent,
   updateStudentClasses,
+  markStudentAsLeaver,
   findStudentMatches,
   getStudentsForLinking,
 } from './students'
@@ -155,16 +156,20 @@ describe('getStudentsByTeacher', () => {
       })
       .mockReturnValueOnce({
         select: vi.fn().mockReturnValue({
-          in: vi
-            .fn()
-            .mockResolvedValue({ data: [{ student_id: 'student-1' }] }),
+          in: vi.fn().mockReturnValue({
+            is: vi
+              .fn()
+              .mockResolvedValue({ data: [{ student_id: 'student-1' }] }),
+          }),
         }),
       })
       .mockReturnValueOnce({
         select: vi.fn().mockReturnValue({
           in: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockResolvedValue({ data: [mockStudent] }),
+              is: vi.fn().mockReturnValue({
+                order: vi.fn().mockResolvedValue({ data: [mockStudent] }),
+              }),
             }),
           }),
         }),
@@ -206,12 +211,14 @@ describe('getStudentIdsByTeacher', () => {
       })
       .mockReturnValueOnce({
         select: vi.fn().mockReturnValue({
-          in: vi.fn().mockResolvedValue({
-            data: [
-              { student_id: 'student-1' },
-              { student_id: 'student-1' },
-              { student_id: 'student-2' },
-            ],
+          in: vi.fn().mockReturnValue({
+            is: vi.fn().mockResolvedValue({
+              data: [
+                { student_id: 'student-1' },
+                { student_id: 'student-1' },
+                { student_id: 'student-2' },
+              ],
+            }),
           }),
         }),
       })
@@ -278,30 +285,47 @@ describe('getStudentsWithAllergiesCount', () => {
 })
 
 describe('getAllStudents', () => {
-  it('returns active students ordered by last name', async () => {
+  it('returns active students ordered by last name, filtered to open classes', async () => {
+    const mockEq = vi.fn().mockReturnValue({
+      order: vi.fn().mockResolvedValue({ data: [mockStudent] }),
+    })
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          order: vi.fn().mockResolvedValue({ data: [mockStudent] }),
-        }),
+        is: vi.fn().mockReturnValue({ eq: mockEq }),
       }),
     })
 
-    const result = await getAllStudents()
+    const result = await getAllStudents(false)
     expect(result).toEqual([mockStudent])
     expect(mockFrom).toHaveBeenCalledWith('students')
+    expect(mockEq).toHaveBeenCalledWith('active', true)
+  })
+
+  it('includes inactive students (leavers) when includeInactive is true', async () => {
+    const mockOrder = vi.fn().mockResolvedValue({ data: [mockStudent] })
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        is: vi.fn().mockReturnValue({ order: mockOrder }),
+      }),
+    })
+
+    const result = await getAllStudents(true)
+    expect(result).toEqual([mockStudent])
+    expect(mockOrder).toHaveBeenCalledWith('last_name')
   })
 
   it('returns empty array when no students exist', async () => {
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          order: vi.fn().mockResolvedValue({ data: null }),
+        is: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({ data: null }),
+          }),
         }),
       }),
     })
 
-    const result = await getAllStudents()
+    const result = await getAllStudents(false)
     expect(result).toEqual([])
   })
 })
@@ -311,8 +335,10 @@ describe('getStudentsByClass', () => {
     mockFrom
       .mockReturnValueOnce({
         select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({
-            data: [{ student_id: 'student-1' }],
+          eq: vi.fn().mockReturnValue({
+            is: vi.fn().mockResolvedValue({
+              data: [{ student_id: 'student-1' }],
+            }),
           }),
         }),
       })
@@ -320,7 +346,9 @@ describe('getStudentsByClass', () => {
         select: vi.fn().mockReturnValue({
           in: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockResolvedValue({ data: [mockStudent] }),
+              is: vi.fn().mockReturnValue({
+                order: vi.fn().mockResolvedValue({ data: [mockStudent] }),
+              }),
             }),
           }),
         }),
@@ -335,7 +363,9 @@ describe('getStudentsByClass', () => {
   it('returns empty array when class has no students', async () => {
     mockFrom.mockReturnValueOnce({
       select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ data: null }),
+        eq: vi.fn().mockReturnValue({
+          is: vi.fn().mockResolvedValue({ data: null }),
+        }),
       }),
     })
 
@@ -350,7 +380,9 @@ describe('getStudentById', () => {
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ data: mockStudent }),
+          is: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: mockStudent }),
+          }),
         }),
       }),
     })
@@ -363,13 +395,39 @@ describe('getStudentById', () => {
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ data: null }),
+          is: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: null }),
+          }),
         }),
       }),
     })
 
     const result = await getStudentById('missing-id')
     expect(result).toBeNull()
+  })
+})
+
+describe('getStudentsByIds', () => {
+  it('returns [] for empty input without querying', async () => {
+    const result = await getStudentsByIds([])
+    expect(result).toEqual([])
+    expect(mockFrom).not.toHaveBeenCalled()
+  })
+
+  it('returns students for the given ids, filtered to open classes', async () => {
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        in: vi.fn().mockReturnValue({
+          is: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({ data: [mockStudent] }),
+          }),
+        }),
+      }),
+    })
+
+    const result = await getStudentsByIds(['student-1'])
+    expect(result).toEqual([mockStudent])
+    expect(mockFrom).toHaveBeenCalledWith('students')
   })
 })
 
@@ -426,40 +484,6 @@ describe('createStudent', () => {
   })
 })
 
-describe('enrollStudentInClasses', () => {
-  it('inserts rows into student_classes for each class id', async () => {
-    const mockInsert = vi.fn().mockResolvedValue({ error: null })
-    mockFrom.mockReturnValue({ insert: mockInsert })
-
-    await enrollStudentInClasses('student-1', ['class-1', 'class-2'])
-
-    expect(mockFrom).toHaveBeenCalledWith('student_classes')
-    expect(mockInsert).toHaveBeenCalledWith([
-      { student_id: 'student-1', class_id: 'class-1' },
-      { student_id: 'student-1', class_id: 'class-2' },
-    ])
-    expect(updateTag).toHaveBeenCalledWith('students')
-    expect(updateTag).toHaveBeenCalledWith('classes')
-  })
-
-  it('does nothing when classIds is empty', async () => {
-    await enrollStudentInClasses('student-1', [])
-    expect(mockFrom).not.toHaveBeenCalled()
-    expect(updateTag).not.toHaveBeenCalled()
-  })
-
-  it('throws when the database returns an error', async () => {
-    mockFrom.mockReturnValue({
-      insert: vi.fn().mockResolvedValue({ error: new Error('DB error') }),
-    })
-
-    await expect(
-      enrollStudentInClasses('student-1', ['class-1']),
-    ).rejects.toThrow('DB error')
-    expect(updateTag).not.toHaveBeenCalled()
-  })
-})
-
 describe('updateStudent', () => {
   it('updates a student successfully', async () => {
     const mockUpdate = vi.fn().mockReturnValue({
@@ -489,51 +513,57 @@ describe('updateStudent', () => {
 })
 
 describe('updateStudentClasses', () => {
-  it('deletes existing classes and re-inserts new ones', async () => {
-    const mockDelete = vi.fn().mockReturnValue({
-      eq: vi.fn().mockResolvedValue({ error: null }),
-    })
-    const mockInsert = vi.fn().mockResolvedValue({ error: null })
-    mockFrom
-      .mockReturnValueOnce({ delete: mockDelete })
-      .mockReturnValueOnce({ insert: mockInsert })
+  it('calls set_enrolments in student mode and never deletes', async () => {
+    mockRpc.mockResolvedValue({ error: null })
 
     await updateStudentClasses('student-1', ['class-1', 'class-2'])
 
-    expect(mockFrom).toHaveBeenNthCalledWith(1, 'student_classes')
-    expect(mockDelete).toHaveBeenCalled()
-    expect(mockInsert).toHaveBeenCalledWith([
-      { student_id: 'student-1', class_id: 'class-1' },
-      { student_id: 'student-1', class_id: 'class-2' },
-    ])
-    expect(updateTag).toHaveBeenCalledWith('students')
-    expect(updateTag).toHaveBeenCalledWith('classes')
-  })
-
-  it('deletes existing classes and skips insert when classIds is empty', async () => {
-    const mockDelete = vi.fn().mockReturnValue({
-      eq: vi.fn().mockResolvedValue({ error: null }),
+    expect(mockRpc).toHaveBeenCalledWith('set_enrolments', {
+      p_student_id: 'student-1',
+      p_class_id: null,
+      p_ids: ['class-1', 'class-2'],
     })
-    mockFrom.mockReturnValueOnce({ delete: mockDelete })
-
-    await updateStudentClasses('student-1', [])
-
-    expect(mockFrom).toHaveBeenCalledTimes(1)
-    expect(mockDelete).toHaveBeenCalled()
+    expect(mockFrom).not.toHaveBeenCalled()
     expect(updateTag).toHaveBeenCalledWith('students')
     expect(updateTag).toHaveBeenCalledWith('classes')
+    expect(updateTag).toHaveBeenCalledWith('student-fees')
   })
 
-  it('throws when the delete fails', async () => {
-    mockFrom.mockReturnValueOnce({
-      delete: vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ error: new Error('Delete error') }),
-      }),
+  it('throws on rpc error', async () => {
+    mockRpc.mockResolvedValue({
+      error: new Error("Leavers can't be enrolled"),
     })
 
     await expect(
       updateStudentClasses('student-1', ['class-1']),
-    ).rejects.toThrow('Delete error')
+    ).rejects.toThrow()
+    expect(updateTag).not.toHaveBeenCalled()
+  })
+})
+
+describe('markStudentAsLeaver', () => {
+  it('calls the mark_student_as_leaver rpc', async () => {
+    mockRpc.mockResolvedValue({ error: null })
+
+    await markStudentAsLeaver('student-1', 'graduated')
+
+    expect(mockRpc).toHaveBeenCalledWith('mark_student_as_leaver', {
+      p_student_id: 'student-1',
+      p_reason: 'graduated',
+    })
+    expect(updateTag).toHaveBeenCalledWith('students')
+    expect(updateTag).toHaveBeenCalledWith('classes')
+    expect(updateTag).toHaveBeenCalledWith('student-fees')
+  })
+
+  it('throws on rpc error', async () => {
+    mockRpc.mockResolvedValue({
+      error: new Error('This student has already left.'),
+    })
+
+    await expect(markStudentAsLeaver('student-1', 'left')).rejects.toThrow(
+      'already left',
+    )
     expect(updateTag).not.toHaveBeenCalled()
   })
 })

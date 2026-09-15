@@ -20,6 +20,7 @@ import {
 } from '@/lib/fees'
 import { canManageFinance } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
+import LeaverBadge from '@/components/LeaverBadge'
 
 import FeeStatusBadge from '../../_components/FeeStatusBadge'
 import YearSelector from '../../../_components/YearSelector'
@@ -141,8 +142,9 @@ export default async function StudentFeesPage({
           ← Student fees
         </Link>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
             {student.last_name}, {student.first_name}
+            {!student.active && <LeaverBadge reason={student.leaving_reason} />}
           </h1>
           <YearSelector
             years={years}

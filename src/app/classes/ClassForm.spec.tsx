@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 
 import ClassForm, { type ClassFormData } from './ClassForm'
 
@@ -19,7 +19,6 @@ const classData: ClassFormData = {
   room_number: null,
   academic_year_id: 'year-1',
   teacher_id: 't1',
-  active: true,
   student_classes: [],
 }
 
@@ -63,5 +62,96 @@ describe('ClassForm', () => {
         "A class's academic year can't be changed after it is created.",
       ),
     ).toBeTruthy()
+  })
+
+  it('has no Active checkbox — deactivation only happens via migration', () => {
+    const { container } = render(
+      <ClassForm
+        teachers={teachers}
+        students={[]}
+        years={years}
+        classData={classData}
+        action={vi.fn()}
+        submitLabel="Save changes"
+      />,
+    )
+
+    expect(container.querySelector('[name="active"]')).toBeNull()
+    expect(screen.queryByText('Active')).toBeNull()
+  })
+
+  const alice = {
+    id: 's-alice',
+    first_name: 'Alice',
+    last_name: 'Adams',
+    student_code: null,
+  }
+  const bob = {
+    id: 's-bob',
+    first_name: 'Bob',
+    last_name: 'Brown',
+    student_code: null,
+  }
+
+  function submittedStudentIds(container: HTMLElement): FormDataEntryValue[] {
+    return new FormData(container.querySelector('form')!).getAll('student_ids')
+  }
+
+  it('keeps a member hidden by the search in the submitted students', () => {
+    const { container } = render(
+      <ClassForm
+        teachers={teachers}
+        students={[alice, bob]}
+        years={years}
+        classData={{
+          ...classData,
+          student_classes: [
+            {
+              student_id: alice.id,
+              student: { ...alice, active: true, leaving_reason: null },
+            },
+          ],
+        }}
+        action={vi.fn()}
+        submitLabel="Save changes"
+      />,
+    )
+
+    fireEvent.change(screen.getByPlaceholderText('Filter students by name…'), {
+      target: { value: 'Bob' },
+    })
+
+    expect(
+      screen.getByText('Adams, Alice').closest('label')!.className,
+    ).toContain('hidden')
+    expect(submittedStudentIds(container)).toEqual([alice.id])
+  })
+
+  it('shows a leaver still on the class ticked with a badge, and lets them be unticked', () => {
+    const { container } = render(
+      <ClassForm
+        teachers={teachers}
+        students={[bob]}
+        years={years}
+        classData={{
+          ...classData,
+          student_classes: [
+            {
+              student_id: alice.id,
+              student: { ...alice, active: false, leaving_reason: 'graduated' },
+            },
+          ],
+        }}
+        action={vi.fn()}
+        submitLabel="Save changes"
+      />,
+    )
+
+    const leaverRow = screen.getByText('Adams, Alice').closest('label')!
+    expect(leaverRow.textContent).toContain('Graduated')
+    expect(submittedStudentIds(container)).toEqual([alice.id])
+
+    fireEvent.click(leaverRow.querySelector('input')!)
+    expect(submittedStudentIds(container)).toEqual([])
   })
 })

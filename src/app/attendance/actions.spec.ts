@@ -9,6 +9,7 @@ import {
   getCurrentAcademicYear,
   getAdminSubscriptions,
   deletePushSubscription,
+  getEnrolmentsForClass,
 } from '@/db'
 import { sendPushNotification } from '@/lib/push'
 
@@ -25,6 +26,7 @@ vi.mock('@/db', () => ({
   getCurrentAcademicYear: vi.fn(),
   getAdminSubscriptions: vi.fn(),
   deletePushSubscription: vi.fn(),
+  getEnrolmentsForClass: vi.fn(),
   logAuditEvent: vi.fn(),
 }))
 
@@ -51,7 +53,22 @@ beforeEach(() => {
     id: CLASS_ID,
     name: 'Class A',
     academic_year_id: YEAR_ID,
+    active: true,
   } as any)
+  vi.mocked(getEnrolmentsForClass).mockResolvedValue([
+    {
+      class_id: CLASS_ID,
+      student_id: STUDENT_1,
+      start_date: '2020-01-01',
+      end_date: null,
+    },
+    {
+      class_id: CLASS_ID,
+      student_id: STUDENT_2,
+      start_date: '2020-01-01',
+      end_date: null,
+    },
+  ])
 })
 
 function makeFormData(fields: Record<string, string | string[]>): FormData {
@@ -84,6 +101,7 @@ describe('saveAttendanceAction', () => {
       id: CLASS_ID,
       name: 'Class A',
       academic_year_id: YEAR_ID,
+      active: true,
     } as any)
     vi.mocked(getAdminSubscriptions).mockResolvedValue([])
 
@@ -121,6 +139,7 @@ describe('saveAttendanceAction', () => {
       id: CLASS_ID,
       name: 'Class A',
       academic_year_id: YEAR_ID,
+      active: true,
     } as any)
 
     const fd = makeFormData({
@@ -145,6 +164,7 @@ describe('saveAttendanceAction', () => {
       id: CLASS_ID,
       name: 'Class A',
       academic_year_id: YEAR_ID,
+      active: true,
     } as any)
 
     const fd = makeFormData({
@@ -169,6 +189,7 @@ describe('saveAttendanceAction', () => {
       id: CLASS_ID,
       name: 'Class A',
       academic_year_id: YEAR_ID,
+      active: true,
     } as any)
     vi.mocked(getAdminSubscriptions).mockResolvedValue([mockSub])
     vi.mocked(sendPushNotification).mockResolvedValue(undefined)
@@ -201,6 +222,7 @@ describe('saveAttendanceAction', () => {
       id: CLASS_ID,
       name: 'Class A',
       academic_year_id: YEAR_ID,
+      active: true,
     } as any)
     vi.mocked(getAdminSubscriptions).mockResolvedValue([submitterSub])
     vi.mocked(sendPushNotification).mockResolvedValue(undefined)
@@ -229,6 +251,7 @@ describe('saveAttendanceAction', () => {
       id: CLASS_ID,
       name: 'Class A',
       academic_year_id: YEAR_ID,
+      active: true,
     } as any)
     vi.mocked(getAdminSubscriptions).mockResolvedValue([mockSub])
     vi.mocked(sendPushNotification).mockResolvedValue(undefined)
@@ -256,6 +279,7 @@ describe('saveAttendanceAction', () => {
       id: CLASS_ID,
       name: 'Class A',
       academic_year_id: YEAR_ID,
+      active: true,
     } as any)
     vi.mocked(getAdminSubscriptions).mockResolvedValue([mockSub])
     vi.mocked(deletePushSubscription).mockResolvedValue(undefined)
@@ -282,6 +306,7 @@ describe('saveAttendanceAction', () => {
       id: CLASS_ID,
       name: 'Class A',
       academic_year_id: YEAR_ID,
+      active: true,
     } as any)
     vi.mocked(getAdminSubscriptions).mockResolvedValue([mockSub])
     vi.mocked(sendPushNotification).mockRejectedValue(
@@ -305,6 +330,7 @@ describe('saveAttendanceAction', () => {
       id: CLASS_ID,
       name: 'Class A',
       academic_year_id: YEAR_ID,
+      active: true,
     } as any)
     vi.mocked(getAdminSubscriptions).mockResolvedValue([mockSub])
     vi.mocked(sendPushNotification).mockResolvedValue(undefined)
@@ -329,6 +355,7 @@ describe('saveAttendanceAction', () => {
       id: CLASS_ID,
       name: 'Class A',
       academic_year_id: YEAR_ID,
+      active: true,
     } as any)
     vi.mocked(getAdminSubscriptions).mockResolvedValue([])
 
@@ -401,6 +428,7 @@ describe('saveAttendanceAction', () => {
       id: CLASS_ID,
       name: 'Class A',
       academic_year_id: 'year-previous',
+      active: true,
     } as any)
 
     const result = await saveAttendanceAction(
@@ -414,9 +442,94 @@ describe('saveAttendanceAction', () => {
 
     expect(result).toEqual({
       error:
-        'Registers can only be saved for classes in the current academic year.',
+        "This register can't be changed. The class has been completed or is not in the current academic year.",
     })
     expect(saveAttendance).not.toHaveBeenCalled()
     expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it('rejects saving a register for an inactive (completed) current-year class', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { staffId: ADMIN_ID, role: 'admin' },
+    } as any)
+    vi.mocked(getClassById).mockResolvedValue({
+      id: CLASS_ID,
+      name: 'Class A',
+      academic_year_id: YEAR_ID,
+      active: false,
+    } as any)
+
+    const result = await saveAttendanceAction(
+      makeFormData({
+        classId: CLASS_ID,
+        date: '2026-06-01',
+        studentId: STUDENT_1,
+        [`status_${STUDENT_1}`]: 'present',
+      }),
+    )
+
+    expect(result).toEqual({
+      error:
+        "This register can't be changed. The class has been completed or is not in the current academic year.",
+    })
+    expect(saveAttendance).not.toHaveBeenCalled()
+  })
+
+  it('rejects a student who was not in this class on this date', async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { staffId: STAFF_ID } } as any)
+    vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
+    vi.mocked(getEnrolmentsForClass).mockResolvedValue([
+      {
+        class_id: CLASS_ID,
+        student_id: STUDENT_1,
+        start_date: '2026-09-20',
+        end_date: null,
+      },
+    ])
+
+    const result = await saveAttendanceAction(
+      makeFormData({
+        classId: CLASS_ID,
+        date: '2024-03-08',
+        studentId: STUDENT_1,
+        [`status_${STUDENT_1}`]: 'present',
+      }),
+    )
+
+    expect(result).toEqual({
+      error: 'Student was not in this class on this date',
+    })
+    expect(saveAttendance).not.toHaveBeenCalled()
+  })
+
+  it('accepts a leaver with a mark on a date they were enrolled', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { staffId: STAFF_ID, role: 'teacher' },
+    } as any)
+    vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([
+      { id: 'att-1', student_id: STUDENT_1 } as any,
+    ])
+    vi.mocked(getEnrolmentsForClass).mockResolvedValue([
+      {
+        class_id: CLASS_ID,
+        student_id: STUDENT_1,
+        start_date: '2020-01-01',
+        end_date: '2024-01-01',
+      },
+    ])
+    vi.mocked(saveAttendance).mockResolvedValue([] as any)
+    vi.mocked(getAdminSubscriptions).mockResolvedValue([])
+
+    const result = await saveAttendanceAction(
+      makeFormData({
+        classId: CLASS_ID,
+        date: '2023-06-01',
+        studentId: STUDENT_1,
+        [`status_${STUDENT_1}`]: 'present',
+      }),
+    )
+
+    expect(result).toBeUndefined()
+    expect(saveAttendance).toHaveBeenCalled()
   })
 })

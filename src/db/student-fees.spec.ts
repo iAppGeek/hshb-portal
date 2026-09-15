@@ -87,14 +87,38 @@ describe('getStudentFeeList', () => {
     const tables: Record<string, Chain> = {
       students: chain({
         data: [
-          { id: 's1', first_name: 'Alice', last_name: 'A', student_code: null },
-          { id: 's2', first_name: 'Bob', last_name: 'B', student_code: 'B1' },
+          {
+            id: 's1',
+            first_name: 'Alice',
+            last_name: 'A',
+            student_code: null,
+            active: true,
+            leaving_reason: null,
+          },
+          {
+            id: 's2',
+            first_name: 'Bob',
+            last_name: 'B',
+            student_code: 'B1',
+            active: true,
+            leaving_reason: null,
+          },
         ],
       }),
       student_classes: chain({
         data: [
-          { student_id: 's1', class: alpha },
-          { student_id: 's2', class: null },
+          {
+            student_id: 's1',
+            start_date: '2026-09-01',
+            end_date: null,
+            class: alpha,
+          },
+          {
+            student_id: 's2',
+            start_date: '2026-09-01',
+            end_date: null,
+            class: null,
+          },
         ],
       }),
       student_fee_accounts: chain({
@@ -115,6 +139,8 @@ describe('getStudentFeeList', () => {
         first_name: 'Alice',
         last_name: 'A',
         student_code: null,
+        active: true,
+        leaving_reason: null,
         classes: [alpha],
         account: { student_id: 's1', payment_plan: 'monthly' },
         payments: [{ amount: 100, payment_date: '2025-09-01' }],
@@ -124,12 +150,14 @@ describe('getStudentFeeList', () => {
         first_name: 'Bob',
         last_name: 'B',
         student_code: 'B1',
+        active: true,
+        leaving_reason: null,
         classes: [],
         account: null,
         payments: [],
       },
     ])
-    expect(tables.students.eq).toHaveBeenCalledWith('active', true)
+    expect(tables.students.eq).not.toHaveBeenCalled()
     expect(tables.student_classes.eq).toHaveBeenCalledWith(
       'class.academic_year_id',
       'y2',
@@ -143,6 +171,64 @@ describe('getStudentFeeList', () => {
       'y2',
     )
     expect(tables.student_payments.range).toHaveBeenCalledWith(0, 999)
+  })
+
+  it('keeps a leaver who has a class, account or payment in the year', async () => {
+    const tables: Record<string, Chain> = {
+      students: chain({
+        data: [
+          {
+            id: 's1',
+            first_name: 'Leaver',
+            last_name: 'L',
+            student_code: null,
+            active: false,
+            leaving_reason: 'left',
+          },
+        ],
+      }),
+      student_classes: chain({
+        data: [
+          {
+            student_id: 's1',
+            start_date: '2026-09-01',
+            end_date: '2026-10-01',
+            class: alpha,
+          },
+        ],
+      }),
+      student_fee_accounts: chain({ data: [] }),
+      student_payments: chain({ data: [] }),
+    }
+    mockFrom.mockImplementation((table: string) => tables[table])
+
+    const result = await getStudentFeeList('y2')
+    expect(result).toHaveLength(1)
+    expect(result[0].active).toBe(false)
+    expect(result[0].leaving_reason).toBe('left')
+  })
+
+  it('drops an inactive student with no class, account or payment in the year', async () => {
+    const tables: Record<string, Chain> = {
+      students: chain({
+        data: [
+          {
+            id: 's1',
+            first_name: 'Gone',
+            last_name: 'G',
+            student_code: null,
+            active: false,
+            leaving_reason: 'left',
+          },
+        ],
+      }),
+      student_classes: chain({ data: [] }),
+      student_fee_accounts: chain({ data: [] }),
+      student_payments: chain({ data: [] }),
+    }
+    mockFrom.mockImplementation((table: string) => tables[table])
+
+    expect(await getStudentFeeList('y2')).toEqual([])
   })
 
   it('pages through payments beyond the 1000-row cap', async () => {
@@ -206,10 +292,19 @@ describe('getStudentFeeDetail', () => {
           first_name: 'Alice',
           last_name: 'A',
           student_code: null,
+          active: true,
+          leaving_reason: null,
         },
       }),
       student_classes: chain({
-        data: [{ student_id: 's1', class: alpha }],
+        data: [
+          {
+            student_id: 's1',
+            start_date: '2026-09-01',
+            end_date: null,
+            class: alpha,
+          },
+        ],
       }),
       student_fee_accounts: chain({ data: null }),
       student_payments: chain({ data: [payment] }),
@@ -222,6 +317,8 @@ describe('getStudentFeeDetail', () => {
         first_name: 'Alice',
         last_name: 'A',
         student_code: null,
+        active: true,
+        leaving_reason: null,
       },
       classes: [alpha],
       account: null,
@@ -235,7 +332,14 @@ describe('getStudentFeeDetail', () => {
   it('defaults missing enrolments and payments to empty lists', async () => {
     const tables: Record<string, Chain> = {
       students: chain({
-        data: { id: 's1', first_name: 'A', last_name: 'A', student_code: null },
+        data: {
+          id: 's1',
+          first_name: 'A',
+          last_name: 'A',
+          student_code: null,
+          active: true,
+          leaving_reason: null,
+        },
       }),
       student_classes: chain({ data: null }),
       student_fee_accounts: chain({ data: null }),
@@ -253,7 +357,13 @@ describe('getStudentFeeYears', () => {
   it('returns only years with a class, an account or a payment, newest first', async () => {
     const tables: Record<string, Chain> = {
       student_classes: chain({
-        data: [{ class: { id: 'c1', name: 'Alpha', academic_year_id: 'y2' } }],
+        data: [
+          {
+            start_date: '2026-09-01',
+            end_date: null,
+            class: { id: 'c1', name: 'Alpha', academic_year_id: 'y2' },
+          },
+        ],
       }),
       student_fee_accounts: chain({
         data: [{ academic_year_id: 'y1', payment_plan: 'monthly' }],
@@ -304,7 +414,16 @@ describe('getPriorYearBalances', () => {
           { id: 's1', first_name: 'A', last_name: 'A', student_code: null },
         ],
       }),
-      student_classes: chain({ data: [{ student_id: 's1', class: alpha }] }),
+      student_classes: chain({
+        data: [
+          {
+            student_id: 's1',
+            start_date: '2025-09-01',
+            end_date: null,
+            class: alpha,
+          },
+        ],
+      }),
       student_fee_accounts: chain({
         data: [{ student_id: 's1', payment_plan: 'yearly', settled: false }],
       }),
@@ -328,7 +447,16 @@ describe('getPriorYearBalances', () => {
           { id: 's1', first_name: 'A', last_name: 'A', student_code: null },
         ],
       }),
-      student_classes: chain({ data: [{ student_id: 's1', class: alpha }] }),
+      student_classes: chain({
+        data: [
+          {
+            student_id: 's1',
+            start_date: '2025-09-01',
+            end_date: null,
+            class: alpha,
+          },
+        ],
+      }),
       student_fee_accounts: chain({
         data: [{ student_id: 's1', payment_plan: 'yearly', settled: true }],
       }),
@@ -361,7 +489,16 @@ describe('getPriorYearBalances', () => {
           { id: 's1', first_name: 'A', last_name: 'A', student_code: null },
         ],
       }),
-      student_classes: chain({ data: [{ student_id: 's1', class: alpha }] }),
+      student_classes: chain({
+        data: [
+          {
+            student_id: 's1',
+            start_date: '2025-09-01',
+            end_date: null,
+            class: alpha,
+          },
+        ],
+      }),
       student_fee_accounts: chain({
         data: [{ student_id: 's1', payment_plan: 'yearly', settled: false }],
       }),

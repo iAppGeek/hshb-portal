@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 
+import LeaverBadge from '@/components/LeaverBadge'
 import {
   FEE_STATUS_LABELS,
   formatGbp,
@@ -160,6 +161,11 @@ export default function StudentFeesTable({
                       {r.studentCode && (
                         <span className="ml-1 text-xs text-gray-400">
                           {r.studentCode}
+                        </span>
+                      )}
+                      {!r.active && (
+                        <span className="ml-2">
+                          <LeaverBadge reason={r.leavingReason} />
                         </span>
                       )}
                     </td>

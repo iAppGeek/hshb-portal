@@ -16,6 +16,7 @@ vi.mock('@/db', () => ({
   getTeachers: vi.fn(),
   getStudentsForList: vi.fn(),
   getAcademicYears: vi.fn(),
+  getCurrentAcademicYear: vi.fn(),
 }))
 
 vi.mock('../../ClassForm', () => ({
@@ -41,6 +42,7 @@ import { auth } from '@/auth'
 import {
   getAcademicYears,
   getClassById,
+  getCurrentAcademicYear,
   getTeachers,
   getStudentsForList,
 } from '@/db'
@@ -77,6 +79,7 @@ const mockYears = [
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(getAcademicYears).mockResolvedValue(mockYears as any)
+  vi.mocked(getCurrentAcademicYear).mockResolvedValue(mockYears[0] as any)
 })
 
 describe('EditClassPage', () => {
@@ -111,6 +114,38 @@ describe('EditClassPage', () => {
     await expect(
       EditClassPage({ params: Promise.resolve({ id: 'nonexistent' }) }),
     ).rejects.toThrow('NEXT_REDIRECT:/classes')
+  })
+
+  it('redirects to the class page when the class is inactive', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
+    vi.mocked(getClassById).mockResolvedValue({
+      ...mockClass,
+      active: false,
+    } as any)
+    vi.mocked(getTeachers).mockResolvedValue(mockTeachers as any)
+    vi.mocked(getStudentsForList).mockResolvedValue(mockStudents as any)
+
+    await expect(
+      EditClassPage({ params: Promise.resolve({ id: 'class-1' }) }),
+    ).rejects.toThrow('NEXT_REDIRECT:/classes/class-1')
+  })
+
+  it('redirects to the class page when an active class is not in the current year', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
+    vi.mocked(getClassById).mockResolvedValue({
+      ...mockClass,
+      academic_year_id: 'year-2',
+    } as any)
+    vi.mocked(getTeachers).mockResolvedValue(mockTeachers as any)
+    vi.mocked(getStudentsForList).mockResolvedValue(mockStudents as any)
+
+    await expect(
+      EditClassPage({ params: Promise.resolve({ id: 'class-1' }) }),
+    ).rejects.toThrow('NEXT_REDIRECT:/classes/class-1')
   })
 
   it('renders heading with class name for admin', async () => {

@@ -146,19 +146,53 @@ export const createClassSchema = z.object({
   student_ids: z.array(uuid).default([]),
 })
 
-// A class's academic year is fixed once it is created.
-export const updateClassSchema = createClassSchema
-  .omit({ academic_year_id: true })
-  .extend({ active: booleanFromString })
-
-export const migrateClassSchema = z.object({
-  source_class_id: uuid,
-  name: requiredString,
-  year_group: requiredString,
-  room_number: optionalString,
-  academic_year_id: uuid,
-  teacher_id: uuid,
+// A class's academic year is fixed once it is created. Deactivation only
+// happens via migration, so there is no `active` field on this form.
+export const updateClassSchema = createClassSchema.omit({
+  academic_year_id: true,
 })
+
+export const LEAVING_REASONS = ['left', 'graduated', 'transferred'] as const
+export const leavingReason = z.enum(LEAVING_REASONS)
+export type LeavingReason = z.infer<typeof leavingReason>
+export const LEAVING_REASON_LABELS: Record<
+  (typeof LEAVING_REASONS)[number],
+  string
+> = {
+  left: 'Left',
+  graduated: 'Graduated',
+  transferred: 'Transferred',
+}
+
+export const leaverSchema = z.object({ reason: leavingReason })
+
+export const migrationAction = z.enum(['move', 'none', ...LEAVING_REASONS])
+
+const migrateClassBase = {
+  source_class_id: uuid,
+  student_actions: z.record(uuid, migrationAction),
+}
+
+export const migrateClassSchema = z.discriminatedUnion('create_new_class', [
+  z.object({
+    create_new_class: z.literal('true'),
+    ...migrateClassBase,
+    name: requiredString,
+    year_group: requiredString,
+    room_number: optionalString,
+    academic_year_id: uuid,
+    teacher_id: uuid,
+  }),
+  z
+    .object({
+      create_new_class: z.literal('false'),
+      ...migrateClassBase,
+    })
+    .refine((d) => !Object.values(d.student_actions).includes('move'), {
+      message: 'Students can only move when a new class is created',
+      path: ['student_actions'],
+    }),
+])
 
 export const updateGuardianSchema = z.object({
   first_name: requiredString,

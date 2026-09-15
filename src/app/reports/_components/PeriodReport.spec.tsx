@@ -49,6 +49,7 @@ const classSummary = [
     presentCount: 60,
     absentCount: 12,
     lateCount: 5,
+    possible: 80,
   },
   {
     name: 'Year 4B',
@@ -56,6 +57,7 @@ const classSummary = [
     presentCount: 72,
     absentCount: 8,
     lateCount: 3,
+    possible: 96,
   },
 ]
 
@@ -128,6 +130,26 @@ describe('PeriodReport', () => {
     expect(screen.getByText('Attendance %')).toBeTruthy()
     expect(screen.getByText('Absences')).toBeTruthy()
     expect(screen.getByText('Late')).toBeTruthy()
+  })
+
+  it('computes the attendance rate from possible, not enrolled × totalSchoolDays', () => {
+    render(
+      <PeriodReport
+        {...defaultProps}
+        classSummary={[
+          {
+            name: 'Year 5C',
+            enrolled: 10,
+            presentCount: 30,
+            absentCount: 20,
+            lateCount: 0,
+            // A leaver mid-range lowers possible below enrolled * totalSchoolDays (80).
+            possible: 60,
+          },
+        ]}
+      />,
+    )
+    expect(screen.getByText('50%')).toBeTruthy()
   })
 
   it('handles empty staff data', () => {

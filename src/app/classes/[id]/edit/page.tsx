@@ -5,9 +5,11 @@ import { auth } from '@/auth'
 import {
   getAcademicYears,
   getClassById,
+  getCurrentAcademicYear,
   getTeachers,
   getStudentsForList,
 } from '@/db'
+import { isClassOpen } from '@/lib/classes'
 import { canEditClasses } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -35,15 +37,22 @@ export default async function EditClassPage({
 
   const { id } = await params
 
-  const [classData, teachers, students, years] = await Promise.all([
-    getClassById(id),
-    getTeachers(),
-    getStudentsForList(),
-    getAcademicYears(),
-  ])
+  const [classData, teachers, students, years, currentYear] = await Promise.all(
+    [
+      getClassById(id),
+      getTeachers(),
+      getStudentsForList(),
+      getAcademicYears(),
+      getCurrentAcademicYear(),
+    ],
+  )
 
   if (!classData) {
     redirect('/classes')
+  }
+
+  if (!isClassOpen(classData, currentYear)) {
+    redirect(`/classes/${id}`)
   }
 
   return (

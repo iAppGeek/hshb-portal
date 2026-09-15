@@ -10,9 +10,12 @@ import {
   getCurrentAcademicYear,
   getAdminSubscriptions,
   deletePushSubscription,
+  getEnrolmentsForClass,
   saveAttendance,
   logAuditEvent,
 } from '@/db'
+import { isClassOpen } from '@/lib/classes'
+import { buildRegisterRoster } from '@/lib/enrolment'
 import { canUpdateAttendance } from '@/lib/permissions'
 import { uuid, isoDate, attendanceStatus, optionalString } from '@/lib/schemas'
 import type { ActionResult } from '@/lib/schemas'
@@ -48,10 +51,10 @@ export async function saveAttendanceAction(
     getCurrentAcademicYear(),
   ])
   if (!cls) return { error: 'Class not found' }
-  if (cls.academic_year_id !== currentYear.id) {
+  if (!isClassOpen(cls, currentYear)) {
     return {
       error:
-        'Registers can only be saved for classes in the current academic year.',
+        "This register can't be changed. The class has been completed or is not in the current academic year.",
     }
   }
 
@@ -82,8 +85,22 @@ export async function saveAttendanceAction(
     }
   })
 
-  const existing = await getAttendanceByClassAndDate(classId, date)
+  const [existing, enrolments] = await Promise.all([
+    getAttendanceByClassAndDate(classId, date),
+    getEnrolmentsForClass(classId),
+  ])
   const isUpdate = existing.length > 0
+
+  const roster = new Set(
+    buildRegisterRoster(
+      existing.map((r) => r.student_id),
+      enrolments,
+      date,
+    ),
+  )
+  if (studentIds.some((sid) => !roster.has(sid))) {
+    return { error: 'Student was not in this class on this date' }
+  }
 
   const role = session?.user?.role as StaffRole
   if (isUpdate && !canUpdateAttendance(role)) {

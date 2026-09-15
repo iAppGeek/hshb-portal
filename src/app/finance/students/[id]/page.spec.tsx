@@ -88,6 +88,8 @@ function makeDetail(overrides: Partial<StudentFeeDetail>): StudentFeeDetail {
       first_name: 'Alice',
       last_name: 'Student',
       student_code: 'A-1',
+      active: true,
+      leaving_reason: null,
     },
     classes: [{ id: 'c1', name: 'Alpha' }],
     account: {
@@ -178,6 +180,33 @@ describe('StudentFeesPage', () => {
     expect(screen.getByTestId('payment-form').textContent).toBe('2025-10-15')
   })
 
+  it('shows a leaver badge next to the name for an inactive student', async () => {
+    vi.mocked(getStudentFeeDetail).mockResolvedValue(
+      makeDetail({
+        student: {
+          id: 's1',
+          first_name: 'Alice',
+          last_name: 'Student',
+          student_code: 'A-1',
+          active: false,
+          leaving_reason: 'graduated',
+        },
+      }),
+    )
+
+    render(await StudentFeesPage(noSearchParams()))
+
+    expect(screen.getByText('Graduated')).toBeTruthy()
+  })
+
+  it('does not show a leaver badge for an active student', async () => {
+    render(await StudentFeesPage(noSearchParams()))
+
+    expect(screen.queryByText('Left')).toBeNull()
+    expect(screen.queryByText('Graduated')).toBeNull()
+    expect(screen.queryByText('Transferred')).toBeNull()
+  })
+
   it('lists payments for the selected year', async () => {
     render(await StudentFeesPage(noSearchParams()))
 
@@ -236,6 +265,8 @@ describe('StudentFeesPage', () => {
           first_name: 'Alice',
           last_name: 'Student',
           student_code: null,
+          active: true,
+          leaving_reason: null,
         },
         classes: [],
         account: null,
