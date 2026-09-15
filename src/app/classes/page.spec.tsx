@@ -19,10 +19,17 @@ vi.mock('@/db', () => ({
 }))
 
 vi.mock('./ClassesTable', () => ({
-  default: ({ classes }: { classes: { id: string; name: string }[] }) => (
+  default: ({
+    classes,
+  }: {
+    classes: { id: string; name: string; completed: boolean }[]
+  }) => (
     <div data-testid="classes-table">
       {classes.map((c) => (
-        <span key={c.id}>{c.name}</span>
+        <span key={c.id}>
+          {c.name}
+          {c.completed ? ' (completed)' : ''}
+        </span>
       ))}
     </div>
   ),
@@ -59,6 +66,7 @@ const mockClasses = [
     year_group: '1',
     room_number: 'R1',
     academic_year: '2024-25',
+    academic_year_id: 'year-1',
     active: true,
     teacher: { first_name: 'Jane', last_name: 'Smith' },
   },
@@ -237,6 +245,43 @@ describe('ClassesPage', () => {
 
     render(await ClassesPage(noSearchParams()))
     expect(screen.queryByTestId('year-selector')).toBeNull()
+  })
+
+  it('marks an inactive class as completed', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue([
+      { ...mockClasses[0], active: false },
+    ] as any)
+
+    render(await ClassesPage(noSearchParams()))
+    expect(screen.getByText('Year 1A (completed)')).toBeTruthy()
+  })
+
+  it('marks a class from a past year as completed', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue([
+      { ...mockClasses[0], academic_year_id: 'year-0' },
+    ] as any)
+
+    render(
+      await ClassesPage({ searchParams: Promise.resolve({ year: 'year-0' }) }),
+    )
+    expect(screen.getByText('Year 1A (completed)')).toBeTruthy()
+  })
+
+  it('does not mark an active current-year class as completed', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue(mockClasses as any)
+
+    render(await ClassesPage(noSearchParams()))
+    expect(screen.getByText('Year 1A')).toBeTruthy()
+    expect(screen.queryByText('Year 1A (completed)')).toBeNull()
   })
 
   it('does not show Add Class button for secretary', async () => {

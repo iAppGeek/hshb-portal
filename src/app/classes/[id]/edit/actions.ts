@@ -4,7 +4,15 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 
 import { auth } from '@/auth'
-import { updateClass, setClassStudents, logAuditEvent } from '@/db'
+import {
+  updateClass,
+  setClassStudents,
+  getClassById,
+  getAcademicYears,
+  getCurrentAcademicYear,
+  logAuditEvent,
+} from '@/db'
+import { isClassCompleted } from '@/lib/classes'
 import { getUserFriendlyDbError } from '@/lib/db-error'
 import { canEditClasses } from '@/lib/permissions'
 import {
@@ -24,11 +32,21 @@ export async function updateClassAction(
   if (!canEditClasses(role)) return { error: 'Not authorised' }
   const staffId = session.user.staffId ?? null
 
+  const [cls, years, currentYear] = await Promise.all([
+    getClassById(id),
+    getAcademicYears(),
+    getCurrentAcademicYear(),
+  ])
+  if (!cls) return { error: 'Class not found' }
+  if (isClassCompleted(cls, years, currentYear)) {
+    return { error: "Completed classes can't be edited." }
+  }
+
   const raw = extractFormFields(formData, ['student_ids'])
   const parsed = updateClassSchema.safeParse(raw)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
-  const { student_ids, active, ...classData } = parsed.data
+  const { student_ids, ...classData } = parsed.data
 
   try {
     await updateClass(id, {
@@ -36,7 +54,6 @@ export async function updateClassAction(
       year_group: classData.year_group,
       room_number: classData.room_number,
       teacher_id: classData.teacher_id,
-      active,
     })
 
     await setClassStudents(id, student_ids)

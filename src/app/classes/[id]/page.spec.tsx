@@ -71,7 +71,16 @@ function makeStudent(overrides: Partial<MockStudent> = {}): MockStudent {
   }
 }
 
-function makeClass(students: MockStudent[] = [makeStudent()]): unknown {
+type MockHistoryRow = {
+  start_date: string
+  end_date: string | null
+  student: { id: string; first_name: string; last_name: string } | null
+}
+
+function makeClass(
+  students: MockStudent[] = [makeStudent()],
+  enrolmentHistory: MockHistoryRow[] = [],
+): unknown {
   return {
     id: 'class-1',
     name: 'Alpha',
@@ -85,6 +94,7 @@ function makeClass(students: MockStudent[] = [makeStudent()]): unknown {
       email: 'tom.teacher@hshb.org.uk',
     },
     student_classes: students.map((student) => ({ student })),
+    enrolment_history: enrolmentHistory,
   }
 }
 
@@ -166,5 +176,62 @@ describe('ClassRegisterPage', () => {
     expect(
       screen.queryByRole('columnheader', { name: 'Guardian' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('renders the enrolment history table below the register', async () => {
+    mockSession('admin')
+    mockClass(
+      makeClass(
+        [makeStudent()],
+        [
+          {
+            start_date: '2026-09-01',
+            end_date: null,
+            student: { id: 's-2', first_name: 'Bob', last_name: 'Brown' },
+          },
+        ],
+      ),
+    )
+    await renderPage()
+
+    expect(screen.getByText('Enrolment history')).toBeTruthy()
+    expect(screen.getByText('Brown, Bob')).toBeTruthy()
+  })
+
+  it('renders nothing for enrolment history when there is none', async () => {
+    mockSession('admin')
+    mockClass(makeClass([makeStudent()], []))
+    await renderPage()
+
+    expect(screen.queryByText('Enrolment history')).toBeNull()
+  })
+
+  it('shows "No current students. See enrolment history below." when a completed class has history', async () => {
+    mockSession('admin')
+    mockClass(
+      makeClass(
+        [],
+        [
+          {
+            start_date: '2025-09-01',
+            end_date: '2026-09-01',
+            student: { id: 's-2', first_name: 'Bob', last_name: 'Brown' },
+          },
+        ],
+      ),
+    )
+    await renderPage()
+
+    expect(
+      screen.getByText('No current students. See enrolment history below.'),
+    ).toBeTruthy()
+  })
+
+  it('shows the plain empty message when there is no history either', async () => {
+    mockSession('admin')
+    mockClass(makeClass([], []))
+    await renderPage()
+
+    expect(screen.getByText('No students enrolled in this class.')).toBeTruthy()
   })
 })

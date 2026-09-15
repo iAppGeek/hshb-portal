@@ -19,7 +19,6 @@ const classData: ClassFormData = {
   room_number: null,
   academic_year_id: 'year-1',
   teacher_id: 't1',
-  active: true,
   student_classes: [],
 }
 
@@ -63,5 +62,21 @@ describe('ClassForm', () => {
         "A class's academic year can't be changed after it is created.",
       ),
     ).toBeTruthy()
+  })
+
+  it('has no Active checkbox — deactivation only happens via migration', () => {
+    const { container } = render(
+      <ClassForm
+        teachers={teachers}
+        students={[]}
+        years={years}
+        classData={classData}
+        action={vi.fn()}
+        submitLabel="Save changes"
+      />,
+    )
+
+    expect(container.querySelector('[name="active"]')).toBeNull()
+    expect(screen.queryByText('Active')).toBeNull()
   })
 })

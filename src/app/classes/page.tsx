@@ -11,6 +11,7 @@ import {
 } from '@/db'
 import Tooltip from '@/components/Tooltip'
 import { resolveYearId } from '@/lib/academicYears'
+import { isClassCompleted } from '@/lib/classes'
 import {
   canEditClasses,
   canCreateClasses,
@@ -57,6 +58,15 @@ export default async function ClassesPage({
     ? await getClassesByAcademicYear(selectedYearId)
     : await getClassesByTeacher(session.user.staffId)
 
+  const classRows: ClassRow[] = (classes as Omit<ClassRow, 'completed'>[]).map(
+    (cls) => ({
+      ...cls,
+      completed: currentYear
+        ? isClassCompleted(cls, years, currentYear)
+        : false,
+    }),
+  )
+
   return (
     <>
       <PageHeader
@@ -89,14 +99,10 @@ export default async function ClassesPage({
         </div>
       )}
 
-      {classes.length === 0 ? (
+      {classRows.length === 0 ? (
         <EmptyState message="No classes found." />
       ) : (
-        <ClassesTable
-          classes={classes as ClassRow[]}
-          canEdit={canEdit}
-          role={role}
-        />
+        <ClassesTable classes={classRows} canEdit={canEdit} role={role} />
       )}
     </>
   )

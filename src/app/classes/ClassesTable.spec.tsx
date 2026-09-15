@@ -24,7 +24,9 @@ const mockClasses: ClassRow[] = [
     year_group: '1',
     room_number: 'R1',
     academic_year: '2024/25',
+    academic_year_id: 'year-1',
     active: true,
+    completed: false,
     teacher: { first_name: 'Jane', last_name: 'Smith' },
   },
   {
@@ -33,7 +35,9 @@ const mockClasses: ClassRow[] = [
     year_group: '2',
     room_number: null,
     academic_year: null,
+    academic_year_id: 'year-0',
     active: false,
+    completed: true,
     teacher: null,
   },
 ]
@@ -76,13 +80,14 @@ describe('ClassesTable', () => {
     expect(screen.queryByRole('link', { name: 'Edit' })).toBeNull()
   })
 
-  it('shows Edit links when canEdit is true', () => {
+  it('shows Edit links when canEdit is true, but not for a completed class', () => {
     render(<ClassesTable classes={mockClasses} canEdit={true} role="admin" />)
     const editLinks = screen.getAllByRole('link', { name: 'Edit' })
-    // Each class has an Edit link in both the mobile name cell and desktop actions cell
-    expect(editLinks).toHaveLength(4)
+    // Only class-1 (not completed) gets an Edit link, in both the mobile
+    // name cell and desktop actions cell — class-2 is completed.
+    expect(editLinks).toHaveLength(2)
     expect(editLinks[0].getAttribute('href')).toBe('/classes/class-1/edit')
-    expect(editLinks[2].getAttribute('href')).toBe('/classes/class-2/edit')
+    expect(editLinks[1].getAttribute('href')).toBe('/classes/class-1/edit')
   })
 
   it('shows dash when no teacher assigned', () => {

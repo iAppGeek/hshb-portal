@@ -3,7 +3,13 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { updateClass, setClassStudents } from '@/db'
+import {
+  updateClass,
+  setClassStudents,
+  getClassById,
+  getAcademicYears,
+  getCurrentAcademicYear,
+} from '@/db'
 
 import { updateClassAction } from './actions'
 
@@ -13,6 +19,9 @@ vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/db', () => ({
   updateClass: vi.fn(),
   setClassStudents: vi.fn(),
+  getClassById: vi.fn(),
+  getAcademicYears: vi.fn(),
+  getCurrentAcademicYear: vi.fn(),
   logAuditEvent: vi.fn(),
 }))
 
@@ -24,9 +33,22 @@ const YEAR_ID = '00000000-0000-4000-8000-000000000040'
 
 const adminSession = { user: { staffId: STAFF_ID, role: 'admin' } }
 
+const currentYear = {
+  id: YEAR_ID,
+  start_date: '2026-09-01',
+  end_date: '2027-08-31',
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(auth).mockResolvedValue(adminSession as any)
+  vi.mocked(getClassById).mockResolvedValue({
+    id: CLASS_ID,
+    active: true,
+    academic_year_id: YEAR_ID,
+  } as any)
+  vi.mocked(getAcademicYears).mockResolvedValue([currentYear] as any)
+  vi.mocked(getCurrentAcademicYear).mockResolvedValue(currentYear as any)
 })
 
 function makeFormData(fields: Record<string, string | string[]>): FormData {
@@ -47,7 +69,6 @@ const baseFields = {
   room_number: 'R1',
   academic_year_id: YEAR_ID,
   teacher_id: STAFF_ID,
-  active: 'true',
 }
 
 describe('updateClassAction', () => {
@@ -86,35 +107,28 @@ describe('updateClassAction', () => {
         name: 'Year 1A',
         year_group: '1',
         teacher_id: STAFF_ID,
-        active: true,
       }),
     )
     // The form may still post a year, but a class's year is never updated.
     expect(vi.mocked(updateClass).mock.calls[0][1]).not.toHaveProperty(
       'academic_year_id',
     )
+    expect(vi.mocked(updateClass).mock.calls[0][1]).not.toHaveProperty('active')
     expect(setClassStudents).toHaveBeenCalledWith(CLASS_ID, [])
     expect(revalidatePath).toHaveBeenCalledWith('/classes')
     expect(redirect).toHaveBeenCalledWith('/classes')
   })
 
-  it('sets active to false when active field is not "true"', async () => {
-    vi.mocked(updateClass).mockResolvedValue(undefined)
-    vi.mocked(setClassStudents).mockResolvedValue(undefined)
-    vi.mocked(redirect).mockImplementation(() => {
-      throw new Error('NEXT_REDIRECT')
-    })
+  it('refuses to edit a completed class', async () => {
+    vi.mocked(getClassById).mockResolvedValue({
+      id: CLASS_ID,
+      active: false,
+      academic_year_id: YEAR_ID,
+    } as any)
 
-    const fields = { ...baseFields, active: 'false' }
-
-    await expect(
-      updateClassAction(CLASS_ID, makeFormData(fields)),
-    ).rejects.toThrow('NEXT_REDIRECT')
-
-    expect(updateClass).toHaveBeenCalledWith(
-      CLASS_ID,
-      expect.objectContaining({ active: false }),
-    )
+    const result = await updateClassAction(CLASS_ID, makeFormData(baseFields))
+    expect(result).toEqual({ error: "Completed classes can't be edited." })
+    expect(updateClass).not.toHaveBeenCalled()
   })
 
   it('passes selected student ids to setClassStudents', async () => {

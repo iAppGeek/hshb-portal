@@ -24,7 +24,6 @@ export type ClassFormData = {
   room_number: string | null
   academic_year_id: string
   teacher_id: string | null
-  active: boolean
   student_classes: Array<{ student_id: string }>
 }
 
@@ -177,25 +176,6 @@ export default function ClassForm({
               ))}
             </select>
           </div>
-
-          {classData !== undefined && (
-            <div className="flex items-center gap-2 sm:col-span-2">
-              <input
-                id="active"
-                name="active"
-                type="checkbox"
-                defaultChecked={classData.active}
-                value="true"
-                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <label
-                htmlFor="active"
-                className="text-sm font-medium text-gray-700"
-              >
-                Active
-              </label>
-            </div>
-          )}
         </div>
       </div>
 
