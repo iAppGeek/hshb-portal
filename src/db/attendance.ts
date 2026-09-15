@@ -26,8 +26,7 @@ export type AttendanceClassSummary = {
 
 /**
  * Returns attendance summary per class for a given date using a SQL aggregate
- * function (get_attendance_summary RPC). Must be registered in Supabase first —
- * see supabase/schema.sql.
+ * function (get_attendance_summary RPC).
  */
 export async function getAttendanceSummaryByDate(
   date: string,

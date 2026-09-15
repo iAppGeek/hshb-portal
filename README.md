@@ -116,7 +116,7 @@ e2e/
   fixtures/        # Custom Playwright fixtures
   tests/           # E2E specs (*.e2e.ts)
 supabase/
-  schema.sql       # Authoritative schema
+  schema.sql       # Generated schema snapshot (regenerate after migrations)
   migrations/      # Applied to local + production
   seed.sql         # Deterministic test data
 public/
