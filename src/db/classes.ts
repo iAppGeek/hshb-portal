@@ -216,11 +216,7 @@ export async function updateClass(
 }
 
 export type MigrationAction =
-  | 'move'
-  | 'none'
-  | 'left'
-  | 'graduated'
-  | 'transferred'
+  'move' | 'none' | 'left' | 'graduated' | 'transferred'
 
 type MigrateClassInput = {
   name: string

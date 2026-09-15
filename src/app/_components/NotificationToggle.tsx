@@ -11,11 +11,7 @@ import {
 } from '@/lib/push-client'
 
 type Status =
-  | 'loading'
-  | 'unsupported'
-  | 'denied'
-  | 'subscribed'
-  | 'unsubscribed'
+  'loading' | 'unsupported' | 'denied' | 'subscribed' | 'unsubscribed'
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
 
