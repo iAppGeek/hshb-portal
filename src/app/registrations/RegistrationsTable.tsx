@@ -5,14 +5,12 @@ import Link from 'next/link'
 
 import type { RegistrationSummary } from '@/db'
 import { formatDateInSchoolTz, formatDateTimeInSchoolTz } from '@/lib/datetime'
+import { matchesAny, normaliseQuery } from '@/lib/grid/search'
+import { td, th } from '@/lib/grid/styles'
 
 type Props = {
   registrations: RegistrationSummary[]
 }
-
-const TH =
-  'px-3 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase sm:px-6'
-const TD = 'hidden px-3 py-4 text-sm text-gray-500 sm:table-cell sm:px-6'
 
 const STATUS_BADGE: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -24,11 +22,11 @@ export default function RegistrationsTable({ registrations }: Props) {
   const [query, setQuery] = useState('')
 
   const filtered = useMemo(() => {
-    const q = query.toLowerCase().trim()
+    const q = normaliseQuery(query)
     if (!q) return registrations
     return registrations.filter((r) => {
-      const name = `${r.child_first_name} ${r.child_last_name}`.toLowerCase()
-      return name.includes(q)
+      const name = `${r.child_first_name} ${r.child_last_name}`
+      return matchesAny([name], q)
     })
   }, [registrations, query])
 
@@ -46,12 +44,12 @@ export default function RegistrationsTable({ registrations }: Props) {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="hidden bg-gray-50 sm:table-header-group">
               <tr>
-                <th className={TH}>Child</th>
-                <th className={TH}>DOB</th>
-                <th className={TH}>Year group pref.</th>
-                <th className={TH}>Primary contact</th>
-                <th className={TH}>Submitted</th>
-                <th className={TH}>Status</th>
+                <th className={th}>Child</th>
+                <th className={th}>DOB</th>
+                <th className={th}>Year group pref.</th>
+                <th className={th}>Primary contact</th>
+                <th className={th}>Submitted</th>
+                <th className={th}>Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
@@ -67,12 +65,12 @@ export default function RegistrationsTable({ registrations }: Props) {
                         {r.child_last_name}, {r.child_first_name}
                       </Link>
                     </td>
-                    <td className={TD}>
+                    <td className={td}>
                       {formatDateInSchoolTz(r.date_of_birth)}
                     </td>
-                    <td className={TD}>{r.preferred_year_group ?? '—'}</td>
-                    <td className={TD}>{contact}</td>
-                    <td className={TD}>
+                    <td className={td}>{r.preferred_year_group ?? '—'}</td>
+                    <td className={td}>{contact}</td>
+                    <td className={td}>
                       {formatDateTimeInSchoolTz(r.submitted_at)}
                     </td>
                     <td className="px-4 py-4 text-sm sm:px-6">

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 
 import Tooltip from '@/components/Tooltip'
+import { td, th } from '@/lib/grid/styles'
 import { canSeeAllData } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -30,10 +31,6 @@ type Props = {
   role: StaffRole
 }
 
-const TH =
-  'px-3 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase sm:px-6'
-const TD = 'hidden px-3 py-4 text-sm text-gray-500 sm:table-cell sm:px-6'
-
 function StatusBadge({ active }: { active: boolean }) {
   return active ? (
     <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
@@ -53,13 +50,13 @@ export default function ClassesTable({ classes, canEdit, role }: Props) {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="hidden bg-gray-50 sm:table-header-group">
             <tr>
-              <th className={TH}>Name</th>
-              <th className={TH}>Year Group</th>
-              <th className={TH}>Room</th>
-              <th className={TH}>Teacher</th>
-              <th className={TH}>Academic Year</th>
-              <th className={TH}>Status</th>
-              <th className={TH}>Actions</th>
+              <th className={th}>Name</th>
+              <th className={th}>Year Group</th>
+              <th className={th}>Room</th>
+              <th className={th}>Teacher</th>
+              <th className={th}>Academic Year</th>
+              <th className={th}>Status</th>
+              <th className={th}>Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 bg-white">
@@ -123,10 +120,10 @@ export default function ClassesTable({ classes, canEdit, role }: Props) {
                   </td>
 
                   {/* Desktop-only columns */}
-                  <td className={TD}>{cls.year_group}</td>
-                  <td className={TD}>{cls.room_number ?? '—'}</td>
-                  <td className={TD}>{teacherName}</td>
-                  <td className={TD}>{cls.academic_year ?? '—'}</td>
+                  <td className={td}>{cls.year_group}</td>
+                  <td className={td}>{cls.room_number ?? '—'}</td>
+                  <td className={td}>{teacherName}</td>
+                  <td className={td}>{cls.academic_year ?? '—'}</td>
                   <td className="hidden px-3 py-4 text-sm sm:table-cell sm:px-6">
                     <StatusBadge active={cls.active} />
                   </td>

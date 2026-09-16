@@ -6,6 +6,8 @@ import { auth } from '@/auth'
 import StaffEmailDropdown from '@/clientComponents/StaffEmailDropdown'
 import Tooltip from '@/components/Tooltip'
 import { getAllStaffWithClasses } from '@/db'
+import { compareNullableText } from '@/lib/grid/sort'
+import { td, th } from '@/lib/grid/styles'
 import { mailtoWithBcc, staffEmailsForMailto } from '@/lib/mailto'
 import {
   canEditStaff,
@@ -22,9 +24,6 @@ import PageHeader from '../_components/PageHeader'
 
 export const metadata: Metadata = { title: 'Staff' }
 
-const TH =
-  'px-3 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase sm:px-6'
-const TD = 'hidden px-3 py-4 text-sm text-gray-500 sm:table-cell sm:px-6'
 const TD_LINK = 'hidden px-3 py-4 text-sm sm:table-cell sm:px-6'
 
 export default async function StaffPage() {
@@ -41,16 +40,15 @@ export default async function StaffPage() {
   const staffRaw = await getAllStaffWithClasses()
 
   const staff = [...staffRaw].sort((a, b) => {
-    const aName = (
-      (a.classes as { name: string }[] | null)?.[0]?.name ?? ''
-    ).toLowerCase()
-    const bName = (
-      (b.classes as { name: string }[] | null)?.[0]?.name ?? ''
-    ).toLowerCase()
-    if (aName === '' && bName === '') return 0
-    if (aName === '') return 1
-    if (bName === '') return -1
-    return aName.localeCompare(bName)
+    const aName =
+      (
+        (a.classes as { name: string }[] | null)?.[0]?.name ?? null
+      )?.toLowerCase() ?? null
+    const bName =
+      (
+        (b.classes as { name: string }[] | null)?.[0]?.name ?? null
+      )?.toLowerCase() ?? null
+    return compareNullableText(aName, bName)
   })
 
   const teachingMembers = staff.filter((m) =>
@@ -112,18 +110,18 @@ export default async function StaffPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="hidden bg-gray-50 sm:table-header-group">
                 <tr>
-                  <th className={TH}>Title</th>
-                  <th className={TH}>First name</th>
-                  <th className={TH}>Last name</th>
-                  <th className={TH}>Display name</th>
-                  <th className={TH}>Role</th>
-                  <th className={TH}>Email</th>
-                  {canSeeContact && <th className={TH}>Contact</th>}
-                  {canSeeContact && <th className={TH}>Personal Email</th>}
-                  <th className={TH}>Class</th>
-                  <th className={TH}>Room</th>
+                  <th className={th}>Title</th>
+                  <th className={th}>First name</th>
+                  <th className={th}>Last name</th>
+                  <th className={th}>Display name</th>
+                  <th className={th}>Role</th>
+                  <th className={th}>Email</th>
+                  {canSeeContact && <th className={th}>Contact</th>}
+                  {canSeeContact && <th className={th}>Personal Email</th>}
+                  <th className={th}>Class</th>
+                  <th className={th}>Room</th>
                   {(canEdit || canSeeAllData(role)) && (
-                    <th className={TH}>Actions</th>
+                    <th className={th}>Actions</th>
                   )}
                 </tr>
               </thead>
@@ -151,7 +149,7 @@ export default async function StaffPage() {
                       key={member.id}
                       className="block border-b border-gray-200 last:border-0 hover:bg-gray-50 sm:table-row sm:border-0"
                     >
-                      <td className={TD}>{member.title}</td>
+                      <td className={td}>{member.title}</td>
 
                       {/* Full name — on mobile: name left, Edit link right */}
                       <td className="block px-4 pt-4 pb-0 text-sm font-medium text-gray-900 sm:table-cell sm:px-6 sm:py-4 sm:whitespace-nowrap">
@@ -240,8 +238,8 @@ export default async function StaffPage() {
                       <td className="hidden px-3 py-4 text-sm font-medium text-gray-900 sm:table-cell sm:px-6">
                         {member.last_name}
                       </td>
-                      <td className={TD}>{member.display_name ?? '—'}</td>
-                      <td className={TD}>
+                      <td className={td}>{member.display_name ?? '—'}</td>
+                      <td className={td}>
                         {roleLabels[member.role as StaffRole] ?? member.role}
                       </td>
                       <td className={TD_LINK}>
@@ -280,8 +278,8 @@ export default async function StaffPage() {
                           )}
                         </td>
                       )}
-                      <td className={TD}>{classesText}</td>
-                      <td className={TD}>{roomText}</td>
+                      <td className={td}>{classesText}</td>
+                      <td className={td}>{roomText}</td>
                       {canEdit ? (
                         <td className="hidden px-3 py-4 text-sm sm:table-cell sm:px-6">
                           <Link
