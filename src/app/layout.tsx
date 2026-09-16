@@ -8,6 +8,7 @@ import {
   HomeIcon,
   UsersIcon,
   UserGroupIcon,
+  UserCircleIcon,
   AcademicCapIcon,
   ClipboardDocumentCheckIcon,
   ChartBarIcon,
@@ -28,6 +29,7 @@ import {
   canManageFinance,
   canManageHr,
   canReviewRegistrations,
+  canViewGuardians,
   receivesNotifications,
 } from '@/lib/permissions'
 import { roleLabels } from '@/lib/roleLabels'
@@ -94,6 +96,12 @@ const navItems = [
   },
   { href: '/staff', label: 'Staff', Icon: UserGroupIcon },
   { href: '/students', label: 'Students', Icon: UsersIcon },
+  {
+    href: '/guardians',
+    label: 'Guardians',
+    Icon: UserCircleIcon,
+    filter: canViewGuardians,
+  },
   { href: '/classes', label: 'Classes', Icon: AcademicCapIcon },
   {
     href: '/attendance',

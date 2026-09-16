@@ -12,6 +12,7 @@ import {
   HomeIcon,
   UsersIcon,
   UserGroupIcon,
+  UserCircleIcon,
   AcademicCapIcon,
   ClipboardDocumentCheckIcon,
   ChartBarIcon,
@@ -29,6 +30,7 @@ import logo from '@/images/logo.png'
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   '/dashboard': HomeIcon,
   '/students': UsersIcon,
+  '/guardians': UserCircleIcon,
   '/classes': AcademicCapIcon,
   '/attendance': ClipboardDocumentCheckIcon,
   '/staff-attendance': ClockIcon,

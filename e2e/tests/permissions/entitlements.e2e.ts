@@ -42,6 +42,16 @@ const ROUTE_RULES: RouteRule[] = [
     redirectTo: '/dashboard',
   },
   {
+    route: '/guardians',
+    allowedRoles: ['admin'],
+    redirectTo: '/students',
+  },
+  {
+    route: `/guardians/${GUARDIAN_ID}`,
+    allowedRoles: ['admin'],
+    redirectTo: '/students',
+  },
+  {
     route: `/guardians/${GUARDIAN_ID}/edit`,
     allowedRoles: ['admin'],
     redirectTo: '/students',

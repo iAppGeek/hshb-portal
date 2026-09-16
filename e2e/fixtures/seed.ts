@@ -20,6 +20,13 @@ export const SEED_IDS = {
     beta: '10000000-0000-0000-0000-000000000002',
     gamma: '10000000-0000-0000-0000-000000000003',
   },
+  guardians: {
+    // Gary is Alice's primary guardian and Bob's secondary guardian — the
+    // different-primary-guardians case for the family view.
+    gary: '20000000-0000-0000-0000-000000000001',
+    grace: '20000000-0000-0000-0000-000000000002',
+    greg: '20000000-0000-0000-0000-000000000003',
+  },
   students: {
     alice: '30000000-0000-0000-0000-000000000001',
     bob: '30000000-0000-0000-0000-000000000002',

@@ -46,6 +46,10 @@ export function canEditIncidents(role: StaffRole): boolean {
   return role === 'admin' || role === 'headteacher'
 }
 
+export function canViewGuardians(role: StaffRole): boolean {
+  return role === 'admin' // guardian list and family view — contact data for every family
+}
+
 export function canEditGuardians(role: StaffRole): boolean {
   return role === 'admin'
 }
