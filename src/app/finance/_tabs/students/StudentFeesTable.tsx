@@ -4,19 +4,17 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 
 import LeaverBadge from '@/components/LeaverBadge'
-import {
-  FEE_STATUS_LABELS,
-  formatGbp,
-  PAYMENT_PLAN_LABELS,
-  type FeeStatus,
-  type PaymentPlan,
-} from '@/lib/fees'
+import { FEE_STATUS_LABELS, formatGbp, PAYMENT_PLAN_LABELS } from '@/lib/fees'
+import { matchesAny, normaliseQuery } from '@/lib/grid/search'
 
 import FeeStatusBadge from '../../_components/FeeStatusBadge'
+import {
+  matchesPlanFilter,
+  matchesStatusFilter,
+  type PlanFilter,
+  type StatusFilter,
+} from '../../_lib/studentFeeFilters'
 import type { StudentFeeRow } from '../../_lib/studentFeeSummary'
-
-type PlanFilter = '' | PaymentPlan | 'none'
-type StatusFilter = '' | FeeStatus | 'conflict' | 'owes_prior'
 
 const TH =
   'px-3 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase'
@@ -47,23 +45,13 @@ export default function StudentFeesTable({
   )
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
+    const q = normaliseQuery(query)
     return rows.filter(
       (r) =>
-        (!q ||
-          r.name.toLowerCase().includes(q) ||
-          (r.studentCode ?? '').toLowerCase().includes(q)) &&
+        (!q || matchesAny([r.name, r.studentCode ?? ''], q)) &&
         (!classId || r.classes.some((c) => c.id === classId)) &&
-        (plan === '' ||
-          (plan === 'none'
-            ? r.paymentPlan === null
-            : r.paymentPlan === plan)) &&
-        (status === '' ||
-          (status === 'conflict'
-            ? r.conflict
-            : status === 'owes_prior'
-              ? r.priorOwed > 0
-              : r.status === status)),
+        matchesPlanFilter(r, plan) &&
+        matchesStatusFilter(r, status),
     )
   }, [rows, query, classId, plan, status])
 

@@ -3,6 +3,15 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 
+import {
+  digitsOnly,
+  fullName,
+  isPhoneShapedQuery,
+  matchesAny,
+  normaliseQuery,
+} from '@/lib/grid/search'
+import { td, th } from '@/lib/grid/styles'
+
 type Guardian = {
   id: string
   first_name: string
@@ -16,29 +25,6 @@ type Props = {
   guardians: Guardian[]
 }
 
-const TH =
-  'px-3 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase sm:px-6'
-const TD = 'hidden px-3 py-4 text-sm text-gray-500 sm:table-cell sm:px-6'
-
-const digitsOnly = (value: string): string => value.replace(/\D/g, '')
-
-// Digits and phone punctuation only, with at least 3 digits once that
-// punctuation is stripped — enough to route "07700 900000" or "+44 7700"
-// to the phone comparison while a name or mixed query like "smith1" (or a
-// bare digit or two) falls through to name/email matching instead. Without
-// this, a query is routed to phone matching whenever it contains any digit
-// at all, which makes something like "3" match nearly every phone number
-// and bury the result the admin actually wanted.
-const PHONE_SHAPE_RE = /^[\d\s()+-]+$/
-const MIN_PHONE_QUERY_DIGITS = 3
-
-function isPhoneShapedQuery(query: string): boolean {
-  return (
-    PHONE_SHAPE_RE.test(query) &&
-    digitsOnly(query).length >= MIN_PHONE_QUERY_DIGITS
-  )
-}
-
 // Guardian viewing and editing share one gate (canViewGuardians and
 // canEditGuardians are both admin-only), so unlike StudentsTable this never
 // needs a permission-denied fallback for the edit link.
@@ -46,7 +32,7 @@ export default function GuardiansTable({ guardians }: Props) {
   const [query, setQuery] = useState('')
 
   const filtered = useMemo(() => {
-    const q = query.toLowerCase().trim()
+    const q = normaliseQuery(query)
     if (!q) return guardians
     // Phone numbers are stored formatted (e.g. "07700 900000"), so a
     // phone-shaped query matches on digits only, rather than a raw
@@ -56,12 +42,9 @@ export default function GuardiansTable({ guardians }: Props) {
       const queryDigits = digitsOnly(q)
       return guardians.filter((g) => digitsOnly(g.phone).includes(queryDigits))
     }
-    return guardians.filter((g) => {
-      const name =
-        `${g.first_name} ${g.last_name} ${g.last_name}, ${g.first_name}`.toLowerCase()
-      const email = (g.email ?? '').toLowerCase()
-      return name.includes(q) || email.includes(q)
-    })
+    return guardians.filter((g) =>
+      matchesAny([fullName(g.first_name, g.last_name), g.email ?? ''], q),
+    )
   }, [guardians, query])
 
   return (
@@ -78,10 +61,10 @@ export default function GuardiansTable({ guardians }: Props) {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="hidden bg-gray-50 sm:table-header-group">
               <tr>
-                <th className={TH}>Name</th>
-                <th className={TH}>Phone</th>
-                <th className={TH}>Email</th>
-                <th className={TH}>Children</th>
+                <th className={th}>Name</th>
+                <th className={th}>Phone</th>
+                <th className={th}>Email</th>
+                <th className={th}>Children</th>
                 <th className="relative px-3 py-3 sm:px-6">
                   <span className="sr-only">Actions</span>
                 </th>
@@ -129,9 +112,9 @@ export default function GuardiansTable({ guardians }: Props) {
                   </td>
 
                   {/* Desktop-only columns */}
-                  <td className={TD}>{guardian.phone}</td>
-                  <td className={TD}>{guardian.email ?? '—'}</td>
-                  <td className={TD}>{guardian.child_count}</td>
+                  <td className={td}>{guardian.phone}</td>
+                  <td className={td}>{guardian.email ?? '—'}</td>
+                  <td className={td}>{guardian.child_count}</td>
                   <td className="hidden px-3 py-4 text-right text-sm font-medium sm:table-cell sm:px-6">
                     <div className="flex items-center justify-end gap-3">
                       <Link

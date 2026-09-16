@@ -8,6 +8,8 @@ import StudentDetailsModal, {
   type StudentForModal,
 } from '@/components/StudentDetailsModal'
 import Tooltip from '@/components/Tooltip'
+import { fullName, matchesAny, normaliseQuery } from '@/lib/grid/search'
+import { td, th } from '@/lib/grid/styles'
 import { canEditStudents, canSeeAllData } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -22,25 +24,20 @@ type Props = {
   role: StaffRole
 }
 
-const TH =
-  'px-3 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase sm:px-6'
-const TD = 'hidden px-3 py-4 text-sm text-gray-500 sm:table-cell sm:px-6'
-
 export default function StudentsTable({ students, role }: Props) {
   const [selected, setSelected] = useState<Student | null>(null)
   const [query, setQuery] = useState('')
 
   const filtered = useMemo(() => {
-    const q = query.toLowerCase().trim()
+    const q = normaliseQuery(query)
     if (!q) return students
     return students.filter((s) => {
-      const name =
-        `${s.first_name} ${s.last_name} ${s.last_name}, ${s.first_name}`.toLowerCase()
-      const code = (s.student_code ?? '').toLowerCase()
+      const name = fullName(s.first_name, s.last_name)
+      const code = s.student_code ?? ''
       const guardian = s.primary_guardian
-        ? `${s.primary_guardian.first_name} ${s.primary_guardian.last_name}`.toLowerCase()
+        ? `${s.primary_guardian.first_name} ${s.primary_guardian.last_name}`
         : ''
-      return name.includes(q) || code.includes(q) || guardian.includes(q)
+      return matchesAny([name, code, guardian], q)
     })
   }, [students, query])
 
@@ -58,10 +55,10 @@ export default function StudentsTable({ students, role }: Props) {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="hidden bg-gray-50 sm:table-header-group">
               <tr>
-                <th className={TH}>Name</th>
-                <th className={TH}>Code</th>
-                <th className={TH}>Classes</th>
-                <th className={TH}>Primary Guardian</th>
+                <th className={th}>Name</th>
+                <th className={th}>Code</th>
+                <th className={th}>Classes</th>
+                <th className={th}>Primary Guardian</th>
                 <th className="relative px-3 py-3 sm:px-6">
                   <span className="sr-only">Actions</span>
                 </th>
@@ -131,9 +128,9 @@ export default function StudentsTable({ students, role }: Props) {
                     </td>
 
                     {/* Desktop-only columns */}
-                    <td className={TD}>{student.student_code ?? '—'}</td>
-                    <td className={TD}>{classNames}</td>
-                    <td className={TD}>{guardianName}</td>
+                    <td className={td}>{student.student_code ?? '—'}</td>
+                    <td className={td}>{classNames}</td>
+                    <td className={td}>{guardianName}</td>
                     <td className="hidden px-3 py-4 text-right text-sm font-medium sm:table-cell sm:px-6">
                       <div className="flex items-center justify-end gap-3">
                         {canEditStudents(role) ? (

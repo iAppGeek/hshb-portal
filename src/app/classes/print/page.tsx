@@ -9,6 +9,7 @@ import {
   getClassWithStudents,
   getCurrentAcademicYear,
 } from '@/db'
+import { compareByName } from '@/lib/grid/sort'
 import { canSeeAllData, isAdmin } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -85,10 +86,7 @@ export default async function AllClassRegistersPage({
           )
             .map((sc) => sc.student)
             .filter((s): s is RegisterStudent => s !== null)
-            .sort((a, b) => {
-              const lnc = a.last_name.localeCompare(b.last_name)
-              return lnc !== 0 ? lnc : a.first_name.localeCompare(b.first_name)
-            })
+            .sort(compareByName)
 
           return (
             <div
