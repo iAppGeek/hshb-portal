@@ -7,6 +7,7 @@ import {
   createGuardian,
   getGuardianById,
   getStudentsByGuardian,
+  getFamilyForGuardian,
   updateGuardian,
   findGuardianMatches,
 } from './guardians'
@@ -19,6 +20,7 @@ const mockFrom = vi.hoisted(() => vi.fn())
 const mockRpc = vi.hoisted(() => vi.fn())
 
 vi.mock('next/cache', () => ({
+  unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
   updateTag: vi.fn(),
 }))
 
@@ -58,35 +60,104 @@ describe('getGuardianCount', () => {
 })
 
 describe('getAllGuardians', () => {
-  it('returns guardians ordered by last name', async () => {
-    const mockGuardians = [
+  function mockGuardiansAndStudents(
+    guardians: unknown[] | null,
+    students: unknown[] | null,
+  ) {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'guardians') {
+        return {
+          select: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({ data: guardians }),
+          }),
+        }
+      }
+      return {
+        select: vi.fn().mockResolvedValue({ data: students }),
+      }
+    })
+  }
+
+  it('returns guardians ordered by last name with a child count per guardian', async () => {
+    mockGuardiansAndStudents(
+      [
+        {
+          id: 'g-1',
+          first_name: 'Maria',
+          last_name: 'Smith',
+          phone: '07700 900000',
+          email: 'maria@example.com',
+        },
+        {
+          id: 'g-2',
+          first_name: 'John',
+          last_name: 'Doe',
+          phone: '07700 900001',
+          email: null,
+        },
+      ],
+      [
+        {
+          primary_guardian_id: 'g-1',
+          secondary_guardian_id: null,
+          additional_contact_1_id: null,
+          additional_contact_2_id: null,
+        },
+        {
+          primary_guardian_id: 'g-2',
+          secondary_guardian_id: 'g-1',
+          additional_contact_1_id: null,
+          additional_contact_2_id: null,
+        },
+      ],
+    )
+
+    const result = await getAllGuardians()
+    expect(result).toEqual([
       {
         id: 'g-1',
         first_name: 'Maria',
         last_name: 'Smith',
         phone: '07700 900000',
+        email: 'maria@example.com',
+        child_count: 2,
       },
-    ]
-    mockFrom.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        order: vi.fn().mockResolvedValue({ data: mockGuardians }),
-      }),
-    })
-
-    const result = await getAllGuardians()
-    expect(result).toEqual(mockGuardians)
+      {
+        id: 'g-2',
+        first_name: 'John',
+        last_name: 'Doe',
+        phone: '07700 900001',
+        email: null,
+        child_count: 1,
+      },
+    ])
     expect(mockFrom).toHaveBeenCalledWith('guardians')
+    expect(mockFrom).toHaveBeenCalledWith('students')
   })
 
   it('returns empty array when no guardians exist', async () => {
-    mockFrom.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        order: vi.fn().mockResolvedValue({ data: null }),
-      }),
-    })
+    mockGuardiansAndStudents(null, null)
 
     const result = await getAllGuardians()
     expect(result).toEqual([])
+  })
+
+  it('gives a guardian with no linked students a zero count', async () => {
+    mockGuardiansAndStudents(
+      [
+        {
+          id: 'g-1',
+          first_name: 'Maria',
+          last_name: 'Smith',
+          phone: '07700 900000',
+          email: null,
+        },
+      ],
+      null,
+    )
+
+    const result = await getAllGuardians()
+    expect(result[0].child_count).toBe(0)
   })
 })
 
@@ -251,6 +322,145 @@ describe('getStudentsByGuardian', () => {
 
     const result = await getStudentsByGuardian('guardian-1')
     expect(result).toEqual([])
+  })
+})
+
+describe('getFamilyForGuardian', () => {
+  function mockFamilyQuery(
+    students: unknown[] | null,
+    coGuardians: unknown[] | null = [],
+  ) {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'students') {
+        return {
+          select: vi.fn().mockReturnValue({
+            or: vi.fn().mockReturnValue({
+              order: vi.fn().mockResolvedValue({ data: students }),
+            }),
+          }),
+        }
+      }
+      return {
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({ data: coGuardians }),
+          }),
+        }),
+      }
+    })
+  }
+
+  it('returns an empty family when the guardian has no children', async () => {
+    mockFamilyQuery(null)
+
+    const result = await getFamilyForGuardian('guardian-1')
+    expect(result).toEqual({ children: [], coGuardians: [] })
+    expect(mockFrom).toHaveBeenCalledWith('students')
+    expect(mockFrom).not.toHaveBeenCalledWith('guardians')
+  })
+
+  it('includes leavers, tagged with their slot and relationship', async () => {
+    mockFamilyQuery([
+      {
+        id: 'student-1',
+        first_name: 'Alice',
+        last_name: 'Smith',
+        student_code: 'S001',
+        active: false,
+        leaving_reason: 'graduated',
+        primary_guardian_id: 'guardian-1',
+        primary_guardian_relationship: 'Mother',
+        secondary_guardian_id: null,
+        secondary_guardian_relationship: null,
+        additional_contact_1_id: null,
+        additional_contact_1_relationship: null,
+        additional_contact_2_id: null,
+        additional_contact_2_relationship: null,
+        student_classes: [],
+      },
+    ])
+
+    const result = await getFamilyForGuardian('guardian-1')
+    expect(result.children).toEqual([
+      {
+        id: 'student-1',
+        first_name: 'Alice',
+        last_name: 'Smith',
+        student_code: 'S001',
+        active: false,
+        leaving_reason: 'graduated',
+        relationship: 'Mother',
+        slot: 'primary',
+        classes: [],
+      },
+    ])
+    expect(result.coGuardians).toEqual([])
+  })
+
+  // The case a different primary guardian per child hinges on: the anchor
+  // guardian is secondary for one child and the query still surfaces the
+  // child's primary guardian as a co-guardian.
+  it('surfaces the other guardian on a child with a different primary', async () => {
+    mockFamilyQuery(
+      [
+        {
+          id: 'student-1',
+          first_name: 'Bob',
+          last_name: 'Jones',
+          student_code: null,
+          active: true,
+          leaving_reason: null,
+          primary_guardian_id: 'guardian-2',
+          primary_guardian_relationship: 'Mother',
+          secondary_guardian_id: 'guardian-1',
+          secondary_guardian_relationship: 'Father',
+          additional_contact_1_id: null,
+          additional_contact_1_relationship: null,
+          additional_contact_2_id: null,
+          additional_contact_2_relationship: null,
+          student_classes: [
+            { class: { id: 'class-1', name: 'Year 3A' } },
+            { class: null },
+          ],
+        },
+      ],
+      [
+        {
+          id: 'guardian-2',
+          first_name: 'Grace',
+          last_name: 'Jones',
+          phone: '07700 900002',
+          email: 'grace@example.com',
+        },
+      ],
+    )
+
+    const result = await getFamilyForGuardian('guardian-1')
+    expect(result.children).toEqual([
+      {
+        id: 'student-1',
+        first_name: 'Bob',
+        last_name: 'Jones',
+        student_code: null,
+        active: true,
+        leaving_reason: null,
+        relationship: 'Father',
+        slot: 'secondary',
+        classes: [{ id: 'class-1', name: 'Year 3A' }],
+      },
+    ])
+    expect(result.coGuardians).toEqual([
+      {
+        id: 'guardian-2',
+        first_name: 'Grace',
+        last_name: 'Jones',
+        phone: '07700 900002',
+        email: 'grace@example.com',
+        links: [
+          { childId: 'student-1', childName: 'Bob Jones', slot: 'primary' },
+        ],
+      },
+    ])
   })
 })
 

@@ -70,14 +70,21 @@ export {
   createGuardian,
   getGuardianById,
   getStudentsByGuardian,
+  getFamilyForGuardian,
   updateGuardian,
   findGuardianMatches,
 } from './guardians'
 export type {
   GuardianSummary,
+  GuardianListItem,
   GuardianFull,
   GuardianStudentLink,
   GuardianMatch,
+  FamilySlot,
+  FamilyChild,
+  FamilyCoGuardianLink,
+  FamilyCoGuardian,
+  GuardianFamily,
 } from './guardians'
 export {
   getAllClasses,
