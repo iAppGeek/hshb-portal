@@ -1,5 +1,3 @@
-'use client'
-
 type Props = {
   text: string
   children: React.ReactNode
