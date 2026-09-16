@@ -38,15 +38,20 @@ INSERT INTO guardians (id, first_name, last_name, phone, email, occupation) VALU
   ('20000000-0000-0000-0000-000000000003', 'Greg',  'CarolGuardian', '07711000003', 'greg.carol@example.com', NULL);
 
 -- ─── Students ─────────────────────────────────────────────────────────────────
--- Alice + Bob in Alpha, Carol in Beta
+-- Alice + Bob in Alpha, Carol in Beta.
+-- Bob also has Gary (Alice's primary guardian) as his secondary guardian —
+-- a family where the two children have different primary guardians, so the
+-- guardian family view has a co-guardian case to exercise (see
+-- plans/guardian-family-view.md).
 INSERT INTO students (id, first_name, last_name, address_line_1, city, postcode,
-                      primary_guardian_id, allergies, medical_details) VALUES
+                      primary_guardian_id, secondary_guardian_id, secondary_guardian_relationship,
+                      allergies, medical_details) VALUES
   ('30000000-0000-0000-0000-000000000001', 'Alice', 'Student', '1 Test St', 'London', 'N1 1AA',
-   '20000000-0000-0000-0000-000000000001', 'Peanuts', 'Asthma'),
+   '20000000-0000-0000-0000-000000000001', NULL, NULL, 'Peanuts', 'Asthma'),
   ('30000000-0000-0000-0000-000000000002', 'Bob',   'Student', '2 Test St', 'London', 'N1 1AB',
-   '20000000-0000-0000-0000-000000000002', NULL, NULL),
+   '20000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000001', 'Father', NULL, NULL),
   ('30000000-0000-0000-0000-000000000003', 'Carol', 'Student', '3 Test St', 'London', 'N1 1AC',
-   '20000000-0000-0000-0000-000000000003', NULL, NULL);
+   '20000000-0000-0000-0000-000000000003', NULL, NULL, NULL, NULL);
 
 -- ─── Student Classes ──────────────────────────────────────────────────────────
 INSERT INTO student_classes (id, student_id, class_id, start_date) VALUES
