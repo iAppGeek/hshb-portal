@@ -107,6 +107,39 @@ describe('GuardiansTable', () => {
     expect(screen.getByText('BobGuardian, Grace')).toBeTruthy()
   })
 
+  // Phones are stored formatted (e.g. "07700 900000"); the fixture above
+  // uses unformatted numbers, which only exercises a literal substring
+  // match. This guardian's stored number has a space, and the search here
+  // has none — matching requires stripping formatting before comparing.
+  it('filters by phone ignoring formatting differences', () => {
+    const withFormattedPhone = [
+      ...guardians,
+      {
+        id: 'guardian-3',
+        first_name: 'Greg',
+        last_name: 'CarolGuardian',
+        phone: '07700 900003',
+        email: null,
+        child_count: 1,
+      },
+    ]
+    render(<GuardiansTable guardians={withFormattedPhone} />)
+    fireEvent.change(screen.getByPlaceholderText(/Search by name/), {
+      target: { value: '07700900003' },
+    })
+    expect(screen.getByText('CarolGuardian, Greg')).toBeTruthy()
+    expect(screen.queryByText('AliceGuardian, Gary')).toBeNull()
+  })
+
+  it('does not treat a non-digit search as matching every phone number', () => {
+    render(<GuardiansTable guardians={guardians} />)
+    fireEvent.change(screen.getByPlaceholderText(/Search by name/), {
+      target: { value: 'nobody' },
+    })
+    expect(screen.queryByText('AliceGuardian, Gary')).toBeNull()
+    expect(screen.queryByText('BobGuardian, Grace')).toBeNull()
+  })
+
   it('shows a no-match message when nothing filters in', () => {
     render(<GuardiansTable guardians={guardians} />)
     fireEvent.change(screen.getByPlaceholderText(/Search by name/), {

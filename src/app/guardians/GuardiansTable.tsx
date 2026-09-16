@@ -20,6 +20,8 @@ const TH =
   'px-3 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase sm:px-6'
 const TD = 'hidden px-3 py-4 text-sm text-gray-500 sm:table-cell sm:px-6'
 
+const digitsOnly = (value: string): string => value.replace(/\D/g, '')
+
 // Guardian viewing and editing share one gate (canViewGuardians and
 // canEditGuardians are both admin-only), so unlike StudentsTable this never
 // needs a permission-denied fallback for the edit link.
@@ -29,12 +31,17 @@ export default function GuardiansTable({ guardians }: Props) {
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim()
     if (!q) return guardians
+    // Phone numbers are stored formatted (e.g. "07700 900000"), so match on
+    // digits only rather than a raw substring — otherwise typing the digits
+    // a phone is actually stored under can fail to find it.
+    const queryDigits = digitsOnly(q)
     return guardians.filter((g) => {
       const name =
         `${g.first_name} ${g.last_name} ${g.last_name}, ${g.first_name}`.toLowerCase()
       const email = (g.email ?? '').toLowerCase()
-      const phone = g.phone.toLowerCase()
-      return name.includes(q) || email.includes(q) || phone.includes(q)
+      const phoneMatches =
+        queryDigits.length > 0 && digitsOnly(g.phone).includes(queryDigits)
+      return name.includes(q) || email.includes(q) || phoneMatches
     })
   }, [guardians, query])
 

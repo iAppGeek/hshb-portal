@@ -63,17 +63,32 @@ describe('getAllGuardians', () => {
   function mockGuardiansAndStudents(
     guardians: unknown[] | null,
     students: unknown[] | null,
+    guardiansError: unknown = null,
+    studentsError: unknown = null,
   ) {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'guardians') {
         return {
           select: vi.fn().mockReturnValue({
-            order: vi.fn().mockResolvedValue({ data: guardians }),
+            order: vi.fn().mockReturnValue({
+              order: vi.fn().mockReturnValue({
+                range: vi.fn().mockResolvedValue({
+                  data: guardians,
+                  error: guardiansError,
+                }),
+              }),
+            }),
           }),
         }
       }
       return {
-        select: vi.fn().mockResolvedValue({ data: students }),
+        select: vi.fn().mockReturnValue({
+          order: vi.fn().mockReturnValue({
+            range: vi
+              .fn()
+              .mockResolvedValue({ data: students, error: studentsError }),
+          }),
+        }),
       }
     })
   }
@@ -158,6 +173,45 @@ describe('getAllGuardians', () => {
 
     const result = await getAllGuardians()
     expect(result[0].child_count).toBe(0)
+  })
+
+  // A guardian occupying two slots on the same student (e.g. primary and an
+  // additional contact) must count that student once, not once per slot.
+  it('counts a guardian occupying two slots on the same student once', async () => {
+    mockGuardiansAndStudents(
+      [
+        {
+          id: 'g-1',
+          first_name: 'Maria',
+          last_name: 'Smith',
+          phone: '07700 900000',
+          email: null,
+        },
+      ],
+      [
+        {
+          primary_guardian_id: 'g-1',
+          secondary_guardian_id: 'g-1',
+          additional_contact_1_id: null,
+          additional_contact_2_id: null,
+        },
+      ],
+    )
+
+    const result = await getAllGuardians()
+    expect(result[0].child_count).toBe(1)
+  })
+
+  it('throws when the guardians query fails', async () => {
+    mockGuardiansAndStudents([], [], new Error('DB error'))
+
+    await expect(getAllGuardians()).rejects.toThrow('DB error')
+  })
+
+  it('throws when the students query fails', async () => {
+    mockGuardiansAndStudents([], [], null, new Error('DB error'))
+
+    await expect(getAllGuardians()).rejects.toThrow('DB error')
   })
 })
 
@@ -329,13 +383,19 @@ describe('getFamilyForGuardian', () => {
   function mockFamilyQuery(
     students: unknown[] | null,
     coGuardians: unknown[] | null = [],
+    studentsError: unknown = null,
+    coGuardiansError: unknown = null,
   ) {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'students') {
         return {
           select: vi.fn().mockReturnValue({
             or: vi.fn().mockReturnValue({
-              order: vi.fn().mockResolvedValue({ data: students }),
+              is: vi.fn().mockReturnValue({
+                order: vi
+                  .fn()
+                  .mockResolvedValue({ data: students, error: studentsError }),
+              }),
             }),
           }),
         }
@@ -343,7 +403,10 @@ describe('getFamilyForGuardian', () => {
       return {
         select: vi.fn().mockReturnValue({
           in: vi.fn().mockReturnValue({
-            order: vi.fn().mockResolvedValue({ data: coGuardians }),
+            order: vi.fn().mockResolvedValue({
+              data: coGuardians,
+              error: coGuardiansError,
+            }),
           }),
         }),
       }
@@ -357,6 +420,115 @@ describe('getFamilyForGuardian', () => {
     expect(result).toEqual({ children: [], coGuardians: [] })
     expect(mockFrom).toHaveBeenCalledWith('students')
     expect(mockFrom).not.toHaveBeenCalledWith('guardians')
+  })
+
+  it('throws when the students query fails', async () => {
+    mockFamilyQuery(null, [], new Error('DB error'))
+
+    await expect(getFamilyForGuardian('guardian-1')).rejects.toThrow('DB error')
+  })
+
+  it('throws when the co-guardians query fails', async () => {
+    mockFamilyQuery(
+      [
+        {
+          id: 'student-1',
+          first_name: 'Bob',
+          last_name: 'Jones',
+          student_code: null,
+          active: true,
+          leaving_reason: null,
+          primary_guardian_id: 'guardian-2',
+          primary_guardian_relationship: 'Mother',
+          secondary_guardian_id: 'guardian-1',
+          secondary_guardian_relationship: 'Father',
+          additional_contact_1_id: null,
+          additional_contact_1_relationship: null,
+          additional_contact_2_id: null,
+          additional_contact_2_relationship: null,
+          student_classes: [],
+        },
+      ],
+      null,
+      null,
+      new Error('DB error'),
+    )
+
+    await expect(getFamilyForGuardian('guardian-1')).rejects.toThrow('DB error')
+  })
+
+  // Postgres returns UUIDs in canonical lowercase; a mixed-case id reaching
+  // this function (e.g. typed into the URL) must still match the slots
+  // returned from the DB, or every child falls back to slot: 'primary' and
+  // the guardian is rendered as their own co-guardian.
+  it('matches slots correctly when the guardian id is mixed case', async () => {
+    mockFamilyQuery([
+      {
+        id: 'student-1',
+        first_name: 'Bob',
+        last_name: 'Jones',
+        student_code: null,
+        active: true,
+        leaving_reason: null,
+        primary_guardian_id: 'guardian-2',
+        primary_guardian_relationship: 'Mother',
+        secondary_guardian_id: 'guardian-1',
+        secondary_guardian_relationship: 'Father',
+        additional_contact_1_id: null,
+        additional_contact_1_relationship: null,
+        additional_contact_2_id: null,
+        additional_contact_2_relationship: null,
+        student_classes: [],
+      },
+    ])
+
+    const result = await getFamilyForGuardian('GUARDIAN-1')
+    expect(result.children[0]).toMatchObject({
+      relationship: 'Father',
+      slot: 'secondary',
+    })
+  })
+
+  // A guardian occupying two slots on the same child (e.g. secondary and an
+  // additional contact) must appear once in "also linked" for that child,
+  // not once per slot.
+  it('records a co-guardian once per child even if they occupy two slots on it', async () => {
+    mockFamilyQuery(
+      [
+        {
+          id: 'student-1',
+          first_name: 'Bob',
+          last_name: 'Jones',
+          student_code: null,
+          active: true,
+          leaving_reason: null,
+          primary_guardian_id: 'guardian-1',
+          primary_guardian_relationship: 'Mother',
+          secondary_guardian_id: 'guardian-2',
+          secondary_guardian_relationship: 'Father',
+          additional_contact_1_id: 'guardian-2',
+          additional_contact_1_relationship: 'Emergency contact',
+          additional_contact_2_id: null,
+          additional_contact_2_relationship: null,
+          student_classes: [],
+        },
+      ],
+      [
+        {
+          id: 'guardian-2',
+          first_name: 'Grace',
+          last_name: 'Jones',
+          phone: '07700 900002',
+          email: 'grace@example.com',
+        },
+      ],
+    )
+
+    const result = await getFamilyForGuardian('guardian-1')
+    expect(result.coGuardians).toHaveLength(1)
+    expect(result.coGuardians[0].links).toEqual([
+      { childId: 'student-1', childName: 'Bob Jones', slot: 'secondary' },
+    ])
   })
 
   it('includes leavers, tagged with their slot and relationship', async () => {

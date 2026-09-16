@@ -3,6 +3,8 @@ import { unstable_cache, updateTag } from 'next/cache'
 import type { Database } from '@/types/database'
 
 import { supabase } from './client'
+import { withCurrentClasses } from './membership'
+import { fetchAllPages } from './paging'
 
 type GuardianInsert = {
   first_name: string
@@ -45,14 +47,30 @@ type GuardianSlotsRow = {
   additional_contact_2_id: string | null
 }
 
-/** Every guardian id a student links to, across all four contact slots. */
+type GuardianRow = {
+  id: string
+  first_name: string
+  last_name: string
+  phone: string
+  email: string | null
+}
+
+/**
+ * Every distinct guardian id a student links to, across all four contact
+ * slots. Deduped so a guardian occupying two slots on the same student (e.g.
+ * primary and an additional contact) is only counted once for that student.
+ */
 function guardianIdsOnStudent(student: GuardianSlotsRow): string[] {
   return [
-    student.primary_guardian_id,
-    student.secondary_guardian_id,
-    student.additional_contact_1_id,
-    student.additional_contact_2_id,
-  ].filter((id): id is string => id !== null)
+    ...new Set(
+      [
+        student.primary_guardian_id,
+        student.secondary_guardian_id,
+        student.additional_contact_1_id,
+        student.additional_contact_2_id,
+      ].filter((id): id is string => id !== null),
+    ),
+  ]
 }
 
 export async function getGuardianCount(): Promise<number> {
@@ -63,31 +81,50 @@ export async function getGuardianCount(): Promise<number> {
   return count ?? 0
 }
 
-export const getAllGuardians = unstable_cache(
-  async (): Promise<GuardianListItem[]> => {
-    const [{ data: guardians }, { data: students }] = await Promise.all([
+// Not cached: getStudentsForLinking (src/db/students.ts) is the same shape
+// of function — a full list backing a picker — and is uncached for the same
+// reason. This result also backs the guardian pickers on /students/new and
+// /students/[id]/edit, which must see a guardian created moments earlier;
+// unstable_cache's revalidate window would otherwise hide it for up to 60s.
+//
+// PostgREST caps a response at 1000 rows (supabase/config.toml max_rows), so
+// both queries page through fetchAllPages rather than trusting a single
+// response to be complete. Guardians are ordered by (last_name, id) — id as
+// a tiebreaker so pagination windows stay deterministic even across
+// duplicate last names; students only need a unique order for the same
+// reason, and their order otherwise doesn't matter since they're just being
+// counted per guardian.
+export async function getAllGuardians(): Promise<GuardianListItem[]> {
+  const [guardians, students] = await Promise.all([
+    fetchAllPages<GuardianRow>((from, to) =>
       supabase
         .from('guardians')
         .select('id, first_name, last_name, phone, email')
-        .order('last_name'),
-      supabase.from('students').select(GUARDIAN_SLOTS_SELECT),
-    ])
+        .order('last_name')
+        .order('id')
+        .range(from, to),
+    ),
+    fetchAllPages<GuardianSlotsRow>((from, to) =>
+      supabase
+        .from('students')
+        .select(GUARDIAN_SLOTS_SELECT)
+        .order('id')
+        .range(from, to),
+    ),
+  ])
 
-    const counts = new Map<string, number>()
-    for (const student of students ?? []) {
-      for (const guardianId of guardianIdsOnStudent(student)) {
-        counts.set(guardianId, (counts.get(guardianId) ?? 0) + 1)
-      }
+  const counts = new Map<string, number>()
+  for (const student of students) {
+    for (const guardianId of guardianIdsOnStudent(student)) {
+      counts.set(guardianId, (counts.get(guardianId) ?? 0) + 1)
     }
+  }
 
-    return (guardians ?? []).map((guardian) => ({
-      ...guardian,
-      child_count: counts.get(guardian.id) ?? 0,
-    }))
-  },
-  ['all-guardians'],
-  OPTS,
-)
+  return guardians.map((guardian) => ({
+    ...guardian,
+    child_count: counts.get(guardian.id) ?? 0,
+  }))
+}
 
 export async function createGuardian(data: GuardianInsert) {
   const { data: guardian, error } = await supabase
@@ -220,6 +257,10 @@ function slotsForStudent(student: FamilyStudentRow): StudentGuardianSlot[] {
   ]
 }
 
+// The student_classes embed lists current classes, so this query goes
+// through withCurrentClasses like every other student_classes select (see
+// src/db/students.ts) — otherwise a child would show classes they've
+// already left.
 const FAMILY_STUDENT_SELECT = `
   id, first_name, last_name, student_code, active, leaving_reason,
   primary_guardian_id, primary_guardian_relationship,
@@ -237,14 +278,23 @@ const FAMILY_STUDENT_SELECT = `
 // either parent and both children show, with the other parent listed as a
 // co-guardian.
 export const getFamilyForGuardian = unstable_cache(
-  async (guardianId: string): Promise<GuardianFamily> => {
-    const { data: students } = await supabase
-      .from('students')
-      .select(FAMILY_STUDENT_SELECT)
-      .or(
-        `primary_guardian_id.eq.${guardianId},secondary_guardian_id.eq.${guardianId},additional_contact_1_id.eq.${guardianId},additional_contact_2_id.eq.${guardianId}`,
-      )
-      .order('last_name')
+  async (rawGuardianId: string): Promise<GuardianFamily> => {
+    // Postgres always returns UUIDs in canonical lowercase, so normalise the
+    // incoming id here — otherwise a differently-cased id (e.g. typed into
+    // the URL) would defeat every `===` slot comparison below and every
+    // child would fall back to slot: 'primary', rendering the guardian as
+    // their own co-guardian.
+    const guardianId = rawGuardianId.toLowerCase()
+
+    const { data: students, error } = await withCurrentClasses(
+      supabase
+        .from('students')
+        .select(FAMILY_STUDENT_SELECT)
+        .or(
+          `primary_guardian_id.eq.${guardianId},secondary_guardian_id.eq.${guardianId},additional_contact_1_id.eq.${guardianId},additional_contact_2_id.eq.${guardianId}`,
+        ),
+    ).order('last_name')
+    if (error) throw error
 
     const rows = (students ?? []) as unknown as FamilyStudentRow[]
     if (rows.length === 0) return { children: [], coGuardians: [] }
@@ -270,8 +320,18 @@ export const getFamilyForGuardian = unstable_cache(
           .filter((c): c is { id: string; name: string } => c !== null),
       })
 
+      // A guardian occupying more than one slot on the same child (e.g.
+      // secondary and an additional contact) is recorded once per child,
+      // under whichever of their slots is checked first — otherwise they'd
+      // get duplicate "also linked" entries for that one child.
+      const recordedForStudent = new Set<string>()
       for (const slot of slots) {
-        if (slot.guardianId && slot.guardianId !== guardianId) {
+        if (
+          slot.guardianId &&
+          slot.guardianId !== guardianId &&
+          !recordedForStudent.has(slot.guardianId)
+        ) {
+          recordedForStudent.add(slot.guardianId)
           const links = coGuardianLinks.get(slot.guardianId) ?? []
           links.push({
             childId: student.id,
@@ -285,11 +345,12 @@ export const getFamilyForGuardian = unstable_cache(
 
     if (coGuardianLinks.size === 0) return { children, coGuardians: [] }
 
-    const { data: coGuardianRows } = await supabase
+    const { data: coGuardianRows, error: coGuardianError } = await supabase
       .from('guardians')
       .select('id, first_name, last_name, phone, email')
       .in('id', [...coGuardianLinks.keys()])
       .order('last_name')
+    if (coGuardianError) throw coGuardianError
 
     const coGuardians: FamilyCoGuardian[] = (coGuardianRows ?? []).map(
       (guardian) => ({
