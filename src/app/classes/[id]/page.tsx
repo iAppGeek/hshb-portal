@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import BulkEmailDropdown from '@/clientComponents/BulkEmailDropdown'
 import { getClassWithStudents } from '@/db'
+import { compareByName } from '@/lib/grid/sort'
 import { guardianEmailsForMailto, mailtoWithBcc } from '@/lib/mailto'
 import { isTeacher } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
@@ -59,10 +60,7 @@ export default async function ClassRegisterPage({
   const students = (cls.student_classes as Array<{ student: Student | null }>)
     .map((sc) => sc.student)
     .filter((s): s is Student => s !== null)
-    .sort((a, b) => {
-      const lnc = a.last_name.localeCompare(b.last_name)
-      return lnc !== 0 ? lnc : a.first_name.localeCompare(b.first_name)
-    })
+    .sort(compareByName)
 
   const enrolmentHistory = (cls.enrolment_history ??
     []) as EnrolmentHistoryRow[]

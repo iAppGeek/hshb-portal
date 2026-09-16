@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 
 import LeaverBadge from '@/components/LeaverBadge'
+import { matchesAny, normaliseQuery } from '@/lib/grid/search'
 
 export type ClassFormTeacher = {
   id: string
@@ -57,9 +58,9 @@ type Props = {
 const SEARCH_MIN = 2
 
 function matchesSearch(student: ClassFormStudent, query: string): boolean {
-  const q = query.trim().toLowerCase()
+  const q = normaliseQuery(query)
   if (q.length < SEARCH_MIN) return true
-  return `${student.first_name} ${student.last_name}`.toLowerCase().includes(q)
+  return matchesAny([`${student.first_name} ${student.last_name}`], q)
 }
 
 /**

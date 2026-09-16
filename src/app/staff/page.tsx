@@ -39,17 +39,13 @@ export default async function StaffPage() {
 
   const staffRaw = await getAllStaffWithClasses()
 
-  const staff = [...staffRaw].sort((a, b) => {
-    const aName =
-      (
-        (a.classes as { name: string }[] | null)?.[0]?.name ?? null
-      )?.toLowerCase() ?? null
-    const bName =
-      (
-        (b.classes as { name: string }[] | null)?.[0]?.name ?? null
-      )?.toLowerCase() ?? null
-    return compareNullableText(aName, bName)
-  })
+  const firstClassName = (member: (typeof staffRaw)[number]): string | null =>
+    (member.classes as { name: string }[] | null)?.[0]?.name.toLowerCase() ||
+    null
+
+  const staff = [...staffRaw].sort((a, b) =>
+    compareNullableText(firstClassName(a), firstClassName(b)),
+  )
 
   const teachingMembers = staff.filter((m) =>
     TEACHING_ROLES.includes(m.role as StaffRole),
