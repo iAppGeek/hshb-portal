@@ -1,6 +1,7 @@
 import { unstable_cache, updateTag } from 'next/cache'
 
 import type { Database } from '@/types/database'
+import { isUuid } from '@/lib/uuid'
 
 import { supabase } from './client'
 import { withCurrentClasses } from './membership'
@@ -32,6 +33,11 @@ export type GuardianSummary = {
 // serve both without those forms taking on fields they never use.
 export type GuardianListItem = GuardianSummary & {
   email: string | null
+}
+
+// GuardianListItem plus the child count only the /guardians list page needs
+// — see getGuardianChildCounts.
+export type GuardianWithChildCount = GuardianListItem & {
   child_count: number
 }
 
@@ -45,14 +51,6 @@ type GuardianSlotsRow = {
   secondary_guardian_id: string | null
   additional_contact_1_id: string | null
   additional_contact_2_id: string | null
-}
-
-type GuardianRow = {
-  id: string
-  first_name: string
-  last_name: string
-  phone: string
-  email: string | null
 }
 
 /**
@@ -87,31 +85,41 @@ export async function getGuardianCount(): Promise<number> {
 // /students/[id]/edit, which must see a guardian created moments earlier;
 // unstable_cache's revalidate window would otherwise hide it for up to 60s.
 //
+// Deliberately does not include the per-guardian child count — that's
+// getGuardianChildCounts, a separate full students-table scan that only the
+// /guardians list page needs. The two picker pages above discarded that
+// count while still paying for the scan on every load, before it was split
+// out.
+//
 // PostgREST caps a response at 1000 rows (supabase/config.toml max_rows), so
-// both queries page through fetchAllPages rather than trusting a single
-// response to be complete. Guardians are ordered by (last_name, id) — id as
-// a tiebreaker so pagination windows stay deterministic even across
-// duplicate last names; students only need a unique order for the same
-// reason, and their order otherwise doesn't matter since they're just being
-// counted per guardian.
+// this pages through fetchAllPages rather than trusting a single response to
+// be complete. Ordered by (last_name, id) — id as a tiebreaker so pagination
+// windows stay deterministic even across duplicate last names.
 export async function getAllGuardians(): Promise<GuardianListItem[]> {
-  const [guardians, students] = await Promise.all([
-    fetchAllPages<GuardianRow>((from, to) =>
-      supabase
-        .from('guardians')
-        .select('id, first_name, last_name, phone, email')
-        .order('last_name')
-        .order('id')
-        .range(from, to),
-    ),
-    fetchAllPages<GuardianSlotsRow>((from, to) =>
-      supabase
-        .from('students')
-        .select(GUARDIAN_SLOTS_SELECT)
-        .order('id')
-        .range(from, to),
-    ),
-  ])
+  return fetchAllPages<GuardianListItem>((from, to) =>
+    supabase
+      .from('guardians')
+      .select('id, first_name, last_name, phone, email')
+      .order('last_name')
+      .order('id')
+      .range(from, to),
+  )
+}
+
+// The /guardians list page's per-guardian child count, kept out of
+// getAllGuardians so the student guardian-picker forms don't pay for a full
+// students-table scan they'd only discard the result of. A future
+// improvement would push this aggregation into the database (a view or
+// RPC) instead of paging the whole table in application code; not done here
+// since it needs a migration applied to prod, outside this change's scope.
+export async function getGuardianChildCounts(): Promise<Map<string, number>> {
+  const students = await fetchAllPages<GuardianSlotsRow>((from, to) =>
+    supabase
+      .from('students')
+      .select(GUARDIAN_SLOTS_SELECT)
+      .order('id')
+      .range(from, to),
+  )
 
   const counts = new Map<string, number>()
   for (const student of students) {
@@ -119,11 +127,7 @@ export async function getAllGuardians(): Promise<GuardianListItem[]> {
       counts.set(guardianId, (counts.get(guardianId) ?? 0) + 1)
     }
   }
-
-  return guardians.map((guardian) => ({
-    ...guardian,
-    child_count: counts.get(guardian.id) ?? 0,
-  }))
+  return counts
 }
 
 export async function createGuardian(data: GuardianInsert) {
@@ -162,6 +166,10 @@ export type GuardianStudentLink = {
 export async function getStudentsByGuardian(
   guardianId: string,
 ): Promise<GuardianStudentLink[]> {
+  // guardianId is interpolated into the filter below; a non-UUID must never
+  // reach it, or a crafted value could inject an extra disjunct (see isUuid).
+  if (!isUuid(guardianId)) return []
+
   const { data } = await supabase
     .from('students')
     .select('id, first_name, last_name, student_code')
@@ -285,6 +293,12 @@ export const getFamilyForGuardian = unstable_cache(
     // child would fall back to slot: 'primary', rendering the guardian as
     // their own co-guardian.
     const guardianId = rawGuardianId.toLowerCase()
+
+    // guardianId is interpolated into the filter below; a non-UUID must
+    // never reach it (see isUuid). Returning the empty family here — rather
+    // than throwing — lets the guardian page's existing "not found" redirect
+    // handle a malformed or stale id instead of surfacing a 500.
+    if (!isUuid(guardianId)) return { children: [], coGuardians: [] }
 
     const { data: students, error } = await withCurrentClasses(
       supabase

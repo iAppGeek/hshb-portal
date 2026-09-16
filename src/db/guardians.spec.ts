@@ -4,6 +4,7 @@ import { updateTag } from 'next/cache'
 import {
   getGuardianCount,
   getAllGuardians,
+  getGuardianChildCounts,
   createGuardian,
   getGuardianById,
   getStudentsByGuardian,
@@ -18,6 +19,12 @@ beforeEach(() => {
 
 const mockFrom = vi.hoisted(() => vi.fn())
 const mockRpc = vi.hoisted(() => vi.fn())
+
+// getStudentsByGuardian and getFamilyForGuardian now validate the incoming
+// id looks like a UUID (see isUuid) before interpolating it into a filter,
+// so their tests need ids shaped like one rather than an arbitrary string.
+const GUARDIAN_1 = '20000000-0000-0000-0000-000000000001'
+const GUARDIAN_2 = '20000000-0000-0000-0000-000000000002'
 
 vi.mock('next/cache', () => ({
   unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
@@ -60,72 +67,35 @@ describe('getGuardianCount', () => {
 })
 
 describe('getAllGuardians', () => {
-  function mockGuardiansAndStudents(
-    guardians: unknown[] | null,
-    students: unknown[] | null,
-    guardiansError: unknown = null,
-    studentsError: unknown = null,
-  ) {
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'guardians') {
-        return {
-          select: vi.fn().mockReturnValue({
-            order: vi.fn().mockReturnValue({
-              order: vi.fn().mockReturnValue({
-                range: vi.fn().mockResolvedValue({
-                  data: guardians,
-                  error: guardiansError,
-                }),
-              }),
-            }),
-          }),
-        }
-      }
-      return {
-        select: vi.fn().mockReturnValue({
+  function mockGuardians(guardians: unknown[] | null, error: unknown = null) {
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        order: vi.fn().mockReturnValue({
           order: vi.fn().mockReturnValue({
-            range: vi
-              .fn()
-              .mockResolvedValue({ data: students, error: studentsError }),
+            range: vi.fn().mockResolvedValue({ data: guardians, error }),
           }),
         }),
-      }
+      }),
     })
   }
 
-  it('returns guardians ordered by last name with a child count per guardian', async () => {
-    mockGuardiansAndStudents(
-      [
-        {
-          id: 'g-1',
-          first_name: 'Maria',
-          last_name: 'Smith',
-          phone: '07700 900000',
-          email: 'maria@example.com',
-        },
-        {
-          id: 'g-2',
-          first_name: 'John',
-          last_name: 'Doe',
-          phone: '07700 900001',
-          email: null,
-        },
-      ],
-      [
-        {
-          primary_guardian_id: 'g-1',
-          secondary_guardian_id: null,
-          additional_contact_1_id: null,
-          additional_contact_2_id: null,
-        },
-        {
-          primary_guardian_id: 'g-2',
-          secondary_guardian_id: 'g-1',
-          additional_contact_1_id: null,
-          additional_contact_2_id: null,
-        },
-      ],
-    )
+  it('returns guardians ordered by last name, without a child count', async () => {
+    mockGuardians([
+      {
+        id: 'g-1',
+        first_name: 'Maria',
+        last_name: 'Smith',
+        phone: '07700 900000',
+        email: 'maria@example.com',
+      },
+      {
+        id: 'g-2',
+        first_name: 'John',
+        last_name: 'Doe',
+        phone: '07700 900001',
+        email: null,
+      },
+    ])
 
     const result = await getAllGuardians()
     expect(result).toEqual([
@@ -135,7 +105,6 @@ describe('getAllGuardians', () => {
         last_name: 'Smith',
         phone: '07700 900000',
         email: 'maria@example.com',
-        child_count: 2,
       },
       {
         id: 'g-2',
@@ -143,75 +112,88 @@ describe('getAllGuardians', () => {
         last_name: 'Doe',
         phone: '07700 900001',
         email: null,
-        child_count: 1,
       },
     ])
     expect(mockFrom).toHaveBeenCalledWith('guardians')
-    expect(mockFrom).toHaveBeenCalledWith('students')
+    // The picker forms on /students/new and /students/[id]/edit call this —
+    // it must not touch students, or they pay for a scan they discard.
+    expect(mockFrom).not.toHaveBeenCalledWith('students')
   })
 
   it('returns empty array when no guardians exist', async () => {
-    mockGuardiansAndStudents(null, null)
+    mockGuardians(null)
 
     const result = await getAllGuardians()
     expect(result).toEqual([])
   })
 
-  it('gives a guardian with no linked students a zero count', async () => {
-    mockGuardiansAndStudents(
-      [
-        {
-          id: 'g-1',
-          first_name: 'Maria',
-          last_name: 'Smith',
-          phone: '07700 900000',
-          email: null,
-        },
-      ],
-      null,
-    )
+  it('throws when the guardians query fails', async () => {
+    mockGuardians(null, new Error('DB error'))
 
-    const result = await getAllGuardians()
-    expect(result[0].child_count).toBe(0)
+    await expect(getAllGuardians()).rejects.toThrow('DB error')
+  })
+})
+
+describe('getGuardianChildCounts', () => {
+  function mockStudents(students: unknown[] | null, error: unknown = null) {
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        order: vi.fn().mockReturnValue({
+          range: vi.fn().mockResolvedValue({ data: students, error }),
+        }),
+      }),
+    })
+  }
+
+  it('counts each guardian across all four slots', async () => {
+    mockStudents([
+      {
+        primary_guardian_id: 'g-1',
+        secondary_guardian_id: null,
+        additional_contact_1_id: null,
+        additional_contact_2_id: null,
+      },
+      {
+        primary_guardian_id: 'g-2',
+        secondary_guardian_id: 'g-1',
+        additional_contact_1_id: null,
+        additional_contact_2_id: null,
+      },
+    ])
+
+    const result = await getGuardianChildCounts()
+    expect(result.get('g-1')).toBe(2)
+    expect(result.get('g-2')).toBe(1)
+    expect(mockFrom).toHaveBeenCalledWith('students')
+  })
+
+  it('returns an empty map when there are no students', async () => {
+    mockStudents(null)
+
+    const result = await getGuardianChildCounts()
+    expect(result.size).toBe(0)
   })
 
   // A guardian occupying two slots on the same student (e.g. primary and an
   // additional contact) must count that student once, not once per slot.
   it('counts a guardian occupying two slots on the same student once', async () => {
-    mockGuardiansAndStudents(
-      [
-        {
-          id: 'g-1',
-          first_name: 'Maria',
-          last_name: 'Smith',
-          phone: '07700 900000',
-          email: null,
-        },
-      ],
-      [
-        {
-          primary_guardian_id: 'g-1',
-          secondary_guardian_id: 'g-1',
-          additional_contact_1_id: null,
-          additional_contact_2_id: null,
-        },
-      ],
-    )
+    mockStudents([
+      {
+        primary_guardian_id: 'g-1',
+        secondary_guardian_id: 'g-1',
+        additional_contact_1_id: null,
+        additional_contact_2_id: null,
+      },
+    ])
 
-    const result = await getAllGuardians()
-    expect(result[0].child_count).toBe(1)
-  })
-
-  it('throws when the guardians query fails', async () => {
-    mockGuardiansAndStudents([], [], new Error('DB error'))
-
-    await expect(getAllGuardians()).rejects.toThrow('DB error')
+    const result = await getGuardianChildCounts()
+    expect(result.get('g-1')).toBe(1)
   })
 
   it('throws when the students query fails', async () => {
-    mockGuardiansAndStudents([], [], null, new Error('DB error'))
+    mockStudents(null, new Error('DB error'))
 
-    await expect(getAllGuardians()).rejects.toThrow('DB error')
+    await expect(getGuardianChildCounts()).rejects.toThrow('DB error')
   })
 })
 
@@ -358,7 +340,7 @@ describe('getStudentsByGuardian', () => {
       }),
     })
 
-    const result = await getStudentsByGuardian('guardian-1')
+    const result = await getStudentsByGuardian(GUARDIAN_1)
     expect(result).toEqual(mockStudents)
     expect(mockFrom).toHaveBeenCalledWith('students')
   })
@@ -374,8 +356,16 @@ describe('getStudentsByGuardian', () => {
       }),
     })
 
-    const result = await getStudentsByGuardian('guardian-1')
+    const result = await getStudentsByGuardian(GUARDIAN_1)
     expect(result).toEqual([])
+  })
+
+  // guardianId is interpolated into an .or() filter string; a non-UUID must
+  // never reach it, or a crafted value could inject an extra disjunct.
+  it('returns empty array without querying when the id is not a uuid', async () => {
+    const result = await getStudentsByGuardian(`${GUARDIAN_1},active.eq.true`)
+    expect(result).toEqual([])
+    expect(mockFrom).not.toHaveBeenCalled()
   })
 })
 
@@ -416,16 +406,26 @@ describe('getFamilyForGuardian', () => {
   it('returns an empty family when the guardian has no children', async () => {
     mockFamilyQuery(null)
 
-    const result = await getFamilyForGuardian('guardian-1')
+    const result = await getFamilyForGuardian(GUARDIAN_1)
     expect(result).toEqual({ children: [], coGuardians: [] })
     expect(mockFrom).toHaveBeenCalledWith('students')
     expect(mockFrom).not.toHaveBeenCalledWith('guardians')
   })
 
+  // guardianId is interpolated into an .or() filter string; a non-UUID must
+  // never reach it, or a crafted value could inject an extra disjunct. The
+  // empty family (rather than an error) lets the page's existing
+  // "not found" redirect handle a malformed or stale id.
+  it('returns an empty family without querying when the id is not a uuid', async () => {
+    const result = await getFamilyForGuardian(`${GUARDIAN_1},active.eq.true`)
+    expect(result).toEqual({ children: [], coGuardians: [] })
+    expect(mockFrom).not.toHaveBeenCalled()
+  })
+
   it('throws when the students query fails', async () => {
     mockFamilyQuery(null, [], new Error('DB error'))
 
-    await expect(getFamilyForGuardian('guardian-1')).rejects.toThrow('DB error')
+    await expect(getFamilyForGuardian(GUARDIAN_1)).rejects.toThrow('DB error')
   })
 
   it('throws when the co-guardians query fails', async () => {
@@ -438,9 +438,9 @@ describe('getFamilyForGuardian', () => {
           student_code: null,
           active: true,
           leaving_reason: null,
-          primary_guardian_id: 'guardian-2',
+          primary_guardian_id: GUARDIAN_2,
           primary_guardian_relationship: 'Mother',
-          secondary_guardian_id: 'guardian-1',
+          secondary_guardian_id: GUARDIAN_1,
           secondary_guardian_relationship: 'Father',
           additional_contact_1_id: null,
           additional_contact_1_relationship: null,
@@ -454,7 +454,7 @@ describe('getFamilyForGuardian', () => {
       new Error('DB error'),
     )
 
-    await expect(getFamilyForGuardian('guardian-1')).rejects.toThrow('DB error')
+    await expect(getFamilyForGuardian(GUARDIAN_1)).rejects.toThrow('DB error')
   })
 
   // Postgres returns UUIDs in canonical lowercase; a mixed-case id reaching
@@ -470,9 +470,9 @@ describe('getFamilyForGuardian', () => {
         student_code: null,
         active: true,
         leaving_reason: null,
-        primary_guardian_id: 'guardian-2',
+        primary_guardian_id: GUARDIAN_2,
         primary_guardian_relationship: 'Mother',
-        secondary_guardian_id: 'guardian-1',
+        secondary_guardian_id: GUARDIAN_1,
         secondary_guardian_relationship: 'Father',
         additional_contact_1_id: null,
         additional_contact_1_relationship: null,
@@ -482,7 +482,7 @@ describe('getFamilyForGuardian', () => {
       },
     ])
 
-    const result = await getFamilyForGuardian('GUARDIAN-1')
+    const result = await getFamilyForGuardian(GUARDIAN_1.toUpperCase())
     expect(result.children[0]).toMatchObject({
       relationship: 'Father',
       slot: 'secondary',
@@ -502,11 +502,11 @@ describe('getFamilyForGuardian', () => {
           student_code: null,
           active: true,
           leaving_reason: null,
-          primary_guardian_id: 'guardian-1',
+          primary_guardian_id: GUARDIAN_1,
           primary_guardian_relationship: 'Mother',
-          secondary_guardian_id: 'guardian-2',
+          secondary_guardian_id: GUARDIAN_2,
           secondary_guardian_relationship: 'Father',
-          additional_contact_1_id: 'guardian-2',
+          additional_contact_1_id: GUARDIAN_2,
           additional_contact_1_relationship: 'Emergency contact',
           additional_contact_2_id: null,
           additional_contact_2_relationship: null,
@@ -515,7 +515,7 @@ describe('getFamilyForGuardian', () => {
       ],
       [
         {
-          id: 'guardian-2',
+          id: GUARDIAN_2,
           first_name: 'Grace',
           last_name: 'Jones',
           phone: '07700 900002',
@@ -524,7 +524,7 @@ describe('getFamilyForGuardian', () => {
       ],
     )
 
-    const result = await getFamilyForGuardian('guardian-1')
+    const result = await getFamilyForGuardian(GUARDIAN_1)
     expect(result.coGuardians).toHaveLength(1)
     expect(result.coGuardians[0].links).toEqual([
       { childId: 'student-1', childName: 'Bob Jones', slot: 'secondary' },
@@ -540,7 +540,7 @@ describe('getFamilyForGuardian', () => {
         student_code: 'S001',
         active: false,
         leaving_reason: 'graduated',
-        primary_guardian_id: 'guardian-1',
+        primary_guardian_id: GUARDIAN_1,
         primary_guardian_relationship: 'Mother',
         secondary_guardian_id: null,
         secondary_guardian_relationship: null,
@@ -552,7 +552,7 @@ describe('getFamilyForGuardian', () => {
       },
     ])
 
-    const result = await getFamilyForGuardian('guardian-1')
+    const result = await getFamilyForGuardian(GUARDIAN_1)
     expect(result.children).toEqual([
       {
         id: 'student-1',
@@ -582,9 +582,9 @@ describe('getFamilyForGuardian', () => {
           student_code: null,
           active: true,
           leaving_reason: null,
-          primary_guardian_id: 'guardian-2',
+          primary_guardian_id: GUARDIAN_2,
           primary_guardian_relationship: 'Mother',
-          secondary_guardian_id: 'guardian-1',
+          secondary_guardian_id: GUARDIAN_1,
           secondary_guardian_relationship: 'Father',
           additional_contact_1_id: null,
           additional_contact_1_relationship: null,
@@ -598,7 +598,7 @@ describe('getFamilyForGuardian', () => {
       ],
       [
         {
-          id: 'guardian-2',
+          id: GUARDIAN_2,
           first_name: 'Grace',
           last_name: 'Jones',
           phone: '07700 900002',
@@ -607,7 +607,7 @@ describe('getFamilyForGuardian', () => {
       ],
     )
 
-    const result = await getFamilyForGuardian('guardian-1')
+    const result = await getFamilyForGuardian(GUARDIAN_1)
     expect(result.children).toEqual([
       {
         id: 'student-1',
@@ -623,7 +623,7 @@ describe('getFamilyForGuardian', () => {
     ])
     expect(result.coGuardians).toEqual([
       {
-        id: 'guardian-2',
+        id: GUARDIAN_2,
         first_name: 'Grace',
         last_name: 'Jones',
         phone: '07700 900002',

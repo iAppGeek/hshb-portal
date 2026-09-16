@@ -140,6 +140,51 @@ describe('GuardiansTable', () => {
     expect(screen.queryByText('BobGuardian, Grace')).toBeNull()
   })
 
+  // A query is only phone-shaped (digits/phone punctuation) with at least 3
+  // digits; a bare "3" must not be routed into the phone comparison, or it
+  // would match nearly every phone number and bury the real result.
+  it('does not route a short digit-only query into phone matching', () => {
+    render(<GuardiansTable guardians={guardians} />)
+    fireEvent.change(screen.getByPlaceholderText(/Search by name/), {
+      target: { value: '3' },
+    })
+    expect(screen.queryByText('AliceGuardian, Gary')).toBeNull()
+    expect(screen.queryByText('BobGuardian, Grace')).toBeNull()
+  })
+
+  // A query mixing letters and digits is a name/email query, not a phone
+  // one — it must not match via a guardian's phone number just because
+  // that number happens to contain the digit.
+  it('does not route a mixed letters-and-digits query into phone matching', () => {
+    const withSmith = [
+      ...guardians,
+      {
+        id: 'guardian-4',
+        first_name: 'Sam',
+        last_name: 'Smith',
+        phone: '07700 900001',
+        email: null,
+        child_count: 0,
+      },
+    ]
+    render(<GuardiansTable guardians={withSmith} />)
+    fireEvent.change(screen.getByPlaceholderText(/Search by name/), {
+      target: { value: 'smith1' },
+    })
+    expect(screen.queryByText('Smith, Sam')).toBeNull()
+    expect(screen.queryByText('AliceGuardian, Gary')).toBeNull()
+    expect(screen.queryByText('BobGuardian, Grace')).toBeNull()
+  })
+
+  it('still matches a short phone-shaped fragment', () => {
+    render(<GuardiansTable guardians={guardians} />)
+    fireEvent.change(screen.getByPlaceholderText(/Search by name/), {
+      target: { value: '00002' },
+    })
+    expect(screen.getByText('BobGuardian, Grace')).toBeTruthy()
+    expect(screen.queryByText('AliceGuardian, Gary')).toBeNull()
+  })
+
   it('shows a no-match message when nothing filters in', () => {
     render(<GuardiansTable guardians={guardians} />)
     fireEvent.change(screen.getByPlaceholderText(/Search by name/), {

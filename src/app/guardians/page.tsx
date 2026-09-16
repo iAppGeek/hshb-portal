@@ -2,7 +2,8 @@ import { type Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { getAllGuardians } from '@/db'
+import { getAllGuardians, getGuardianChildCounts } from '@/db'
+import type { GuardianWithChildCount } from '@/db'
 import { canViewGuardians } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -21,16 +22,28 @@ export default async function GuardiansPage() {
     redirect('/students')
   }
 
-  const guardians = await getAllGuardians()
+  // Only this list page needs the per-guardian child count, so it's a
+  // separate query from getAllGuardians — see the comment on
+  // getGuardianChildCounts.
+  const [guardians, childCounts] = await Promise.all([
+    getAllGuardians(),
+    getGuardianChildCounts(),
+  ])
+  const guardiansWithCounts: GuardianWithChildCount[] = guardians.map(
+    (guardian) => ({
+      ...guardian,
+      child_count: childCounts.get(guardian.id) ?? 0,
+    }),
+  )
 
   return (
     <>
       <PageHeader title="Guardians" />
 
-      {guardians.length === 0 ? (
+      {guardiansWithCounts.length === 0 ? (
         <EmptyState message="No guardians found." />
       ) : (
-        <GuardiansTable guardians={guardians} />
+        <GuardiansTable guardians={guardiansWithCounts} />
       )}
     </>
   )

@@ -8,6 +8,7 @@ vi.mock('@/auth', () => ({
 
 vi.mock('@/db', () => ({
   getAllGuardians: vi.fn(),
+  getGuardianChildCounts: vi.fn(),
 }))
 
 vi.mock('next/navigation', () => ({
@@ -15,18 +16,22 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('./GuardiansTable', () => ({
-  default: ({ guardians }: { guardians: unknown[] }) => (
-    <div>GuardiansTable count={guardians.length}</div>
+  default: ({ guardians }: { guardians: { child_count: number }[] }) => (
+    <div>
+      GuardiansTable count={guardians.length} counts=
+      {guardians.map((g) => g.child_count).join(',')}
+    </div>
   ),
 }))
 
 import { auth } from '@/auth'
-import { getAllGuardians } from '@/db'
+import { getAllGuardians, getGuardianChildCounts } from '@/db'
 
 import GuardiansPage from './page'
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(getGuardianChildCounts).mockResolvedValue(new Map())
 })
 
 const mockGuardian = {
@@ -35,7 +40,6 @@ const mockGuardian = {
   last_name: 'Smith',
   phone: '07700 900000',
   email: 'maria@example.com',
-  child_count: 2,
 }
 
 describe('GuardiansPage', () => {
@@ -53,6 +57,26 @@ describe('GuardiansPage', () => {
 
     render(await GuardiansPage())
     expect(screen.getByText(/GuardiansTable/)).toBeTruthy()
+  })
+
+  it('merges in each guardian’s child count from getGuardianChildCounts', async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(getAllGuardians).mockResolvedValue([mockGuardian] as any)
+    vi.mocked(getGuardianChildCounts).mockResolvedValue(
+      new Map([['guardian-1', 3]]),
+    )
+
+    render(await GuardiansPage())
+    expect(screen.getByText(/counts=3/)).toBeTruthy()
+  })
+
+  it('gives a guardian with no entry in the counts map a zero count', async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(getAllGuardians).mockResolvedValue([mockGuardian] as any)
+    vi.mocked(getGuardianChildCounts).mockResolvedValue(new Map())
+
+    render(await GuardiansPage())
+    expect(screen.getByText(/counts=0/)).toBeTruthy()
   })
 
   it('shows empty state when no guardians exist', async () => {
@@ -74,6 +98,7 @@ describe('GuardiansPage', () => {
       await expect(GuardiansPage()).rejects.toThrow('NEXT_REDIRECT')
       expect(redirect).toHaveBeenCalledWith('/students')
       expect(getAllGuardians).not.toHaveBeenCalled()
+      expect(getGuardianChildCounts).not.toHaveBeenCalled()
     },
   )
 })

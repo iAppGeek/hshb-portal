@@ -22,6 +22,23 @@ const TD = 'hidden px-3 py-4 text-sm text-gray-500 sm:table-cell sm:px-6'
 
 const digitsOnly = (value: string): string => value.replace(/\D/g, '')
 
+// Digits and phone punctuation only, with at least 3 digits once that
+// punctuation is stripped — enough to route "07700 900000" or "+44 7700"
+// to the phone comparison while a name or mixed query like "smith1" (or a
+// bare digit or two) falls through to name/email matching instead. Without
+// this, a query is routed to phone matching whenever it contains any digit
+// at all, which makes something like "3" match nearly every phone number
+// and bury the result the admin actually wanted.
+const PHONE_SHAPE_RE = /^[\d\s()+-]+$/
+const MIN_PHONE_QUERY_DIGITS = 3
+
+function isPhoneShapedQuery(query: string): boolean {
+  return (
+    PHONE_SHAPE_RE.test(query) &&
+    digitsOnly(query).length >= MIN_PHONE_QUERY_DIGITS
+  )
+}
+
 // Guardian viewing and editing share one gate (canViewGuardians and
 // canEditGuardians are both admin-only), so unlike StudentsTable this never
 // needs a permission-denied fallback for the edit link.
@@ -31,17 +48,19 @@ export default function GuardiansTable({ guardians }: Props) {
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim()
     if (!q) return guardians
-    // Phone numbers are stored formatted (e.g. "07700 900000"), so match on
-    // digits only rather than a raw substring — otherwise typing the digits
-    // a phone is actually stored under can fail to find it.
-    const queryDigits = digitsOnly(q)
+    // Phone numbers are stored formatted (e.g. "07700 900000"), so a
+    // phone-shaped query matches on digits only, rather than a raw
+    // substring, against phone alone — a name/email query never falls into
+    // the phone comparison, and vice versa.
+    if (isPhoneShapedQuery(q)) {
+      const queryDigits = digitsOnly(q)
+      return guardians.filter((g) => digitsOnly(g.phone).includes(queryDigits))
+    }
     return guardians.filter((g) => {
       const name =
         `${g.first_name} ${g.last_name} ${g.last_name}, ${g.first_name}`.toLowerCase()
       const email = (g.email ?? '').toLowerCase()
-      const phoneMatches =
-        queryDigits.length > 0 && digitsOnly(g.phone).includes(queryDigits)
-      return name.includes(q) || email.includes(q) || phoneMatches
+      return name.includes(q) || email.includes(q)
     })
   }, [guardians, query])
 

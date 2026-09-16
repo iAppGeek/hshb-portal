@@ -67,6 +67,7 @@ export type { PhotoOptOutStatus, PhotoOptOutRow } from './photoOptOuts'
 export {
   getGuardianCount,
   getAllGuardians,
+  getGuardianChildCounts,
   createGuardian,
   getGuardianById,
   getStudentsByGuardian,
@@ -77,6 +78,7 @@ export {
 export type {
   GuardianSummary,
   GuardianListItem,
+  GuardianWithChildCount,
   GuardianFull,
   GuardianStudentLink,
   GuardianMatch,
