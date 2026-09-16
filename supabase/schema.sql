@@ -1432,6 +1432,10 @@ CREATE INDEX "fee_plans_academic_year_id_idx" ON "public"."fee_plans" USING "btr
 
 
 
+CREATE INDEX "guardians_email_lower_idx" ON "public"."guardians" USING "btree" ("lower"("email"));
+
+
+
 CREATE INDEX "guardians_last_name_idx" ON "public"."guardians" USING "btree" ("last_name");
 
 
@@ -1541,6 +1545,14 @@ CREATE INDEX "student_payments_student_id_idx" ON "public"."student_payments" US
 
 
 CREATE INDEX "students_active_idx" ON "public"."students" USING "btree" ("active");
+
+
+
+CREATE INDEX "students_additional_contact_1_id_idx" ON "public"."students" USING "btree" ("additional_contact_1_id");
+
+
+
+CREATE INDEX "students_additional_contact_2_id_idx" ON "public"."students" USING "btree" ("additional_contact_2_id");
 
 
 
