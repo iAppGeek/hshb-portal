@@ -9,6 +9,10 @@ export const th =
 export const td = 'hidden px-3 py-4 text-sm text-gray-500 sm:table-cell sm:px-6'
 export const tdVisible = 'px-3 py-4 text-sm text-gray-500 sm:px-6'
 export const tdPrimary = 'px-3 py-4 text-sm font-medium text-gray-900 sm:px-6'
+// A `td.primary` combination: bold, hidden below `sm` (a desktop-only
+// column, e.g. the Name column in a stacked-mobile grid).
+export const tdPrimaryHidden =
+  'hidden px-3 py-4 text-sm font-medium text-gray-900 sm:table-cell sm:px-6'
 export const tbody = 'divide-y divide-gray-200 bg-white'
 export const row = 'hover:bg-gray-50'
 export const rowStacked =

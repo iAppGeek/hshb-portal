@@ -7,6 +7,8 @@ export type GridColumnMeta = {
   align?: 'left' | 'right'
   mobile?: 'show' | 'hide' // used by mobile: 'hide-columns'
   srOnlyHeader?: boolean // "Actions" columns
+  /** Bold, always-visible column (e.g. a Name column shown alongside a stacked mobile title). */
+  primary?: boolean
 }
 
 export type GridColumn<T> = GridColumnMeta & {

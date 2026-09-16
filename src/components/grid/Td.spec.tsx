@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
-import { td, tdPrimary, tdVisible } from '@/lib/grid/styles'
+import { td, tdPrimary, tdPrimaryHidden, tdVisible } from '@/lib/grid/styles'
 
 import Td from './Td'
 
@@ -38,9 +38,28 @@ describe('Td', () => {
     expect(screen.getByRole('cell').className).toBe(tdPrimary)
   })
 
-  it('ignores primary in stacked mode (desktop cells are never primary)', () => {
+  it('uses "tdPrimaryHidden" (bold + hidden-on-mobile) when primary is set in stacked mode', () => {
     renderTd({ children: 'Ada Lovelace', mobile: 'stacked', primary: true })
-    expect(screen.getByRole('cell').className).toBe(td)
+    expect(screen.getByRole('cell').className).toBe(tdPrimaryHidden)
+  })
+
+  it('falls back to meta.primary when the primary prop is not given', () => {
+    renderTd({
+      children: 'Ada Lovelace',
+      mobile: 'scroll',
+      meta: { primary: true },
+    })
+    expect(screen.getByRole('cell').className).toBe(tdPrimary)
+  })
+
+  it('an explicit primary prop overrides meta.primary', () => {
+    renderTd({
+      children: 'Ada Lovelace',
+      mobile: 'scroll',
+      primary: false,
+      meta: { primary: true },
+    })
+    expect(screen.getByRole('cell').className).toBe(tdVisible)
   })
 
   it('hides columns marked mobile: "hide" in hide-columns mode', () => {

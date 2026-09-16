@@ -10,6 +10,7 @@ import {
   td,
   tdVisible,
   tdPrimary,
+  tdPrimaryHidden,
   tbody,
   row,
   rowStacked,
@@ -61,6 +62,12 @@ describe('grid styles tokens', () => {
     )
   })
 
+  it('tdPrimaryHidden', () => {
+    expect(tdPrimaryHidden).toBe(
+      'hidden px-3 py-4 text-sm font-medium text-gray-900 sm:table-cell sm:px-6',
+    )
+  })
+
   it('tbody', () => {
     expect(tbody).toBe('divide-y divide-gray-200 bg-white')
   })
@@ -92,6 +99,7 @@ describe('grid styles tokens', () => {
       td,
       tdVisible,
       tdPrimary,
+      tdPrimaryHidden,
       tbody,
       row,
       rowStacked,

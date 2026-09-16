@@ -98,6 +98,7 @@ export default function ClassesTable({
   role,
 }: Props): ReactElement {
   const columns: GridColumn<ClassRow>[] = [
+    { id: 'name', header: 'Name', primary: true, cell: (cls) => cls.name },
     { id: 'year_group', header: 'Year Group', cell: (cls) => cls.year_group },
     { id: 'room', header: 'Room', cell: (cls) => cls.room_number ?? '—' },
     { id: 'teacher', header: 'Teacher', cell: (cls) => teacherName(cls) },

@@ -45,8 +45,10 @@ const mockClasses: ClassRow[] = [
 describe('ClassesTable', () => {
   it('renders class names', () => {
     render(<ClassesTable classes={mockClasses} canEdit={false} role="admin" />)
-    expect(screen.getByText('Year 1A')).toBeTruthy()
-    expect(screen.getByText('Year 2B')).toBeTruthy()
+    // Appears twice per class: once in the stacked mobile summary title,
+    // once in the desktop-only "Name" column.
+    expect(screen.getAllByText('Year 1A').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Year 2B').length).toBeGreaterThan(0)
   })
 
   it('renders teacher name', () => {
