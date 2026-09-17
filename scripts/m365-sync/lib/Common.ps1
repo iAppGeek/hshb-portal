@@ -12,7 +12,7 @@ function Import-SyncConfig {
     param([Parameter(Mandatory)][string]$Path)
 
     if (-not (Test-Path -LiteralPath $Path)) {
-        throw "Config file not found: $Path. Copy config.example.psd1 to config.psd1 and edit it."
+        throw "Config file not found: $Path. Pass -ConfigPath or restore config.psd1 from git."
     }
     $config = Import-PowerShellDataFile -LiteralPath $Path
     Assert-SyncConfig -Config $config

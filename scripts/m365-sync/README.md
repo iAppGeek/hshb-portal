@@ -132,15 +132,18 @@ supabase login
 supabase link   # choose the production project, if not already linked
 ```
 
-### 3. Create local config
+### 3. Check the config
+
+`config.psd1` is committed and holds no personal data: tags, list names and
+the internal addresses allowed to send to the lists (`AllowedSenders`). Edit
+it and commit the change if any of those need to change.
+
+Optionally, to pre-fill your sign-in account:
 
 ```bash
 cd scripts/m365-sync
-cp config.example.psd1 config.psd1   # then edit AllowedSenders and list names
-cp .env.example .env                 # then set M365_ADMIN_UPN
+cp .env.example .env   # then set M365_ADMIN_UPN (gitignored)
 ```
-
-Both files are gitignored.
 
 ### 4. Check your Microsoft 365 role
 

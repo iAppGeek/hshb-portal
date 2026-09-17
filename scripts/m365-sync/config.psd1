@@ -1,4 +1,4 @@
-# Copy to config.psd1 (gitignored) and edit.
+# Settings for sync-contacts.ps1 and setup-lists.ps1. Committed: no personal data.
 @{
     # One entry per tag produced by contacts.sql. Every tag in the data must
     # be listed here or the sync aborts.
@@ -32,6 +32,6 @@
 
     # Internal mailboxes (or groups) allowed to send to the lists above.
     AllowedSenders    = @(
-        'office@example.org'
+        'info@hshb.org.uk'
     )
 }

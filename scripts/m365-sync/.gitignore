@@ -1,6 +1,5 @@
 # Personal data and local settings - never commit.
 data/
 logs/
-config.psd1
 .env
 !.env.example

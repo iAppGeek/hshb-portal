@@ -113,8 +113,8 @@ Describe 'Get-NormalisedEmail / Test-EmailAddress / Protect-Email' {
 }
 
 Describe 'Assert-SyncConfig' {
-    It 'accepts the example config' {
-        $example = Import-PowerShellDataFile (Join-Path (Split-Path -Parent $PSScriptRoot) 'config.example.psd1')
+    It 'accepts the committed config' {
+        $example = Import-PowerShellDataFile (Join-Path (Split-Path -Parent $PSScriptRoot) 'config.psd1')
         { Assert-SyncConfig -Config $example } | Should -Not -Throw
     }
     It 'rejects CustomAttribute1 as a membership attribute' {
