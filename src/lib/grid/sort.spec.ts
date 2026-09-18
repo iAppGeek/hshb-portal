@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { compareNullableText, compareByName } from './sort'
+import { compareNullableText, compareDateDesc, compareByName } from './sort'
 
 describe('compareNullableText', () => {
   it('returns 0 for ties', () => {
@@ -16,6 +16,23 @@ describe('compareNullableText', () => {
   it('uses locale ordering for non-null values', () => {
     expect(compareNullableText('a', 'b')).toBeLessThan(0)
     expect(compareNullableText('b', 'a')).toBeGreaterThan(0)
+  })
+})
+
+describe('compareDateDesc', () => {
+  it('returns 0 for ties', () => {
+    expect(compareDateDesc('2024-01-01', '2024-01-01')).toBe(0)
+    expect(compareDateDesc(null, null)).toBe(0)
+  })
+
+  it('sorts null first, treating open-ended as newest', () => {
+    expect(compareDateDesc(null, '2024-01-01')).toBe(-1)
+    expect(compareDateDesc('2024-01-01', null)).toBe(1)
+  })
+
+  it('sorts non-null dates in descending order', () => {
+    expect(compareDateDesc('2024-06-01', '2024-01-01')).toBeLessThan(0)
+    expect(compareDateDesc('2024-01-01', '2024-06-01')).toBeGreaterThan(0)
   })
 })
 

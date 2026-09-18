@@ -22,6 +22,7 @@ type SimpleGridProps<T> = {
   frame?: 'card' | 'none' // default 'card'
   emptyMessage?: string // EmptyRow when rows is empty
   rowClassName?: (row: T) => string | undefined
+  rowTestId?: (row: T) => string | undefined
   caption?: string // sr-only <caption>
 } & MobileProps<T>
 
@@ -39,6 +40,7 @@ export default function SimpleGrid<T>({
   frame = 'card',
   emptyMessage,
   rowClassName,
+  rowTestId,
   caption,
 }: SimpleGridProps<T>): ReactElement {
   const isStacked = mobile === 'stacked'
@@ -68,9 +70,14 @@ export default function SimpleGrid<T>({
                   columns={columns}
                   spec={stacked}
                   className={rowClassName?.(row)}
+                  testId={rowTestId?.(row)}
                 />
               ) : (
-                <Tr key={getRowKey(row)} className={rowClassName?.(row)}>
+                <Tr
+                  key={getRowKey(row)}
+                  className={rowClassName?.(row)}
+                  testId={rowTestId?.(row)}
+                >
                   {columns.map((col) => (
                     <Td key={col.id} mobile={mobileMode} meta={col}>
                       {col.cell(row)}

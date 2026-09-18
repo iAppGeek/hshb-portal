@@ -1,4 +1,8 @@
-export default function ReportsLoading() {
+import type { ReactElement } from 'react'
+
+import TableSkeleton from '@/components/grid/TableSkeleton'
+
+export default function ReportsLoading(): ReactElement {
   return (
     <div className="animate-pulse">
       {/* Header + mode selector skeleton */}
@@ -33,35 +37,7 @@ export default function ReportsLoading() {
         <div className="border-b border-gray-200 bg-gray-50 px-6 py-3">
           <div className="h-4 w-36 rounded bg-gray-200" />
         </div>
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead>
-            <tr>
-              {[1, 2, 3, 4].map((h) => (
-                <th key={h} className="px-6 py-3">
-                  <div className="h-3 w-16 rounded bg-gray-200" />
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <tr key={i}>
-                <td className="px-6 py-3">
-                  <div className="h-4 w-24 rounded bg-gray-200" />
-                </td>
-                <td className="px-6 py-3">
-                  <div className="h-4 w-16 rounded bg-gray-200" />
-                </td>
-                <td className="px-6 py-3">
-                  <div className="h-4 w-12 rounded bg-gray-200" />
-                </td>
-                <td className="px-6 py-3">
-                  <div className="h-4 w-32 rounded bg-gray-200" />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <TableSkeleton columns={4} rows={5} frame="none" />
       </div>
     </div>
   )

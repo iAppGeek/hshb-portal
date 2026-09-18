@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 
+import { rowLink } from '@/lib/grid/styles'
 import type { ActionResult } from '@/lib/schemas'
 
 import AcademicYearForm from './AcademicYearForm'
@@ -86,7 +87,7 @@ export default function AcademicYearsTable({
                       <button
                         type="button"
                         onClick={() => setEditingId(y.id)}
-                        className="text-gray-500 hover:text-gray-700"
+                        className={rowLink}
                       >
                         Edit
                       </button>

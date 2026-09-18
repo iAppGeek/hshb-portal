@@ -92,7 +92,7 @@ export default function StudentsTable({ students, role }: Props) {
                         {canEditStudents(role) ? (
                           <Link
                             href={`/students/${student.id}/edit`}
-                            className="shrink-0 text-sm text-gray-500 hover:text-gray-700 sm:hidden"
+                            className="shrink-0 text-sm text-blue-600 hover:text-blue-800 sm:hidden"
                           >
                             Edit
                           </Link>
@@ -120,7 +120,7 @@ export default function StudentsTable({ students, role }: Props) {
                         </span>
                         <button
                           onClick={() => setSelected(student)}
-                          className="shrink-0 text-sm text-blue-600 hover:text-blue-800"
+                          className="shrink-0 text-sm text-gray-500 hover:text-gray-700"
                         >
                           Details
                         </button>
@@ -138,7 +138,7 @@ export default function StudentsTable({ students, role }: Props) {
                         {canEditStudents(role) ? (
                           <Link
                             href={`/students/${student.id}/edit`}
-                            className="text-gray-500 hover:text-gray-700"
+                            className="text-blue-600 hover:text-blue-800"
                           >
                             Edit
                           </Link>
@@ -153,7 +153,7 @@ export default function StudentsTable({ students, role }: Props) {
                         )}
                         <button
                           onClick={() => setSelected(student)}
-                          className="text-blue-600 hover:text-blue-800"
+                          className="text-gray-500 hover:text-gray-700"
                         >
                           Details
                         </button>

@@ -156,7 +156,7 @@ export default function AttendanceForm({
                             <button
                               type="button"
                               onClick={() => setSelectedStudent(student)}
-                              className="shrink-0 text-sm text-blue-600 hover:text-blue-800 sm:hidden"
+                              className="shrink-0 text-sm text-gray-500 hover:text-gray-700 sm:hidden"
                             >
                               Details
                             </button>
@@ -210,7 +210,7 @@ export default function AttendanceForm({
                           <button
                             type="button"
                             onClick={() => setSelectedStudent(student)}
-                            className="text-blue-600 hover:text-blue-800"
+                            className="text-gray-500 hover:text-gray-700"
                           >
                             Details
                           </button>

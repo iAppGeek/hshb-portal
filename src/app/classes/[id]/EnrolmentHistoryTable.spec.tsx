@@ -12,7 +12,14 @@ describe('EnrolmentHistoryTable', () => {
   it('renders nothing when every row has a deleted student', () => {
     const { container } = render(
       <EnrolmentHistoryTable
-        rows={[{ start_date: '2026-09-01', end_date: null, student: null }]}
+        rows={[
+          {
+            id: 'sc0',
+            start_date: '2026-09-01',
+            end_date: null,
+            student: null,
+          },
+        ]}
       />,
     )
     expect(container).toBeEmptyDOMElement()
@@ -23,6 +30,7 @@ describe('EnrolmentHistoryTable', () => {
       <EnrolmentHistoryTable
         rows={[
           {
+            id: 'sc1',
             start_date: '2026-09-01',
             end_date: '2026-10-01',
             student: { id: 's1', first_name: 'Alice', last_name: 'Smith' },
@@ -40,6 +48,7 @@ describe('EnrolmentHistoryTable', () => {
       <EnrolmentHistoryTable
         rows={[
           {
+            id: 'sc2',
             start_date: '2026-09-01',
             end_date: null,
             student: { id: 's1', first_name: 'Alice', last_name: 'Smith' },
@@ -57,16 +66,19 @@ describe('EnrolmentHistoryTable', () => {
       <EnrolmentHistoryTable
         rows={[
           {
+            id: 'sc3',
             start_date: '2025-09-01',
             end_date: '2026-01-01',
             student: { id: 's1', first_name: 'Zoe', last_name: 'Zephyr' },
           },
           {
+            id: 'sc4',
             start_date: '2026-09-01',
             end_date: null,
             student: { id: 's2', first_name: 'Alice', last_name: 'Aardvark' },
           },
           {
+            id: 'sc5',
             start_date: '2025-09-01',
             end_date: '2026-06-01',
             student: { id: 's3', first_name: 'Bob', last_name: 'Brown' },
@@ -79,5 +91,27 @@ describe('EnrolmentHistoryTable', () => {
       .slice(1) // skip header row
       .map((row) => row.querySelector('td')!.textContent)
     expect(names).toEqual(['Aardvark, Alice', 'Brown, Bob', 'Zephyr, Zoe'])
+  })
+
+  it('uses the enrolment row id as the key, not student+date, so re-enrolments on the same day stay distinct', () => {
+    render(
+      <EnrolmentHistoryTable
+        rows={[
+          {
+            id: 'sc6',
+            start_date: '2026-09-01',
+            end_date: '2026-09-01',
+            student: { id: 's1', first_name: 'Alice', last_name: 'Smith' },
+          },
+          {
+            id: 'sc7',
+            start_date: '2026-09-01',
+            end_date: null,
+            student: { id: 's1', first_name: 'Alice', last_name: 'Smith' },
+          },
+        ]}
+      />,
+    )
+    expect(screen.getAllByText('Smith, Alice')).toHaveLength(2)
   })
 })

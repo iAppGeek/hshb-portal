@@ -46,6 +46,19 @@ describe('Tr', () => {
     expect(screen.getByRole('row').className).toContain('bg-red-50')
   })
 
+  it('applies a caller-supplied testId as data-testid', () => {
+    render(
+      <table>
+        <tbody>
+          <Tr testId="row-1">
+            <td>Cell</td>
+          </Tr>
+        </tbody>
+      </table>,
+    )
+    expect(screen.getByRole('row').getAttribute('data-testid')).toBe('row-1')
+  })
+
   it('renders children', () => {
     render(
       <table>

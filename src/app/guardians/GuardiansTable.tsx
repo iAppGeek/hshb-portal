@@ -104,7 +104,7 @@ export default function GuardiansTable({ guardians }: Props) {
                       </span>
                       <Link
                         href={`/guardians/${guardian.id}/edit`}
-                        className="shrink-0 text-sm text-gray-500 hover:text-gray-700"
+                        className="shrink-0 text-sm text-blue-600 hover:text-blue-800"
                       >
                         Edit
                       </Link>
@@ -125,7 +125,7 @@ export default function GuardiansTable({ guardians }: Props) {
                       </Link>
                       <Link
                         href={`/guardians/${guardian.id}/edit`}
-                        className="text-gray-500 hover:text-gray-700"
+                        className="text-blue-600 hover:text-blue-800"
                       >
                         Edit
                       </Link>

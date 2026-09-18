@@ -38,4 +38,12 @@ describe('TableSkeleton', () => {
     const bar = container.querySelector('td > div') as HTMLElement
     expect(bar.style.width).toBe('4rem')
   })
+
+  it('frame="none" omits the card wrapper, keeps the scroll wrapper', () => {
+    const { container } = render(
+      <TableSkeleton columns={2} rows={1} frame="none" />,
+    )
+    expect(container.firstElementChild?.className).toContain('overflow-x-auto')
+    expect(container.firstElementChild?.className).not.toContain('rounded-xl')
+  })
 })

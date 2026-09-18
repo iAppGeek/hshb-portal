@@ -9,10 +9,10 @@ describe('StaffLoading', () => {
     expect(container.querySelector('.animate-pulse')).toBeTruthy()
   })
 
-  it('renders 7 skeleton column headers matching the staff table columns', () => {
+  it('renders 8 skeleton column headers matching the staff table columns', () => {
     const { container } = render(<StaffLoading />)
     const headers = container.querySelectorAll('thead th')
-    expect(headers.length).toBe(7)
+    expect(headers.length).toBe(8)
   })
 
   it('renders 6 skeleton table rows', () => {

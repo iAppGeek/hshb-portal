@@ -8,6 +8,13 @@ export function compareNullableText(
   return a.localeCompare(b)
 }
 
+export function compareDateDesc(a: string | null, b: string | null): number {
+  if (a === b) return 0
+  if (a === null) return -1
+  if (b === null) return 1
+  return b.localeCompare(a)
+}
+
 export function compareByName(
   a: { first_name: string; last_name: string },
   b: { first_name: string; last_name: string },
