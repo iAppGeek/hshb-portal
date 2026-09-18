@@ -10,6 +10,7 @@ export const tdHiddenOnMobile =
   'hidden px-3 py-4 text-sm text-gray-500 sm:table-cell sm:px-6'
 export const tdBase = 'px-3 py-4 text-sm sm:px-6'
 export const tdMuted = 'text-gray-500'
+export const tdDark = 'text-gray-900'
 export const tdStrong = 'font-medium text-gray-900'
 export const hiddenOnMobile = 'hidden sm:table-cell'
 export const tbody = 'divide-y divide-gray-200 bg-white'

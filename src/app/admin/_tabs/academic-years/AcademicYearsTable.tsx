@@ -57,11 +57,7 @@ export default function AcademicYearsTable({
           {years.map((y) =>
             editingId === y.id ? (
               <tr key={y.id}>
-                <Td
-                  mobile="scroll"
-                  colSpan={7}
-                  meta={{ className: 'text-gray-900' }}
-                >
+                <Td mobile="scroll" colSpan={7} meta={{ dark: true }}>
                   <AcademicYearForm
                     mode="edit"
                     defaultValues={y}

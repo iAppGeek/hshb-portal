@@ -129,13 +129,13 @@ export default function LessonPlansClient({
                   <tr key={plan.id} className="hover:bg-gray-50">
                     <Td
                       mobile="scroll"
-                      meta={{ className: 'whitespace-nowrap text-gray-900' }}
+                      meta={{ dark: true, className: 'whitespace-nowrap' }}
                     >
                       {formatDate(plan.lesson_date)}
                     </Td>
                     <Td
                       mobile="scroll"
-                      meta={{ className: 'whitespace-nowrap text-gray-900' }}
+                      meta={{ dark: true, className: 'whitespace-nowrap' }}
                     >
                       {plan.class.name}
                     </Td>

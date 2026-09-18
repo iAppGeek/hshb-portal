@@ -165,18 +165,18 @@ export default function IncidentsClient({ incidents, role, canEdit }: Props) {
                   <tr key={incident.id} className="hover:bg-gray-50">
                     <Td
                       mobile="scroll"
-                      meta={{ className: 'whitespace-nowrap text-gray-900' }}
+                      meta={{ dark: true, className: 'whitespace-nowrap' }}
                     >
                       {formatDateInSchoolTz(incident.incident_date)}
                     </Td>
                     <Td
                       mobile="scroll"
-                      meta={{ className: 'whitespace-nowrap text-gray-900' }}
+                      meta={{ dark: true, className: 'whitespace-nowrap' }}
                     >
                       {incident.student.last_name},{' '}
                       {incident.student.first_name}
                     </Td>
-                    <Td mobile="scroll" meta={{ className: 'text-gray-900' }}>
+                    <Td mobile="scroll" meta={{ dark: true }}>
                       {incident.title}
                     </Td>
                     <Td mobile="scroll">
