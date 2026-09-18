@@ -74,10 +74,12 @@ describe('StudentFeesTable', () => {
     expect(screen.getByText('£200.00')).toBeTruthy()
     expect(within(screen.getByRole('table')).getByText('Behind')).toBeTruthy()
     expect(screen.getAllByText('Multiple fee plans').length).toBeGreaterThan(0)
+    // Sorted by student name ascending by default (plans/shared-grids.md
+    // §3.1): "Brown, Carol" < "Jones, Bob" < "Student, Alice".
     expect(visibleNames()).toEqual([
-      '/finance/students/s1?year=year-1',
-      '/finance/students/s2?year=year-1',
       '/finance/students/s3?year=year-1',
+      '/finance/students/s2?year=year-1',
+      '/finance/students/s1?year=year-1',
     ])
   })
 

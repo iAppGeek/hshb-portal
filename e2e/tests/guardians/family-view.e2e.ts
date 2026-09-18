@@ -10,9 +10,13 @@ test.describe('Guardian search and family view', () => {
   }) => {
     await page.goto('/guardians')
 
-    // Search by email
+    // Search by email. Stacked mode's mobile summary title duplicates the
+    // desktop name cell, and only one of the two is visible at a given
+    // viewport.
     await page.getByPlaceholder(/Search by name/).fill('gary.alice@example.com')
-    await expect(page.getByText('AliceGuardian, Gary')).toBeVisible()
+    await expect(
+      page.getByText('AliceGuardian, Gary').filter({ visible: true }).first(),
+    ).toBeVisible()
     await expect(page.getByText('BobGuardian, Grace')).not.toBeVisible()
 
     await page.getByRole('link', { name: 'View' }).click()
@@ -37,10 +41,14 @@ test.describe('Guardian search and family view', () => {
     await page.goto('/guardians')
 
     await page.getByPlaceholder(/Search by name/).fill('CarolGuardian')
-    await expect(page.getByText('CarolGuardian, Greg')).toBeVisible()
+    await expect(
+      page.getByText('CarolGuardian, Greg').filter({ visible: true }).first(),
+    ).toBeVisible()
     await expect(page.getByText('AliceGuardian, Gary')).not.toBeVisible()
 
     await page.getByPlaceholder(/Search by name/).fill('07711000003')
-    await expect(page.getByText('CarolGuardian, Greg')).toBeVisible()
+    await expect(
+      page.getByText('CarolGuardian, Greg').filter({ visible: true }).first(),
+    ).toBeVisible()
   })
 })

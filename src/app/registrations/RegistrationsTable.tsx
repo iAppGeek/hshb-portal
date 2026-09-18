@@ -1,12 +1,14 @@
 'use client'
 
-import { useState, useMemo } from 'react'
 import Link from 'next/link'
 
+import FunctionalGrid, {
+  type FunctionalGridColumn,
+} from '@/clientComponents/grid/FunctionalGrid'
 import type { RegistrationSummary } from '@/db'
 import { formatDateInSchoolTz, formatDateTimeInSchoolTz } from '@/lib/datetime'
+import { compareByName, compareNullableText } from '@/lib/grid/sort'
 import { matchesAny, normaliseQuery } from '@/lib/grid/search'
-import { tdHiddenOnMobile, th } from '@/lib/grid/styles'
 
 type Props = {
   registrations: RegistrationSummary[]
@@ -18,77 +20,106 @@ const STATUS_BADGE: Record<string, string> = {
   rejected: 'bg-red-100 text-red-800',
 }
 
-export default function RegistrationsTable({ registrations }: Props) {
-  const [query, setQuery] = useState('')
+function matchesRegistrationSearch(
+  r: RegistrationSummary,
+  rawQuery: string,
+): boolean {
+  const q = normaliseQuery(rawQuery)
+  if (!q) return true
+  return matchesAny([`${r.child_first_name} ${r.child_last_name}`], q)
+}
 
-  const filtered = useMemo(() => {
-    const q = normaliseQuery(query)
-    if (!q) return registrations
-    return registrations.filter((r) => {
-      const name = `${r.child_first_name} ${r.child_last_name}`
-      return matchesAny([name], q)
-    })
-  }, [registrations, query])
+const columns: FunctionalGridColumn<RegistrationSummary>[] = [
+  {
+    id: 'child',
+    header: 'Child',
+    cell: (info) => (
+      <Link href={`/registrations/${info.row.original.id}`} className="block">
+        {info.row.original.child_last_name},{' '}
+        {info.row.original.child_first_name}
+      </Link>
+    ),
+    sortFn: (rowA, rowB) =>
+      compareByName(
+        {
+          first_name: rowA.original.child_first_name,
+          last_name: rowA.original.child_last_name,
+        },
+        {
+          first_name: rowB.original.child_first_name,
+          last_name: rowB.original.child_last_name,
+        },
+      ),
+    meta: { primary: true },
+  },
+  {
+    id: 'date_of_birth',
+    header: 'DOB',
+    cell: (info) => formatDateInSchoolTz(info.row.original.date_of_birth),
+    enableSorting: false,
+    meta: { mobile: 'hide' },
+  },
+  {
+    id: 'preferred_year_group',
+    header: 'Year group pref.',
+    cell: (info) => info.row.original.preferred_year_group ?? '—',
+    enableSorting: false,
+    meta: { mobile: 'hide' },
+  },
+  {
+    id: 'primary_contact',
+    header: 'Primary contact',
+    cell: (info) => {
+      const contact = info.row.original.primary_contact
+      return contact
+        ? `${contact.first_name} ${contact.last_name} — ${contact.phone}`
+        : '—'
+    },
+    enableSorting: false,
+    meta: { mobile: 'hide' },
+  },
+  {
+    id: 'submitted_at',
+    header: 'Submitted',
+    cell: (info) => formatDateTimeInSchoolTz(info.row.original.submitted_at),
+    sortFn: (rowA, rowB) =>
+      compareNullableText(
+        rowA.original.submitted_at,
+        rowB.original.submitted_at,
+      ),
+    meta: { mobile: 'hide' },
+  },
+  {
+    id: 'status',
+    header: 'Status',
+    cell: (info) => (
+      <span
+        className={`inline-flex rounded-full px-2 py-1 text-xs font-medium capitalize ${STATUS_BADGE[info.row.original.status] ?? 'bg-gray-100 text-gray-800'}`}
+      >
+        {info.row.original.status}
+      </span>
+    ),
+    sortFn: (rowA, rowB) =>
+      compareNullableText(rowA.original.status, rowB.original.status),
+  },
+]
 
+export default function RegistrationsTable({
+  registrations,
+}: Props): React.ReactElement {
   return (
-    <>
-      <input
-        type="search"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search by child name…"
-        className="mb-4 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none sm:max-w-xs"
-      />
-      <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="hidden bg-gray-50 sm:table-header-group">
-              <tr>
-                <th className={th}>Child</th>
-                <th className={th}>DOB</th>
-                <th className={th}>Year group pref.</th>
-                <th className={th}>Primary contact</th>
-                <th className={th}>Submitted</th>
-                <th className={th}>Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
-              {filtered.map((r) => {
-                const contact = r.primary_contact
-                  ? `${r.primary_contact.first_name} ${r.primary_contact.last_name} — ${r.primary_contact.phone}`
-                  : '—'
-
-                return (
-                  <tr key={r.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-4 text-sm font-medium text-gray-900 sm:px-6">
-                      <Link href={`/registrations/${r.id}`} className="block">
-                        {r.child_last_name}, {r.child_first_name}
-                      </Link>
-                    </td>
-                    <td className={tdHiddenOnMobile}>
-                      {formatDateInSchoolTz(r.date_of_birth)}
-                    </td>
-                    <td className={tdHiddenOnMobile}>
-                      {r.preferred_year_group ?? '—'}
-                    </td>
-                    <td className={tdHiddenOnMobile}>{contact}</td>
-                    <td className={tdHiddenOnMobile}>
-                      {formatDateTimeInSchoolTz(r.submitted_at)}
-                    </td>
-                    <td className="px-4 py-4 text-sm sm:px-6">
-                      <span
-                        className={`inline-flex rounded-full px-2 py-1 text-xs font-medium capitalize ${STATUS_BADGE[r.status] ?? 'bg-gray-100 text-gray-800'}`}
-                      >
-                        {r.status}
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </>
+    <FunctionalGrid
+      data={registrations}
+      columns={columns}
+      getRowId={(r) => r.id}
+      mobile="hide-columns"
+      search={{
+        placeholder: 'Search by child name…',
+        label: 'Search by child name',
+        filterFn: matchesRegistrationSearch,
+      }}
+      initialSorting={[{ id: 'submitted_at', desc: true }]}
+      emptyMessage="No registrations found."
+    />
   )
 }

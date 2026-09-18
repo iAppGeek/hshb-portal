@@ -1,8 +1,11 @@
 'use client'
 
-import { useState, useMemo } from 'react'
 import Link from 'next/link'
 
+import FunctionalGrid, {
+  type FunctionalGridColumn,
+} from '@/clientComponents/grid/FunctionalGrid'
+import type { StackedRowSpec } from '@/lib/grid/columns'
 import {
   digitsOnly,
   fullName,
@@ -10,7 +13,7 @@ import {
   matchesAny,
   normaliseQuery,
 } from '@/lib/grid/search'
-import { tdHiddenOnMobile, th } from '@/lib/grid/styles'
+import { compareByName, compareNullableNumber } from '@/lib/grid/sort'
 
 type Guardian = {
   id: string
@@ -25,124 +28,124 @@ type Props = {
   guardians: Guardian[]
 }
 
+// Phone numbers are stored formatted (e.g. "07700 900000"), so a
+// phone-shaped query matches on digits only, rather than a raw substring,
+// against phone alone — a name/email query never falls into the phone
+// comparison, and vice versa.
+function matchesGuardianSearch(g: Guardian, rawQuery: string): boolean {
+  const q = normaliseQuery(rawQuery)
+  if (!q) return true
+  if (isPhoneShapedQuery(q)) {
+    return digitsOnly(g.phone).includes(digitsOnly(q))
+  }
+  return matchesAny([fullName(g.first_name, g.last_name), g.email ?? ''], q)
+}
+
+const columns: FunctionalGridColumn<Guardian>[] = [
+  {
+    id: 'name',
+    header: 'Name',
+    cell: (info) => {
+      const g = info.row.original
+      return `${g.last_name}, ${g.first_name}`
+    },
+    sortFn: (rowA, rowB) => compareByName(rowA.original, rowB.original),
+    meta: { primary: true },
+  },
+  {
+    id: 'phone',
+    header: 'Phone',
+    cell: (info) => info.row.original.phone,
+    enableSorting: false,
+  },
+  {
+    id: 'email',
+    header: 'Email',
+    cell: (info) => info.row.original.email ?? '—',
+    enableSorting: false,
+  },
+  {
+    id: 'children',
+    header: 'Children',
+    cell: (info) => info.row.original.child_count,
+    sortFn: (rowA, rowB) =>
+      compareNullableNumber(
+        rowA.original.child_count,
+        rowB.original.child_count,
+      ),
+  },
+  {
+    id: 'actions',
+    header: 'Actions',
+    cell: (info) => {
+      const g = info.row.original
+      return (
+        <div className="flex items-center justify-end gap-3 font-medium">
+          <Link
+            href={`/guardians/${g.id}`}
+            className="text-blue-600 hover:text-blue-800"
+          >
+            View
+          </Link>
+          <Link
+            href={`/guardians/${g.id}/edit`}
+            className="text-blue-600 hover:text-blue-800"
+          >
+            Edit
+          </Link>
+        </div>
+      )
+    },
+    enableSorting: false,
+    meta: { srOnlyHeader: true, align: 'right' },
+  },
+]
+
+const stacked: StackedRowSpec<Guardian> = {
+  title: (g) => `${g.last_name}, ${g.first_name}`,
+  titleAside: (g) => (
+    <Link
+      href={`/guardians/${g.id}`}
+      className="shrink-0 text-sm text-blue-600 hover:text-blue-800"
+    >
+      View
+    </Link>
+  ),
+  details: (g) => [
+    g.phone,
+    g.email ?? '—',
+    `${g.child_count} ${g.child_count === 1 ? 'child' : 'children'}`,
+  ],
+  detailsAside: (g) => (
+    <Link
+      href={`/guardians/${g.id}/edit`}
+      className="shrink-0 text-sm text-blue-600 hover:text-blue-800"
+    >
+      Edit
+    </Link>
+  ),
+}
+
 // Guardian viewing and editing share one gate (canViewGuardians and
 // canEditGuardians are both admin-only), so unlike StudentsTable this never
 // needs a permission-denied fallback for the edit link.
-export default function GuardiansTable({ guardians }: Props) {
-  const [query, setQuery] = useState('')
-
-  const filtered = useMemo(() => {
-    const q = normaliseQuery(query)
-    if (!q) return guardians
-    // Phone numbers are stored formatted (e.g. "07700 900000"), so a
-    // phone-shaped query matches on digits only, rather than a raw
-    // substring, against phone alone — a name/email query never falls into
-    // the phone comparison, and vice versa.
-    if (isPhoneShapedQuery(q)) {
-      const queryDigits = digitsOnly(q)
-      return guardians.filter((g) => digitsOnly(g.phone).includes(queryDigits))
-    }
-    return guardians.filter((g) =>
-      matchesAny([fullName(g.first_name, g.last_name), g.email ?? ''], q),
-    )
-  }, [guardians, query])
-
+export default function GuardiansTable({
+  guardians,
+}: Props): React.ReactElement {
   return (
-    <>
-      <input
-        type="search"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search by name, email or phone…"
-        className="mb-4 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none sm:max-w-xs"
-      />
-      <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="hidden bg-gray-50 sm:table-header-group">
-              <tr>
-                <th className={th}>Name</th>
-                <th className={th}>Phone</th>
-                <th className={th}>Email</th>
-                <th className={th}>Children</th>
-                <th className="relative px-3 py-3 sm:px-6">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
-              {filtered.map((guardian) => (
-                <tr
-                  key={guardian.id}
-                  className="block border-b border-gray-200 last:border-0 hover:bg-gray-50 sm:table-row sm:border-0"
-                >
-                  {/* Name — on mobile: name left, View link right */}
-                  <td className="block px-4 pt-4 pb-0 text-sm font-medium text-gray-900 sm:table-cell sm:px-6 sm:py-4 sm:whitespace-nowrap">
-                    <div className="flex items-center justify-between gap-2 sm:block">
-                      <span>
-                        {guardian.last_name}, {guardian.first_name}
-                      </span>
-                      <Link
-                        href={`/guardians/${guardian.id}`}
-                        className="shrink-0 text-sm text-blue-600 hover:text-blue-800 sm:hidden"
-                      >
-                        View
-                      </Link>
-                    </div>
-                  </td>
-
-                  {/* Mobile secondary: phone · email · children + edit link */}
-                  <td className="block px-4 py-2 text-xs text-gray-500 sm:hidden">
-                    <div className="flex items-center justify-between gap-2">
-                      <span>
-                        {guardian.phone}
-                        {' · '}
-                        {guardian.email ?? '—'}
-                        {' · '}
-                        {guardian.child_count}{' '}
-                        {guardian.child_count === 1 ? 'child' : 'children'}
-                      </span>
-                      <Link
-                        href={`/guardians/${guardian.id}/edit`}
-                        className="shrink-0 text-sm text-blue-600 hover:text-blue-800"
-                      >
-                        Edit
-                      </Link>
-                    </div>
-                  </td>
-
-                  {/* Desktop-only columns */}
-                  <td className={tdHiddenOnMobile}>{guardian.phone}</td>
-                  <td className={tdHiddenOnMobile}>{guardian.email ?? '—'}</td>
-                  <td className={tdHiddenOnMobile}>{guardian.child_count}</td>
-                  <td className="hidden px-3 py-4 text-right text-sm font-medium sm:table-cell sm:px-6">
-                    <div className="flex items-center justify-end gap-3">
-                      <Link
-                        href={`/guardians/${guardian.id}`}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        View
-                      </Link>
-                      <Link
-                        href={`/guardians/${guardian.id}/edit`}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        Edit
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {filtered.length === 0 && (
-        <p className="mt-4 text-center text-sm text-gray-500">
-          No guardians match your search.
-        </p>
-      )}
-    </>
+    <FunctionalGrid
+      data={guardians}
+      columns={columns}
+      getRowId={(g) => g.id}
+      mobile="stacked"
+      stacked={stacked}
+      search={{
+        placeholder: 'Search by name, email or phone…',
+        label: 'Search by name, email or phone',
+        filterFn: matchesGuardianSearch,
+      }}
+      initialSorting={[{ id: 'name', desc: false }]}
+      emptyMessage="No guardians match your search."
+    />
   )
 }

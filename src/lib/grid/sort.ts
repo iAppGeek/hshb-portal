@@ -15,6 +15,16 @@ export function compareDateDesc(a: string | null, b: string | null): number {
   return b.localeCompare(a)
 }
 
+export function compareNullableNumber(
+  a: number | null,
+  b: number | null,
+): number {
+  if (a === b) return 0
+  if (a === null) return 1
+  if (b === null) return -1
+  return a - b
+}
+
 export function compareByName(
   a: { first_name: string; last_name: string },
   b: { first_name: string; last_name: string },

@@ -499,3 +499,131 @@ test.describe('Finance — Student Fees search and filters', () => {
     await expect(page.getByText(/^Showing 4 of \d+ students$/)).toBeVisible()
   })
 })
+
+// Added in phase 4 (plans/shared-grids.md §6): sorting by a numeric column,
+// combined with a status filter, against FunctionalGrid rather than the
+// pre-migration markup.
+test.describe('Finance — Student Fees sorting', () => {
+  test.use({ storageState: 'e2e/.auth/admin.json' })
+
+  let suffix: string
+  let yearCode: string
+  let yearId: string
+  let priorYearId: string
+  let smallOwedLastName: string
+  let largeOwedLastName: string
+
+  test.beforeEach(async ({}, testInfo) => {
+    suffix = `${testInfo.project.name}${testInfo.testId.slice(-6)}`.replace(
+      /[^a-z0-9]/gi,
+      '',
+    )
+    smallOwedLastName = `E2ESortSmall${suffix}`
+    largeOwedLastName = `E2ESortLarge${suffix}`
+    priorYearId = SEED_IDS.academicYears.previous
+
+    const year = academicYearForSuffix(suffix)
+    yearCode = year.code
+    const { data: yearRow, error: yearError } = await db
+      .from('academic_years')
+      .insert(year)
+      .select('id')
+      .single()
+    if (yearError) throw yearError
+    yearId = yearRow.id
+
+    const { data: students, error: studentsError } = await db
+      .from('students')
+      .insert([
+        {
+          first_name: 'Fin',
+          last_name: smallOwedLastName,
+          primary_guardian_id: GUARDIAN_ID,
+          address_guardian_id: GUARDIAN_ID,
+        },
+        {
+          first_name: 'Fin',
+          last_name: largeOwedLastName,
+          primary_guardian_id: GUARDIAN_ID,
+          address_guardian_id: GUARDIAN_ID,
+        },
+      ])
+      .select('id, last_name')
+    if (studentsError) throw studentsError
+
+    const idFor = (lastName: string): string => {
+      const row = students.find((s) => s.last_name === lastName)
+      if (!row) throw new Error(`Missing seeded student for ${lastName}`)
+      return row.id
+    }
+
+    const { error: accountsError } = await db
+      .from('student_fee_accounts')
+      .insert([
+        {
+          student_id: idFor(smallOwedLastName),
+          academic_year_id: priorYearId,
+          payment_plan: 'custom',
+          custom_total_amount: 200,
+          custom_up_to_date: false,
+        },
+        {
+          student_id: idFor(largeOwedLastName),
+          academic_year_id: priorYearId,
+          payment_plan: 'custom',
+          custom_total_amount: 900,
+          custom_up_to_date: false,
+        },
+      ])
+    if (accountsError) throw accountsError
+  })
+
+  test.afterEach(async () => {
+    await deleteStudentsByLastName(smallOwedLastName)
+    await deleteStudentsByLastName(largeOwedLastName)
+    await deleteAcademicYearByCode(yearCode)
+  })
+
+  test('sorts by Owed (prev. years) within the owes-prior-years filter', async ({
+    page,
+    isMobile,
+  }) => {
+    await loadWithFreshData(
+      page,
+      isMobile,
+      `/finance?tab=students&year=${yearId}`,
+      async () => {
+        await expect(
+          page.getByText(/^Showing \d+ of \d+ students$/),
+        ).toBeVisible({ timeout: 3_000 })
+      },
+    )
+
+    await page
+      .getByRole('combobox', { name: 'Filter by status' })
+      .selectOption({ label: 'Owes from previous years' })
+    await page
+      .getByRole('searchbox', { name: 'Search students' })
+      .fill('E2ESort')
+
+    const rows = () =>
+      page
+        .getByRole('row')
+        .filter({ hasText: /E2ESort(Small|Large)/ })
+        .allTextContents()
+
+    const owedHeader = page.getByRole('columnheader', {
+      name: 'Owed (prev. years)',
+    })
+    const owedButton = page.getByRole('button', { name: 'Owed (prev. years)' })
+
+    // First click sorts ascending (smallest owed first), the second descending.
+    await owedButton.click()
+    await expect(owedHeader).toHaveAttribute('aria-sort', 'ascending')
+    expect((await rows())[0]).toContain(smallOwedLastName)
+
+    await owedButton.click()
+    await expect(owedHeader).toHaveAttribute('aria-sort', 'descending')
+    expect((await rows())[0]).toContain(largeOwedLastName)
+  })
+})

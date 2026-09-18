@@ -547,7 +547,12 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
         name: new RegExp(`^Soon${suffix}, Leaves`),
       })
       await expect(studentRow).toBeVisible()
-      await expect(studentRow.getByText('Graduated')).toBeVisible()
+      // Stacked mode's mobile summary title duplicates the badge already
+      // shown in the desktop name cell, and only one of the two is visible
+      // at a given viewport.
+      await expect(
+        studentRow.getByText('Graduated').filter({ visible: true }).first(),
+      ).toBeVisible()
 
       // Finance shows them with the badge.
       await page.goto(

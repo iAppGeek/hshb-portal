@@ -55,7 +55,11 @@ test.describe('Edit student', () => {
     await page.getByRole('button', { name: 'Save changes' }).click()
 
     await expect(page).toHaveURL('/students')
-    await expect(page.getByText(`${lastName}, After`)).toBeVisible()
+    // Stacked mode's mobile summary title duplicates the desktop name cell,
+    // and only one of the two is visible at a given viewport.
+    await expect(
+      page.getByText(`${lastName}, After`).filter({ visible: true }).first(),
+    ).toBeVisible()
 
     await page.goto(`/students/${studentId}/edit`)
     await expect(page.locator('input[name="student_first_name"]')).toHaveValue(

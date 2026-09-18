@@ -52,9 +52,14 @@ test.describe('Add student', () => {
     await page.getByRole('button', { name: 'Save student' }).click()
 
     await expect(page).toHaveURL('/students')
-    // Parallel projects add a student with the same name, so match any row
+    // Parallel projects add a student with the same name, so match any row.
+    // Stacked mode's mobile summary title also duplicates the desktop name
+    // cell, and only one of the two is visible at a given viewport.
     await expect(
-      page.getByText(`${STUDENT_LAST}, ${STUDENT_FIRST}`).first(),
+      page
+        .getByText(`${STUDENT_LAST}, ${STUDENT_FIRST}`)
+        .filter({ visible: true })
+        .first(),
     ).toBeVisible()
 
     // Verify student was saved with address_guardian_id set and own address null
