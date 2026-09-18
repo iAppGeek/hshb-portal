@@ -114,7 +114,7 @@ export const getClassWithStudents = unstable_cache(
         )
       ),
       enrolment_history:student_classes(
-        start_date, end_date,
+        id, start_date, end_date,
         student:students(id, first_name, last_name)
       )`,
       )

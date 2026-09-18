@@ -1,6 +1,8 @@
+import type { ReactElement } from 'react'
+
 import TableSkeleton from '@/components/grid/TableSkeleton'
 
-export default function StudentsLoading() {
+export default function StudentsLoading(): ReactElement {
   return (
     <div className="animate-pulse">
       <div className="mb-6 flex items-center justify-between">

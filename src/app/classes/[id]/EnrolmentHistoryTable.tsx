@@ -6,6 +6,7 @@ import type { GridColumn } from '@/lib/grid/columns'
 import { compareByName, compareDateDesc } from '@/lib/grid/sort'
 
 export type EnrolmentHistoryRow = {
+  id: string
   start_date: string
   end_date: string | null
   student: { id: string; first_name: string; last_name: string } | null
@@ -58,7 +59,7 @@ export default function EnrolmentHistoryTable({
       <SimpleGrid
         columns={columns}
         rows={sorted}
-        getRowKey={(row) => `${row.student.id}-${row.start_date}`}
+        getRowKey={(row) => row.id}
         frame="none"
       />
     </div>

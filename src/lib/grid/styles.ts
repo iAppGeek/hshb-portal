@@ -21,3 +21,5 @@ export const tdStackedSummary =
 export const stackedTitle = 'flex items-center gap-2 font-medium text-gray-900'
 export const actionsCell = 'flex items-center justify-end gap-3 font-medium'
 export const rowLink = 'text-blue-600 hover:text-blue-800'
+// Secondary row action (e.g. "Details") — Edit uses `rowLink`, blue.
+export const detailsLink = 'text-gray-500 hover:text-gray-700'

@@ -1,6 +1,8 @@
+import type { ReactElement } from 'react'
+
 import TableSkeleton from '@/components/grid/TableSkeleton'
 
-export default function RegistrationsLoading() {
+export default function RegistrationsLoading(): ReactElement {
   return (
     <div className="animate-pulse">
       <div className="mb-6 h-8 w-48 rounded bg-gray-200" />

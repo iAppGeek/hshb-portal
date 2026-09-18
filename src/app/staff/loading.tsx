@@ -1,6 +1,8 @@
+import type { ReactElement } from 'react'
+
 import TableSkeleton from '@/components/grid/TableSkeleton'
 
-export default function StaffLoading() {
+export default function StaffLoading(): ReactElement {
   return (
     <div className="animate-pulse">
       <div className="mb-6">

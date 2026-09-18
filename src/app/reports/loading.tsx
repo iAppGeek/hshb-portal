@@ -1,6 +1,8 @@
+import type { ReactElement } from 'react'
+
 import TableSkeleton from '@/components/grid/TableSkeleton'
 
-export default function ReportsLoading() {
+export default function ReportsLoading(): ReactElement {
   return (
     <div className="animate-pulse">
       {/* Header + mode selector skeleton */}

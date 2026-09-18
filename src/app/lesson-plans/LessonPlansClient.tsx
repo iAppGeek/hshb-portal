@@ -75,7 +75,7 @@ export default function LessonPlansClient({
                     {canEdit ? (
                       <Link
                         href={`/lesson-plans/${plan.id}/edit`}
-                        className="text-xs font-medium text-gray-500 hover:text-gray-700"
+                        className="text-xs font-medium text-blue-600 hover:text-blue-800"
                       >
                         Edit
                       </Link>
@@ -90,7 +90,7 @@ export default function LessonPlansClient({
                     )}
                     <button
                       onClick={() => setSelected(plan)}
-                      className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                      className="text-xs font-medium text-gray-500 hover:text-gray-700"
                     >
                       Details
                     </button>
@@ -149,7 +149,7 @@ export default function LessonPlansClient({
                           {canEdit ? (
                             <Link
                               href={`/lesson-plans/${plan.id}/edit`}
-                              className="text-gray-500 hover:text-gray-700"
+                              className="text-blue-600 hover:text-blue-800"
                             >
                               Edit
                             </Link>
@@ -164,7 +164,7 @@ export default function LessonPlansClient({
                           )}
                           <button
                             onClick={() => setSelected(plan)}
-                            className="text-blue-600 hover:text-blue-800"
+                            className="text-gray-500 hover:text-gray-700"
                           >
                             Details
                           </button>

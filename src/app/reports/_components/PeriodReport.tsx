@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react'
+
 import type { IncidentCounts } from '@/db'
 import SimpleGrid from '@/components/grid/SimpleGrid'
 import { formatCalendarDate } from '@/lib/datetime'
@@ -49,7 +51,7 @@ export default function PeriodReport({
   schoolDayDates,
   classSummary,
   incidentCounts,
-}: Props) {
+}: Props): ReactElement {
   const staffColumns: GridColumn<StaffDaysWorkedRow>[] = [
     { id: 'name', header: 'Name', primary: true, cell: (row) => row.name },
     {

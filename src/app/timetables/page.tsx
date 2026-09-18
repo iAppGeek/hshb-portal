@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react'
 import { type Metadata } from 'next'
 
 import { auth } from '@/auth'
@@ -10,6 +11,7 @@ import {
 } from '@/db'
 import type { GridColumn } from '@/lib/grid/columns'
 import { isTeacher, canEditTimetables } from '@/lib/permissions'
+import type { Tables } from '@/types/database'
 import type { StaffRole } from '@/types/next-auth'
 
 import EmptyState from '../_components/EmptyState'
@@ -28,16 +30,9 @@ const DAYS = [
   'Sunday',
 ] as const
 
-type TimetableSlot = {
-  id: string
-  class_id: string
-  start_time: string
-  end_time: string
-  subject: string | null
-  room: string | null
-}
+type TimetableSlot = Tables<'timetable_slots'>
 
-export default async function TimetablesPage() {
+export default async function TimetablesPage(): Promise<ReactElement> {
   const session = await auth()
   const role = session?.user?.role as StaffRole
   const staffId = session?.user?.staffId
@@ -61,6 +56,8 @@ export default async function TimetablesPage() {
     slots: slots.filter((s) => s.day_of_week === day),
   })).filter((d) => d.slots.length > 0)
 
+  const classesById = new Map(classes.map((c) => [c.id, c]))
+
   const columns: GridColumn<TimetableSlot>[] = [
     {
       id: 'time',
@@ -71,7 +68,7 @@ export default async function TimetablesPage() {
     {
       id: 'class',
       header: 'Class',
-      cell: (slot) => classes.find((c) => c.id === slot.class_id)?.name ?? '—',
+      cell: (slot) => classesById.get(slot.class_id)?.name ?? '—',
     },
     {
       id: 'subject',
@@ -82,9 +79,7 @@ export default async function TimetablesPage() {
       id: 'room',
       header: 'Room',
       cell: (slot) =>
-        slot.room ??
-        classes.find((c) => c.id === slot.class_id)?.room_number ??
-        '—',
+        slot.room ?? classesById.get(slot.class_id)?.room_number ?? '—',
     },
   ]
 

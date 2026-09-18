@@ -2,6 +2,7 @@ import type { ReactElement } from 'react'
 import Link from 'next/link'
 
 import Tooltip from '@/components/Tooltip'
+import { rowLink } from '@/lib/grid/styles'
 
 type Props = {
   href: string
@@ -18,7 +19,7 @@ export default function EditAction({
 }: Props): ReactElement | null {
   if (canEdit) {
     return (
-      <Link href={href} className="text-gray-500 hover:text-gray-700">
+      <Link href={href} className={rowLink}>
         Edit
       </Link>
     )

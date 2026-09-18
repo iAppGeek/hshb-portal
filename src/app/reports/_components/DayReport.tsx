@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react'
+
 import SimpleGrid from '@/components/grid/SimpleGrid'
 import type { GridColumn } from '@/lib/grid/columns'
 
@@ -47,7 +49,10 @@ const columns: GridColumn<ClassRow>[] = [
   },
 ]
 
-export default function DayReport({ stats, enrolmentByClass }: Props) {
+export default function DayReport({
+  stats,
+  enrolmentByClass,
+}: Props): ReactElement {
   return (
     <>
       {/* Summary cards */}

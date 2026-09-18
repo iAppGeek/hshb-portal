@@ -54,8 +54,13 @@ describe('StaffTable', () => {
         role="admin"
       />,
     )
-    expect(screen.getAllByText('Jane').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Jones').length).toBeGreaterThan(0)
+    // Stacked title merges title + first + last name into one string, so
+    // "Jane" alone only appears in it as a substring — assert the full
+    // stacked title, then the desktop-only First/Last name cells separately.
+    expect(screen.getByText('Mrs Jane Smith')).toBeTruthy()
+    expect(screen.getByText('Mr Bob Jones')).toBeTruthy()
+    expect(screen.getByText('Jane', { selector: 'td' })).toBeTruthy()
+    expect(screen.getByText('Jones', { selector: 'td' })).toBeTruthy()
   })
 
   it('renders the role label in its own desktop cell', () => {

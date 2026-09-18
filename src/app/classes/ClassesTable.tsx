@@ -5,7 +5,7 @@ import ActiveBadge from '@/components/ActiveBadge'
 import EditAction from '@/components/EditAction'
 import SimpleGrid from '@/components/grid/SimpleGrid'
 import type { GridColumn, StackedRowSpec } from '@/lib/grid/columns'
-import { actionsCell, rowLink } from '@/lib/grid/styles'
+import { actionsCell, detailsLink } from '@/lib/grid/styles'
 import { canSeeAllData } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -78,7 +78,7 @@ export default function ClassesTable({
             showDisabled={canEdit === false && canSeeAllData(role)}
             noun="classes"
           />
-          <Link href={`/classes/${cls.id}`} className={rowLink}>
+          <Link href={`/classes/${cls.id}`} className={detailsLink}>
             Details
           </Link>
         </div>
@@ -109,7 +109,7 @@ export default function ClassesTable({
     detailsAside: (cls) => (
       <Link
         href={`/classes/${cls.id}`}
-        className={`shrink-0 text-sm ${rowLink}`}
+        className={`shrink-0 text-sm ${detailsLink}`}
       >
         Details
       </Link>
