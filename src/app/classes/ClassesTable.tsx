@@ -1,9 +1,11 @@
-'use client'
-
+import type { ReactElement } from 'react'
 import Link from 'next/link'
 
-import Tooltip from '@/components/Tooltip'
-import { td, th } from '@/lib/grid/styles'
+import ActiveBadge from '@/components/ActiveBadge'
+import EditAction from '@/components/EditAction'
+import SimpleGrid from '@/components/grid/SimpleGrid'
+import type { GridColumn, StackedRowSpec } from '@/lib/grid/columns'
+import { actionsCell, rowLink } from '@/lib/grid/styles'
 import { canSeeAllData } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -31,135 +33,96 @@ type Props = {
   role: StaffRole
 }
 
-function StatusBadge({ active }: { active: boolean }) {
-  return active ? (
-    <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-      Active
-    </span>
-  ) : (
-    <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-      Inactive
-    </span>
-  )
+function teacherName(cls: ClassRow): string {
+  return cls.teacher
+    ? `${cls.teacher.last_name}, ${cls.teacher.first_name}`
+    : '—'
 }
 
-export default function ClassesTable({ classes, canEdit, role }: Props) {
+export default function ClassesTable({
+  classes,
+  canEdit,
+  role,
+}: Props): ReactElement {
+  const columns: GridColumn<ClassRow>[] = [
+    {
+      id: 'name',
+      header: 'Name',
+      primary: true,
+      className: 'sm:whitespace-nowrap',
+      cell: (cls) => cls.name,
+    },
+    { id: 'year_group', header: 'Year Group', cell: (cls) => cls.year_group },
+    { id: 'room', header: 'Room', cell: (cls) => cls.room_number ?? '—' },
+    { id: 'teacher', header: 'Teacher', cell: (cls) => teacherName(cls) },
+    {
+      id: 'academic_year',
+      header: 'Academic Year',
+      cell: (cls) => cls.academic_year ?? '—',
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: (cls) => <ActiveBadge active={cls.active} />,
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      srOnlyHeader: true,
+      align: 'right',
+      cell: (cls) => (
+        <div className={actionsCell}>
+          <EditAction
+            href={`/classes/${cls.id}/edit`}
+            canEdit={canEdit && cls.editable}
+            showDisabled={canEdit === false && canSeeAllData(role)}
+            noun="classes"
+          />
+          <Link href={`/classes/${cls.id}`} className={rowLink}>
+            Details
+          </Link>
+        </div>
+      ),
+    },
+  ]
+
+  const stacked: StackedRowSpec<ClassRow> = {
+    title: (cls) => (
+      <>
+        {cls.name}
+        <ActiveBadge active={cls.active} />
+      </>
+    ),
+    titleAside: (cls) => (
+      <EditAction
+        href={`/classes/${cls.id}/edit`}
+        canEdit={canEdit && cls.editable}
+        showDisabled={canEdit === false && canSeeAllData(role)}
+        noun="classes"
+      />
+    ),
+    details: (cls) => [
+      cls.room_number ?? '—',
+      teacherName(cls),
+      cls.academic_year ?? '—',
+    ],
+    detailsAside: (cls) => (
+      <Link
+        href={`/classes/${cls.id}`}
+        className={`shrink-0 text-sm ${rowLink}`}
+      >
+        Details
+      </Link>
+    ),
+  }
+
   return (
-    <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="hidden bg-gray-50 sm:table-header-group">
-            <tr>
-              <th className={th}>Name</th>
-              <th className={th}>Year Group</th>
-              <th className={th}>Room</th>
-              <th className={th}>Teacher</th>
-              <th className={th}>Academic Year</th>
-              <th className={th}>Status</th>
-              <th className={th}>Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200 bg-white">
-            {classes.map((cls) => {
-              const teacherName = cls.teacher
-                ? `${cls.teacher.last_name}, ${cls.teacher.first_name}`
-                : '—'
-
-              return (
-                <tr
-                  key={cls.id}
-                  className="block border-b border-gray-200 last:border-0 hover:bg-gray-50 sm:table-row sm:border-0"
-                >
-                  {/* Name — on mobile: name + status left, Edit link right */}
-                  <td className="block px-4 pt-4 pb-0 text-sm font-medium text-gray-900 sm:table-cell sm:px-6 sm:py-4 sm:whitespace-nowrap">
-                    <div className="flex items-center gap-2 sm:block">
-                      {cls.name}
-                      <span className="sm:hidden">
-                        <StatusBadge active={cls.active} />
-                      </span>
-                      {canEdit && cls.editable ? (
-                        <Link
-                          href={`/classes/${cls.id}/edit`}
-                          className="ml-auto shrink-0 text-sm text-gray-500 hover:text-gray-700 sm:hidden"
-                        >
-                          Edit
-                        </Link>
-                      ) : (
-                        canEdit === false &&
-                        canSeeAllData(role) && (
-                          <Tooltip text="You don't have permission to edit classes">
-                            <span className="ml-auto shrink-0 cursor-not-allowed text-sm text-gray-400 sm:hidden">
-                              Edit
-                            </span>
-                          </Tooltip>
-                        )
-                      )}
-                    </div>
-                  </td>
-
-                  {/* Mobile secondary: other fields + Details link */}
-                  <td className="block px-4 py-2 text-xs text-gray-500 sm:hidden">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-1">
-                        <span className="block">
-                          {cls.room_number ?? '—'}
-                          {' · '}
-                          {teacherName}
-                        </span>
-                        <span className="block">
-                          {cls.academic_year ?? '—'}
-                        </span>
-                      </div>
-                      <Link
-                        href={`/classes/${cls.id}`}
-                        className="shrink-0 text-sm text-blue-600 hover:text-blue-800"
-                      >
-                        Details
-                      </Link>
-                    </div>
-                  </td>
-
-                  {/* Desktop-only columns */}
-                  <td className={td}>{cls.year_group}</td>
-                  <td className={td}>{cls.room_number ?? '—'}</td>
-                  <td className={td}>{teacherName}</td>
-                  <td className={td}>{cls.academic_year ?? '—'}</td>
-                  <td className="hidden px-3 py-4 text-sm sm:table-cell sm:px-6">
-                    <StatusBadge active={cls.active} />
-                  </td>
-                  <td className="hidden px-3 py-4 text-right text-sm font-medium sm:table-cell sm:px-6">
-                    <div className="flex items-center justify-end gap-3">
-                      {canEdit && cls.editable ? (
-                        <Link
-                          href={`/classes/${cls.id}/edit`}
-                          className="text-gray-500 hover:text-gray-700"
-                        >
-                          Edit
-                        </Link>
-                      ) : (
-                        canEdit === false &&
-                        canSeeAllData(role) && (
-                          <Tooltip text="You don't have permission to edit classes">
-                            <span className="cursor-not-allowed text-gray-400">
-                              Edit
-                            </span>
-                          </Tooltip>
-                        )
-                      )}
-                      <Link
-                        href={`/classes/${cls.id}`}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        Details
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <SimpleGrid
+      columns={columns}
+      rows={classes}
+      getRowKey={(cls) => cls.id}
+      mobile="stacked"
+      stacked={stacked}
+    />
   )
 }

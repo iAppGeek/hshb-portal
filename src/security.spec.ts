@@ -1,7 +1,9 @@
-import { readFileSync, readdirSync, statSync } from 'fs'
+import { readFileSync } from 'fs'
 import { join } from 'path'
 
 import { describe, it, expect } from 'vitest'
+
+import { walkSourceFiles } from '@/test/walkSourceFiles'
 
 const SECRET_VARS = [
   'AUTH_SECRET',
@@ -20,26 +22,8 @@ function stripTypeImports(content: string): string {
     .join('\n')
 }
 
-function walkSrc(dir: string): string[] {
-  const files: string[] = []
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (['node_modules', '.next', '.git'].includes(entry.name)) continue
-    const full = join(dir, entry.name)
-    if (statSync(full).isDirectory()) {
-      files.push(...walkSrc(full))
-    } else if (
-      /\.(ts|tsx)$/.test(entry.name) &&
-      !entry.name.endsWith('.spec.ts') &&
-      !entry.name.endsWith('.spec.tsx')
-    ) {
-      files.push(full)
-    }
-  }
-  return files
-}
-
 const srcDir = join(process.cwd(), 'src')
-const allFiles = walkSrc(srcDir)
+const allFiles = walkSourceFiles(srcDir)
 const clientFiles = allFiles.filter((f) =>
   readFileSync(f, 'utf-8').trimStart().startsWith("'use client'"),
 )

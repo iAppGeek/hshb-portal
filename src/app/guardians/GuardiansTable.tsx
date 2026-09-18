@@ -10,7 +10,7 @@ import {
   matchesAny,
   normaliseQuery,
 } from '@/lib/grid/search'
-import { td, th } from '@/lib/grid/styles'
+import { tdHiddenOnMobile, th } from '@/lib/grid/styles'
 
 type Guardian = {
   id: string
@@ -112,9 +112,9 @@ export default function GuardiansTable({ guardians }: Props) {
                   </td>
 
                   {/* Desktop-only columns */}
-                  <td className={td}>{guardian.phone}</td>
-                  <td className={td}>{guardian.email ?? '—'}</td>
-                  <td className={td}>{guardian.child_count}</td>
+                  <td className={tdHiddenOnMobile}>{guardian.phone}</td>
+                  <td className={tdHiddenOnMobile}>{guardian.email ?? '—'}</td>
+                  <td className={tdHiddenOnMobile}>{guardian.child_count}</td>
                   <td className="hidden px-3 py-4 text-right text-sm font-medium sm:table-cell sm:px-6">
                     <div className="flex items-center justify-end gap-3">
                       <Link

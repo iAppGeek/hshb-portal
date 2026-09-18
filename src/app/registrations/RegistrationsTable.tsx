@@ -6,7 +6,7 @@ import Link from 'next/link'
 import type { RegistrationSummary } from '@/db'
 import { formatDateInSchoolTz, formatDateTimeInSchoolTz } from '@/lib/datetime'
 import { matchesAny, normaliseQuery } from '@/lib/grid/search'
-import { td, th } from '@/lib/grid/styles'
+import { tdHiddenOnMobile, th } from '@/lib/grid/styles'
 
 type Props = {
   registrations: RegistrationSummary[]
@@ -65,12 +65,14 @@ export default function RegistrationsTable({ registrations }: Props) {
                         {r.child_last_name}, {r.child_first_name}
                       </Link>
                     </td>
-                    <td className={td}>
+                    <td className={tdHiddenOnMobile}>
                       {formatDateInSchoolTz(r.date_of_birth)}
                     </td>
-                    <td className={td}>{r.preferred_year_group ?? '—'}</td>
-                    <td className={td}>{contact}</td>
-                    <td className={td}>
+                    <td className={tdHiddenOnMobile}>
+                      {r.preferred_year_group ?? '—'}
+                    </td>
+                    <td className={tdHiddenOnMobile}>{contact}</td>
+                    <td className={tdHiddenOnMobile}>
                       {formatDateTimeInSchoolTz(r.submitted_at)}
                     </td>
                     <td className="px-4 py-4 text-sm sm:px-6">

@@ -7,7 +7,7 @@ import StaffEmailDropdown from '@/clientComponents/StaffEmailDropdown'
 import Tooltip from '@/components/Tooltip'
 import { getAllStaffWithClasses } from '@/db'
 import { compareNullableText } from '@/lib/grid/sort'
-import { td, th } from '@/lib/grid/styles'
+import { tdHiddenOnMobile, th } from '@/lib/grid/styles'
 import { mailtoWithBcc, staffEmailsForMailto } from '@/lib/mailto'
 import {
   canEditStaff,
@@ -145,7 +145,7 @@ export default async function StaffPage() {
                       key={member.id}
                       className="block border-b border-gray-200 last:border-0 hover:bg-gray-50 sm:table-row sm:border-0"
                     >
-                      <td className={td}>{member.title}</td>
+                      <td className={tdHiddenOnMobile}>{member.title}</td>
 
                       {/* Full name — on mobile: name left, Edit link right */}
                       <td className="block px-4 pt-4 pb-0 text-sm font-medium text-gray-900 sm:table-cell sm:px-6 sm:py-4 sm:whitespace-nowrap">
@@ -234,8 +234,10 @@ export default async function StaffPage() {
                       <td className="hidden px-3 py-4 text-sm font-medium text-gray-900 sm:table-cell sm:px-6">
                         {member.last_name}
                       </td>
-                      <td className={td}>{member.display_name ?? '—'}</td>
-                      <td className={td}>
+                      <td className={tdHiddenOnMobile}>
+                        {member.display_name ?? '—'}
+                      </td>
+                      <td className={tdHiddenOnMobile}>
                         {roleLabels[member.role as StaffRole] ?? member.role}
                       </td>
                       <td className={TD_LINK}>
@@ -274,8 +276,8 @@ export default async function StaffPage() {
                           )}
                         </td>
                       )}
-                      <td className={td}>{classesText}</td>
-                      <td className={td}>{roomText}</td>
+                      <td className={tdHiddenOnMobile}>{classesText}</td>
+                      <td className={tdHiddenOnMobile}>{roomText}</td>
                       {canEdit ? (
                         <td className="hidden px-3 py-4 text-sm sm:table-cell sm:px-6">
                           <Link
