@@ -149,15 +149,17 @@ const students = [
 
 describe('StudentsTable', () => {
   it('renders all student names', () => {
+    // Stacked mode's mobile summary title duplicates the desktop name cell,
+    // so each name appears twice (plans/shared-grids.md §5).
     render(<StudentsTable students={students} role="admin" />)
-    expect(screen.getByText('Papadopoulos, Anna')).toBeTruthy()
-    expect(screen.getByText('Georgiou, Nick')).toBeTruthy()
+    expect(screen.getAllByText('Papadopoulos, Anna').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Georgiou, Nick').length).toBeGreaterThan(0)
   })
 
   it('renders student codes', () => {
     render(<StudentsTable students={students} role="admin" />)
-    expect(screen.getByText('S001')).toBeTruthy()
-    expect(screen.getByText('S002')).toBeTruthy()
+    expect(screen.getAllByText('S001').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('S002').length).toBeGreaterThan(0)
   })
 
   it('renders class names from student_classes', () => {
@@ -213,21 +215,25 @@ describe('StudentsTable', () => {
   })
 
   it('opens modal for the clicked student', () => {
+    // The grid sorts by name ascending by default, so Georgiou comes before
+    // Papadopoulos (plans/shared-grids.md §3.1).
     render(<StudentsTable students={students} role="admin" />)
     expect(screen.queryByTestId('student-modal')).toBeNull()
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Details' })[0])
 
     const modal = screen.getByTestId('student-modal')
-    expect(within(modal).getByText('Papadopoulos, Anna')).toBeTruthy()
+    expect(within(modal).getByText('Georgiou, Nick')).toBeTruthy()
   })
 
   it('opens modal for the correct student when second row is clicked', () => {
     render(<StudentsTable students={students} role="admin" />)
-    // Order: [0]=Papadopoulos secondary, [1]=Papadopoulos desktop, [2]=Georgiou secondary, [3]=Georgiou desktop
+    // Order: [0]=Georgiou secondary, [1]=Georgiou desktop, [2]=Papadopoulos secondary, [3]=Papadopoulos desktop
     fireEvent.click(screen.getAllByRole('button', { name: 'Details' })[2])
     expect(
-      within(screen.getByTestId('student-modal')).getByText('Georgiou, Nick'),
+      within(screen.getByTestId('student-modal')).getByText(
+        'Papadopoulos, Anna',
+      ),
     ).toBeTruthy()
   })
 
@@ -246,7 +252,9 @@ describe('StudentsTable', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Details' })[2])
     expect(screen.getAllByTestId('student-modal')).toHaveLength(1)
     expect(
-      within(screen.getByTestId('student-modal')).getByText('Georgiou, Nick'),
+      within(screen.getByTestId('student-modal')).getByText(
+        'Papadopoulos, Anna',
+      ),
     ).toBeTruthy()
   })
 
@@ -255,9 +263,11 @@ describe('StudentsTable', () => {
     const editLinks = screen.getAllByRole('link', { name: 'Edit' })
     // Each student has an Edit link in both the mobile name cell and desktop actions cell
     expect(editLinks).toHaveLength(4)
-    // Order: [0]=student-1 mobile, [1]=student-1 desktop, [2]=student-2 mobile, [3]=student-2 desktop
-    expect(editLinks[0].getAttribute('href')).toBe('/students/student-1/edit')
-    expect(editLinks[2].getAttribute('href')).toBe('/students/student-2/edit')
+    // Sorted by name ascending: Georgiou (student-2) before Papadopoulos
+    // (student-1). Order: [0]=student-2 mobile, [1]=student-2 desktop,
+    // [2]=student-1 mobile, [3]=student-1 desktop
+    expect(editLinks[0].getAttribute('href')).toBe('/students/student-2/edit')
+    expect(editLinks[2].getAttribute('href')).toBe('/students/student-1/edit')
   })
 
   it('does not show Edit links for teacher', () => {

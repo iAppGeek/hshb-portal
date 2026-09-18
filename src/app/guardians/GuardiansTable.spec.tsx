@@ -38,9 +38,11 @@ const guardians = [
 
 describe('GuardiansTable', () => {
   it('renders all guardian names', () => {
+    // Stacked mode's mobile summary title duplicates the desktop name cell,
+    // so each name appears twice (plans/shared-grids.md §5).
     render(<GuardiansTable guardians={guardians} />)
-    expect(screen.getByText('AliceGuardian, Gary')).toBeTruthy()
-    expect(screen.getByText('BobGuardian, Grace')).toBeTruthy()
+    expect(screen.getAllByText('AliceGuardian, Gary').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('BobGuardian, Grace').length).toBeGreaterThan(0)
   })
 
   it('renders emails, dashing out a missing one', () => {
@@ -76,7 +78,7 @@ describe('GuardiansTable', () => {
     fireEvent.change(screen.getByPlaceholderText(/Search by name/), {
       target: { value: 'gary' },
     })
-    expect(screen.getByText('AliceGuardian, Gary')).toBeTruthy()
+    expect(screen.getAllByText('AliceGuardian, Gary').length).toBeGreaterThan(0)
     expect(screen.queryByText('BobGuardian, Grace')).toBeNull()
   })
 
@@ -86,7 +88,7 @@ describe('GuardiansTable', () => {
       target: { value: 'BobGuardian' },
     })
     expect(screen.queryByText('AliceGuardian, Gary')).toBeNull()
-    expect(screen.getByText('BobGuardian, Grace')).toBeTruthy()
+    expect(screen.getAllByText('BobGuardian, Grace').length).toBeGreaterThan(0)
   })
 
   it('filters by email', () => {
@@ -94,7 +96,7 @@ describe('GuardiansTable', () => {
     fireEvent.change(screen.getByPlaceholderText(/Search by name/), {
       target: { value: 'gary.alice@example.com' },
     })
-    expect(screen.getByText('AliceGuardian, Gary')).toBeTruthy()
+    expect(screen.getAllByText('AliceGuardian, Gary').length).toBeGreaterThan(0)
     expect(screen.queryByText('BobGuardian, Grace')).toBeNull()
   })
 
@@ -104,7 +106,7 @@ describe('GuardiansTable', () => {
       target: { value: '07711000002' },
     })
     expect(screen.queryByText('AliceGuardian, Gary')).toBeNull()
-    expect(screen.getByText('BobGuardian, Grace')).toBeTruthy()
+    expect(screen.getAllByText('BobGuardian, Grace').length).toBeGreaterThan(0)
   })
 
   // Phones are stored formatted (e.g. "07700 900000"); the fixture above
@@ -127,7 +129,7 @@ describe('GuardiansTable', () => {
     fireEvent.change(screen.getByPlaceholderText(/Search by name/), {
       target: { value: '07700900003' },
     })
-    expect(screen.getByText('CarolGuardian, Greg')).toBeTruthy()
+    expect(screen.getAllByText('CarolGuardian, Greg').length).toBeGreaterThan(0)
     expect(screen.queryByText('AliceGuardian, Gary')).toBeNull()
   })
 
@@ -181,7 +183,7 @@ describe('GuardiansTable', () => {
     fireEvent.change(screen.getByPlaceholderText(/Search by name/), {
       target: { value: '00002' },
     })
-    expect(screen.getByText('BobGuardian, Grace')).toBeTruthy()
+    expect(screen.getAllByText('BobGuardian, Grace').length).toBeGreaterThan(0)
     expect(screen.queryByText('AliceGuardian, Gary')).toBeNull()
   })
 
