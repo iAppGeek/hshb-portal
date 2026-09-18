@@ -11,6 +11,7 @@ type Props<T> = {
   columns: GridColumn<T>[]
   spec: StackedRowSpec<T>
   className?: string
+  testId?: string
 }
 
 /**
@@ -23,12 +24,13 @@ export default function StackedRow<T>({
   columns,
   spec,
   className,
+  testId,
 }: Props<T>): ReactElement {
   const details = spec.details(row)
   const hasDetailsLine = details.length > 0 || Boolean(spec.detailsAside)
 
   return (
-    <Tr stacked className={className}>
+    <Tr stacked className={className} testId={testId}>
       <td className={tdStackedSummary}>
         <div className="flex items-center justify-between gap-2">
           <div className={stackedTitle}>{spec.title(row)}</div>

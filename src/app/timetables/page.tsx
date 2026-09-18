@@ -1,12 +1,14 @@
 import { type Metadata } from 'next'
 
 import { auth } from '@/auth'
+import SimpleGrid from '@/components/grid/SimpleGrid'
 import {
   getAllTimetableSlots,
   getTimetableByClass,
   getClassesByTeacher,
   getAllClasses,
 } from '@/db'
+import type { GridColumn } from '@/lib/grid/columns'
 import { isTeacher, canEditTimetables } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -26,8 +28,14 @@ const DAYS = [
   'Sunday',
 ] as const
 
-const TH =
-  'px-6 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase'
+type TimetableSlot = {
+  id: string
+  class_id: string
+  start_time: string
+  end_time: string
+  subject: string | null
+  room: string | null
+}
 
 export default async function TimetablesPage() {
   const session = await auth()
@@ -53,6 +61,33 @@ export default async function TimetablesPage() {
     slots: slots.filter((s) => s.day_of_week === day),
   })).filter((d) => d.slots.length > 0)
 
+  const columns: GridColumn<TimetableSlot>[] = [
+    {
+      id: 'time',
+      header: 'Time',
+      cell: (slot) =>
+        `${slot.start_time.slice(0, 5)} – ${slot.end_time.slice(0, 5)}`,
+    },
+    {
+      id: 'class',
+      header: 'Class',
+      cell: (slot) => classes.find((c) => c.id === slot.class_id)?.name ?? '—',
+    },
+    {
+      id: 'subject',
+      header: 'Subject',
+      cell: (slot) => slot.subject ?? '—',
+    },
+    {
+      id: 'room',
+      header: 'Room',
+      cell: (slot) =>
+        slot.room ??
+        classes.find((c) => c.id === slot.class_id)?.room_number ??
+        '—',
+    },
+  ]
+
   return (
     <>
       <PageHeader
@@ -76,38 +111,12 @@ export default async function TimetablesPage() {
         <div className="space-y-6">
           {slotsByDay.map(({ day, slots: daySlots }) => (
             <SectionCard key={day} title={day}>
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead>
-                  <tr>
-                    <th className={TH}>Time</th>
-                    <th className={TH}>Class</th>
-                    <th className={TH}>Subject</th>
-                    <th className={TH}>Room</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {daySlots.map((slot) => {
-                    const cls = classes.find((c) => c.id === slot.class_id)
-                    return (
-                      <tr key={slot.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-3 text-sm text-gray-900">
-                          {slot.start_time.slice(0, 5)} –{' '}
-                          {slot.end_time.slice(0, 5)}
-                        </td>
-                        <td className="px-6 py-3 text-sm text-gray-700">
-                          {cls?.name ?? '—'}
-                        </td>
-                        <td className="px-6 py-3 text-sm text-gray-700">
-                          {slot.subject ?? '—'}
-                        </td>
-                        <td className="px-6 py-3 text-sm text-gray-700">
-                          {slot.room ?? cls?.room_number ?? '—'}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+              <SimpleGrid
+                columns={columns}
+                rows={daySlots}
+                getRowKey={(slot) => slot.id}
+                frame="none"
+              />
             </SectionCard>
           ))}
         </div>

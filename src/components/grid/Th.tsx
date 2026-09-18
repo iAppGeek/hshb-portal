@@ -16,11 +16,15 @@ export default function Th({ children, meta }: Props): ReactElement {
       className={clsx(
         th,
         meta?.align === 'right' && 'text-right',
-        meta?.srOnlyHeader && 'sr-only',
+        meta?.srOnlyHeader && 'relative',
         meta?.className,
       )}
     >
-      {children}
+      {meta?.srOnlyHeader ? (
+        <span className="sr-only">{children}</span>
+      ) : (
+        children
+      )}
     </th>
   )
 }

@@ -1,3 +1,6 @@
+import SimpleGrid from '@/components/grid/SimpleGrid'
+import type { GridColumn } from '@/lib/grid/columns'
+
 import SectionCard from '../../_components/SectionCard'
 
 type Stat = {
@@ -19,8 +22,30 @@ type Props = {
   enrolmentByClass: ClassRow[]
 }
 
-const TH =
-  'px-6 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase'
+const columns: GridColumn<ClassRow>[] = [
+  { id: 'class', header: 'Class', primary: true, cell: (row) => row.name },
+  {
+    id: 'attendance',
+    header: 'Attendance',
+    cell: (row) =>
+      row.presentCount !== null
+        ? `${row.presentCount}/${row.enrolled}`
+        : `—/${row.enrolled}`,
+  },
+  {
+    id: 'record_times',
+    header: 'Record Times',
+    cell: (row) =>
+      row.attendanceCreatedAt ? (
+        <div className="flex flex-col gap-0.5">
+          <span>Created: {row.attendanceCreatedAt}</span>
+          <span>Updated: {row.attendanceUpdatedAt}</span>
+        </div>
+      ) : (
+        <span className="font-medium text-amber-600">Not Completed</span>
+      ),
+  },
+]
 
 export default function DayReport({ stats, enrolmentByClass }: Props) {
   return (
@@ -45,43 +70,12 @@ export default function DayReport({ stats, enrolmentByClass }: Props) {
 
       {/* Attendance by class */}
       <SectionCard title="Attendance by Class">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead>
-              <tr>
-                <th className={TH}>Class</th>
-                <th className={TH}>Attendance</th>
-                <th className={TH}>Record Times</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {enrolmentByClass.map((row) => (
-                <tr key={row.name} className="hover:bg-gray-50">
-                  <td className="px-6 py-3 text-sm font-medium text-gray-900">
-                    {row.name}
-                  </td>
-                  <td className="px-6 py-3 text-sm text-gray-600">
-                    {row.presentCount !== null
-                      ? `${row.presentCount}/${row.enrolled}`
-                      : `—/${row.enrolled}`}
-                  </td>
-                  <td className="px-6 py-3 text-sm text-gray-600">
-                    {row.attendanceCreatedAt ? (
-                      <div className="flex flex-col gap-0.5">
-                        <span>Created: {row.attendanceCreatedAt}</span>
-                        <span>Updated: {row.attendanceUpdatedAt}</span>
-                      </div>
-                    ) : (
-                      <span className="font-medium text-amber-600">
-                        Not Completed
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <SimpleGrid
+          columns={columns}
+          rows={enrolmentByClass}
+          getRowKey={(row) => row.name}
+          frame="none"
+        />
       </SectionCard>
     </>
   )

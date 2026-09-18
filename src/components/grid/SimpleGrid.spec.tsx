@@ -35,11 +35,11 @@ describe('SimpleGrid', () => {
     expect(screen.getByRole('columnheader', { name: 'Room' })).toBeTruthy()
   })
 
-  it('applies sr-only to columns marked srOnlyHeader', () => {
+  it('applies sr-only to columns marked srOnlyHeader, without hiding the th itself', () => {
     render(<SimpleGrid columns={columns} rows={rows} getRowKey={(r) => r.id} />)
-    expect(
-      screen.getByRole('columnheader', { name: 'Actions' }).className,
-    ).toContain('sr-only')
+    const th = screen.getByRole('columnheader', { name: 'Actions' })
+    expect(th.className).not.toContain('sr-only')
+    expect(screen.getByText('Actions').className).toContain('sr-only')
   })
 
   it('renders an EmptyRow when there are no rows and an emptyMessage is given', () => {
@@ -72,6 +72,19 @@ describe('SimpleGrid', () => {
     const dataRows = screen.getAllByRole('row').slice(1) // drop header row
     expect(dataRows[0].className).toContain('bg-yellow-50')
     expect(dataRows[1].className).not.toContain('bg-yellow-50')
+  })
+
+  it('applies rowTestId to each row as data-testid', () => {
+    render(
+      <SimpleGrid
+        columns={columns}
+        rows={rows}
+        getRowKey={(r) => r.id}
+        rowTestId={(row) => `row-${row.id}`}
+      />,
+    )
+    expect(screen.getByTestId('row-1')).toBeTruthy()
+    expect(screen.getByTestId('row-2')).toBeTruthy()
   })
 
   it('mobile="scroll" (default): header is always visible (not hidden below sm)', () => {

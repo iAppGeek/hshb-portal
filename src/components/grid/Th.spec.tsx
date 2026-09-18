@@ -26,14 +26,16 @@ describe('Th', () => {
     expect(screen.getByText('Year Group')).toBeTruthy()
   })
 
-  it('adds sr-only when meta.srOnlyHeader is set', () => {
+  it('wraps children in a sr-only span when meta.srOnlyHeader is set, keeping the th a real table-cell', () => {
     renderTh({ children: 'Actions', meta: { srOnlyHeader: true } })
-    expect(screen.getByRole('columnheader').className).toContain('sr-only')
+    const th = screen.getByRole('columnheader', { name: 'Actions' })
+    expect(th.className).not.toContain('sr-only')
+    expect(screen.getByText('Actions').className).toContain('sr-only')
   })
 
   it('does not add sr-only by default', () => {
     renderTh({ children: 'Actions' })
-    expect(screen.getByRole('columnheader').className).not.toContain('sr-only')
+    expect(screen.getByText('Actions').className).not.toContain('sr-only')
   })
 
   it('right-aligns when meta.align is "right"', () => {

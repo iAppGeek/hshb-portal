@@ -1,5 +1,7 @@
 import type { IncidentCounts } from '@/db'
+import SimpleGrid from '@/components/grid/SimpleGrid'
 import { formatCalendarDate } from '@/lib/datetime'
+import type { GridColumn } from '@/lib/grid/columns'
 
 import SectionCard from '../../_components/SectionCard'
 
@@ -30,9 +32,6 @@ type Props = {
   incidentCounts: IncidentCounts
 }
 
-const TH =
-  'px-6 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase'
-
 function formatDateShort(dateStr: string): string {
   const day = formatCalendarDate(dateStr, { weekday: 'short' })
   const match = dateStr.match(/^\d{4}-\d{2}-(\d{2})/)
@@ -51,6 +50,54 @@ export default function PeriodReport({
   classSummary,
   incidentCounts,
 }: Props) {
+  const staffColumns: GridColumn<StaffDaysWorkedRow>[] = [
+    { id: 'name', header: 'Name', primary: true, cell: (row) => row.name },
+    {
+      id: 'role',
+      header: 'Role',
+      className: 'capitalize',
+      cell: (row) => row.role,
+    },
+    {
+      id: 'days_worked',
+      header: 'Days Worked',
+      cell: (row) => (
+        <>
+          <span className="font-medium">
+            {row.daysWorked}/{totalSchoolDays}
+          </span>{' '}
+          <span className="text-gray-400">
+            ({pct(row.daysWorked, totalSchoolDays)})
+          </span>
+        </>
+      ),
+    },
+    {
+      id: 'dates_signed_in',
+      header: 'Dates Signed In',
+      cell: (row) =>
+        row.dates.length > 0
+          ? row.dates.map((d) => formatDateShort(d)).join(', ')
+          : '—',
+    },
+  ]
+
+  const classColumns: GridColumn<ClassSummaryRow>[] = [
+    { id: 'class', header: 'Class', primary: true, cell: (row) => row.name },
+    { id: 'enrolled', header: 'Enrolled', cell: (row) => row.enrolled },
+    {
+      id: 'attendance_rate',
+      header: 'Attendance %',
+      cell: (row) => (
+        <span className="font-medium">
+          {pct(row.presentCount, row.possible)}
+        </span>
+      ),
+    },
+    { id: 'absences', header: 'Absences', cell: (row) => row.absentCount },
+    { id: 'late', header: 'Late', cell: (row) => row.lateCount },
+  ]
+
   return (
     <>
       {/* Summary cards */}
@@ -103,105 +150,25 @@ export default function PeriodReport({
       {/* Staff Days Worked */}
       <div className="mb-8">
         <SectionCard title="Staff Days Worked">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr>
-                  <th className={TH}>Name</th>
-                  <th className={TH}>Role</th>
-                  <th className={TH}>Days Worked</th>
-                  <th className={TH}>Dates Signed In</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {staffDaysWorked.map((row) => (
-                  <tr key={row.name} className="hover:bg-gray-50">
-                    <td className="px-6 py-3 text-sm font-medium text-gray-900">
-                      {row.name}
-                    </td>
-                    <td className="px-6 py-3 text-sm text-gray-600 capitalize">
-                      {row.role}
-                    </td>
-                    <td className="px-6 py-3 text-sm text-gray-600">
-                      <span className="font-medium">
-                        {row.daysWorked}/{totalSchoolDays}
-                      </span>{' '}
-                      <span className="text-gray-400">
-                        ({pct(row.daysWorked, totalSchoolDays)})
-                      </span>
-                    </td>
-                    <td className="px-6 py-3 text-sm text-gray-500">
-                      {row.dates.length > 0
-                        ? row.dates.map((d) => formatDateShort(d)).join(', ')
-                        : '—'}
-                    </td>
-                  </tr>
-                ))}
-                {staffDaysWorked.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={4}
-                      className="px-6 py-8 text-center text-sm text-gray-400"
-                    >
-                      No staff attendance data for this period
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <SimpleGrid
+            columns={staffColumns}
+            rows={staffDaysWorked}
+            getRowKey={(row) => row.name}
+            frame="none"
+            emptyMessage="No staff attendance data for this period"
+          />
         </SectionCard>
       </div>
 
       {/* Attendance Summary by Class */}
       <SectionCard title="Attendance Summary by Class">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead>
-              <tr>
-                <th className={TH}>Class</th>
-                <th className={TH}>Enrolled</th>
-                <th className={TH}>Attendance %</th>
-                <th className={TH}>Absences</th>
-                <th className={TH}>Late</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {classSummary.map((row) => {
-                const attendanceRate = pct(row.presentCount, row.possible)
-                return (
-                  <tr key={row.name} className="hover:bg-gray-50">
-                    <td className="px-6 py-3 text-sm font-medium text-gray-900">
-                      {row.name}
-                    </td>
-                    <td className="px-6 py-3 text-sm text-gray-600">
-                      {row.enrolled}
-                    </td>
-                    <td className="px-6 py-3 text-sm text-gray-600">
-                      <span className="font-medium">{attendanceRate}</span>
-                    </td>
-                    <td className="px-6 py-3 text-sm text-gray-600">
-                      {row.absentCount}
-                    </td>
-                    <td className="px-6 py-3 text-sm text-gray-600">
-                      {row.lateCount}
-                    </td>
-                  </tr>
-                )
-              })}
-              {classSummary.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-6 py-8 text-center text-sm text-gray-400"
-                  >
-                    No attendance data for this period
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <SimpleGrid
+          columns={classColumns}
+          rows={classSummary}
+          getRowKey={(row) => row.name}
+          frame="none"
+          emptyMessage="No attendance data for this period"
+        />
       </SectionCard>
     </>
   )

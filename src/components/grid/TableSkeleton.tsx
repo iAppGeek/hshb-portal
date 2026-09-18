@@ -9,6 +9,7 @@ type Props = {
   columns: number
   rows?: number
   widths?: string[]
+  frame?: 'card' | 'none'
 }
 
 const DEFAULT_ROWS = 6
@@ -19,9 +20,10 @@ export default function TableSkeleton({
   columns,
   rows = DEFAULT_ROWS,
   widths,
+  frame = 'card',
 }: Props): ReactElement {
   return (
-    <TableCard className="animate-pulse">
+    <TableCard frame={frame} className="animate-pulse">
       <Table>
         <thead className={thead}>
           <tr>

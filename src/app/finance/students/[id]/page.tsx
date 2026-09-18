@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
+import SimpleGrid from '@/components/grid/SimpleGrid'
 import {
   getAcademicYears,
   getCurrentAcademicYear,
@@ -18,6 +19,8 @@ import {
   PAYMENT_METHOD_LABELS,
   PAYMENT_PLAN_LABELS,
 } from '@/lib/fees'
+import type { GridColumn } from '@/lib/grid/columns'
+import { rowLink } from '@/lib/grid/styles'
 import { canManageFinance } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 import LeaverBadge from '@/components/LeaverBadge'
@@ -42,9 +45,6 @@ import {
 export const metadata: Metadata = { title: 'Student Fees' }
 
 const CARD = 'rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200'
-const TH =
-  'px-3 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase'
-const TD = 'px-3 py-3 text-sm text-gray-700'
 
 function FeePlanSummary({
   summary,
@@ -132,6 +132,91 @@ export default async function StudentFeesPage({
       }),
   )
 
+  type PreviousYear = (typeof previousYears)[number]
+  const otherYearsColumns: GridColumn<PreviousYear>[] = [
+    {
+      id: 'year',
+      header: 'Year',
+      primary: true,
+      cell: (py) => (
+        <Link
+          href={`/finance/students/${student.id}?year=${py.year.id}`}
+          className={rowLink}
+        >
+          {py.year.code}
+        </Link>
+      ),
+    },
+    {
+      id: 'total',
+      header: 'Total',
+      cell: (py) => (py.total === null ? '—' : formatGbp(py.total)),
+    },
+    { id: 'paid', header: 'Paid', cell: (py) => formatGbp(py.paid) },
+    {
+      id: 'balance',
+      header: 'Balance',
+      cell: (py) => (py.balance === null ? '—' : formatGbp(py.balance)),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: (py) =>
+        py.settled ? (
+          <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+            Settled
+          </span>
+        ) : null,
+    },
+  ]
+
+  type Payment = (typeof payments)[number]
+  const paymentColumns: GridColumn<Payment>[] = [
+    {
+      id: 'date',
+      header: 'Date',
+      className: 'whitespace-nowrap',
+      cell: (p) =>
+        formatCalendarDate(p.payment_date, {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        }),
+    },
+    {
+      id: 'amount',
+      header: 'Amount',
+      className: 'whitespace-nowrap',
+      cell: (p) => formatGbp(p.amount),
+    },
+    {
+      id: 'method',
+      header: 'Method',
+      cell: (p) => labelFor(PAYMENT_METHOD_LABELS, p.method),
+    },
+    { id: 'reference', header: 'Reference', cell: (p) => p.reference },
+    { id: 'notes', header: 'Notes', cell: (p) => p.notes ?? '—' },
+    {
+      id: 'recorded_by',
+      header: 'Recorded by',
+      cell: (p) =>
+        p.recorder ? `${p.recorder.first_name} ${p.recorder.last_name}` : '—',
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      srOnlyHeader: true,
+      align: 'right',
+      cell: (p) => (
+        <DeletePaymentButton
+          paymentId={p.id}
+          reference={p.reference}
+          action={deleteStudentPaymentAction.bind(null, student.id)}
+        />
+      ),
+    },
+  ]
+
   return (
     <div className="max-w-4xl space-y-6">
       <div>
@@ -212,47 +297,12 @@ export default async function StudentFeesPage({
           <h2 className="mb-4 text-sm font-semibold text-gray-900">
             Other years
           </h2>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className={TH}>Year</th>
-                  <th className={TH}>Total</th>
-                  <th className={TH}>Paid</th>
-                  <th className={TH}>Balance</th>
-                  <th className={TH}>Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {previousYears.map((py) => (
-                  <tr key={py.year.id}>
-                    <td className={TD}>
-                      <Link
-                        href={`/finance/students/${student.id}?year=${py.year.id}`}
-                        className="font-medium text-blue-600 hover:text-blue-800"
-                      >
-                        {py.year.code}
-                      </Link>
-                    </td>
-                    <td className={TD}>
-                      {py.total === null ? '—' : formatGbp(py.total)}
-                    </td>
-                    <td className={TD}>{formatGbp(py.paid)}</td>
-                    <td className={TD}>
-                      {py.balance === null ? '—' : formatGbp(py.balance)}
-                    </td>
-                    <td className={TD}>
-                      {py.settled && (
-                        <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-                          Settled
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <SimpleGrid
+            columns={otherYearsColumns}
+            rows={previousYears}
+            getRowKey={(py) => py.year.id}
+            frame="none"
+          />
         </div>
       )}
 
@@ -268,58 +318,13 @@ export default async function StudentFeesPage({
         {payments.length === 0 ? (
           <p className="mt-6 text-sm text-gray-500">No payments recorded.</p>
         ) : (
-          <div className="mt-6 overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className={TH}>Date</th>
-                  <th className={TH}>Amount</th>
-                  <th className={TH}>Method</th>
-                  <th className={TH}>Reference</th>
-                  <th className={TH}>Notes</th>
-                  <th className={TH}>Recorded by</th>
-                  <th className={`relative ${TH}`}>
-                    <span className="sr-only">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {payments.map((p) => (
-                  <tr key={p.id}>
-                    <td className={`${TD} whitespace-nowrap`}>
-                      {formatCalendarDate(p.payment_date, {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </td>
-                    <td className={`${TD} whitespace-nowrap`}>
-                      {formatGbp(p.amount)}
-                    </td>
-                    <td className={TD}>
-                      {labelFor(PAYMENT_METHOD_LABELS, p.method)}
-                    </td>
-                    <td className={TD}>{p.reference}</td>
-                    <td className={TD}>{p.notes ?? '—'}</td>
-                    <td className={TD}>
-                      {p.recorder
-                        ? `${p.recorder.first_name} ${p.recorder.last_name}`
-                        : '—'}
-                    </td>
-                    <td className={`${TD} text-right`}>
-                      <DeletePaymentButton
-                        paymentId={p.id}
-                        reference={p.reference}
-                        action={deleteStudentPaymentAction.bind(
-                          null,
-                          student.id,
-                        )}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="mt-6">
+            <SimpleGrid
+              columns={paymentColumns}
+              rows={payments}
+              getRowKey={(p) => p.id}
+              frame="none"
+            />
           </div>
         )}
       </div>
