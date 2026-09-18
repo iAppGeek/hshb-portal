@@ -30,4 +30,14 @@ describe('Td', () => {
       cellClassName(meta, 'hide-columns'),
     )
   })
+
+  it('has no colSpan attribute by default', () => {
+    renderTd({ children: 'Hello', mobile: 'scroll' })
+    expect(screen.getByRole('cell')).not.toHaveAttribute('colspan')
+  })
+
+  it('applies a colSpan when given one', () => {
+    renderTd({ children: 'Hello', mobile: 'scroll', colSpan: 5 })
+    expect(screen.getByRole('cell')).toHaveAttribute('colspan', '5')
+  })
 })

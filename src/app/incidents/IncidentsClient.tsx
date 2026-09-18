@@ -4,10 +4,15 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 import type { IncidentRow, IncidentType } from '@/db'
+import Table from '@/components/grid/Table'
+import TableCard from '@/components/grid/TableCard'
+import Td from '@/components/grid/Td'
+import Th from '@/components/grid/Th'
+import Tooltip from '@/components/Tooltip'
 import { formatDateInSchoolTz } from '@/lib/datetime'
+import { tbody, thead } from '@/lib/grid/styles'
 import { isTeacher } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
-import Tooltip from '@/components/Tooltip'
 
 type Props = {
   incidents: IncidentRow[]
@@ -137,93 +142,106 @@ export default function IncidentsClient({ incidents, role, canEdit }: Props) {
           </div>
 
           {/* Desktop table */}
-          <div className="hidden overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200 sm:block">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {[
-                      'Incident date',
-                      'Student',
-                      'Title',
-                      'Description',
-                      'Recorded by',
-                      'Last updated',
-                      'Guardians notified',
-                      ...(!isTeacher(role) ? [''] : []),
-                    ].map((h) => (
-                      <th
-                        key={h}
-                        className="px-6 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase"
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 bg-white">
-                  {filtered.map((incident) => (
-                    <tr key={incident.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
-                        {formatDateInSchoolTz(incident.incident_date)}
-                      </td>
-                      <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
-                        {incident.student.last_name},{' '}
-                        {incident.student.first_name}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {incident.title}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        <span
-                          title={incident.description}
-                          className="line-clamp-2 max-w-xs"
-                        >
-                          {incident.description}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-500">
-                        {incident.creator.first_name}{' '}
-                        {incident.creator.last_name}
-                      </td>
-                      <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-500">
-                        {incident.updater
-                          ? `${incident.updater.first_name} ${incident.updater.last_name}`
-                          : '—'}
-                      </td>
-                      <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-500">
-                        {incident.parent_notified_at
-                          ? formatDateInSchoolTz(incident.parent_notified_at)
-                          : incident.parent_notified
-                            ? 'Yes'
-                            : '—'}
-                      </td>
-                      {canEdit ? (
-                        <td className="px-6 py-4 text-sm whitespace-nowrap">
-                          <Link
-                            href={`/incidents/${incident.id}/edit`}
-                            className="font-medium text-blue-600 hover:text-blue-800"
-                          >
-                            Edit
-                          </Link>
-                        </td>
-                      ) : (
-                        !isTeacher(role) && (
-                          <td className="px-6 py-4 text-sm whitespace-nowrap">
-                            <Tooltip text="You don't have permission to edit incidents">
-                              <span className="cursor-not-allowed font-medium text-gray-400">
-                                Edit
-                              </span>
-                            </Tooltip>
-                          </td>
-                        )
-                      )}
-                    </tr>
+          <TableCard className="hidden sm:block">
+            <Table>
+              <thead className={thead}>
+                <tr>
+                  {[
+                    'Incident date',
+                    'Student',
+                    'Title',
+                    'Description',
+                    'Recorded by',
+                    'Last updated',
+                    'Guardians notified',
+                    ...(!isTeacher(role) ? [''] : []),
+                  ].map((h) => (
+                    <Th key={h}>{h}</Th>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                </tr>
+              </thead>
+              <tbody className={tbody}>
+                {filtered.map((incident) => (
+                  <tr key={incident.id} className="hover:bg-gray-50">
+                    <Td
+                      mobile="scroll"
+                      meta={{ dark: true, className: 'whitespace-nowrap' }}
+                    >
+                      {formatDateInSchoolTz(incident.incident_date)}
+                    </Td>
+                    <Td
+                      mobile="scroll"
+                      meta={{ dark: true, className: 'whitespace-nowrap' }}
+                    >
+                      {incident.student.last_name},{' '}
+                      {incident.student.first_name}
+                    </Td>
+                    <Td mobile="scroll" meta={{ dark: true }}>
+                      {incident.title}
+                    </Td>
+                    <Td mobile="scroll">
+                      <span
+                        title={incident.description}
+                        className="line-clamp-2 max-w-xs"
+                      >
+                        {incident.description}
+                      </span>
+                    </Td>
+                    <Td
+                      mobile="scroll"
+                      meta={{ className: 'whitespace-nowrap' }}
+                    >
+                      {incident.creator.first_name} {incident.creator.last_name}
+                    </Td>
+                    <Td
+                      mobile="scroll"
+                      meta={{ className: 'whitespace-nowrap' }}
+                    >
+                      {incident.updater
+                        ? `${incident.updater.first_name} ${incident.updater.last_name}`
+                        : '—'}
+                    </Td>
+                    <Td
+                      mobile="scroll"
+                      meta={{ className: 'whitespace-nowrap' }}
+                    >
+                      {incident.parent_notified_at
+                        ? formatDateInSchoolTz(incident.parent_notified_at)
+                        : incident.parent_notified
+                          ? 'Yes'
+                          : '—'}
+                    </Td>
+                    {canEdit ? (
+                      <Td
+                        mobile="scroll"
+                        meta={{ className: 'whitespace-nowrap' }}
+                      >
+                        <Link
+                          href={`/incidents/${incident.id}/edit`}
+                          className="font-medium text-blue-600 hover:text-blue-800"
+                        >
+                          Edit
+                        </Link>
+                      </Td>
+                    ) : (
+                      !isTeacher(role) && (
+                        <Td
+                          mobile="scroll"
+                          meta={{ className: 'whitespace-nowrap' }}
+                        >
+                          <Tooltip text="You don't have permission to edit incidents">
+                            <span className="cursor-not-allowed font-medium text-gray-400">
+                              Edit
+                            </span>
+                          </Tooltip>
+                        </Td>
+                      )
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </TableCard>
         </>
       )}
     </div>

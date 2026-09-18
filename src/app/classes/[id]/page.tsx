@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import BulkEmailDropdown from '@/clientComponents/BulkEmailDropdown'
+import PrintPageSetup from '@/components/grid/PrintPageSetup'
 import { getClassWithStudents } from '@/db'
 import { compareByName } from '@/lib/grid/sort'
 import { guardianEmailsForMailto, mailtoWithBcc } from '@/lib/mailto'
@@ -72,7 +73,7 @@ export default async function ClassRegisterPage({
 
   return (
     <div className="max-w-5xl print:max-w-none">
-      <style>{`@page { size: A4 portrait; margin: 10mm; } @media print { a[href]::after { content: none !important; } }`}</style>
+      <PrintPageSetup />
       {/* Screen-only toolbar */}
       <div className="mb-6 flex items-center justify-between print:hidden">
         <div>

@@ -5,10 +5,15 @@ import Link from 'next/link'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 
 import type { LessonPlanRow } from '@/db'
+import Table from '@/components/grid/Table'
+import TableCard from '@/components/grid/TableCard'
+import Td from '@/components/grid/Td'
+import Th from '@/components/grid/Th'
+import Tooltip from '@/components/Tooltip'
 import { formatCalendarDate, formatDateTimeInSchoolTz } from '@/lib/datetime'
+import { tbody, thead } from '@/lib/grid/styles'
 import { isTeacher } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
-import Tooltip from '@/components/Tooltip'
 
 type Props = {
   lessonPlans: LessonPlanRow[]
@@ -107,75 +112,81 @@ export default function LessonPlansClient({
           </div>
 
           {/* Desktop table */}
-          <div className="hidden overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200 sm:block">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {['Lesson date', 'Class', 'Description', 'Created by'].map(
-                      (h) => (
-                        <th
-                          key={h}
-                          className="px-6 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase"
-                        >
-                          {h}
-                        </th>
-                      ),
-                    )}
-                    <th className="relative px-6 py-3">
-                      <span className="sr-only">Actions</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 bg-white">
-                  {lessonPlans.map((plan) => (
-                    <tr key={plan.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
-                        {formatDate(plan.lesson_date)}
-                      </td>
-                      <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
-                        {plan.class.name}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        <span className="line-clamp-1 max-w-xs">
-                          {plan.description}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-500">
-                        {plan.creator.first_name} {plan.creator.last_name}
-                      </td>
-                      <td className="px-6 py-4 text-right text-sm font-medium whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-3">
-                          {canEdit ? (
-                            <Link
-                              href={`/lesson-plans/${plan.id}/edit`}
-                              className="text-blue-600 hover:text-blue-800"
-                            >
-                              Edit
-                            </Link>
-                          ) : (
-                            !isTeacher(role) && (
-                              <Tooltip text="You don't have permission to edit lesson plans">
-                                <span className="cursor-not-allowed text-gray-400">
-                                  Edit
-                                </span>
-                              </Tooltip>
-                            )
-                          )}
-                          <button
-                            onClick={() => setSelected(plan)}
-                            className="text-gray-500 hover:text-gray-700"
+          <TableCard className="hidden sm:block">
+            <Table>
+              <thead className={thead}>
+                <tr>
+                  {['Lesson date', 'Class', 'Description', 'Created by'].map(
+                    (h) => (
+                      <Th key={h}>{h}</Th>
+                    ),
+                  )}
+                  <Th meta={{ srOnlyHeader: true }}>Actions</Th>
+                </tr>
+              </thead>
+              <tbody className={tbody}>
+                {lessonPlans.map((plan) => (
+                  <tr key={plan.id} className="hover:bg-gray-50">
+                    <Td
+                      mobile="scroll"
+                      meta={{ dark: true, className: 'whitespace-nowrap' }}
+                    >
+                      {formatDate(plan.lesson_date)}
+                    </Td>
+                    <Td
+                      mobile="scroll"
+                      meta={{ dark: true, className: 'whitespace-nowrap' }}
+                    >
+                      {plan.class.name}
+                    </Td>
+                    <Td mobile="scroll">
+                      <span className="line-clamp-1 max-w-xs">
+                        {plan.description}
+                      </span>
+                    </Td>
+                    <Td
+                      mobile="scroll"
+                      meta={{ className: 'whitespace-nowrap' }}
+                    >
+                      {plan.creator.first_name} {plan.creator.last_name}
+                    </Td>
+                    <Td
+                      mobile="scroll"
+                      meta={{
+                        align: 'right',
+                        className: 'font-medium whitespace-nowrap',
+                      }}
+                    >
+                      <div className="flex items-center justify-end gap-3">
+                        {canEdit ? (
+                          <Link
+                            href={`/lesson-plans/${plan.id}/edit`}
+                            className="text-blue-600 hover:text-blue-800"
                           >
-                            Details
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                            Edit
+                          </Link>
+                        ) : (
+                          !isTeacher(role) && (
+                            <Tooltip text="You don't have permission to edit lesson plans">
+                              <span className="cursor-not-allowed text-gray-400">
+                                Edit
+                              </span>
+                            </Tooltip>
+                          )
+                        )}
+                        <button
+                          onClick={() => setSelected(plan)}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          Details
+                        </button>
+                      </div>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </TableCard>
         </>
       )}
 

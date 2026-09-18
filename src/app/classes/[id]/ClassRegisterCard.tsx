@@ -1,3 +1,7 @@
+import clsx from 'clsx'
+
+import { printBlankLine, printTable, printTd, printTh } from '@/lib/grid/styles'
+
 import EmptyState from '../../_components/EmptyState'
 
 export type RegisterStudent = {
@@ -63,9 +67,7 @@ export default function ClassRegisterCard({
         </div>
         <div>
           <p className={LABEL}>Date</p>
-          <p className="mt-1 min-w-[100px] border-b border-gray-300 pb-1 text-sm">
-            &nbsp;
-          </p>
+          <p className={printBlankLine}>&nbsp;</p>
         </div>
       </div>
 
@@ -75,7 +77,7 @@ export default function ClassRegisterCard({
         </div>
       ) : (
         <div className="mb-6 overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-gray-200 print:overflow-visible print:rounded-none print:shadow-none print:ring-0">
-          <table className="min-w-full border-collapse">
+          <table className={printTable}>
             <thead className="bg-gray-50 print:bg-white">
               <tr>
                 {[
@@ -89,7 +91,10 @@ export default function ClassRegisterCard({
                 ].map(({ label, mobileHidden }) => (
                   <th
                     key={label}
-                    className={`border border-gray-200 px-3 py-2 text-left text-xs font-medium tracking-wide text-gray-500 uppercase sm:px-6 sm:py-3 print:table-cell print:border-gray-400 print:p-px print:text-xs print:font-bold print:text-gray-900 ${mobileHidden ? 'hidden sm:table-cell' : ''}`}
+                    className={clsx(
+                      printTh,
+                      mobileHidden && 'hidden sm:table-cell',
+                    )}
                   >
                     {label}
                   </th>
@@ -102,19 +107,29 @@ export default function ClassRegisterCard({
                   key={student.id}
                   className="hover:bg-gray-50 print:hover:bg-white"
                 >
-                  <td className="hidden border border-gray-200 px-3 py-2 text-sm text-gray-500 sm:table-cell sm:px-6 sm:py-3 print:table-cell print:border-gray-400 print:p-px print:text-xs">
+                  <td
+                    className={clsx(
+                      printTd,
+                      'hidden text-gray-500 sm:table-cell print:table-cell',
+                    )}
+                  >
                     {i + 1}
                   </td>
-                  <td className="hidden border border-gray-200 px-3 py-2 text-sm text-gray-700 sm:table-cell sm:px-6 sm:py-3 print:table-cell print:border-gray-400 print:p-px print:text-xs">
+                  <td
+                    className={clsx(
+                      printTd,
+                      'hidden text-gray-700 sm:table-cell print:table-cell',
+                    )}
+                  >
                     {student.student_code ?? '—'}
                   </td>
-                  <td className="border border-gray-200 px-3 py-2 text-sm text-gray-900 sm:px-6 sm:py-3 print:border-gray-400 print:p-px print:text-xs">
+                  <td className={clsx(printTd, 'text-gray-900')}>
                     {student.first_name}
                   </td>
-                  <td className="border border-gray-200 px-3 py-2 text-sm font-medium text-gray-900 sm:px-6 sm:py-3 print:border-gray-400 print:p-px print:text-xs">
+                  <td className={clsx(printTd, 'font-medium text-gray-900')}>
                     {student.last_name}
                   </td>
-                  <td className="border border-gray-200 px-3 py-2 text-sm text-gray-700 sm:px-6 sm:py-3 print:border-gray-400 print:p-px print:text-xs">
+                  <td className={clsx(printTd, 'text-gray-700')}>
                     {student.primary_guardian ? (
                       <>
                         <span className="block">
@@ -134,10 +149,10 @@ export default function ClassRegisterCard({
                       '—'
                     )}
                   </td>
-                  <td className="border border-gray-200 px-3 py-2 text-sm text-gray-700 sm:px-6 sm:py-3 print:border-gray-400 print:p-px print:text-xs">
+                  <td className={clsx(printTd, 'text-gray-700')}>
                     {student.allergies ?? '—'}
                   </td>
-                  <td className="w-16 border border-gray-200 px-3 py-2 sm:px-6 sm:py-3 print:w-16 print:border-gray-400 print:p-px" />
+                  <td className={clsx(printTd, 'w-16 print:w-16')} />
                 </tr>
               ))}
             </tbody>

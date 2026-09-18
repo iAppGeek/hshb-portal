@@ -3,8 +3,13 @@
 import { useTransition, useState } from 'react'
 
 import type { StaffAttendanceRow } from '@/db'
+import Table from '@/components/grid/Table'
+import TableCard from '@/components/grid/TableCard'
+import Th from '@/components/grid/Th'
 import Tooltip from '@/components/Tooltip'
+import Tr from '@/components/grid/Tr'
 import { formatTimeInSchoolTz } from '@/lib/datetime'
+import { tbody, theadStacked } from '@/lib/grid/styles'
 import { canManageStaffAttendance } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -132,7 +137,7 @@ function StaffRowInteractive({
   )
 
   return (
-    <tr className="block border-b border-gray-200 last:border-0 hover:bg-gray-50 sm:table-row sm:border-0">
+    <Tr stacked>
       {/* Name cell — on mobile also shows status (top-right) and room/class (second line) */}
       <td className="block px-4 pt-4 pb-0 sm:table-cell sm:px-6 sm:py-3 sm:align-top">
         <div className="flex items-start justify-between gap-2 sm:block">
@@ -173,7 +178,7 @@ function StaffRowInteractive({
       <td className="hidden text-sm text-gray-600 sm:table-cell sm:px-6 sm:py-3 sm:align-top">
         {staff.class_name ?? '—'}
       </td>
-    </tr>
+    </Tr>
   )
 }
 
@@ -193,21 +198,16 @@ export default function StaffAttendanceTable({
   currentStaffId,
 }: Props) {
   return (
-    <div className="overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="hidden bg-gray-50 sm:table-header-group">
+    <TableCard>
+      <Table>
+        <thead className={theadStacked}>
           <tr>
             {['Name', 'Action', 'Status', 'Room', 'Class'].map((h) => (
-              <th
-                key={h}
-                className="px-6 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase"
-              >
-                {h}
-              </th>
+              <Th key={h}>{h}</Th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-200">
+        <tbody className={tbody}>
           {rows.map(({ staff, record }) => (
             <StaffRowInteractive
               key={staff.id}
@@ -220,7 +220,7 @@ export default function StaffAttendanceTable({
             />
           ))}
         </tbody>
-      </table>
-    </div>
+      </Table>
+    </TableCard>
   )
 }

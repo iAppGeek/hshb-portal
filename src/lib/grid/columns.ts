@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import clsx from 'clsx'
 
-import { hiddenOnMobile, tdBase, tdMuted, tdStrong } from './styles'
+import { hiddenOnMobile, tdBase, tdDark, tdMuted, tdStrong } from './styles'
 
 export type MobileMode = 'scroll' | 'hide-columns' | 'stacked'
 
@@ -12,6 +12,8 @@ export type GridColumnMeta = {
   srOnlyHeader?: boolean // "Actions" columns
   /** Bold, always-visible column (e.g. a Name column shown alongside a stacked mobile title). */
   primary?: boolean
+  /** Plain (non-bold) dark text, for cells that read as primary content but aren't a name column. */
+  dark?: boolean
 }
 
 export type GridColumn<T> = GridColumnMeta & {
@@ -41,7 +43,7 @@ export function cellClassName(
     (mobile === 'stacked' ||
       (mobile === 'hide-columns' && meta.mobile === 'hide')) &&
       hiddenOnMobile,
-    meta.primary ? tdStrong : tdMuted,
+    meta.primary ? tdStrong : meta.dark ? tdDark : tdMuted,
     meta.align === 'right' && 'text-right',
     meta.className,
   )

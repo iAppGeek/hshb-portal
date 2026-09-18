@@ -5,7 +5,12 @@ import { useState, useTransition } from 'react'
 import StudentDetailsModal, {
   type StudentForModal,
 } from '@/components/StudentDetailsModal'
+import Table from '@/components/grid/Table'
+import TableCard from '@/components/grid/TableCard'
+import Th from '@/components/grid/Th'
 import Tooltip from '@/components/Tooltip'
+import Tr from '@/components/grid/Tr'
+import { tbody, theadStacked } from '@/lib/grid/styles'
 import { canUpdateAttendance } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -110,118 +115,115 @@ export default function AttendanceForm({
             )}
           </div>
 
-          <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="hidden bg-gray-50 sm:table-header-group">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase">
-                      Student
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-right sm:w-full">
-                      <span className="sr-only">Details</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 bg-white">
-                  {students.map((student) => {
-                    const current = statuses[student.id]
-                    return (
-                      <tr
-                        key={student.id}
-                        className="block border-b border-gray-200 last:border-0 hover:bg-gray-50 sm:table-row sm:border-0"
-                      >
-                        {/* Name cell — on mobile also contains Details button */}
-                        <td className="block px-4 pt-4 pb-2 text-sm font-medium text-gray-900 sm:table-cell sm:px-6 sm:py-4 sm:align-middle sm:whitespace-nowrap">
-                          {/* Hidden inputs carry the data for the server action */}
+          <TableCard>
+            <Table>
+              <thead className={theadStacked}>
+                <tr>
+                  <Th>Student</Th>
+                  <Th>Status</Th>
+                  <Th
+                    meta={{
+                      srOnlyHeader: true,
+                      align: 'right',
+                      className: 'sm:w-full',
+                    }}
+                  >
+                    Details
+                  </Th>
+                </tr>
+              </thead>
+              <tbody className={tbody}>
+                {students.map((student) => {
+                  const current = statuses[student.id]
+                  return (
+                    <Tr key={student.id} stacked>
+                      {/* Name cell — on mobile also contains Details button */}
+                      <td className="block px-4 pt-4 pb-2 text-sm font-medium text-gray-900 sm:table-cell sm:px-6 sm:py-4 sm:align-middle sm:whitespace-nowrap">
+                        {/* Hidden inputs carry the data for the server action */}
+                        <input
+                          type="hidden"
+                          name="studentId"
+                          value={student.id}
+                        />
+                        {current !== null && (
                           <input
                             type="hidden"
-                            name="studentId"
-                            value={student.id}
+                            name={`status_${student.id}`}
+                            value={current}
                           />
-                          {current !== null && (
-                            <input
-                              type="hidden"
-                              name={`status_${student.id}`}
-                              value={current}
-                            />
-                          )}
-                          <div className="flex items-center justify-between gap-2 sm:block">
-                            <span>
-                              {student.last_name}, {student.first_name}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedStudent(student)}
-                              className="shrink-0 text-sm text-gray-500 hover:text-gray-700 sm:hidden"
-                            >
-                              Details
-                            </button>
-                          </div>
-                        </td>
-
-                        {/* Status buttons — full width on mobile, compact on desktop */}
-                        <td className="block px-4 pb-4 sm:table-cell sm:w-px sm:px-6 sm:py-4 sm:align-middle sm:whitespace-nowrap">
-                          <div className="flex w-full overflow-hidden rounded-full ring-1 ring-gray-200 sm:w-auto">
-                            <button
-                              type="button"
-                              disabled={archived}
-                              onClick={() => toggle(student.id, 'present')}
-                              className={`flex-1 px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed sm:flex-none ${
-                                current === 'present'
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-white text-gray-400 hover:bg-gray-50'
-                              }`}
-                            >
-                              Present
-                            </button>
-                            <button
-                              type="button"
-                              disabled={archived}
-                              onClick={() => toggle(student.id, 'late')}
-                              className={`flex-1 border-x border-gray-200 px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed sm:flex-none ${
-                                current === 'late'
-                                  ? 'bg-yellow-100 text-yellow-800'
-                                  : 'bg-white text-gray-400 hover:bg-gray-50'
-                              }`}
-                            >
-                              Late
-                            </button>
-                            <button
-                              type="button"
-                              disabled={archived}
-                              onClick={() => toggle(student.id, 'absent')}
-                              className={`flex-1 px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed sm:flex-none ${
-                                current === 'absent'
-                                  ? 'bg-red-100 text-red-800'
-                                  : 'bg-white text-gray-400 hover:bg-gray-50'
-                              }`}
-                            >
-                              Absent
-                            </button>
-                          </div>
-                        </td>
-
-                        {/* Details — hidden on mobile (shown in name cell), visible on desktop */}
-                        <td className="hidden sm:table-cell sm:px-6 sm:py-4 sm:text-right sm:align-middle sm:text-sm sm:font-medium">
+                        )}
+                        <div className="flex items-center justify-between gap-2 sm:block">
+                          <span>
+                            {student.last_name}, {student.first_name}
+                          </span>
                           <button
                             type="button"
                             onClick={() => setSelectedStudent(student)}
-                            className="text-gray-500 hover:text-gray-700"
+                            className="shrink-0 text-sm text-gray-500 hover:text-gray-700 sm:hidden"
                           >
                             Details
                           </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                        </div>
+                      </td>
+
+                      {/* Status buttons — full width on mobile, compact on desktop */}
+                      <td className="block px-4 pb-4 sm:table-cell sm:w-px sm:px-6 sm:py-4 sm:align-middle sm:whitespace-nowrap">
+                        <div className="flex w-full overflow-hidden rounded-full ring-1 ring-gray-200 sm:w-auto">
+                          <button
+                            type="button"
+                            disabled={archived}
+                            onClick={() => toggle(student.id, 'present')}
+                            className={`flex-1 px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed sm:flex-none ${
+                              current === 'present'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-white text-gray-400 hover:bg-gray-50'
+                            }`}
+                          >
+                            Present
+                          </button>
+                          <button
+                            type="button"
+                            disabled={archived}
+                            onClick={() => toggle(student.id, 'late')}
+                            className={`flex-1 border-x border-gray-200 px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed sm:flex-none ${
+                              current === 'late'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-white text-gray-400 hover:bg-gray-50'
+                            }`}
+                          >
+                            Late
+                          </button>
+                          <button
+                            type="button"
+                            disabled={archived}
+                            onClick={() => toggle(student.id, 'absent')}
+                            className={`flex-1 px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed sm:flex-none ${
+                              current === 'absent'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-white text-gray-400 hover:bg-gray-50'
+                            }`}
+                          >
+                            Absent
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* Details — hidden on mobile (shown in name cell), visible on desktop */}
+                      <td className="hidden sm:table-cell sm:px-6 sm:py-4 sm:text-right sm:align-middle sm:text-sm sm:font-medium">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStudent(student)}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          Details
+                        </button>
+                      </td>
+                    </Tr>
+                  )
+                })}
+              </tbody>
+            </Table>
+          </TableCard>
 
           <div className="mt-4 flex items-center gap-4">
             {archived ? (
