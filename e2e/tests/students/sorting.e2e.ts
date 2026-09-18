@@ -81,13 +81,19 @@ test.describe('Students — sorting', () => {
 
     expect(await orderOf(page)).toEqual([alphaLastName, zuluLastName])
 
-    // The header cycles ascending → unsorted → descending, so descending
-    // order needs two clicks from the initial ascending state.
+    // The header toggles ascending ↔ descending and never clears the sort.
     const nameHeader = page.getByRole('button', { name: 'Name' })
     await nameHeader.click()
-    await nameHeader.click()
-
+    await expect(
+      page.getByRole('columnheader', { name: 'Name' }),
+    ).toHaveAttribute('aria-sort', 'descending')
     expect(await orderOf(page)).toEqual([zuluLastName, alphaLastName])
+
+    await nameHeader.click()
+    await expect(
+      page.getByRole('columnheader', { name: 'Name' }),
+    ).toHaveAttribute('aria-sort', 'ascending')
+    expect(await orderOf(page)).toEqual([alphaLastName, zuluLastName])
   })
 
   test('sorts using the "Sort by" control on mobile', async ({

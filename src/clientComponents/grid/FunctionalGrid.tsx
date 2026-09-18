@@ -11,6 +11,7 @@ import {
 import type { ReactElement } from 'react'
 
 import EmptyRow from '@/components/grid/EmptyRow'
+import ResultCount from '@/components/grid/ResultCount'
 import StackedRow from '@/components/grid/StackedRow'
 import Table from '@/components/grid/Table'
 import TableCard from '@/components/grid/TableCard'
@@ -27,10 +28,7 @@ import { tbody, thead, theadStacked } from '@/lib/grid/styles'
 import FacetSelect from './FacetSelect'
 import { features } from './features'
 import GridSearch from './GridSearch'
-import ResultCount from './ResultCount'
 import SortableTh from './SortableTh'
-
-export { features }
 
 // `meta` on every column def is typed as `GridColumnMeta` so `FunctionalGrid`
 // and `SimpleGrid` columns share one shape (plans/shared-grids.md §2.2).
@@ -111,12 +109,21 @@ export default function FunctionalGrid<T extends RowData>({
     data,
     getRowId: (row) => getRowId(row),
     initialState: initialSorting ? { sorting: initialSorting } : undefined,
-    // Every accessor here returns the whole row (see `resolvedColumns`
-    // above), not a string/number, so the default `getColumnCanGlobalFilter`
-    // (which only allows string/number-valued columns) would exclude every
-    // column and silently disable search. `search.filterFn` decides
-    // relevance itself, so every column is a candidate.
-    getColumnCanGlobalFilter: () => true,
+    // With every accessor returning the whole row (see `resolvedColumns`
+    // above), the default first sort direction is inferred from a non-string
+    // value, so it would be descending for every column. Always start
+    // ascending, toggle only between asc and desc (a removed sort would leave
+    // the mobile "Sort by" select out of sync), and keep to a single sort
+    // column, since the UI only shows one.
+    sortDescFirst: false,
+    enableSortingRemoval: false,
+    enableMultiSort: false,
+    // The default `getColumnCanGlobalFilter` only allows string/number-valued
+    // columns, so it would exclude every column here and silently disable
+    // search. `search.filterFn` reads the whole row and ignores the column,
+    // so a single candidate column is enough; allowing every column would
+    // re-run it once per column for each non-matching row.
+    getColumnCanGlobalFilter: (column) => column.id === resolvedColumns[0]?.id,
     globalFilterFn: search
       ? (row, _columnId, filterValue: string) =>
           search.filterFn(row.original as T, filterValue)
@@ -217,11 +224,11 @@ export default function FunctionalGrid<T extends RowData>({
                   const rowColumns: GridColumn<T>[] = row
                     .getAllCells()
                     .map((cell) => ({
+                      ...((cell.column.columnDef.meta as
+                        GridColumnMeta | undefined) ?? {}),
                       id: cell.column.id,
                       header: '',
                       cell: () => <table.FlexRender cell={cell} />,
-                      ...((cell.column.columnDef.meta as
-                        GridColumnMeta | undefined) ?? {}),
                     }))
                   return (
                     <StackedRow

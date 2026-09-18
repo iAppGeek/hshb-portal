@@ -160,7 +160,7 @@ describe('FunctionalGrid', () => {
     expect(screen.getByText('Bo')).toBeTruthy()
   })
 
-  it('clicking a sortable header cycles sort order and sets aria-sort', () => {
+  it('clicking a sortable header sorts ascending first, then toggles asc ↔ desc without clearing', () => {
     render(
       <FunctionalGrid
         data={people}
@@ -170,17 +170,82 @@ describe('FunctionalGrid', () => {
       />,
     )
     const header = screen.getByRole('columnheader', { name: 'Name' })
+    const button = screen.getByRole('button', { name: 'Name' })
     expect(header.getAttribute('aria-sort')).toBe('none')
 
+    fireEvent.click(button)
+    expect(header.getAttribute('aria-sort')).toBe('ascending')
+    expect(
+      within(screen.getAllByRole('row').slice(1)[0]).getByText('Ada'),
+    ).toBeTruthy()
+
+    fireEvent.click(button)
+    expect(header.getAttribute('aria-sort')).toBe('descending')
+    expect(
+      within(screen.getAllByRole('row').slice(1)[0]).getByText('Cy'),
+    ).toBeTruthy()
+
+    fireEvent.click(button)
+    expect(header.getAttribute('aria-sort')).toBe('ascending')
+  })
+
+  it('clicking the initially ascending header sorts descending rather than clearing the sort', () => {
+    render(
+      <FunctionalGrid
+        data={people}
+        columns={columns}
+        getRowId={(p) => p.id}
+        initialSorting={[{ id: 'name', desc: false }]}
+        emptyMessage="No people."
+      />,
+    )
+    const header = screen.getByRole('columnheader', { name: 'Name' })
     fireEvent.click(screen.getByRole('button', { name: 'Name' }))
     expect(header.getAttribute('aria-sort')).toBe('descending')
-    const rowsDesc = screen.getAllByRole('row').slice(1)
-    expect(within(rowsDesc[0]).getByText('Cy')).toBeTruthy()
+    expect(
+      within(screen.getAllByRole('row').slice(1)[0]).getByText('Cy'),
+    ).toBeTruthy()
+  })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Name' }))
-    expect(header.getAttribute('aria-sort')).toBe('ascending')
-    const rowsAsc = screen.getAllByRole('row').slice(1)
-    expect(within(rowsAsc[0]).getByText('Ada')).toBeTruthy()
+  it('keeps the "Sort by" dropdown in sync with header clicks', () => {
+    render(
+      <FunctionalGrid
+        data={people}
+        columns={columns}
+        getRowId={(p) => p.id}
+        mobile="stacked"
+        stacked={stacked}
+        initialSorting={[{ id: 'name', desc: false }]}
+        emptyMessage="No people."
+      />,
+    )
+    const sortBy = screen.getByRole('combobox', { name: 'Sort by' })
+    const button = screen.getByRole('button', { name: 'Name' })
+    expect(sortBy).toHaveValue('name:asc')
+
+    fireEvent.click(button)
+    expect(sortBy).toHaveValue('name:desc')
+
+    fireEvent.click(button)
+    expect(sortBy).toHaveValue('name:asc')
+  })
+
+  it('runs the search filterFn once per row, not once per column', () => {
+    const filterFn = vi.fn(() => false)
+    render(
+      <FunctionalGrid
+        data={people}
+        columns={columns}
+        getRowId={(p) => p.id}
+        search={{ placeholder: 'Search…', label: 'Search people', filterFn }}
+        emptyMessage="No people."
+      />,
+    )
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search people' }), {
+      target: { value: 'zz' },
+    })
+    expect(filterFn).toHaveBeenCalledTimes(people.length)
+    expect(screen.getByText('No people.')).toBeTruthy()
   })
 
   it('applies the given initial sort', () => {

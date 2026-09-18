@@ -612,12 +612,18 @@ test.describe('Finance — Student Fees sorting', () => {
         .filter({ hasText: /E2ESort(Small|Large)/ })
         .allTextContents()
 
-    await page.getByRole('button', { name: 'Owed (prev. years)' }).click()
-    const firstClick = await rows()
-    const ascending = firstClick[0].includes(smallOwedLastName)
+    const owedHeader = page.getByRole('columnheader', {
+      name: 'Owed (prev. years)',
+    })
+    const owedButton = page.getByRole('button', { name: 'Owed (prev. years)' })
 
-    await page.getByRole('button', { name: 'Owed (prev. years)' }).click()
-    const secondClick = await rows()
-    expect(secondClick[0].includes(smallOwedLastName)).toBe(!ascending)
+    // First click sorts ascending (smallest owed first), the second descending.
+    await owedButton.click()
+    await expect(owedHeader).toHaveAttribute('aria-sort', 'ascending')
+    expect((await rows())[0]).toContain(smallOwedLastName)
+
+    await owedButton.click()
+    await expect(owedHeader).toHaveAttribute('aria-sort', 'descending')
+    expect((await rows())[0]).toContain(largeOwedLastName)
   })
 })
