@@ -2,6 +2,8 @@ import { type Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
+import DatePicker from '@/components/DatePicker'
+import PrintPageSetup from '@/components/grid/PrintPageSetup'
 import {
   getAllClasses,
   getAllStaff,
@@ -10,16 +12,15 @@ import {
 } from '@/db'
 import {
   formatCalendarDate,
-  formatTimeInSchoolTz,
   nowTimeInSchoolTz,
   todayInSchoolTz,
 } from '@/lib/datetime'
 import { compareNullableText } from '@/lib/grid/sort'
 import { isTeacher, showsOnSignInSheet } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
-import DatePicker from '@/components/DatePicker'
 
 import PrintButton from './PrintButton'
+import SignInSheetPrintTable from './SignInSheetPrintTable'
 import StaffAttendanceTable from './StaffAttendanceTable'
 
 export const metadata: Metadata = { title: 'Staff Sign-In' }
@@ -144,19 +145,6 @@ export default async function StaffAttendancePage({
         </div>
       </div>
 
-      {/* Print-only title */}
-      <div className="mb-4 hidden print:block">
-        <h1 className="text-xl font-bold">Staff Sign-In Sheet</h1>
-        <div className="mt-2">
-          <p className="text-xs font-bold tracking-wide text-gray-900 uppercase">
-            Date
-          </p>
-          <p className="mt-1 min-w-[120px] border-b border-gray-300 pb-1 text-sm">
-            &nbsp;
-          </p>
-        </div>
-      </div>
-
       {/* Screen interactive table */}
       <div className="print:hidden">
         <StaffAttendanceTable
@@ -168,67 +156,7 @@ export default async function StaffAttendancePage({
         />
       </div>
 
-      {/* Print-only static table */}
-      <div className="hidden print:block">
-        <table className="min-w-full border-collapse">
-          <thead>
-            <tr>
-              {[
-                '#',
-                'Name',
-                'Class',
-                'Room',
-                'Arrival Time',
-                'Departure Time',
-              ].map((h) => (
-                <th
-                  key={h}
-                  className="border border-gray-400 p-1 text-left text-xs font-bold text-gray-900"
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(({ staff, record }, i) => (
-              <tr key={staff.id}>
-                <td className="border border-gray-400 p-1 text-xs text-gray-500">
-                  {i + 1}
-                </td>
-                <td className="border border-gray-400 p-1 text-xs font-medium text-gray-900">
-                  {staff.display_name ??
-                    `${staff.first_name} ${staff.last_name}`}
-                </td>
-                <td className="border border-gray-400 p-1 text-xs text-gray-700">
-                  {staff.class_name ?? '—'}
-                </td>
-                <td className="border border-gray-400 p-1 text-xs text-gray-700">
-                  {staff.room_number ?? '—'}
-                </td>
-                <td className="border border-gray-400 p-1 text-xs text-gray-700">
-                  {record ? (
-                    formatTimeInSchoolTz(record.signed_in_at)
-                  ) : (
-                    <span className="block min-w-[80px] border-b border-gray-400">
-                      &nbsp;
-                    </span>
-                  )}
-                </td>
-                <td className="border border-gray-400 p-1 text-xs text-gray-700">
-                  {record?.signed_out_at ? (
-                    formatTimeInSchoolTz(record.signed_out_at)
-                  ) : (
-                    <span className="block min-w-[80px] border-b border-gray-400">
-                      &nbsp;
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <SignInSheetPrintTable rows={rows} />
     </div>
   )
 }

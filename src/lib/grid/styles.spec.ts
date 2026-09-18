@@ -19,6 +19,12 @@ import {
   stackedTitle,
   actionsCell,
   rowLink,
+  printTable,
+  printTh,
+  printTd,
+  printBlankLine,
+  printThCompact,
+  printTdCompact,
 } from './styles'
 
 describe('grid styles tokens', () => {
@@ -42,6 +48,12 @@ describe('grid styles tokens', () => {
       stackedTitle,
       actionsCell,
       rowLink,
+      printTable,
+      printTh,
+      printTd,
+      printBlankLine,
+      printThCompact,
+      printTdCompact,
     ]) {
       expect(typeof token).toBe('string')
       expect(token.length).toBeGreaterThan(0)

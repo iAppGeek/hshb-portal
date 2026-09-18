@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
+import PrintPageSetup from '@/components/grid/PrintPageSetup'
 import {
   getClassesByAcademicYear,
   getClassesByTeacher,
@@ -48,7 +49,7 @@ export default async function AllClassRegistersPage({
 
   return (
     <div className="max-w-5xl print:max-w-none">
-      <style>{`@page { size: A4 portrait; margin: 10mm; } @media print { a[href]::after { content: none !important; } }`}</style>
+      <PrintPageSetup />
 
       <div className="mb-6 flex items-center justify-between print:hidden">
         <div>

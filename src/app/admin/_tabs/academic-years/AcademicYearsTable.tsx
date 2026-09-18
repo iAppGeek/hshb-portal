@@ -2,7 +2,11 @@
 
 import { useState } from 'react'
 
-import { rowLink } from '@/lib/grid/styles'
+import Table from '@/components/grid/Table'
+import TableCard from '@/components/grid/TableCard'
+import Td from '@/components/grid/Td'
+import Th from '@/components/grid/Th'
+import { rowLink, tbody, thead } from '@/lib/grid/styles'
 import type { ActionResult } from '@/lib/schemas'
 
 import AcademicYearForm from './AcademicYearForm'
@@ -27,10 +31,6 @@ type Props = {
   ) => Promise<ActionResult>
 }
 
-const TH =
-  'px-3 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase sm:px-6'
-const TD = 'px-3 py-4 text-sm text-gray-700 sm:px-6'
-
 export default function AcademicYearsTable({
   years,
   updateAction,
@@ -40,71 +40,73 @@ export default function AcademicYearsTable({
   const currentId = years.find((y) => y.is_current)?.id ?? null
 
   return (
-    <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className={TH}>Code</th>
-              <th className={TH}>Start</th>
-              <th className={TH}>End</th>
-              <th className={TH}>Status</th>
-              <th className={TH}>Classes</th>
-              <th className={TH}>Fee plans</th>
-              <th className={TH}>Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {years.map((y) =>
-              editingId === y.id ? (
-                <tr key={y.id}>
-                  <td colSpan={7} className="px-3 py-4 sm:px-6">
-                    <AcademicYearForm
-                      mode="edit"
-                      defaultValues={y}
-                      action={(formData) => updateAction(y.id, formData)}
-                      submitLabel="Save changes"
-                      onDone={() => setEditingId(null)}
-                    />
-                  </td>
-                </tr>
-              ) : (
-                <tr key={y.id}>
-                  <td className={TD}>{y.code}</td>
-                  <td className={TD}>{y.start_date}</td>
-                  <td className={TD}>{y.end_date}</td>
-                  <td className={TD}>
-                    {y.is_current && (
-                      <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-                        Current
-                      </span>
+    <TableCard>
+      <Table>
+        <thead className={thead}>
+          <tr>
+            <Th>Code</Th>
+            <Th>Start</Th>
+            <Th>End</Th>
+            <Th>Status</Th>
+            <Th>Classes</Th>
+            <Th>Fee plans</Th>
+            <Th>Actions</Th>
+          </tr>
+        </thead>
+        <tbody className={tbody}>
+          {years.map((y) =>
+            editingId === y.id ? (
+              <tr key={y.id}>
+                <Td
+                  mobile="scroll"
+                  colSpan={7}
+                  meta={{ className: 'text-gray-900' }}
+                >
+                  <AcademicYearForm
+                    mode="edit"
+                    defaultValues={y}
+                    action={(formData) => updateAction(y.id, formData)}
+                    submitLabel="Save changes"
+                    onDone={() => setEditingId(null)}
+                  />
+                </Td>
+              </tr>
+            ) : (
+              <tr key={y.id}>
+                <Td mobile="scroll">{y.code}</Td>
+                <Td mobile="scroll">{y.start_date}</Td>
+                <Td mobile="scroll">{y.end_date}</Td>
+                <Td mobile="scroll">
+                  {y.is_current && (
+                    <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+                      Current
+                    </span>
+                  )}
+                </Td>
+                <Td mobile="scroll">{y.classCount}</Td>
+                <Td mobile="scroll">{y.feePlanCount}</Td>
+                <Td mobile="scroll">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setEditingId(y.id)}
+                      className={rowLink}
+                    >
+                      Edit
+                    </button>
+                    {!y.is_current && (
+                      <MakeCurrentButton
+                        yearCode={y.code}
+                        action={() => makeCurrentAction(y.id, currentId)}
+                      />
                     )}
-                  </td>
-                  <td className={TD}>{y.classCount}</td>
-                  <td className={TD}>{y.feePlanCount}</td>
-                  <td className={TD}>
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setEditingId(y.id)}
-                        className={rowLink}
-                      >
-                        Edit
-                      </button>
-                      {!y.is_current && (
-                        <MakeCurrentButton
-                          yearCode={y.code}
-                          action={() => makeCurrentAction(y.id, currentId)}
-                        />
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ),
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+                  </div>
+                </Td>
+              </tr>
+            ),
+          )}
+        </tbody>
+      </Table>
+    </TableCard>
   )
 }
