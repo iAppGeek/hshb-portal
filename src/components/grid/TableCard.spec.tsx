@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
-import { card, scroll } from '@/lib/grid/styles'
-
 import TableCard from './TableCard'
 
 describe('TableCard', () => {
@@ -19,9 +17,9 @@ describe('TableCard', () => {
       </TableCard>,
     )
     const content = screen.getByText('Content')
-    const scrollDiv = content.closest(`.${scroll.split(' ')[0]}`)
+    const scrollDiv = content.closest('.overflow-x-auto')
     expect(scrollDiv).not.toBeNull()
-    expect(scrollDiv?.parentElement?.className).toBe(card)
+    expect(scrollDiv?.parentElement?.className).toContain('rounded-xl')
   })
 
   it('renders only the scroll wrapper when frame is "none"', () => {
@@ -36,7 +34,17 @@ describe('TableCard', () => {
         </table>
       </TableCard>,
     )
-    expect(container.firstElementChild?.className).toBe(scroll)
+    expect(container.firstElementChild?.className).toContain('overflow-x-auto')
+    expect(container.firstElementChild?.className).not.toContain('rounded-xl')
+  })
+
+  it('appends a caller-supplied className', () => {
+    const { container } = render(
+      <TableCard className="animate-pulse">
+        <span>Inner</span>
+      </TableCard>,
+    )
+    expect(container.firstElementChild?.className).toContain('animate-pulse')
   })
 
   it('renders children', () => {

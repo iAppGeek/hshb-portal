@@ -9,7 +9,7 @@ import StudentDetailsModal, {
 } from '@/components/StudentDetailsModal'
 import Tooltip from '@/components/Tooltip'
 import { fullName, matchesAny, normaliseQuery } from '@/lib/grid/search'
-import { td, th } from '@/lib/grid/styles'
+import { tdHiddenOnMobile, th } from '@/lib/grid/styles'
 import { canEditStudents, canSeeAllData } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -128,9 +128,11 @@ export default function StudentsTable({ students, role }: Props) {
                     </td>
 
                     {/* Desktop-only columns */}
-                    <td className={td}>{student.student_code ?? '—'}</td>
-                    <td className={td}>{classNames}</td>
-                    <td className={td}>{guardianName}</td>
+                    <td className={tdHiddenOnMobile}>
+                      {student.student_code ?? '—'}
+                    </td>
+                    <td className={tdHiddenOnMobile}>{classNames}</td>
+                    <td className={tdHiddenOnMobile}>{guardianName}</td>
                     <td className="hidden px-3 py-4 text-right text-sm font-medium sm:table-cell sm:px-6">
                       <div className="flex items-center justify-end gap-3">
                         {canEditStudents(role) ? (

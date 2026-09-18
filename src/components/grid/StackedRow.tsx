@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react'
 
 import type { GridColumn, StackedRowSpec } from '@/lib/grid/columns'
-import { tdStackedSummary } from '@/lib/grid/styles'
+import { stackedTitle, tdStackedSummary } from '@/lib/grid/styles'
 
 import Td from './Td'
 import Tr from './Tr'
@@ -10,6 +10,7 @@ type Props<T> = {
   row: T
   columns: GridColumn<T>[]
   spec: StackedRowSpec<T>
+  className?: string
 }
 
 /**
@@ -21,15 +22,16 @@ export default function StackedRow<T>({
   row,
   columns,
   spec,
+  className,
 }: Props<T>): ReactElement {
   const details = spec.details(row)
   const hasDetailsLine = details.length > 0 || Boolean(spec.detailsAside)
 
   return (
-    <Tr stacked>
+    <Tr stacked className={className}>
       <td className={tdStackedSummary}>
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">{spec.title(row)}</div>
+          <div className={stackedTitle}>{spec.title(row)}</div>
           {spec.titleAside ? (
             <div className="shrink-0">{spec.titleAside(row)}</div>
           ) : null}
@@ -50,9 +52,9 @@ export default function StackedRow<T>({
           </div>
         ) : null}
       </td>
-      {columns.map((col, i) => (
+      {columns.map((col) => (
         <Td key={col.id} mobile="stacked" meta={col}>
-          {col.cell(row, i)}
+          {col.cell(row)}
         </Td>
       ))}
     </Tr>

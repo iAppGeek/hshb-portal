@@ -1,9 +1,11 @@
 import type { ReactElement } from 'react'
 import Link from 'next/link'
 
+import ActiveBadge from '@/components/ActiveBadge'
+import EditAction from '@/components/EditAction'
 import SimpleGrid from '@/components/grid/SimpleGrid'
-import Tooltip from '@/components/Tooltip'
 import type { GridColumn, StackedRowSpec } from '@/lib/grid/columns'
+import { actionsCell, rowLink } from '@/lib/grid/styles'
 import { canSeeAllData } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -31,65 +33,10 @@ type Props = {
   role: StaffRole
 }
 
-function StatusBadge({ active }: { active: boolean }): ReactElement {
-  return active ? (
-    <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-      Active
-    </span>
-  ) : (
-    <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-      Inactive
-    </span>
-  )
-}
-
 function teacherName(cls: ClassRow): string {
   return cls.teacher
     ? `${cls.teacher.last_name}, ${cls.teacher.first_name}`
     : '—'
-}
-
-function EditControl({
-  cls,
-  canEdit,
-  role,
-  size = 'desktop',
-}: {
-  cls: ClassRow
-  canEdit: boolean
-  role: StaffRole
-  size?: 'desktop' | 'mobile'
-}): ReactElement | null {
-  if (canEdit && cls.editable) {
-    return (
-      <Link
-        href={`/classes/${cls.id}/edit`}
-        className={
-          size === 'mobile'
-            ? 'ml-auto shrink-0 text-sm text-gray-500 hover:text-gray-700'
-            : 'text-gray-500 hover:text-gray-700'
-        }
-      >
-        Edit
-      </Link>
-    )
-  }
-  if (canEdit === false && canSeeAllData(role)) {
-    return (
-      <Tooltip text="You don't have permission to edit classes">
-        <span
-          className={
-            size === 'mobile'
-              ? 'ml-auto shrink-0 cursor-not-allowed text-sm text-gray-400'
-              : 'cursor-not-allowed text-gray-400'
-          }
-        >
-          Edit
-        </span>
-      </Tooltip>
-    )
-  }
-  return null
 }
 
 export default function ClassesTable({
@@ -98,7 +45,13 @@ export default function ClassesTable({
   role,
 }: Props): ReactElement {
   const columns: GridColumn<ClassRow>[] = [
-    { id: 'name', header: 'Name', primary: true, cell: (cls) => cls.name },
+    {
+      id: 'name',
+      header: 'Name',
+      primary: true,
+      className: 'sm:whitespace-nowrap',
+      cell: (cls) => cls.name,
+    },
     { id: 'year_group', header: 'Year Group', cell: (cls) => cls.year_group },
     { id: 'room', header: 'Room', cell: (cls) => cls.room_number ?? '—' },
     { id: 'teacher', header: 'Teacher', cell: (cls) => teacherName(cls) },
@@ -110,7 +63,7 @@ export default function ClassesTable({
     {
       id: 'status',
       header: 'Status',
-      cell: (cls) => <StatusBadge active={cls.active} />,
+      cell: (cls) => <ActiveBadge active={cls.active} />,
     },
     {
       id: 'actions',
@@ -118,12 +71,14 @@ export default function ClassesTable({
       srOnlyHeader: true,
       align: 'right',
       cell: (cls) => (
-        <div className="flex items-center justify-end gap-3">
-          <EditControl cls={cls} canEdit={canEdit} role={role} />
-          <Link
-            href={`/classes/${cls.id}`}
-            className="text-blue-600 hover:text-blue-800"
-          >
+        <div className={actionsCell}>
+          <EditAction
+            href={`/classes/${cls.id}/edit`}
+            canEdit={canEdit && cls.editable}
+            showDisabled={canEdit === false && canSeeAllData(role)}
+            noun="classes"
+          />
+          <Link href={`/classes/${cls.id}`} className={rowLink}>
             Details
           </Link>
         </div>
@@ -132,12 +87,19 @@ export default function ClassesTable({
   ]
 
   const stacked: StackedRowSpec<ClassRow> = {
-    title: (cls) => cls.name,
+    title: (cls) => (
+      <>
+        {cls.name}
+        <ActiveBadge active={cls.active} />
+      </>
+    ),
     titleAside: (cls) => (
-      <div className="flex items-center gap-2">
-        <StatusBadge active={cls.active} />
-        <EditControl cls={cls} canEdit={canEdit} role={role} size="mobile" />
-      </div>
+      <EditAction
+        href={`/classes/${cls.id}/edit`}
+        canEdit={canEdit && cls.editable}
+        showDisabled={canEdit === false && canSeeAllData(role)}
+        noun="classes"
+      />
     ),
     details: (cls) => [
       cls.room_number ?? '—',
@@ -147,7 +109,7 @@ export default function ClassesTable({
     detailsAside: (cls) => (
       <Link
         href={`/classes/${cls.id}`}
-        className="shrink-0 text-sm text-blue-600 hover:text-blue-800"
+        className={`shrink-0 text-sm ${rowLink}`}
       >
         Details
       </Link>

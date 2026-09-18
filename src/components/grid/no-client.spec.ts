@@ -1,34 +1,19 @@
-import { readFileSync, readdirSync, statSync } from 'fs'
+import { readFileSync } from 'fs'
 import { join } from 'path'
 
 import { describe, it, expect } from 'vitest'
 
-const FORBIDDEN_HOOKS = ['useState', 'useEffect', 'useTransition', 'useMemo']
-const HANDLER_PROP_RE = /\bon[A-Z]\w*=/
+import { walkSourceFiles } from '@/test/walkSourceFiles'
 
-function walkDir(dir: string): string[] {
-  const files: string[] = []
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (['node_modules', '.next', '.git'].includes(entry.name)) continue
-    const full = join(dir, entry.name)
-    if (statSync(full).isDirectory()) {
-      files.push(...walkDir(full))
-    } else if (
-      /\.(ts|tsx)$/.test(entry.name) &&
-      !entry.name.endsWith('.spec.ts') &&
-      !entry.name.endsWith('.spec.tsx')
-    ) {
-      files.push(full)
-    }
-  }
-  return files
-}
+const USE_CLIENT_RE = /^['"]use client['"]/
+const HOOK_CALL_RE = /\buse[A-Z]\w*\s*[<(]/
+const HANDLER_PROP_RE = /\bon[A-Z]\w*=/
 
 const gridDirs = [
   join(process.cwd(), 'src', 'components', 'grid'),
   join(process.cwd(), 'src', 'lib', 'grid'),
 ]
-const gridFiles = gridDirs.flatMap(walkDir)
+const gridFiles = gridDirs.flatMap(walkSourceFiles)
 
 describe('Shared grid code stays server-safe', () => {
   it('found grid files to check (sanity check the walk itself works)', () => {
@@ -39,21 +24,20 @@ describe('Shared grid code stays server-safe', () => {
     for (const file of gridFiles) {
       const content = readFileSync(file, 'utf-8')
       expect(
-        content.trimStart().startsWith("'use client'"),
+        USE_CLIENT_RE.test(content.trimStart()),
         `${file} must not be a client component`,
       ).toBe(false)
     }
   })
 
-  it('never uses React hooks that require client rendering', () => {
+  it("never calls a React hook (server components can't use hooks)", () => {
     for (const file of gridFiles) {
       const content = readFileSync(file, 'utf-8')
-      for (const hook of FORBIDDEN_HOOKS) {
-        expect(
-          content,
-          `${file} must not use ${hook} (server components can't use hooks)`,
-        ).not.toContain(`${hook}(`)
-      }
+      const match = content.match(HOOK_CALL_RE)
+      expect(
+        match,
+        `${file} must not call a hook${match ? ` (found "${match[0]}")` : ''}`,
+      ).toBeNull()
     }
   })
 

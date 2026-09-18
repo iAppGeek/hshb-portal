@@ -11,18 +11,19 @@ import Td from './Td'
 import Th from './Th'
 import Tr from './Tr'
 
+type MobileProps<T> =
+  | { mobile?: 'scroll' | 'hide-columns'; stacked?: never }
+  | { mobile: 'stacked'; stacked: StackedRowSpec<T> }
+
 type SimpleGridProps<T> = {
   columns: GridColumn<T>[]
   rows: T[]
   getRowKey: (row: T) => string
-  mobile?: MobileMode // default 'scroll'
-  stacked?: StackedRowSpec<T> // required when mobile = 'stacked'
   frame?: 'card' | 'none' // default 'card'
-  density?: 'comfortable' | 'compact'
   emptyMessage?: string // EmptyRow when rows is empty
   rowClassName?: (row: T) => string | undefined
   caption?: string // sr-only <caption>
-}
+} & MobileProps<T>
 
 /**
  * A server-rendered, JavaScript-free `<table>` built from shared parts and
@@ -40,14 +41,8 @@ export default function SimpleGrid<T>({
   rowClassName,
   caption,
 }: SimpleGridProps<T>): ReactElement {
-  if (mobile === 'stacked' && !stacked) {
-    throw new Error(
-      'SimpleGrid: `stacked` is required when `mobile` is "stacked"',
-    )
-  }
-
   const isStacked = mobile === 'stacked'
-  const showEmptyRow = rows.length === 0 && Boolean(emptyMessage)
+  const mobileMode: MobileMode = mobile
 
   return (
     <TableCard frame={frame}>
@@ -62,8 +57,8 @@ export default function SimpleGrid<T>({
           </tr>
         </thead>
         <tbody className={tbody}>
-          {showEmptyRow ? (
-            <EmptyRow colSpan={columns.length} message={emptyMessage!} />
+          {rows.length === 0 && emptyMessage ? (
+            <EmptyRow colSpan={columns.length} message={emptyMessage} />
           ) : (
             rows.map((row) =>
               isStacked && stacked ? (
@@ -72,12 +67,13 @@ export default function SimpleGrid<T>({
                   row={row}
                   columns={columns}
                   spec={stacked}
+                  className={rowClassName?.(row)}
                 />
               ) : (
                 <Tr key={getRowKey(row)} className={rowClassName?.(row)}>
-                  {columns.map((col, i) => (
-                    <Td key={col.id} mobile={mobile} meta={col}>
-                      {col.cell(row, i)}
+                  {columns.map((col) => (
+                    <Td key={col.id} mobile={mobileMode} meta={col}>
+                      {col.cell(row)}
                     </Td>
                   ))}
                 </Tr>

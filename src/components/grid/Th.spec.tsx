@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
-import { th } from '@/lib/grid/styles'
-
 import Th from './Th'
 
 function renderTh(props: React.ComponentProps<typeof Th>) {
@@ -18,9 +16,9 @@ function renderTh(props: React.ComponentProps<typeof Th>) {
 }
 
 describe('Th', () => {
-  it('applies the th token class', () => {
+  it('applies the header token classes', () => {
     renderTh({ children: 'Name' })
-    expect(screen.getByRole('columnheader').className).toBe(th)
+    expect(screen.getByRole('columnheader').className).toContain('font-medium')
   })
 
   it('renders header text', () => {

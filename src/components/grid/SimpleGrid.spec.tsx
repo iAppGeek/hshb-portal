@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
 import type { GridColumn, StackedRowSpec } from '@/lib/grid/columns'
-import { card, scroll, theadStacked, thead } from '@/lib/grid/styles'
 
 import SimpleGrid from './SimpleGrid'
 
@@ -75,12 +74,12 @@ describe('SimpleGrid', () => {
     expect(dataRows[1].className).not.toContain('bg-yellow-50')
   })
 
-  it('mobile="scroll" (default): header uses the visible "thead" token', () => {
+  it('mobile="scroll" (default): header is always visible (not hidden below sm)', () => {
     render(<SimpleGrid columns={columns} rows={rows} getRowKey={(r) => r.id} />)
     expect(
       screen.getByRole('columnheader', { name: 'Name' }).closest('thead')
         ?.className,
-    ).toBe(thead)
+    ).not.toContain('hidden')
   })
 
   it('mobile="hide-columns": hides columns marked meta.mobile "hide" below sm', () => {
@@ -104,7 +103,7 @@ describe('SimpleGrid', () => {
     expect(screen.getByText('R1').className).toContain('hidden sm:table-cell')
   })
 
-  it('mobile="stacked": header uses the "theadStacked" (hidden below sm) token', () => {
+  it('mobile="stacked": header is hidden below sm', () => {
     render(
       <SimpleGrid
         columns={columns}
@@ -114,10 +113,11 @@ describe('SimpleGrid', () => {
         stacked={stackedSpec}
       />,
     )
-    expect(
-      screen.getByRole('columnheader', { name: 'Name' }).closest('thead')
-        ?.className,
-    ).toBe(theadStacked)
+    const className = screen
+      .getByRole('columnheader', { name: 'Name' })
+      .closest('thead')?.className
+    expect(className).toContain('hidden')
+    expect(className).toContain('sm:table-header-group')
   })
 
   it('mobile="stacked": renders one summary cell per row, holding the title text', () => {
@@ -135,24 +135,54 @@ describe('SimpleGrid', () => {
     expect(screen.getAllByText('Year 1A')).toHaveLength(2)
   })
 
-  it('mobile="stacked": throws without a stacked spec', () => {
-    expect(() =>
-      render(
-        <SimpleGrid
-          columns={columns}
-          rows={rows}
-          getRowKey={(r) => r.id}
-          mobile="stacked"
-        />,
-      ),
-    ).toThrow()
+  it('mobile="stacked" requires a stacked spec at compile time', () => {
+    render(
+      // @ts-expect-error `stacked` is required when `mobile` is "stacked"
+      <SimpleGrid
+        columns={columns}
+        rows={rows}
+        getRowKey={(r) => r.id}
+        mobile="stacked"
+      />,
+    )
+  })
+
+  it('stacked mode with no rows and an emptyMessage renders EmptyRow spanning every column', () => {
+    render(
+      <SimpleGrid
+        columns={columns}
+        rows={[]}
+        getRowKey={(r) => r.id}
+        mobile="stacked"
+        stacked={stackedSpec}
+        emptyMessage="No classes yet."
+      />,
+    )
+    expect(screen.getByText('No classes yet.')).toBeTruthy()
+    expect(screen.getByRole('cell').getAttribute('colspan')).toBe('3')
+  })
+
+  it('applies rowClassName to each row in stacked mode', () => {
+    render(
+      <SimpleGrid
+        columns={columns}
+        rows={rows}
+        getRowKey={(r) => r.id}
+        mobile="stacked"
+        stacked={stackedSpec}
+        rowClassName={(row) => (row.id === '1' ? 'bg-yellow-50' : undefined)}
+      />,
+    )
+    const dataRows = screen.getAllByRole('row').slice(1) // drop header row
+    expect(dataRows[0].className).toContain('bg-yellow-50')
+    expect(dataRows[1].className).not.toContain('bg-yellow-50')
   })
 
   it('frame="card" (default): wraps in the card + scroll tokens', () => {
     const { container } = render(
       <SimpleGrid columns={columns} rows={rows} getRowKey={(r) => r.id} />,
     )
-    expect(container.firstElementChild?.className).toBe(card)
+    expect(container.firstElementChild?.className).toContain('rounded-xl')
   })
 
   it('frame="none": omits the card wrapper, keeps the scroll wrapper', () => {
@@ -164,7 +194,8 @@ describe('SimpleGrid', () => {
         frame="none"
       />,
     )
-    expect(container.firstElementChild?.className).toBe(scroll)
+    expect(container.firstElementChild?.className).toContain('overflow-x-auto')
+    expect(container.firstElementChild?.className).not.toContain('rounded-xl')
   })
 
   it('renders an sr-only caption when given one', () => {

@@ -30,6 +30,13 @@ describe('StackedRow', () => {
     expect(screen.getByText('A')).toBeTruthy()
   })
 
+  it('renders the title wrapper as bold and dark (matching main)', () => {
+    renderRow({ title: (r) => r.name, details: () => [] })
+    const className = screen.getByText('A').className
+    expect(className).toContain('font-medium')
+    expect(className).toContain('text-gray-900')
+  })
+
   it('renders titleAside next to the title', () => {
     renderRow({
       title: (r) => r.name,

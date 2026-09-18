@@ -1,4 +1,7 @@
 import type { ReactNode } from 'react'
+import clsx from 'clsx'
+
+import { hiddenOnMobile, tdBase, tdMuted, tdStrong } from './styles'
 
 export type MobileMode = 'scroll' | 'hide-columns' | 'stacked'
 
@@ -14,7 +17,7 @@ export type GridColumnMeta = {
 export type GridColumn<T> = GridColumnMeta & {
   id: string
   header: string
-  cell: (row: T, index: number) => ReactNode
+  cell: (row: T) => ReactNode
 }
 
 export type StackedRowSpec<T> = {
@@ -25,24 +28,21 @@ export type StackedRowSpec<T> = {
 }
 
 /**
- * Extra classes for a cell beyond the base density/visibility class the
- * caller already applies. In 'hide-columns' mode, columns marked
- * `mobile: 'hide'` collapse below `sm`; every other mode/meta combination
- * only contributes alignment and any caller-supplied className.
+ * The single place that decides a cell's classes: base padding/text size,
+ * then whether it collapses below `sm`, then whether it's bold (primary)
+ * or muted, then alignment and any caller-supplied className.
  */
 export function cellClassName(
   meta: GridColumnMeta,
   mobile: MobileMode,
 ): string {
-  const classes: string[] = []
-  if (mobile === 'hide-columns' && meta.mobile === 'hide') {
-    classes.push('hidden sm:table-cell')
-  }
-  if (meta.align === 'right') {
-    classes.push('text-right')
-  }
-  if (meta.className) {
-    classes.push(meta.className)
-  }
-  return classes.join(' ')
+  return clsx(
+    tdBase,
+    (mobile === 'stacked' ||
+      (mobile === 'hide-columns' && meta.mobile === 'hide')) &&
+      hiddenOnMobile,
+    meta.primary ? tdStrong : tdMuted,
+    meta.align === 'right' && 'text-right',
+    meta.className,
+  )
 }

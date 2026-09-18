@@ -1,12 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
-import { row, rowStacked } from '@/lib/grid/styles'
-
 import Tr from './Tr'
 
 describe('Tr', () => {
-  it('uses the "row" token by default', () => {
+  it('uses the hover-highlight class by default, not the stacked layout', () => {
     render(
       <table>
         <tbody>
@@ -16,10 +14,12 @@ describe('Tr', () => {
         </tbody>
       </table>,
     )
-    expect(screen.getByRole('row').className).toBe(row)
+    const className = screen.getByRole('row').className
+    expect(className).toContain('hover:bg-gray-50')
+    expect(className).not.toContain('sm:table-row')
   })
 
-  it('uses the "rowStacked" token when stacked is true', () => {
+  it('uses the stacked layout classes when stacked is true', () => {
     render(
       <table>
         <tbody>
@@ -29,7 +29,8 @@ describe('Tr', () => {
         </tbody>
       </table>,
     )
-    expect(screen.getByRole('row').className).toBe(rowStacked)
+    const className = screen.getByRole('row').className
+    expect(className).toContain('sm:table-row')
   })
 
   it('appends a caller-supplied className', () => {
