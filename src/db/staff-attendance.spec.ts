@@ -12,7 +12,7 @@ import {
   getStaffAttendanceByDateRange,
   signInStaff,
   signOutStaff,
-  getStaffSignedInCount,
+  getStaffAttendedCount,
 } from './staff-attendance'
 
 beforeEach(() => {
@@ -256,48 +256,40 @@ describe('signOutStaff', () => {
   })
 })
 
-// ─── getStaffSignedInCount ────────────────────────────────────────────────────
+// ─── getStaffAttendedCount ───────────────────────────────────────────────────
 
-describe('getStaffSignedInCount', () => {
-  it('returns the count of signed-in staff for a date', async () => {
-    mockFrom.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          is: vi.fn().mockResolvedValue({ count: 3, error: null }),
-        }),
-      }),
-    })
+describe('getStaffAttendedCount', () => {
+  it('counts every staff record for the date, signed out or not', async () => {
+    const eq = vi.fn().mockResolvedValue({ count: 4, error: null })
+    mockFrom.mockReturnValue({ select: vi.fn().mockReturnValue({ eq }) })
 
-    const result = await getStaffSignedInCount('2026-03-18')
-    expect(result).toBe(3)
+    const result = await getStaffAttendedCount('2026-03-18')
+    expect(result).toBe(4)
     expect(mockFrom).toHaveBeenCalledWith('staff_attendance')
+    expect(eq).toHaveBeenCalledWith('date', '2026-03-18')
   })
 
   it('returns 0 when count is null', async () => {
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          is: vi.fn().mockResolvedValue({ count: null, error: null }),
-        }),
+        eq: vi.fn().mockResolvedValue({ count: null, error: null }),
       }),
     })
 
-    const result = await getStaffSignedInCount('2026-03-18')
+    const result = await getStaffAttendedCount('2026-03-18')
     expect(result).toBe(0)
   })
 
   it('throws on database error', async () => {
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          is: vi
-            .fn()
-            .mockResolvedValue({ count: null, error: { message: 'DB error' } }),
-        }),
+        eq: vi
+          .fn()
+          .mockResolvedValue({ count: null, error: { message: 'DB error' } }),
       }),
     })
 
-    await expect(getStaffSignedInCount('2026-03-18')).rejects.toEqual({
+    await expect(getStaffAttendedCount('2026-03-18')).rejects.toEqual({
       message: 'DB error',
     })
   })

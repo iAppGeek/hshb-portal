@@ -4,8 +4,8 @@ import { render, screen } from '@testing-library/react'
 import DayReport from './DayReport'
 
 const defaultStats = [
-  { label: 'Staff signed in', value: '3/5', sub: '60%' },
-  { label: 'Students attendance', value: '8/10', sub: '80%' },
+  { label: 'Staff Attendance', value: '3/5', sub: '60%' },
+  { label: 'Student Attendance', value: '8/10', sub: '80%' },
   { label: 'Students late', value: 2, sub: null },
 ]
 
@@ -29,7 +29,7 @@ const defaultClasses = [
 describe('DayReport', () => {
   it('renders summary stat cards', () => {
     render(<DayReport stats={defaultStats} enrolmentByClass={defaultClasses} />)
-    expect(screen.getByText('Staff signed in')).toBeTruthy()
+    expect(screen.getByText('Staff Attendance')).toBeTruthy()
     expect(screen.getByText('3/5')).toBeTruthy()
     expect(screen.getByText('60%')).toBeTruthy()
     expect(screen.getAllByText('8/10')).toHaveLength(2) // stat card + table

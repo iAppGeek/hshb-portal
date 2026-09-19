@@ -13,7 +13,7 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/db', () => ({
   getAllStaff: vi.fn(),
-  getStaffSignedInCount: vi.fn(),
+  getStaffAttendedCount: vi.fn(),
   getStaffAttendanceByDateRange: vi.fn(),
   getAttendanceByDateRange: vi.fn(),
   getEnrolmentsInRange: vi.fn(),
@@ -37,7 +37,7 @@ vi.mock('./_components/PeriodReport', () => ({
 import { auth } from '@/auth'
 import {
   getAllStaff,
-  getStaffSignedInCount,
+  getStaffAttendedCount,
   getStaffAttendanceByDateRange,
   getAttendanceByDateRange,
   getEnrolmentsInRange,
@@ -53,7 +53,7 @@ beforeEach(() => {
   vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
   // Day mode defaults
   vi.mocked(getAllStaff).mockResolvedValue([])
-  vi.mocked(getStaffSignedInCount).mockResolvedValue(0)
+  vi.mocked(getStaffAttendedCount).mockResolvedValue(0)
   vi.mocked(getAttendanceByDateRange).mockResolvedValue([])
   vi.mocked(getEnrolmentsInRange).mockResolvedValue([])
   // Range mode defaults
@@ -126,7 +126,7 @@ describe('ReportsPage', () => {
       '2024-01-15',
       '2024-01-15',
     )
-    expect(getStaffSignedInCount).toHaveBeenCalledWith('2024-01-15')
+    expect(getStaffAttendedCount).toHaveBeenCalledWith('2024-01-15')
   })
 
   // ── Month mode ──────────────────────────────────────────────────────────
