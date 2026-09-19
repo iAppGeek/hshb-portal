@@ -12,7 +12,7 @@ import { canAccessReports, isTeachingStaff } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 import {
   getAllStaff,
-  getStaffSignedInCount,
+  getStaffAttendedCount,
   getStaffAttendanceByDateRange,
   getAttendanceByDateRange,
   getEnrolmentsInRange,
@@ -111,10 +111,10 @@ export default async function ReportsPage({
 
   // ── Day mode ───────────────────────────────────────────────────────────────
   if (mode === 'day') {
-    const [staff, staffSignedInCount, attendanceRows, enrolments] =
+    const [staff, staffAttendedCount, attendanceRows, enrolments] =
       await Promise.all([
         getAllStaff(),
-        getStaffSignedInCount(selectedDate),
+        getStaffAttendedCount(selectedDate),
         getAttendanceByDateRange(selectedDate, selectedDate),
         getEnrolmentsInRange(selectedDate, selectedDate),
       ])
@@ -149,12 +149,12 @@ export default async function ReportsPage({
 
     const stats = [
       {
-        label: 'Staff signed in',
-        value: `${staffSignedInCount}/${teachingStaff.length}`,
-        sub: pct(staffSignedInCount, teachingStaff.length),
+        label: 'Staff Attendance',
+        value: `${staffAttendedCount}/${teachingStaff.length}`,
+        sub: pct(staffAttendedCount, teachingStaff.length),
       },
       {
-        label: 'Students attendance',
+        label: 'Student Attendance',
         value: `${totals.distinctPresent}/${totals.distinctEnrolled}`,
         sub: pct(totals.distinctPresent, totals.distinctEnrolled),
       },

@@ -15,7 +15,6 @@ vi.mock('@/db', () => ({
   getLessonPlanCountByDate: vi.fn(),
   getAttendanceByDateRange: vi.fn(),
   getEnrolmentsInRange: vi.fn(),
-  getStaffSignedInCount: vi.fn(),
   getPendingRegistrationCount: vi.fn(),
 }))
 
@@ -49,7 +48,6 @@ import {
   getLessonPlanCountByDate,
   getAttendanceByDateRange,
   getEnrolmentsInRange,
-  getStaffSignedInCount,
   getPendingRegistrationCount,
 } from '@/db'
 import { todayInSchoolTz } from '@/lib/datetime'
@@ -100,7 +98,6 @@ function mockAdmin() {
   vi.mocked(getLessonPlanCountByDate).mockResolvedValue(0)
   vi.mocked(getAttendanceByDateRange).mockResolvedValue([])
   vi.mocked(getEnrolmentsInRange).mockResolvedValue([])
-  vi.mocked(getStaffSignedInCount).mockResolvedValue(0)
   vi.mocked(getPendingRegistrationCount).mockResolvedValue(0)
 }
 
@@ -133,7 +130,6 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Total Classes')).toBeTruthy()
     expect(screen.getByText('Attendance submitted today')).toBeTruthy()
     expect(screen.getByText('Total Teachers')).toBeTruthy()
-    expect(screen.getByText('Staff signed in today')).toBeTruthy()
     expect(screen.getByText('Total Incidents')).toBeTruthy()
     expect(screen.getByText('Lessons planned today')).toBeTruthy()
   })
@@ -196,17 +192,15 @@ describe('DashboardPage', () => {
     expect(screen.getByText('33%')).toBeTruthy()
   })
 
-  it('shows teacher count and staff signed in for admin', async () => {
+  it('shows teacher count for admin', async () => {
     mockAdmin()
     vi.mocked(getTeachers).mockResolvedValue([
       { id: 't-1' },
       { id: 't-2' },
     ] as any)
-    vi.mocked(getStaffSignedInCount).mockResolvedValue(1)
 
     render(await DashboardPage())
     expect(screen.getByText('2')).toBeTruthy()
-    expect(screen.getByText('1/2')).toBeTruthy()
   })
 
   it('does not show admin tiles for teacher', async () => {
@@ -215,7 +209,6 @@ describe('DashboardPage', () => {
     expect(screen.queryByText('Students attendance today')).toBeNull()
     expect(screen.queryByText('Attendance submitted today')).toBeNull()
     expect(screen.queryByText('Total Teachers')).toBeNull()
-    expect(screen.queryByText('Staff signed in today')).toBeNull()
     expect(screen.queryByText('Total Incidents')).toBeNull()
     expect(screen.queryByText('Lessons planned today')).toBeNull()
   })
@@ -284,7 +277,6 @@ describe('DashboardPage', () => {
     vi.mocked(getLessonPlanCountByDate).mockResolvedValue(0)
     vi.mocked(getAttendanceByDateRange).mockResolvedValue([])
     vi.mocked(getEnrolmentsInRange).mockResolvedValue([])
-    vi.mocked(getStaffSignedInCount).mockResolvedValue(0)
     vi.mocked(getPendingRegistrationCount).mockResolvedValue(0)
 
     render(await DashboardPage())
