@@ -19,7 +19,6 @@ import {
   getLessonPlanCountByDate,
   getAttendanceByDateRange,
   getEnrolmentsInRange,
-  getStaffSignedInCount,
   getPendingRegistrationCount,
 } from '@/db'
 import { summariseAttendance, type DateTotals } from '@/lib/attendanceSummary'
@@ -55,7 +54,6 @@ export default async function DashboardPage() {
     lessonPlanCount,
     attendanceRows,
     enrolments,
-    staffSignedInCount,
     pendingRegistrationCount,
   ] = await Promise.all([
     teacherOnly
@@ -67,7 +65,6 @@ export default async function DashboardPage() {
     teacherOnly ? Promise.resolve(null) : getLessonPlanCountByDate(today),
     teacherOnly ? Promise.resolve([]) : getAttendanceByDateRange(today, today),
     teacherOnly ? Promise.resolve([]) : getEnrolmentsInRange(today, today),
-    teacherOnly ? Promise.resolve(null) : getStaffSignedInCount(today),
     canReviewRegistrations(role)
       ? getPendingRegistrationCount()
       : Promise.resolve(null),
@@ -161,41 +158,24 @@ export default async function DashboardPage() {
           </div>
         </Link>
 
-        {/* Row 3: Teachers / Staff signed in */}
+        {/* Row 3: Teachers */}
         {!teacherOnly && (
-          <>
-            <Link
-              href="/staff-attendance"
-              className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:p-6"
-            >
-              <p className="text-sm text-gray-500">Staff signed in today</p>
-              <p className="mt-1 flex items-center gap-2">
-                <span className="text-3xl font-bold text-gray-900">
-                  {staffSignedInCount}/{teachers.length}
-                </span>
-                <span className="text-sm font-medium text-gray-500">
-                  {pct(staffSignedInCount ?? 0, teachers.length)}
-                </span>
+          <Link
+            href="/staff"
+            className="group flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
+          >
+            <div className="rounded-lg bg-blue-50 p-3 transition group-hover:bg-blue-100">
+              <AcademicCapIcon className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">
+                Total Teachers
               </p>
-            </Link>
-
-            <Link
-              href="/staff"
-              className="group flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
-            >
-              <div className="rounded-lg bg-blue-50 p-3 transition group-hover:bg-blue-100">
-                <AcademicCapIcon className="h-6 w-6 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">
-                  Total Teachers
-                </p>
-                <p className="mt-0.5 text-2xl font-bold text-gray-900">
-                  {teachers.length}
-                </p>
-              </div>
-            </Link>
-          </>
+              <p className="mt-0.5 text-2xl font-bold text-gray-900">
+                {teachers.length}
+              </p>
+            </div>
+          </Link>
         )}
 
         {/* Row 4: Lesson Plans / Incidents */}

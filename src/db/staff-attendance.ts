@@ -87,13 +87,15 @@ export async function getStaffAttendanceByDateRange(
   return data ?? []
 }
 
-/** Count of staff currently signed in (signed_in_at set, signed_out_at null) for a date. */
-export async function getStaffSignedInCount(date: string): Promise<number> {
+/**
+ * Count of staff who signed in at any point on a date, regardless of whether
+ * they have since signed out.
+ */
+export async function getStaffAttendedCount(date: string): Promise<number> {
   const { count, error } = await supabase
     .from('staff_attendance')
     .select('*', { count: 'exact', head: true })
     .eq('date', date)
-    .is('signed_out_at', null)
   if (error) throw error
   return count ?? 0
 }

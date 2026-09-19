@@ -144,7 +144,7 @@ export {
   getStaffAttendanceByDateRange,
   signInStaff,
   signOutStaff,
-  getStaffSignedInCount,
+  getStaffAttendedCount,
 } from './staff-attendance'
 export type { StaffAttendanceRow } from './staff-attendance'
 export {
