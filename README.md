@@ -1,6 +1,6 @@
 # HSHB Staff Portal
 
-Internal staff portal for the Hellenic School of High Barnet, deployed at [portal.hshb.org.uk](https://portal.hshb.org.uk). Handles students, staff, classes, attendance, lesson plans, incidents, timetables, reports, and audit logging across four roles (admin, headteacher, teacher, secretary).
+Internal staff portal for the Hellenic School of High Barnet, deployed at [portal.hshb.org.uk](https://portal.hshb.org.uk). Handles students, staff, classes, attendance, lesson plans, incidents, reports, and audit logging across four roles (admin, headteacher, teacher, secretary).
 
 ## Stack
 
@@ -109,7 +109,7 @@ src/
   components/      # Shared server components
   db/              # Supabase queries — one file per domain
   lib/             # Permissions, schemas, utilities
-  types/           # database.ts (auto-generated), other shared types
+  types/           # database.ts (auto-generated via npm run gen:types), other shared types
 e2e/
   auth.setup.ts    # Produces storageState per role
   global-setup.ts  # `supabase db reset` before the suite
@@ -141,6 +141,7 @@ The push notifications subscription endpoint (`/api/push/subscribe`) and all ser
 
 Active plans live in [plans/](plans/):
 
+- [refactor/](plans/refactor/README.md) — phased code-quality programme (action wrapper, form kit, Drizzle, cache removal); one brief per coding agent
 - [bulk-email-functionality.md](plans/bulk-email-functionality.md) — Resend-backed bulk email to staff, classes, all-students
 - [integration-tests.md](plans/integration-tests.md) — Playwright E2E coverage matrix (Phase 1 shipped; rest is a pending backlog)
 - [offline-read-only-mode.md](plans/offline-read-only-mode.md) — PWA offline UX + service worker work

@@ -1239,50 +1239,6 @@ export type Database = {
           },
         ]
       }
-      timetable_slots: {
-        Row: {
-          class_id: string
-          created_at: string | null
-          day_of_week: string
-          end_time: string
-          id: string
-          notes: string | null
-          room: string | null
-          start_time: string
-          subject: string | null
-        }
-        Insert: {
-          class_id: string
-          created_at?: string | null
-          day_of_week: string
-          end_time: string
-          id?: string
-          notes?: string | null
-          room?: string | null
-          start_time: string
-          subject?: string | null
-        }
-        Update: {
-          class_id?: string
-          created_at?: string | null
-          day_of_week?: string
-          end_time?: string
-          id?: string
-          notes?: string | null
-          room?: string | null
-          start_time?: string
-          subject?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'timetable_slots_class_id_fkey'
-            columns: ['class_id']
-            isOneToOne: false
-            referencedRelation: 'classes'
-            referencedColumns: ['id']
-          },
-        ]
-      }
     }
     Views: {
       [_ in never]: never
