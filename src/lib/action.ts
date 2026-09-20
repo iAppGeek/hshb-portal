@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
+import { redirect, unstable_rethrow } from 'next/navigation'
 import { z } from 'zod'
 
 import type { Actor } from '@/auth/require'
@@ -133,6 +133,9 @@ export async function runAction<TInput = undefined, TResult = void>(
   try {
     result = await run(input, { actor, formData: opts.formData })
   } catch (err) {
+    // redirect()/notFound() and friends throw framework interrupts that must
+    // reach Next, not be reported to the form as a failed save.
+    unstable_rethrow(err)
     if (err instanceof ActionError) return { error: err.message }
     logError(opts.name, err)
     return { error: getUserFriendlyDbError(err, opts.fallbackError) }

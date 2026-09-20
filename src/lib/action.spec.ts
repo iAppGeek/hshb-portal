@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 
 import { getActor } from '@/auth/require'
 import { logAuditEvent } from '@/db'
@@ -12,7 +12,11 @@ vi.mock('server-only', () => ({}))
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('@/db', () => ({ logAuditEvent: vi.fn() }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
-vi.mock('next/navigation', () => ({
+// Only `redirect` is faked, so a test can assert on the path without a real
+// navigation. Everything else stays real — `unstable_rethrow` in particular,
+// because it is what decides whether a framework interrupt escapes runAction.
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn((path: string) => {
     throw new Error(`NEXT_REDIRECT:${path}`)
   }),
@@ -297,6 +301,63 @@ describe('runAction — errors from run', () => {
     expect(mockAudit).not.toHaveBeenCalled()
     expect(mockRevalidate).not.toHaveBeenCalled()
     expect(mockRedirect).not.toHaveBeenCalled()
+  })
+})
+
+// ─── 4b. Framework interrupts thrown by run ──────────────────────────────────
+
+describe('runAction — framework interrupts from run', () => {
+  it('lets a notFound() interrupt through instead of reporting a failed save', async () => {
+    await expect(
+      runAction({
+        name: 'students.save',
+        formData: formData(),
+        run: async () => {
+          notFound()
+        },
+        fallbackError: 'Failed to save student. Please try again.',
+      }),
+    ).rejects.toThrow()
+
+    expect(consoleError).not.toHaveBeenCalled()
+  })
+
+  it('lets a redirect() called inside run through', async () => {
+    // The real redirect, not the module-level fake: only an error carrying a
+    // genuine NEXT_REDIRECT digest proves unstable_rethrow recognises it.
+    const { redirect: realRedirect } =
+      await vi.importActual<typeof import('next/navigation')>('next/navigation')
+
+    await expect(
+      runAction({
+        name: 'students.save',
+        formData: formData(),
+        run: async () => {
+          realRedirect('/students')
+        },
+        fallbackError: 'Failed to save student. Please try again.',
+      }),
+    ).rejects.toThrow()
+
+    expect(consoleError).not.toHaveBeenCalled()
+  })
+
+  it('does not audit or revalidate when run is interrupted', async () => {
+    await expect(
+      runAction({
+        name: 'students.save',
+        formData: formData(),
+        run: async () => {
+          notFound()
+        },
+        audit: { entity: 'student', action: 'update' },
+        revalidate: ['/students'],
+        fallbackError: 'Failed.',
+      }),
+    ).rejects.toThrow()
+
+    expect(mockAudit).not.toHaveBeenCalled()
+    expect(mockRevalidate).not.toHaveBeenCalled()
   })
 })
 
