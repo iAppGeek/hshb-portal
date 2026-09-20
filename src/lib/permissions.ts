@@ -54,10 +54,6 @@ export function canEditGuardians(role: StaffRole): boolean {
   return role === 'admin'
 }
 
-export function canEditTimetables(role: StaffRole): boolean {
-  return role === 'admin' || role === 'headteacher'
-}
-
 export function canCreateLessonPlans(role: StaffRole): boolean {
   return role === 'teacher' || role === 'admin' || role === 'headteacher'
 }

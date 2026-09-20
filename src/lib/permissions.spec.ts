@@ -15,7 +15,6 @@ import {
   canEditIncidents,
   canViewGuardians,
   canEditGuardians,
-  canEditTimetables,
   canUpdateAttendance,
   canManageStaffAttendance,
   canAccessReports,
@@ -50,7 +49,6 @@ const table: [string, (role: StaffRole) => boolean, StaffRole[]][] = [
   ['canEditIncidents', canEditIncidents, ['admin', 'headteacher']],
   ['canViewGuardians', canViewGuardians, ['admin']],
   ['canEditGuardians', canEditGuardians, ['admin']],
-  ['canEditTimetables', canEditTimetables, ['admin', 'headteacher']],
   [
     'canUpdateAttendance',
     canUpdateAttendance,

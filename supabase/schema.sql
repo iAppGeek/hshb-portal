@@ -1,5 +1,3 @@
--- Generated from supabase/migrations with `supabase db dump --local --schema public`. Do not edit by hand; regenerate after each migration.
-
 
 
 
@@ -1208,23 +1206,6 @@ CREATE TABLE IF NOT EXISTS "public"."students" (
 ALTER TABLE "public"."students" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."timetable_slots" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "class_id" "uuid" NOT NULL,
-    "day_of_week" "text" NOT NULL,
-    "start_time" time without time zone NOT NULL,
-    "end_time" time without time zone NOT NULL,
-    "subject" "text",
-    "room" "text",
-    "notes" "text",
-    "created_at" timestamp with time zone DEFAULT "now"(),
-    CONSTRAINT "timetable_slots_day_of_week_check" CHECK (("day_of_week" = ANY (ARRAY['Monday'::"text", 'Tuesday'::"text", 'Wednesday'::"text", 'Thursday'::"text", 'Friday'::"text", 'Saturday'::"text", 'Sunday'::"text"])))
-);
-
-
-ALTER TABLE "public"."timetable_slots" OWNER TO "postgres";
-
-
 ALTER TABLE ONLY "public"."academic_years"
     ADD CONSTRAINT "academic_years_code_key" UNIQUE ("code");
 
@@ -1395,11 +1376,6 @@ ALTER TABLE ONLY "public"."students"
 
 
 
-ALTER TABLE ONLY "public"."timetable_slots"
-    ADD CONSTRAINT "timetable_slots_pkey" PRIMARY KEY ("id");
-
-
-
 CREATE UNIQUE INDEX "academic_years_one_current" ON "public"."academic_years" USING "btree" ("is_current") WHERE "is_current";
 
 
@@ -1565,14 +1541,6 @@ CREATE INDEX "students_secondary_guardian_id_idx" ON "public"."students" USING "
 
 
 CREATE INDEX "students_student_code_idx" ON "public"."students" USING "btree" ("student_code");
-
-
-
-CREATE INDEX "timetable_slots_class_id_idx" ON "public"."timetable_slots" USING "btree" ("class_id");
-
-
-
-CREATE INDEX "timetable_slots_day_of_week_idx" ON "public"."timetable_slots" USING "btree" ("day_of_week");
 
 
 
@@ -1818,11 +1786,6 @@ ALTER TABLE ONLY "public"."students"
 
 
 
-ALTER TABLE ONLY "public"."timetable_slots"
-    ADD CONSTRAINT "timetable_slots_class_id_fkey" FOREIGN KEY ("class_id") REFERENCES "public"."classes"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE "public"."academic_years" ENABLE ROW LEVEL SECURITY;
 
 
@@ -1881,9 +1844,6 @@ ALTER TABLE "public"."student_payments" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."students" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."timetable_slots" ENABLE ROW LEVEL SECURITY;
 
 
 GRANT USAGE ON SCHEMA "public" TO "postgres";
@@ -2090,12 +2050,6 @@ GRANT ALL ON TABLE "public"."student_payments" TO "service_role";
 GRANT ALL ON TABLE "public"."students" TO "anon";
 GRANT ALL ON TABLE "public"."students" TO "authenticated";
 GRANT ALL ON TABLE "public"."students" TO "service_role";
-
-
-
-GRANT ALL ON TABLE "public"."timetable_slots" TO "anon";
-GRANT ALL ON TABLE "public"."timetable_slots" TO "authenticated";
-GRANT ALL ON TABLE "public"."timetable_slots" TO "service_role";
 
 
 

@@ -102,7 +102,6 @@ export {
   migrateClass,
 } from './classes'
 export type { MigrationAction, MigrateClassResult } from './classes'
-export { getAllTimetableSlots, getTimetableByClass } from './timetable'
 export {
   getIncidentCount,
   getIncidents,

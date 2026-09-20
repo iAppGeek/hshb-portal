@@ -1,6 +1,6 @@
 # HSHB Staff Portal
 
-Internal staff portal for the Hellenic School of High Barnet, deployed at [portal.hshb.org.uk](https://portal.hshb.org.uk). Handles students, staff, classes, attendance, lesson plans, incidents, timetables, reports, and audit logging across four roles (admin, headteacher, teacher, secretary).
+Internal staff portal for the Hellenic School of High Barnet, deployed at [portal.hshb.org.uk](https://portal.hshb.org.uk). Handles students, staff, classes, attendance, lesson plans, incidents, reports, and audit logging across four roles (admin, headteacher, teacher, secretary).
 
 ## Stack
 

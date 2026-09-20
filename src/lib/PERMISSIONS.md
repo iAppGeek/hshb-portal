@@ -14,7 +14,6 @@ Four roles exist: **teacher**, **admin**, **headteacher**, **secretary**.
 | Edit classes            | -       | Yes   | Yes         | -         |
 | Edit guardians          | -       | Yes   | -           | -         |
 | Edit incidents          | -       | Yes   | Yes         | -         |
-| Edit timetables         | -       | Yes   | Yes         | -         |
 | Create lesson plans     | Yes     | Yes   | Yes         | -         |
 | Edit lesson plans       | Yes     | Yes   | Yes         | -         |
 | Update attendance       | Yes     | Yes   | Yes         | -         |
