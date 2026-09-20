@@ -1,7 +1,6 @@
 import { type Metadata } from 'next'
-import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireSession } from '@/auth/require'
 import DatePicker from '@/components/DatePicker'
 import PrintPageSetup from '@/components/grid/PrintPageSetup'
 import {
@@ -30,11 +29,9 @@ export default async function StaffAttendancePage({
 }: {
   searchParams: Promise<{ date?: string }>
 }) {
-  const session = await auth()
-  if (!session) redirect('/login')
-
-  const role = session.user?.role as StaffRole
-  const staffId = session.user?.staffId ?? ''
+  const actor = await requireSession()
+  const role = actor.role
+  const staffId = actor.staffId
 
   const today = todayInSchoolTz()
   const currentTime = nowTimeInSchoolTz()
@@ -48,9 +45,9 @@ export default async function StaffAttendancePage({
     const myClass = classes.find((c) => c.teacher_id === staffId)
     const staffRow = {
       id: staffId,
-      first_name: session.user.name?.split(' ')[0] ?? '',
-      last_name: session.user.name?.split(' ').slice(1).join(' ') ?? '',
-      display_name: session.user.name ?? null,
+      first_name: actor.name?.split(' ')[0] ?? '',
+      last_name: actor.name?.split(' ').slice(1).join(' ') ?? '',
+      display_name: actor.name ?? null,
       class_name: myClass?.name ?? null,
       room_number: myClass?.room_number ?? null,
     }

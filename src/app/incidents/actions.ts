@@ -1,112 +1,78 @@
 'use server'
 
-import { redirect } from 'next/navigation'
-import { revalidatePath } from 'next/cache'
-
-import { auth } from '@/auth'
-import { createIncident, updateIncident, logAuditEvent } from '@/db'
+import { createIncident, updateIncident } from '@/db'
+import { runAction, type ActionResult } from '@/lib/action'
 import { datetimeLocalToUtcIso } from '@/lib/datetime'
-import { getUserFriendlyDbError } from '@/lib/db-error'
 import { canEditIncidents } from '@/lib/permissions'
-import {
-  createIncidentSchema,
-  updateIncidentSchema,
-  extractFormFields,
-  type ActionResult,
-} from '@/lib/schemas'
-import type { StaffRole } from '@/types/next-auth'
+import { createIncidentSchema, updateIncidentSchema } from '@/lib/schemas'
 
+function notifiedAt(
+  parentNotified: boolean,
+  parentNotifiedAt: string | null,
+): string | null {
+  return parentNotified && parentNotifiedAt
+    ? datetimeLocalToUtcIso(parentNotifiedAt)
+    : null
+}
+
+// TODO(plan-05): align with canEditIncidents
 export async function createIncidentAction(
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session) return { error: 'Unauthorised' }
-
-  const raw = extractFormFields(formData)
-  const parsed = createIncidentSchema.safeParse(raw)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
-  const { type, parent_notified, parent_notified_at, incident_date, ...rest } =
-    parsed.data
-  const created_by = session.user.staffId!
-
-  try {
-    const incident = await createIncident({
-      type,
-      ...rest,
-      incident_date: datetimeLocalToUtcIso(incident_date),
-      created_by,
-      parent_notified,
-      parent_notified_at:
-        parent_notified && parent_notified_at
-          ? datetimeLocalToUtcIso(parent_notified_at)
-          : null,
-    })
-    logAuditEvent({
-      staffId: created_by,
-      action: 'create',
+  return runAction({
+    name: 'incidents.create',
+    schema: createIncidentSchema,
+    formData,
+    run: async (
+      { type, parent_notified, parent_notified_at, incident_date, ...rest },
+      { actor },
+    ) => {
+      const incident = await createIncident({
+        type,
+        ...rest,
+        incident_date: datetimeLocalToUtcIso(incident_date),
+        created_by: actor.staffId,
+        parent_notified,
+        parent_notified_at: notifiedAt(parent_notified, parent_notified_at),
+      })
+      return { id: incident.id, type }
+    },
+    audit: {
       entity: 'incident',
-      entityId: incident.id,
-      details: parsed.data as Record<string, unknown>,
-    })
-    revalidatePath('/incidents')
-  } catch (err) {
-    console.error('[createIncidentAction] error:', err)
-    return {
-      error: getUserFriendlyDbError(
-        err,
-        'Failed to create incident. Please try again.',
-      ),
-    }
-  }
-
-  redirect(`/incidents?tab=${type}`)
+      action: 'create',
+      entityId: (result) => result.id,
+    },
+    revalidate: ['/incidents'],
+    redirectTo: (result) => `/incidents?tab=${result.type}`,
+    fallbackError: 'Failed to create incident. Please try again.',
+  })
 }
 
 export async function updateIncidentAction(
   id: string,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session || !canEditIncidents(session.user.role as StaffRole))
-    return { error: 'Unauthorised' }
-
-  const raw = extractFormFields(formData)
-  const parsed = updateIncidentSchema.safeParse(raw)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
-  const { type, parent_notified, parent_notified_at, incident_date, ...rest } =
-    parsed.data
-  const updated_by = session.user.staffId!
-
-  try {
-    await updateIncident(id, {
-      ...rest,
-      incident_date: datetimeLocalToUtcIso(incident_date),
-      updated_by,
-      parent_notified,
-      parent_notified_at:
-        parent_notified && parent_notified_at
-          ? datetimeLocalToUtcIso(parent_notified_at)
-          : null,
-    })
-    logAuditEvent({
-      staffId: updated_by,
-      action: 'update',
-      entity: 'incident',
-      entityId: id,
-      details: parsed.data as Record<string, unknown>,
-    })
-    revalidatePath('/incidents')
-  } catch (err) {
-    console.error('[updateIncidentAction] error:', err)
-    return {
-      error: getUserFriendlyDbError(
-        err,
-        'Failed to update incident. Please try again.',
-      ),
-    }
-  }
-
-  redirect(`/incidents?tab=${type}`)
+  return runAction({
+    name: 'incidents.update',
+    permission: canEditIncidents,
+    schema: updateIncidentSchema,
+    formData,
+    run: async (
+      { type, parent_notified, parent_notified_at, incident_date, ...rest },
+      { actor },
+    ) => {
+      await updateIncident(id, {
+        ...rest,
+        incident_date: datetimeLocalToUtcIso(incident_date),
+        updated_by: actor.staffId,
+        parent_notified,
+        parent_notified_at: notifiedAt(parent_notified, parent_notified_at),
+      })
+      return { type }
+    },
+    audit: { entity: 'incident', action: 'update', entityId: () => id },
+    revalidate: ['/incidents'],
+    redirectTo: (result) => `/incidents?tab=${result.type}`,
+    fallbackError: 'Failed to update incident. Please try again.',
+  })
 }

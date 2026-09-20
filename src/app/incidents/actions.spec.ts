@@ -2,14 +2,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { getActor } from '@/auth/require'
 import { createIncident, updateIncident } from '@/db'
 import { getUserFriendlyDbError } from '@/lib/db-error'
 
 import { createIncidentAction, updateIncidentAction } from './actions'
 
-vi.mock('@/auth', () => ({ auth: vi.fn() }))
-vi.mock('next/navigation', () => ({ redirect: vi.fn() }))
+vi.mock('server-only', () => ({}))
+vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
+  redirect: vi.fn(),
+}))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/db', () => ({
   createIncident: vi.fn(),
@@ -24,12 +28,17 @@ const STAFF_ID = '00000000-0000-4000-8000-000000000001'
 const STUDENT_ID = '00000000-0000-4000-8000-000000000010'
 const INCIDENT_ID = '00000000-0000-4000-8000-000000000020'
 
-const adminSession = { user: { staffId: STAFF_ID, role: 'admin' } }
-const teacherSession = { user: { staffId: STAFF_ID, role: 'teacher' } }
+const adminSession = { staffId: STAFF_ID, role: 'admin', name: null, email: '' }
+const teacherSession = {
+  staffId: STAFF_ID,
+  role: 'teacher',
+  name: null,
+  email: '',
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(auth).mockResolvedValue(adminSession as any)
+  vi.mocked(getActor).mockResolvedValue(adminSession as any)
 })
 
 function makeFormData(fields: Record<string, string>): FormData {
@@ -63,10 +72,10 @@ const baseUpdateFields: Record<string, string> = {
 
 describe('createIncidentAction', () => {
   it('returns error when not authenticated', async () => {
-    vi.mocked(auth).mockResolvedValue(null as any)
+    vi.mocked(getActor).mockResolvedValue(null as any)
 
     const result = await createIncidentAction(makeFormData(baseCreateFields))
-    expect(result).toEqual({ error: 'Unauthorised' })
+    expect(result).toEqual({ error: 'Not authenticated' })
     expect(createIncident).not.toHaveBeenCalled()
   })
 
@@ -74,7 +83,7 @@ describe('createIncidentAction', () => {
     const fields = { ...baseCreateFields, title: '' }
     const result = await createIncidentAction(makeFormData(fields))
 
-    expect(result).toEqual({ error: expect.any(String) })
+    expect(result).toMatchObject({ error: expect.any(String) })
     expect(createIncident).not.toHaveBeenCalled()
   })
 
@@ -144,24 +153,24 @@ describe('createIncidentAction', () => {
 
 describe('updateIncidentAction', () => {
   it('returns error when not authenticated', async () => {
-    vi.mocked(auth).mockResolvedValue(null as any)
+    vi.mocked(getActor).mockResolvedValue(null as any)
 
     const result = await updateIncidentAction(
       INCIDENT_ID,
       makeFormData(baseUpdateFields),
     )
-    expect(result).toEqual({ error: 'Unauthorised' })
+    expect(result).toEqual({ error: 'Not authenticated' })
     expect(updateIncident).not.toHaveBeenCalled()
   })
 
   it('returns error when not authorised', async () => {
-    vi.mocked(auth).mockResolvedValue(teacherSession as any)
+    vi.mocked(getActor).mockResolvedValue(teacherSession as any)
 
     const result = await updateIncidentAction(
       INCIDENT_ID,
       makeFormData(baseUpdateFields),
     )
-    expect(result).toEqual({ error: 'Unauthorised' })
+    expect(result).toEqual({ error: 'Not authorised' })
     expect(updateIncident).not.toHaveBeenCalled()
   })
 
@@ -203,7 +212,7 @@ describe('updateIncidentAction', () => {
     const fields = { ...baseUpdateFields, description: '' }
     const result = await updateIncidentAction(INCIDENT_ID, makeFormData(fields))
 
-    expect(result).toEqual({ error: expect.any(String) })
+    expect(result).toMatchObject({ error: expect.any(String) })
     expect(updateIncident).not.toHaveBeenCalled()
   })
 })

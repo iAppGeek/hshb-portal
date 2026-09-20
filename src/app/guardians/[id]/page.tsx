@@ -2,13 +2,12 @@ import { type Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireSession } from '@/auth/require'
 import { getGuardianById, getFamilyForGuardian } from '@/db'
 import type { FamilySlot } from '@/db'
 import LeaverBadge from '@/components/LeaverBadge'
 import { mailtoWithBcc } from '@/lib/mailto'
 import { canViewGuardians } from '@/lib/permissions'
-import type { StaffRole } from '@/types/next-auth'
 
 export const metadata: Metadata = { title: 'Guardian' }
 
@@ -24,8 +23,8 @@ export default async function GuardianFamilyPage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  const session = await auth()
-  const role = session?.user?.role as StaffRole
+  const actor = await requireSession()
+  const role = actor.role
 
   if (!canViewGuardians(role)) {
     redirect('/students')

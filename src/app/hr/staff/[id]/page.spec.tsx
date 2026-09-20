@@ -7,8 +7,10 @@ import { getAllStaff, getStaffById, getStaffPayrollByStaffId } from '@/db'
 
 import StaffPayrollPage from './page'
 
+vi.mock('server-only', () => ({}))
 vi.mock('@/auth', () => ({ auth: vi.fn() }))
-vi.mock('next/navigation', () => ({
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`)
   }),
@@ -38,7 +40,9 @@ const params = Promise.resolve({ id: 's1' })
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as never)
+  vi.mocked(auth).mockResolvedValue({
+    user: { role: 'admin', staffId: 'staff-1' },
+  } as never)
   vi.mocked(getStaffById).mockResolvedValue({
     id: 's1',
     title: 'Dr',
@@ -55,7 +59,9 @@ describe('StaffPayrollPage', () => {
   it.each(['teacher', 'headteacher', 'secretary'])(
     'redirects %s to the dashboard',
     async (role) => {
-      vi.mocked(auth).mockResolvedValue({ user: { role } } as never)
+      vi.mocked(auth).mockResolvedValue({
+        user: { role, staffId: 'staff-1' },
+      } as never)
       await expect(StaffPayrollPage({ params })).rejects.toThrow(
         'NEXT_REDIRECT:/dashboard',
       )

@@ -6,8 +6,10 @@ import { auth } from '@/auth'
 
 import HrPage from './page'
 
+vi.mock('server-only', () => ({}))
 vi.mock('@/auth', () => ({ auth: vi.fn() }))
-vi.mock('next/navigation', () => ({
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn(() => {
     throw new Error('NEXT_REDIRECT')
   }),
@@ -17,7 +19,9 @@ vi.mock('./_components/StaffPayrollList', () => ({
 }))
 
 function mockRole(role: string | null): void {
-  vi.mocked(auth).mockResolvedValue((role ? { user: { role } } : null) as never)
+  vi.mocked(auth).mockResolvedValue(
+    (role ? { user: { role, staffId: 'staff-1' } } : null) as never,
+  )
 }
 
 beforeEach(() => {
@@ -25,7 +29,13 @@ beforeEach(() => {
 })
 
 describe('HrPage', () => {
-  it.each([null, 'headteacher', 'secretary', 'teacher'])(
+  it('redirects a signed-out visitor to the login page', async () => {
+    mockRole(null)
+    await expect(HrPage()).rejects.toThrow('NEXT_REDIRECT')
+    expect(redirect).toHaveBeenCalledWith('/login')
+  })
+
+  it.each(['headteacher', 'secretary', 'teacher'])(
     'redirects %s to the dashboard',
     async (role) => {
       mockRole(role)

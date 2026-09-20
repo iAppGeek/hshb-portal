@@ -13,6 +13,7 @@ import {
 
 import RegistrationDetailPage from './page'
 
+vi.mock('server-only', () => ({}))
 vi.mock('@/auth', () => ({ auth: vi.fn() }))
 
 vi.mock('@/db', () => ({
@@ -23,7 +24,10 @@ vi.mock('@/db', () => ({
   findGuardianMatches: vi.fn(),
 }))
 
-vi.mock('next/navigation', () => ({ redirect: vi.fn() }))
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
+  redirect: vi.fn(),
+}))
 
 vi.mock('./RegistrationReview', () => ({
   default: ({
@@ -59,7 +63,7 @@ beforeEach(() => {
 describe('RegistrationDetailPage', () => {
   it('redirects teacher to dashboard', async () => {
     vi.mocked(auth).mockResolvedValue({
-      user: { role: 'teacher' },
+      user: { role: 'teacher', staffId: 'staff-1' },
     } as never)
     vi.mocked(redirect).mockImplementation(() => {
       throw new Error('NEXT_REDIRECT')
@@ -71,7 +75,7 @@ describe('RegistrationDetailPage', () => {
     expect(redirect).toHaveBeenCalledWith('/dashboard')
   })
 
-  it('redirects unauthenticated users to dashboard', async () => {
+  it('redirects unauthenticated users to the login page', async () => {
     vi.mocked(auth).mockResolvedValue(null as never)
     vi.mocked(redirect).mockImplementation(() => {
       throw new Error('NEXT_REDIRECT')
@@ -80,12 +84,12 @@ describe('RegistrationDetailPage', () => {
     await expect(
       RegistrationDetailPage({ params: Promise.resolve({ id: 'sub-1' }) }),
     ).rejects.toThrow('NEXT_REDIRECT')
-    expect(redirect).toHaveBeenCalledWith('/dashboard')
+    expect(redirect).toHaveBeenCalledWith('/login')
   })
 
   it('redirects to the list when the submission is not found', async () => {
     vi.mocked(auth).mockResolvedValue({
-      user: { role: 'secretary' },
+      user: { role: 'secretary', staffId: 'staff-1' },
     } as never)
     vi.mocked(getRegistrationSubmissionById).mockResolvedValue(null)
     vi.mocked(redirect).mockImplementation(() => {
@@ -100,7 +104,7 @@ describe('RegistrationDetailPage', () => {
 
   it('fetches student matches, linking candidates and classes for admin', async () => {
     vi.mocked(auth).mockResolvedValue({
-      user: { role: 'admin' },
+      user: { role: 'admin', staffId: 'staff-1' },
     } as never)
     vi.mocked(getRegistrationSubmissionById).mockResolvedValue(
       submission as never,
@@ -131,7 +135,7 @@ describe('RegistrationDetailPage', () => {
 
   it('does not fetch matches or linking candidates for non-admin reviewers', async () => {
     vi.mocked(auth).mockResolvedValue({
-      user: { role: 'secretary' },
+      user: { role: 'secretary', staffId: 'staff-1' },
     } as never)
     vi.mocked(getRegistrationSubmissionById).mockResolvedValue(
       submission as never,
@@ -153,7 +157,7 @@ describe('RegistrationDetailPage', () => {
 
   it('fetches guardian matches per contact for admin', async () => {
     vi.mocked(auth).mockResolvedValue({
-      user: { role: 'admin' },
+      user: { role: 'admin', staffId: 'staff-1' },
     } as never)
     vi.mocked(getRegistrationSubmissionById).mockResolvedValue({
       ...submission,
@@ -199,7 +203,7 @@ describe('RegistrationDetailPage', () => {
 
   it('still renders with no matches when findGuardianMatches rejects', async () => {
     vi.mocked(auth).mockResolvedValue({
-      user: { role: 'admin' },
+      user: { role: 'admin', staffId: 'staff-1' },
     } as never)
     vi.mocked(getRegistrationSubmissionById).mockResolvedValue({
       ...submission,
@@ -225,7 +229,7 @@ describe('RegistrationDetailPage', () => {
 
   it('still renders with no matches when findStudentMatches rejects', async () => {
     vi.mocked(auth).mockResolvedValue({
-      user: { role: 'admin' },
+      user: { role: 'admin', staffId: 'staff-1' },
     } as never)
     vi.mocked(getRegistrationSubmissionById).mockResolvedValue(
       submission as never,

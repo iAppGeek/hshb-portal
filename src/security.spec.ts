@@ -79,15 +79,36 @@ describe('Client components', () => {
 })
 
 describe('Server actions', () => {
-  it("call await auth() unless they're in the public /register tree", () => {
-    for (const file of allFiles) {
+  function serverActionFiles(): string[] {
+    return allFiles.filter((file) =>
+      stripTypeImports(readFileSync(file, 'utf-8'))
+        .trimStart()
+        .startsWith("'use server'"),
+    )
+  }
+
+  it('go through runAction', () => {
+    for (const file of serverActionFiles()) {
       const content = stripTypeImports(readFileSync(file, 'utf-8'))
-      if (!content.trimStart().startsWith("'use server'")) continue
-      if (file.includes(join('app', 'register') + '/')) continue
       expect(
         content,
-        `${file} is a server action outside the public /register tree and must call await auth()`,
-      ).toContain('await auth()')
+        `${file} is a server action and must import runAction from @/lib/action`,
+      ).toContain("from '@/lib/action'")
+      expect(
+        content,
+        `${file} is a server action and must call runAction`,
+      ).toContain('runAction(')
+    }
+  })
+
+  it('only opt out of the session check inside the public /register tree', () => {
+    for (const file of serverActionFiles()) {
+      if (file.includes(join('app', 'register') + '/')) continue
+      const content = stripTypeImports(readFileSync(file, 'utf-8'))
+      expect(
+        content,
+        `${file} is outside the public /register tree and must not pass public: true`,
+      ).not.toContain('public: true')
     }
   })
 })

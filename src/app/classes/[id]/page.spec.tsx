@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 
+vi.mock('server-only', () => ({}))
 vi.mock('@/auth', () => ({
   auth: vi.fn(),
 }))
@@ -9,7 +10,8 @@ vi.mock('@/db', () => ({
   getClassWithStudents: vi.fn(),
 }))
 
-vi.mock('next/navigation', () => ({
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn((url: string) => {
     throw new Error(`REDIRECT:${url}`)
   }),

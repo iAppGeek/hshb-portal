@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
-vi.mock('next/navigation', () => ({
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   useRouter: vi.fn(() => ({ replace: vi.fn() })),
   useSearchParams: vi.fn(() => ({ get: vi.fn(() => 'medical') })),
 }))

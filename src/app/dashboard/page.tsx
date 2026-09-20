@@ -8,7 +8,7 @@ import {
   InboxIcon,
 } from '@heroicons/react/24/outline'
 
-import { auth } from '@/auth'
+import { requireSession } from '@/auth/require'
 import {
   getStudentCount,
   getStudentsByTeacher,
@@ -25,7 +25,6 @@ import { summariseAttendance, type DateTotals } from '@/lib/attendanceSummary'
 import { todayInSchoolTz } from '@/lib/datetime'
 import { isTeacher, canReviewRegistrations } from '@/lib/permissions'
 import { roleLabels } from '@/lib/roleLabels'
-import type { StaffRole } from '@/types/next-auth'
 
 export const metadata: Metadata = { title: 'Dashboard' }
 
@@ -33,9 +32,9 @@ const pct = (n: number, total: number) =>
   total > 0 ? `${Math.round((n / total) * 100)}%` : '—'
 
 export default async function DashboardPage() {
-  const session = await auth()
-  const role = session?.user?.role as StaffRole
-  const staffId = session?.user?.staffId
+  const actor = await requireSession()
+  const role = actor.role
+  const staffId = actor.staffId
   const teacherOnly = isTeacher(role)
   const today = todayInSchoolTz()
 
@@ -82,7 +81,7 @@ export default async function DashboardPage() {
     <>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">
-          Welcome back, {session?.user?.name?.split(' ')[0]}
+          Welcome back, {actor.name?.split(' ')[0]}
         </h1>
         <p className="mt-1 text-sm text-gray-500">{roleLabels[role]}</p>
       </div>

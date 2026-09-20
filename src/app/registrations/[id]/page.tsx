@@ -1,7 +1,8 @@
 import { type Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireRole } from '@/auth/require'
+import { logError } from '@/lib/log'
 import {
   getRegistrationSubmissionById,
   findStudentMatches,
@@ -15,7 +16,6 @@ import {
   canReviewRegistrations,
   canApproveRegistrations,
 } from '@/lib/permissions'
-import type { StaffRole } from '@/types/next-auth'
 
 import RegistrationReview from './RegistrationReview'
 
@@ -26,12 +26,7 @@ export default async function RegistrationDetailPage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  const session = await auth()
-  const role = session?.user?.role as StaffRole | undefined
-
-  if (!role || !canReviewRegistrations(role)) {
-    redirect('/dashboard')
-  }
+  const { role } = await requireRole(canReviewRegistrations)
 
   const { id } = await params
   const submission = await getRegistrationSubmissionById(id)
@@ -49,10 +44,7 @@ export default async function RegistrationDetailPage({
           lastName: submission.child_last_name,
           dateOfBirth: submission.date_of_birth,
         }).catch((err: unknown) => {
-          console.error(
-            '[RegistrationDetailPage] findStudentMatches failed:',
-            err,
-          )
+          logError('registrations.detail.findStudentMatches', err)
           return [] as StudentMatch[]
         })
       : Promise.resolve([]),
@@ -69,10 +61,7 @@ export default async function RegistrationDetailPage({
           phone: c.phone,
           lastName: c.last_name,
         }).catch((err: unknown) => {
-          console.error(
-            '[RegistrationDetailPage] findGuardianMatches failed:',
-            err,
-          )
+          logError('registrations.detail.findGuardianMatches', err)
           return [] as GuardianMatch[]
         }),
       ),

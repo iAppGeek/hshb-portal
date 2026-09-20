@@ -4,7 +4,8 @@ import userEvent from '@testing-library/user-event'
 
 const pushMock = vi.fn()
 
-vi.mock('next/navigation', () => ({
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   useRouter: () => ({ push: pushMock }),
 }))
 

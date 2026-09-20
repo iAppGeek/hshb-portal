@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
+vi.mock('server-only', () => ({}))
 vi.mock('@/auth', () => ({
   auth: vi.fn(),
 }))
 
-vi.mock('next/navigation', () => ({
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn().mockImplementation((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`)
   }),
@@ -51,7 +53,9 @@ beforeEach(() => {
 
 describe('EditIncidentPage', () => {
   it('redirects to /incidents for teacher role', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'teacher' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'teacher', staffId: 'staff-1' },
+    } as any)
 
     await expect(EditIncidentPage({ params })).rejects.toThrow(
       'NEXT_REDIRECT:/incidents',
@@ -59,7 +63,9 @@ describe('EditIncidentPage', () => {
   })
 
   it('redirects to /incidents for secretary role', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'secretary' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'secretary', staffId: 'staff-1' },
+    } as any)
 
     await expect(EditIncidentPage({ params })).rejects.toThrow(
       'NEXT_REDIRECT:/incidents',
@@ -67,7 +73,9 @@ describe('EditIncidentPage', () => {
   })
 
   it('redirects to /incidents when incident not found', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getIncidentById).mockResolvedValue(null as any)
 
     await expect(EditIncidentPage({ params })).rejects.toThrow(
@@ -76,14 +84,18 @@ describe('EditIncidentPage', () => {
   })
 
   it('renders heading for admin', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
 
     render(await EditIncidentPage({ params }))
     expect(screen.getByText('Edit Incident')).toBeTruthy()
   })
 
   it('renders EditIncidentForm for admin', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
 
     render(await EditIncidentPage({ params }))
     expect(
@@ -92,7 +104,9 @@ describe('EditIncidentPage', () => {
   })
 
   it('renders EditIncidentForm for headteacher', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'headteacher' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'headteacher', staffId: 'staff-1' },
+    } as any)
 
     render(await EditIncidentPage({ params }))
     expect(

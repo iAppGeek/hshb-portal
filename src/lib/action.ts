@@ -77,9 +77,13 @@ export type RunActionOptions<TInput, TResult> =
       permission?: never
     })
 
-/** Preserved verbatim: E2E tests and dialogs match on these strings. */
-const NOT_AUTHENTICATED = 'Not authenticated'
-const NOT_AUTHORISED = 'Not authorised'
+/**
+ * Preserved verbatim: E2E tests and dialogs match on these strings. Exported so
+ * that an action whose permission check needs the parsed input (and so cannot
+ * use `permission`) can throw the same message.
+ */
+export const NOT_AUTHENTICATED = 'Not authenticated'
+export const NOT_AUTHORISED = 'Not authorised'
 
 /** The first message per field, which is all the forms render. */
 function firstFieldErrors(error: z.ZodError): Record<string, string> {

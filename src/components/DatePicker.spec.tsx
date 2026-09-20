@@ -4,7 +4,8 @@ import { render, screen, fireEvent } from '@testing-library/react'
 const mockPush = vi.fn()
 const mockStartTransition = vi.fn((cb: () => void) => cb())
 
-vi.mock('next/navigation', () => ({
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   useRouter: () => ({ push: mockPush }),
 }))
 

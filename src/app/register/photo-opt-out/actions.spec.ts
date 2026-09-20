@@ -7,6 +7,8 @@ import { verifyTurnstileToken } from '@/lib/turnstile'
 
 import { submitPhotoOptOutAction } from './actions'
 
+vi.mock('server-only', () => ({}))
+vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('@/db', () => ({
   createPhotoOptOut: vi.fn(),
   logAuditEvent: vi.fn(),
@@ -27,7 +29,8 @@ vi.mock('@/lib/request-ip', () => ({
   getClientIp: vi.fn(),
 }))
 
-vi.mock('next/navigation', () => ({
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn(),
 }))
 
@@ -113,8 +116,11 @@ describe('submitPhotoOptOutAction', () => {
     expect(createPhotoOptOut).toHaveBeenCalledWith(
       expect.not.objectContaining({ turnstile_token: expect.anything() }),
     )
+    // `details` is deliberately empty: the submission itself must not be
+    // copied into the audit log.
     expect(logAuditEvent).toHaveBeenCalledWith({
       staffId: null,
+      details: {},
       action: 'photo_opt_out_submitted',
       entity: 'photo_consent_opt_out',
       entityId: 'req-1',

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { getActor } from '@/auth/require'
 import {
   applyPhotoOptOut,
   rejectPhotoOptOut,
@@ -17,8 +17,12 @@ import {
   deletePhotoOptOutAction,
 } from './photo-opt-out-actions'
 
-vi.mock('@/auth', () => ({ auth: vi.fn() }))
-vi.mock('next/navigation', () => ({ redirect: vi.fn() }))
+vi.mock('server-only', () => ({}))
+vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
+  redirect: vi.fn(),
+}))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/db', () => ({
   applyPhotoOptOut: vi.fn(),
@@ -32,7 +36,7 @@ const STAFF_ID = '00000000-0000-4000-8000-000000000001'
 const REQUEST_ID = '00000000-0000-4000-8000-000000000010'
 const STUDENT_ID = '00000000-0000-4000-8000-000000000020'
 
-const adminSession = { user: { staffId: STAFF_ID, role: 'admin' } }
+const adminSession = { staffId: STAFF_ID, role: 'admin', name: null, email: '' }
 
 function makeFormData(fields: Record<string, string>): FormData {
   const fd = new FormData()
@@ -44,7 +48,7 @@ function makeFormData(fields: Record<string, string>): FormData {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(auth).mockResolvedValue(adminSession as never)
+  vi.mocked(getActor).mockResolvedValue(adminSession as never)
   vi.mocked(redirect).mockImplementation(() => {
     throw new Error('NEXT_REDIRECT')
   })
@@ -52,7 +56,7 @@ beforeEach(() => {
 
 describe('applyPhotoOptOutAction', () => {
   it('returns error when not authenticated', async () => {
-    vi.mocked(auth).mockResolvedValue(null as never)
+    vi.mocked(getActor).mockResolvedValue(null as never)
 
     const result = await applyPhotoOptOutAction(
       REQUEST_ID,
@@ -63,8 +67,11 @@ describe('applyPhotoOptOutAction', () => {
   })
 
   it('returns error when role is secretary', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: STAFF_ID, role: 'secretary' },
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      role: 'secretary',
+      name: null,
+      email: '',
     } as never)
 
     const result = await applyPhotoOptOutAction(
@@ -99,18 +106,14 @@ describe('applyPhotoOptOutAction', () => {
     consoleSpy.mockRestore()
   })
 
-  it('returns an error when the session has no staff record', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: undefined, role: 'admin' },
-    } as never)
+  it('returns an error when there is no signed-in staff member', async () => {
+    vi.mocked(getActor).mockResolvedValue(null)
 
     const result = await applyPhotoOptOutAction(
       REQUEST_ID,
       makeFormData({ student_id: STUDENT_ID }),
     )
-    expect(result).toEqual({
-      error: 'Your account is not linked to a staff record',
-    })
+    expect(result).toEqual({ error: 'Not authenticated' })
     expect(applyPhotoOptOut).not.toHaveBeenCalled()
   })
 
@@ -139,8 +142,11 @@ describe('applyPhotoOptOutAction', () => {
 
 describe('rejectPhotoOptOutAction', () => {
   it('returns error when not authorised', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: STAFF_ID, role: 'teacher' },
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      role: 'teacher',
+      name: null,
+      email: '',
     } as never)
 
     const result = await rejectPhotoOptOutAction(
@@ -151,18 +157,14 @@ describe('rejectPhotoOptOutAction', () => {
     expect(rejectPhotoOptOut).not.toHaveBeenCalled()
   })
 
-  it('returns an error when the session has no staff record', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: undefined, role: 'admin' },
-    } as never)
+  it('returns an error when there is no signed-in staff member', async () => {
+    vi.mocked(getActor).mockResolvedValue(null)
 
     const result = await rejectPhotoOptOutAction(
       REQUEST_ID,
       makeFormData({ reason: 'Cannot match' }),
     )
-    expect(result).toEqual({
-      error: 'Your account is not linked to a staff record',
-    })
+    expect(result).toEqual({ error: 'Not authenticated' })
     expect(rejectPhotoOptOut).not.toHaveBeenCalled()
   })
 
@@ -190,8 +192,11 @@ describe('rejectPhotoOptOutAction', () => {
 
 describe('deletePhotoOptOutAction', () => {
   it('returns error when not authorised', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: STAFF_ID, role: 'headteacher' },
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      role: 'headteacher',
+      name: null,
+      email: '',
     } as never)
 
     const result = await deletePhotoOptOutAction(REQUEST_ID)

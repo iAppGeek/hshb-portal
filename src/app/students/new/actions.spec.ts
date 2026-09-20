@@ -2,12 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { getActor } from '@/auth/require'
 import { createGuardian, createStudent, getGuardianById } from '@/db'
 
 import { createStudentAction } from './actions'
 
-vi.mock('@/auth', () => ({ auth: vi.fn() }))
+vi.mock('server-only', () => ({}))
+vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 
 vi.mock('@/db', () => ({
   createGuardian: vi.fn(),
@@ -20,7 +21,8 @@ vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }))
 
-vi.mock('next/navigation', () => ({
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn(),
 }))
 
@@ -30,11 +32,16 @@ const CONTACT_1 = '00000000-0000-4000-8000-000000000003'
 const STUDENT_ID = '00000000-0000-4000-8000-000000000010'
 const GUARDIAN_EXISTING = '00000000-0000-4000-8000-000000000099'
 
-const adminSession = { user: { staffId: 'admin-1', role: 'admin' } }
+const adminSession = {
+  staffId: 'admin-1',
+  role: 'admin',
+  name: null,
+  email: '',
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(auth).mockResolvedValue(adminSession as any)
+  vi.mocked(getActor).mockResolvedValue(adminSession as any)
 })
 
 function makeFormData(fields: Record<string, string>): FormData {
@@ -89,7 +96,7 @@ const guardianAddressFields = {
 
 describe('createStudentAction', () => {
   it('returns error when not authenticated', async () => {
-    vi.mocked(auth).mockResolvedValue(null as any)
+    vi.mocked(getActor).mockResolvedValue(null as any)
 
     const result = await createStudentAction(makeFormData(baseFields))
     expect(result).toEqual({ error: 'Not authenticated' })
@@ -97,8 +104,11 @@ describe('createStudentAction', () => {
   })
 
   it('returns error when not authorised', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: 'teacher-1', role: 'teacher' },
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: 'teacher-1',
+      role: 'teacher',
+      name: null,
+      email: '',
     } as any)
 
     const result = await createStudentAction(makeFormData(baseFields))

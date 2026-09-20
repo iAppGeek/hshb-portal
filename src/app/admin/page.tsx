@@ -1,10 +1,8 @@
 import { type ReactNode } from 'react'
 import { type Metadata } from 'next'
-import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireRole } from '@/auth/require'
 import { canAccessAdminTasks } from '@/lib/permissions'
-import type { StaffRole } from '@/types/next-auth'
 
 import AdminTabBar from './_components/AdminTabBar'
 import AcademicYearsTab from './_tabs/academic-years/AcademicYearsTab'
@@ -23,12 +21,7 @@ export default async function AdminPage({
     targetYearId?: string
   }>
 }): Promise<ReactNode> {
-  const session = await auth()
-  const role = session?.user?.role as StaffRole | undefined
-
-  if (!role || !canAccessAdminTasks(role)) {
-    redirect('/dashboard')
-  }
+  await requireRole(canAccessAdminTasks)
 
   const { tab = DEFAULT_TAB, sourceClassId, targetYearId } = await searchParams
 

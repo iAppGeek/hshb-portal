@@ -1,8 +1,7 @@
 import { type Metadata } from 'next'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireSession } from '@/auth/require'
 import {
   getAcademicYears,
   getClassesByAcademicYear,
@@ -18,7 +17,6 @@ import {
   canSeeAllData,
   isAdmin,
 } from '@/lib/permissions'
-import type { StaffRole } from '@/types/next-auth'
 
 import EmptyState from '../_components/EmptyState'
 import PageHeader from '../_components/PageHeader'
@@ -33,12 +31,9 @@ export default async function ClassesPage({
 }: {
   searchParams: Promise<{ year?: string }>
 }) {
-  const session = await auth()
-  if (!session) {
-    redirect('/login')
-  }
+  const actor = await requireSession()
 
-  const role = session.user?.role as StaffRole
+  const role = actor.role
   const canEdit = canEditClasses(role)
   const canSeeAll = canSeeAllData(role)
   // Only admins browse past years; other all-data roles see the current year.
@@ -56,7 +51,7 @@ export default async function ClassesPage({
 
   const classes = selectedYearId
     ? await getClassesByAcademicYear(selectedYearId)
-    : await getClassesByTeacher(session.user.staffId)
+    : await getClassesByTeacher(actor.staffId)
 
   const classRows: ClassRow[] = (classes as Omit<ClassRow, 'editable'>[]).map(
     (cls) => ({

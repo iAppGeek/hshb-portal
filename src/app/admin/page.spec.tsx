@@ -2,8 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { redirect } from 'next/navigation'
 
+vi.mock('server-only', () => ({}))
 vi.mock('@/auth', () => ({ auth: vi.fn() }))
-vi.mock('next/navigation', () => ({ redirect: vi.fn() }))
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
+  redirect: vi.fn(),
+}))
 vi.mock('./_components/AdminTabBar', () => ({
   default: vi.fn(({ currentTab }) => (
     <div data-testid="tab-bar">
@@ -33,7 +37,7 @@ beforeEach(() => {
 })
 
 describe('AdminPage', () => {
-  it('redirects unauthenticated users to dashboard', async () => {
+  it('redirects unauthenticated users to the login page', async () => {
     vi.mocked(auth).mockResolvedValue(null as any)
     vi.mocked(redirect).mockImplementation(() => {
       throw new Error('NEXT_REDIRECT')
@@ -43,7 +47,7 @@ describe('AdminPage', () => {
       AdminPage({ searchParams: Promise.resolve({}) }),
     ).rejects.toThrow('NEXT_REDIRECT')
 
-    expect(redirect).toHaveBeenCalledWith('/dashboard')
+    expect(redirect).toHaveBeenCalledWith('/login')
   })
 
   it('redirects teacher role to dashboard', async () => {

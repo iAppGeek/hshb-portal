@@ -1,17 +1,16 @@
 import { type Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireSession } from '@/auth/require'
 import { canCreateStaff } from '@/lib/permissions'
-import type { StaffRole } from '@/types/next-auth'
 
 import AddStaffForm from './AddStaffForm'
 
 export const metadata: Metadata = { title: 'Add Staff Member' }
 
 export default async function AddStaffPage() {
-  const session = await auth()
-  const role = session?.user?.role as StaffRole
+  const actor = await requireSession()
+  const role = actor.role
 
   if (!canCreateStaff(role)) {
     redirect('/staff')

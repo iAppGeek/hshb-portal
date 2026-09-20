@@ -1,11 +1,9 @@
 import { type Metadata } from 'next'
-import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireSession } from '@/auth/require'
 import { getStudentsForList, getStudentsByTeacher } from '@/db'
 import type { IncidentType } from '@/db'
 import { isTeacher } from '@/lib/permissions'
-import type { StaffRole } from '@/types/next-auth'
 
 import AddIncidentForm from './AddIncidentForm'
 
@@ -16,11 +14,9 @@ export default async function AddIncidentPage({
 }: {
   searchParams: Promise<{ type?: string }>
 }) {
-  const session = await auth()
-  if (!session) redirect('/login')
-
-  const role = session.user.role as StaffRole
-  const staffId = session.user.staffId!
+  const actor = await requireSession()
+  const role = actor.role
+  const staffId = actor.staffId
   const { type } = await searchParams
   const incidentType: IncidentType =
     type === 'behaviour' ? 'behaviour' : 'medical'

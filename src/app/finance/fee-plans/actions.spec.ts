@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { getActor } from '@/auth/require'
 import {
   createFeePlan,
   getClassesByAcademicYear,
@@ -14,8 +14,10 @@ import {
 
 import { createFeePlanAction, updateFeePlanAction } from './actions'
 
-vi.mock('@/auth', () => ({ auth: vi.fn() }))
-vi.mock('next/navigation', () => ({
+vi.mock('server-only', () => ({}))
+vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`)
   }),
@@ -59,8 +61,11 @@ const expectedInput = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(auth).mockResolvedValue({
-    user: { role: 'admin', staffId: 'admin-1' },
+  vi.mocked(getActor).mockResolvedValue({
+    role: 'admin',
+    staffId: 'admin-1',
+    name: null,
+    email: '',
   } as never)
   vi.mocked(getClassesByAcademicYear).mockResolvedValue([
     { id: CLASS_ID, name: 'Alpha', year_group: '1', academic_year_id: YEAR_ID },
@@ -75,13 +80,15 @@ describe.each([
   ['updateFeePlanAction', () => updateFeePlanAction('p1', makeFormData())],
 ])('%s access and validation', (_name, run) => {
   it('rejects unauthenticated users', async () => {
-    vi.mocked(auth).mockResolvedValue(null as never)
+    vi.mocked(getActor).mockResolvedValue(null as never)
     expect(await run()).toEqual({ error: 'Not authenticated' })
   })
 
   it('rejects non-admins', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { role: 'headteacher' },
+    vi.mocked(getActor).mockResolvedValue({
+      role: 'headteacher',
+      name: null,
+      email: '',
     } as never)
     expect(await run()).toEqual({ error: 'Not authorised' })
   })

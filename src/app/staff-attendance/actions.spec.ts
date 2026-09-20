@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { revalidatePath } from 'next/cache'
 
-import { auth } from '@/auth'
+import { getActor } from '@/auth/require'
 import { signInStaff, signOutStaff } from '@/db'
 
-vi.mock('@/auth', () => ({ auth: vi.fn() }))
+vi.mock('server-only', () => ({}))
+vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('@/db', () => ({
   signInStaff: vi.fn(),
   signOutStaff: vi.fn(),
@@ -31,20 +32,24 @@ function makeFormData(fields: Record<string, string>): FormData {
 }
 
 const teacherSession = {
-  user: { staffId: STAFF_1, role: 'teacher' },
+  staffId: STAFF_1,
+  role: 'teacher',
+  name: null,
+  email: '',
 }
-const adminSession = {
-  user: { staffId: ADMIN_1, role: 'admin' },
-}
+const adminSession = { staffId: ADMIN_1, role: 'admin', name: null, email: '' }
 const secretarySession = {
-  user: { staffId: SECRETARY_1, role: 'secretary' },
+  staffId: SECRETARY_1,
+  role: 'secretary',
+  name: null,
+  email: '',
 }
 
 // ─── signInAction ─────────────────────────────────────────────────────────────
 
 describe('signInAction', () => {
   it('signs in the authenticated staff member and revalidates', async () => {
-    vi.mocked(auth).mockResolvedValue(teacherSession as any)
+    vi.mocked(getActor).mockResolvedValue(teacherSession as any)
     vi.mocked(signInStaff).mockResolvedValue(undefined)
 
     const fd = makeFormData({
@@ -65,7 +70,7 @@ describe('signInAction', () => {
   })
 
   it('returns error when teacher tries to sign in another staff member', async () => {
-    vi.mocked(auth).mockResolvedValue(teacherSession as any)
+    vi.mocked(getActor).mockResolvedValue(teacherSession as any)
 
     const fd = makeFormData({
       staffId: STAFF_2,
@@ -80,7 +85,7 @@ describe('signInAction', () => {
   })
 
   it('allows admin to sign in any staff member', async () => {
-    vi.mocked(auth).mockResolvedValue(adminSession as any)
+    vi.mocked(getActor).mockResolvedValue(adminSession as any)
     vi.mocked(signInStaff).mockResolvedValue(undefined)
 
     const fd = makeFormData({
@@ -100,7 +105,7 @@ describe('signInAction', () => {
   })
 
   it('returns error when not authenticated', async () => {
-    vi.mocked(auth).mockResolvedValue(null as any)
+    vi.mocked(getActor).mockResolvedValue(null as any)
 
     const fd = makeFormData({
       staffId: STAFF_1,
@@ -114,7 +119,7 @@ describe('signInAction', () => {
   })
 
   it('returns error on DB failure', async () => {
-    vi.mocked(auth).mockResolvedValue(teacherSession as any)
+    vi.mocked(getActor).mockResolvedValue(teacherSession as any)
     vi.mocked(signInStaff).mockRejectedValue(new Error('DB error'))
 
     const fd = makeFormData({
@@ -129,17 +134,17 @@ describe('signInAction', () => {
   })
 
   it('returns error when required fields are missing', async () => {
-    vi.mocked(auth).mockResolvedValue(teacherSession as any)
+    vi.mocked(getActor).mockResolvedValue(teacherSession as any)
 
     const fd = makeFormData({ staffId: STAFF_1, date: '2026-03-18' }) // no time
     const result = await signInAction(fd)
 
-    expect(result).toEqual({ error: expect.stringContaining('Invalid') })
+    expect(result).toMatchObject({ error: expect.stringContaining('Invalid') })
     expect(signInStaff).not.toHaveBeenCalled()
   })
 
   it('allows secretary to sign themselves in', async () => {
-    vi.mocked(auth).mockResolvedValue(secretarySession as any)
+    vi.mocked(getActor).mockResolvedValue(secretarySession as any)
     vi.mocked(signInStaff).mockResolvedValue(undefined)
 
     const fd = makeFormData({
@@ -160,7 +165,7 @@ describe('signInAction', () => {
   })
 
   it('returns error when secretary tries to sign in another staff member', async () => {
-    vi.mocked(auth).mockResolvedValue(secretarySession as any)
+    vi.mocked(getActor).mockResolvedValue(secretarySession as any)
 
     const fd = makeFormData({
       staffId: STAFF_1,
@@ -179,7 +184,7 @@ describe('signInAction', () => {
 
 describe('signOutAction', () => {
   it('signs out the authenticated staff member and revalidates', async () => {
-    vi.mocked(auth).mockResolvedValue(teacherSession as any)
+    vi.mocked(getActor).mockResolvedValue(teacherSession as any)
     vi.mocked(signOutStaff).mockResolvedValue(undefined)
 
     const fd = makeFormData({
@@ -200,7 +205,7 @@ describe('signOutAction', () => {
   })
 
   it('returns error when teacher tries to sign out another staff member', async () => {
-    vi.mocked(auth).mockResolvedValue(teacherSession as any)
+    vi.mocked(getActor).mockResolvedValue(teacherSession as any)
 
     const fd = makeFormData({
       staffId: STAFF_2,
@@ -214,7 +219,7 @@ describe('signOutAction', () => {
   })
 
   it('allows admin to sign out any staff member', async () => {
-    vi.mocked(auth).mockResolvedValue(adminSession as any)
+    vi.mocked(getActor).mockResolvedValue(adminSession as any)
     vi.mocked(signOutStaff).mockResolvedValue(undefined)
 
     const fd = makeFormData({
@@ -229,7 +234,7 @@ describe('signOutAction', () => {
   })
 
   it('returns error on DB failure', async () => {
-    vi.mocked(auth).mockResolvedValue(teacherSession as any)
+    vi.mocked(getActor).mockResolvedValue(teacherSession as any)
     vi.mocked(signOutStaff).mockRejectedValue(new Error('DB error'))
 
     const fd = makeFormData({
@@ -244,7 +249,7 @@ describe('signOutAction', () => {
   })
 
   it('allows secretary to sign themselves out', async () => {
-    vi.mocked(auth).mockResolvedValue(secretarySession as any)
+    vi.mocked(getActor).mockResolvedValue(secretarySession as any)
     vi.mocked(signOutStaff).mockResolvedValue(undefined)
 
     const fd = makeFormData({
@@ -265,7 +270,7 @@ describe('signOutAction', () => {
   })
 
   it('returns error when secretary tries to sign out another staff member', async () => {
-    vi.mocked(auth).mockResolvedValue(secretarySession as any)
+    vi.mocked(getActor).mockResolvedValue(secretarySession as any)
 
     const fd = makeFormData({
       staffId: STAFF_1,

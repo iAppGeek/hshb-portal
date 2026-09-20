@@ -7,6 +7,7 @@ import { getStudentById, getAllGuardians, getAllClasses } from '@/db'
 
 import EditStudentPage from './page'
 
+vi.mock('server-only', () => ({}))
 vi.mock('@/auth', () => ({
   auth: vi.fn(),
 }))
@@ -17,7 +18,8 @@ vi.mock('@/db', () => ({
   getAllClasses: vi.fn(),
 }))
 
-vi.mock('next/navigation', () => ({
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn(),
 }))
 
@@ -80,7 +82,9 @@ const mockStudent = {
 
 describe('EditStudentPage', () => {
   it('renders the edit form for admin', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getStudentById).mockResolvedValue(mockStudent as any)
     vi.mocked(getAllGuardians).mockResolvedValue([])
     vi.mocked(getAllClasses).mockResolvedValue([])
@@ -93,7 +97,9 @@ describe('EditStudentPage', () => {
   })
 
   it('redirects teacher to students list', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'teacher' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'teacher', staffId: 'staff-1' },
+    } as any)
     vi.mocked(redirect).mockImplementation(() => {
       throw new Error('NEXT_REDIRECT')
     })
@@ -105,7 +111,9 @@ describe('EditStudentPage', () => {
   })
 
   it('redirects headteacher to students list', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'headteacher' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'headteacher', staffId: 'staff-1' },
+    } as any)
     vi.mocked(redirect).mockImplementation(() => {
       throw new Error('NEXT_REDIRECT')
     })
@@ -117,7 +125,9 @@ describe('EditStudentPage', () => {
   })
 
   it('redirects secretary to students list', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'secretary' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'secretary', staffId: 'staff-1' },
+    } as any)
     vi.mocked(redirect).mockImplementation(() => {
       throw new Error('NEXT_REDIRECT')
     })
@@ -129,7 +139,9 @@ describe('EditStudentPage', () => {
   })
 
   it('shows the LeaverSection for an active student when the role can edit students', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getStudentById).mockResolvedValue(mockStudent as any)
     vi.mocked(getAllGuardians).mockResolvedValue([])
     vi.mocked(getAllClasses).mockResolvedValue([])
@@ -144,7 +156,9 @@ describe('EditStudentPage', () => {
   })
 
   it('shows a leaver panel and hides class checkboxes for an inactive student', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getStudentById).mockResolvedValue({
       ...mockStudent,
       active: false,
@@ -166,7 +180,9 @@ describe('EditStudentPage', () => {
   })
 
   it('shows "Left" with no date when there is no enrolment history', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getStudentById).mockResolvedValue({
       ...mockStudent,
       active: false,
@@ -183,7 +199,9 @@ describe('EditStudentPage', () => {
   })
 
   it('redirects to students list when student not found', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getStudentById).mockResolvedValue(null)
     vi.mocked(getAllGuardians).mockResolvedValue([])
     vi.mocked(getAllClasses).mockResolvedValue([])

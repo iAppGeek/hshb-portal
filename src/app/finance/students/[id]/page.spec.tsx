@@ -14,6 +14,7 @@ import {
 
 import StudentFeesPage from './page'
 
+vi.mock('server-only', () => ({}))
 vi.mock('@/auth', () => ({ auth: vi.fn() }))
 vi.mock('next/navigation', () => ({
   redirect: vi.fn((url: string) => {
@@ -133,7 +134,9 @@ function noSearchParams() {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as never)
+  vi.mocked(auth).mockResolvedValue({
+    user: { role: 'admin', staffId: 'staff-1' },
+  } as never)
   vi.mocked(getAcademicYears).mockResolvedValue([CURRENT_YEAR] as never)
   vi.mocked(getCurrentAcademicYear).mockResolvedValue(CURRENT_YEAR as never)
   vi.mocked(getStudentFeeYears).mockResolvedValue([])
@@ -146,7 +149,9 @@ beforeEach(() => {
 
 describe('StudentFeesPage', () => {
   it('redirects non-admins to the dashboard', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'secretary' } } as never)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'secretary', staffId: 'staff-1' },
+    } as never)
     await expect(StudentFeesPage(noSearchParams())).rejects.toThrow(
       'NEXT_REDIRECT:/dashboard',
     )

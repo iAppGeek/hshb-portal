@@ -2,7 +2,7 @@ import { type Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireRole } from '@/auth/require'
 import SimpleGrid from '@/components/grid/SimpleGrid'
 import {
   getAcademicYears,
@@ -22,7 +22,6 @@ import {
 import type { GridColumn } from '@/lib/grid/columns'
 import { rowLink } from '@/lib/grid/styles'
 import { canManageFinance } from '@/lib/permissions'
-import type { StaffRole } from '@/types/next-auth'
 import LeaverBadge from '@/components/LeaverBadge'
 
 import FeeStatusBadge from '../../_components/FeeStatusBadge'
@@ -81,12 +80,7 @@ export default async function StudentFeesPage({
   params: Promise<{ id: string }>
   searchParams: Promise<{ year?: string }>
 }): Promise<React.ReactElement> {
-  const session = await auth()
-  const role = session?.user?.role as StaffRole | undefined
-
-  if (!role || !canManageFinance(role)) {
-    redirect('/dashboard')
-  }
+  await requireRole(canManageFinance)
 
   const { id } = await params
   const { year } = await searchParams

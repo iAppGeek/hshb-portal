@@ -1,134 +1,83 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
-
-import { auth } from '@/auth'
 import {
   addStudentPayment,
   deleteStudentPayment,
-  logAuditEvent,
   upsertStudentFeeAccount,
 } from '@/db'
-import { getUserFriendlyDbError } from '@/lib/db-error'
+import { ActionError, runAction, type ActionResult } from '@/lib/action'
 import { canManageFinance } from '@/lib/permissions'
-import {
-  extractFormFields,
-  studentFeeAccountSchema,
-  studentPaymentSchema,
-  type ActionResult,
-} from '@/lib/schemas'
-import type { StaffRole } from '@/types/next-auth'
+import { studentFeeAccountSchema, studentPaymentSchema } from '@/lib/schemas'
 
 // These actions return instead of redirecting so the student page stays open
 // and refreshes in place.
 
-async function authorise(): Promise<
-  { actorId: string | null } | { error: string }
-> {
-  const session = await auth()
-  if (!session) return { error: 'Not authenticated' }
-  if (!canManageFinance(session.user.role as StaffRole)) {
-    return { error: 'Not authorised' }
-  }
-  return { actorId: session.user.staffId ?? null }
-}
-
-function revalidateStudent(studentId: string): void {
-  revalidatePath('/finance')
-  revalidatePath(`/finance/students/${studentId}`)
+function studentPaths(studentId: string): string[] {
+  return ['/finance', `/finance/students/${studentId}`]
 }
 
 export async function saveStudentFeeAccountAction(
   studentId: string,
   formData: FormData,
 ): Promise<ActionResult> {
-  const gate = await authorise()
-  if ('error' in gate) return gate
-
-  const parsed = studentFeeAccountSchema.safeParse(extractFormFields(formData))
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-  const { academic_year_id, ...input } = parsed.data
-
-  try {
-    await upsertStudentFeeAccount(studentId, academic_year_id, input)
-    logAuditEvent({
-      staffId: gate.actorId,
-      action: 'update',
+  return runAction({
+    name: 'finance.student-fees.save',
+    permission: canManageFinance,
+    schema: studentFeeAccountSchema,
+    formData,
+    run: ({ academic_year_id, ...input }) =>
+      upsertStudentFeeAccount(studentId, academic_year_id, input),
+    audit: {
       entity: 'student_fee_account',
-      entityId: studentId,
-      details: parsed.data,
-    })
-    revalidateStudent(studentId)
-  } catch (err) {
-    console.error('[saveStudentFeeAccountAction] error:', err)
-    return {
-      error: getUserFriendlyDbError(
-        err,
-        'Failed to save the fee account. Please try again.',
-      ),
-    }
-  }
+      action: 'update',
+      entityId: () => studentId,
+    },
+    revalidate: studentPaths(studentId),
+    fallbackError: 'Failed to save the fee account. Please try again.',
+  })
 }
 
 export async function addStudentPaymentAction(
   studentId: string,
   formData: FormData,
 ): Promise<ActionResult> {
-  const gate = await authorise()
-  if ('error' in gate) return gate
-
-  const parsed = studentPaymentSchema.safeParse(extractFormFields(formData))
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
-  try {
-    const payment = await addStudentPayment(studentId, {
-      ...parsed.data,
-      recorded_by: gate.actorId,
-    })
-    logAuditEvent({
-      staffId: gate.actorId,
-      action: 'create',
+  return runAction({
+    name: 'finance.student-fees.add-payment',
+    permission: canManageFinance,
+    schema: studentPaymentSchema,
+    formData,
+    run: (input, { actor }) =>
+      addStudentPayment(studentId, { ...input, recorded_by: actor.staffId }),
+    audit: {
       entity: 'student_payment',
-      entityId: payment.id,
-      details: { student_id: studentId, ...parsed.data },
-    })
-    revalidateStudent(studentId)
-  } catch (err) {
-    console.error('[addStudentPaymentAction] error:', err)
-    return {
-      error: getUserFriendlyDbError(
-        err,
-        'Failed to record the payment. Please try again.',
-      ),
-    }
-  }
+      action: 'create',
+      entityId: (payment) => payment.id,
+      details: (_payment, input) => ({ student_id: studentId, ...input }),
+    },
+    revalidate: studentPaths(studentId),
+    fallbackError: 'Failed to record the payment. Please try again.',
+  })
 }
 
 export async function deleteStudentPaymentAction(
   studentId: string,
   paymentId: string,
 ): Promise<ActionResult> {
-  const gate = await authorise()
-  if ('error' in gate) return gate
-
-  try {
-    const deleted = await deleteStudentPayment(studentId, paymentId)
-    if (!deleted) return { error: 'That payment no longer exists.' }
-    logAuditEvent({
-      staffId: gate.actorId,
-      action: 'delete',
+  return runAction({
+    name: 'finance.student-fees.delete-payment',
+    permission: canManageFinance,
+    formData: new FormData(),
+    run: async () => {
+      const deleted = await deleteStudentPayment(studentId, paymentId)
+      if (!deleted) throw new ActionError('That payment no longer exists.')
+    },
+    audit: {
       entity: 'student_payment',
-      entityId: paymentId,
-      details: { student_id: studentId },
-    })
-    revalidateStudent(studentId)
-  } catch (err) {
-    console.error('[deleteStudentPaymentAction] error:', err)
-    return {
-      error: getUserFriendlyDbError(
-        err,
-        'Failed to delete the payment. Please try again.',
-      ),
-    }
-  }
+      action: 'delete',
+      entityId: () => paymentId,
+      details: () => ({ student_id: studentId }),
+    },
+    revalidate: studentPaths(studentId),
+    fallbackError: 'Failed to delete the payment. Please try again.',
+  })
 }

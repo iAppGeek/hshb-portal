@@ -1,8 +1,7 @@
 import { type Metadata } from 'next'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireSession } from '@/auth/require'
 import StaffEmailDropdown from '@/clientComponents/StaffEmailDropdown'
 import Tooltip from '@/components/Tooltip'
 import { getAllStaffWithClasses } from '@/db'
@@ -25,12 +24,9 @@ import StaffTable from './StaffTable'
 export const metadata: Metadata = { title: 'Staff' }
 
 export default async function StaffPage() {
-  const session = await auth()
-  if (!session) {
-    redirect('/login')
-  }
+  const actor = await requireSession()
 
-  const role = session.user?.role as StaffRole
+  const role = actor.role
   const canEdit = canEditStaff(role)
   const canCreate = canCreateStaff(role)
   const canSeeContact = canSeeStaffContact(role)

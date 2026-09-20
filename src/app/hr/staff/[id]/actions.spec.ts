@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { getActor } from '@/auth/require'
 import {
   getStaffPayrollByStaffId,
   logAuditEvent,
@@ -11,8 +11,10 @@ import {
 
 import { saveStaffPayrollAction } from './actions'
 
-vi.mock('@/auth', () => ({ auth: vi.fn() }))
-vi.mock('next/navigation', () => ({
+vi.mock('server-only', () => ({}))
+vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`)
   }),
@@ -72,8 +74,11 @@ const verifiedDbs = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(auth).mockResolvedValue({
-    user: { role: 'admin', staffId: ADMIN_ID },
+  vi.mocked(getActor).mockResolvedValue({
+    role: 'admin',
+    staffId: ADMIN_ID,
+    name: null,
+    email: '',
   } as never)
   vi.mocked(getStaffPayrollByStaffId).mockResolvedValue(null)
   vi.mocked(upsertStaffPayroll).mockResolvedValue({ id: 'p1' } as never)
@@ -81,7 +86,7 @@ beforeEach(() => {
 
 describe('saveStaffPayrollAction', () => {
   it('rejects unauthenticated users', async () => {
-    vi.mocked(auth).mockResolvedValue(null as never)
+    vi.mocked(getActor).mockResolvedValue(null as never)
     expect(await saveStaffPayrollAction('s1', makeFormData(blank))).toEqual({
       error: 'Not authenticated',
     })
@@ -91,7 +96,11 @@ describe('saveStaffPayrollAction', () => {
   it.each(['headteacher', 'secretary', 'teacher'])(
     'rejects %s',
     async (role) => {
-      vi.mocked(auth).mockResolvedValue({ user: { role } } as never)
+      vi.mocked(getActor).mockResolvedValue({
+        role,
+        name: null,
+        email: '',
+      } as never)
       expect(await saveStaffPayrollAction('s1', makeFormData(blank))).toEqual({
         error: 'Not authorised',
       })
@@ -103,7 +112,9 @@ describe('saveStaffPayrollAction', () => {
       's1',
       makeFormData({ ...blank, payment_funding: '' }),
     )
-    expect(result).toEqual({ error: 'Select how this staff member is paid' })
+    expect(result).toMatchObject({
+      error: 'Select how this staff member is paid',
+    })
   })
 
   it('creates a record, redacts bank details in the audit log and redirects', async () => {

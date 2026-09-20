@@ -1,4 +1,4 @@
-import { auth } from '@/auth'
+import { getActor } from '@/auth/require'
 import {
   deletePushSubscription,
   pushSubscriptionExists,
@@ -6,8 +6,8 @@ import {
 } from '@/db'
 
 export async function GET(req: Request): Promise<Response> {
-  const session = await auth()
-  if (!session?.user?.staffId) {
+  const actor = await getActor()
+  if (!actor) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -22,8 +22,8 @@ export async function GET(req: Request): Promise<Response> {
 }
 
 export async function POST(req: Request): Promise<Response> {
-  const session = await auth()
-  if (!session?.user?.staffId) {
+  const actor = await getActor()
+  if (!actor) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -40,7 +40,7 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   await savePushSubscription({
-    staff_id: session.user.staffId,
+    staff_id: actor.staffId,
     endpoint: body.endpoint,
     p256dh: body.keys.p256dh,
     auth: body.keys.auth,
@@ -50,8 +50,8 @@ export async function POST(req: Request): Promise<Response> {
 }
 
 export async function DELETE(req: Request): Promise<Response> {
-  const session = await auth()
-  if (!session?.user?.staffId) {
+  const actor = await getActor()
+  if (!actor) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

@@ -1,10 +1,9 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
-import { auth } from '@/auth'
 import {
+  logAuditEvent,
   getAttendanceByClassAndDate,
   getClassById,
   getCurrentAcademicYear,
@@ -12,14 +11,12 @@ import {
   deletePushSubscription,
   getEnrolmentsForClass,
   saveAttendance,
-  logAuditEvent,
 } from '@/db'
+import { ActionError, runAction, type ActionResult } from '@/lib/action'
 import { isClassOpen } from '@/lib/classes'
 import { buildRegisterRoster } from '@/lib/enrolment'
 import { canUpdateAttendance } from '@/lib/permissions'
 import { uuid, isoDate, attendanceStatus, optionalString } from '@/lib/schemas'
-import type { ActionResult } from '@/lib/schemas'
-import type { StaffRole } from '@/types/next-auth'
 import { sendPushNotification } from '@/lib/push'
 
 const attendanceRecordSchema = z.object({
@@ -28,101 +25,14 @@ const attendanceRecordSchema = z.object({
   notes: optionalString,
 })
 
-export async function saveAttendanceAction(
-  formData: FormData,
-): Promise<ActionResult> {
-  const session = await auth()
-  const staffId = session?.user?.staffId ?? null
-
-  const classIdRaw = formData.get('classId')
-  const dateRaw = formData.get('date')
-  const studentIds = formData.getAll('studentId') as string[]
-
-  const classIdParsed = uuid.safeParse(classIdRaw)
-  if (!classIdParsed.success) return { error: 'Invalid class ID' }
-  const classId = classIdParsed.data
-
-  const dateParsed = isoDate.safeParse(dateRaw)
-  if (!dateParsed.success) return { error: 'Invalid date' }
-  const date = dateParsed.data
-
-  const [cls, currentYear] = await Promise.all([
-    getClassById(classId),
-    getCurrentAcademicYear(),
-  ])
-  if (!cls) return { error: 'Class not found' }
-  if (!isClassOpen(cls, currentYear)) {
-    return {
-      error:
-        "This register can't be changed. The class has been completed or is not in the current academic year.",
-    }
-  }
-
-  const parsedRecords = studentIds.map((sid) =>
-    attendanceRecordSchema.safeParse({
-      studentId: sid,
-      status: formData.get(`status_${sid}`) ?? 'absent',
-      notes: formData.get(`notes_${sid}`),
-    }),
-  )
-
-  const failedRecord = parsedRecords.find((r) => !r.success)
-  if (failedRecord && !failedRecord.success) {
-    return { error: failedRecord.error.issues[0].message }
-  }
-
-  const records = parsedRecords.map((r) => {
-    const data = (
-      r as { success: true; data: z.infer<typeof attendanceRecordSchema> }
-    ).data
-    return {
-      class_id: classId,
-      student_id: data.studentId,
-      date,
-      status: data.status,
-      notes: data.notes,
-      recorded_by: staffId,
-    }
-  })
-
-  const [existing, enrolments] = await Promise.all([
-    getAttendanceByClassAndDate(classId, date),
-    getEnrolmentsForClass(classId),
-  ])
-  const isUpdate = existing.length > 0
-
-  const roster = new Set(
-    buildRegisterRoster(
-      existing.map((r) => r.student_id),
-      enrolments,
-      date,
-    ),
-  )
-  if (studentIds.some((sid) => !roster.has(sid))) {
-    return { error: 'Student was not in this class on this date' }
-  }
-
-  const role = session?.user?.role as StaffRole
-  if (isUpdate && !canUpdateAttendance(role)) {
-    return {
-      error:
-        'You do not have permission to update existing attendance records.',
-    }
-  }
-
-  await saveAttendance(records)
-  logAuditEvent({
-    staffId,
-    action: isUpdate ? 'update' : 'create',
-    entity: 'attendance',
-    entityId: classId,
-    details: { date, studentCount: records.length },
-  })
-  revalidatePath('/attendance')
-
+/** Plan 12 moves this out of the action. */
+function notifyOthers(
+  className: string,
+  staffId: string,
+  isUpdate: boolean,
+): void {
   getAdminSubscriptions()
     .then((subs) => {
-      const className = cls.name
       const others = subs.filter((sub) => sub.staff_id !== staffId)
       return Promise.allSettled(
         others.map((sub) =>
@@ -143,4 +53,94 @@ export async function saveAttendanceAction(
       )
     })
     .catch(() => {})
+}
+
+export async function saveAttendanceAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  return runAction({
+    name: 'attendance.save',
+    formData,
+    // One record per student is read out of the form, so these are parsed here
+    // rather than through `runAction`'s single `schema`.
+    run: async (_input, { actor, formData }) => {
+      const classIdParsed = uuid.safeParse(formData.get('classId'))
+      if (!classIdParsed.success) throw new ActionError('Invalid class ID')
+      const classId = classIdParsed.data
+
+      const dateParsed = isoDate.safeParse(formData.get('date'))
+      if (!dateParsed.success) throw new ActionError('Invalid date')
+      const date = dateParsed.data
+
+      const studentIds = formData.getAll('studentId') as string[]
+
+      const [cls, currentYear] = await Promise.all([
+        getClassById(classId),
+        getCurrentAcademicYear(),
+      ])
+      if (!cls) throw new ActionError('Class not found')
+      if (!isClassOpen(cls, currentYear)) {
+        throw new ActionError(
+          "This register can't be changed. The class has been completed or is not in the current academic year.",
+        )
+      }
+
+      const records = studentIds.map((sid) => {
+        const parsed = attendanceRecordSchema.safeParse({
+          studentId: sid,
+          status: formData.get(`status_${sid}`) ?? 'absent',
+          notes: formData.get(`notes_${sid}`),
+        })
+        if (!parsed.success)
+          throw new ActionError(parsed.error.issues[0].message)
+        return {
+          class_id: classId,
+          student_id: parsed.data.studentId,
+          date,
+          status: parsed.data.status,
+          notes: parsed.data.notes,
+          recorded_by: actor.staffId,
+        }
+      })
+
+      const [existing, enrolments] = await Promise.all([
+        getAttendanceByClassAndDate(classId, date),
+        getEnrolmentsForClass(classId),
+      ])
+      const isUpdate = existing.length > 0
+
+      const roster = new Set(
+        buildRegisterRoster(
+          existing.map((r) => r.student_id),
+          enrolments,
+          date,
+        ),
+      )
+      if (studentIds.some((sid) => !roster.has(sid))) {
+        throw new ActionError('Student was not in this class on this date')
+      }
+
+      if (isUpdate && !canUpdateAttendance(actor.role)) {
+        throw new ActionError(
+          'You do not have permission to update existing attendance records.',
+        )
+      }
+
+      await saveAttendance(records)
+
+      // Logged here rather than through `runAction`'s `audit` option: the
+      // action name depends on whether the register already had rows.
+      logAuditEvent({
+        staffId: actor.staffId,
+        action: isUpdate ? 'update' : 'create',
+        entity: 'attendance',
+        entityId: classId,
+        details: { date, studentCount: records.length },
+      })
+
+      notifyOthers(cls.name, actor.staffId, isUpdate)
+    },
+    revalidate: ['/attendance'],
+    fallbackError: 'Failed to save attendance. Please try again.',
+  })
 }

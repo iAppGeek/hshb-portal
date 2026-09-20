@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { redirect } from 'next/navigation'
 
+vi.mock('server-only', () => ({}))
 vi.mock('@/auth', () => ({
   auth: vi.fn(),
 }))
@@ -11,7 +12,8 @@ vi.mock('@/db', () => ({
   getGuardianChildCounts: vi.fn(),
 }))
 
-vi.mock('next/navigation', () => ({
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn(),
 }))
 
@@ -44,7 +46,9 @@ const mockGuardian = {
 
 describe('GuardiansPage', () => {
   it('renders the Guardians heading for admin', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getAllGuardians).mockResolvedValue([])
 
     render(await GuardiansPage())
@@ -52,7 +56,9 @@ describe('GuardiansPage', () => {
   })
 
   it('renders guardian rows in the table', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getAllGuardians).mockResolvedValue([mockGuardian] as any)
 
     render(await GuardiansPage())
@@ -60,7 +66,9 @@ describe('GuardiansPage', () => {
   })
 
   it('merges in each guardian’s child count from getGuardianChildCounts', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getAllGuardians).mockResolvedValue([mockGuardian] as any)
     vi.mocked(getGuardianChildCounts).mockResolvedValue(
       new Map([['guardian-1', 3]]),
@@ -71,7 +79,9 @@ describe('GuardiansPage', () => {
   })
 
   it('gives a guardian with no entry in the counts map a zero count', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getAllGuardians).mockResolvedValue([mockGuardian] as any)
     vi.mocked(getGuardianChildCounts).mockResolvedValue(new Map())
 
@@ -80,7 +90,9 @@ describe('GuardiansPage', () => {
   })
 
   it('shows empty state when no guardians exist', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getAllGuardians).mockResolvedValue([])
 
     render(await GuardiansPage())
@@ -90,7 +102,9 @@ describe('GuardiansPage', () => {
   it.each(['teacher', 'headteacher', 'secretary'] as const)(
     'redirects %s to students list',
     async (role) => {
-      vi.mocked(auth).mockResolvedValue({ user: { role } } as any)
+      vi.mocked(auth).mockResolvedValue({
+        user: { role, staffId: 'staff-1' },
+      } as any)
       vi.mocked(redirect).mockImplementation(() => {
         throw new Error('NEXT_REDIRECT')
       })

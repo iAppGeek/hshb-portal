@@ -1,8 +1,7 @@
 import { type Metadata } from 'next'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireSession } from '@/auth/require'
 import PrintPageSetup from '@/components/grid/PrintPageSetup'
 import {
   getClassesByAcademicYear,
@@ -12,7 +11,6 @@ import {
 } from '@/db'
 import { compareByName } from '@/lib/grid/sort'
 import { canSeeAllData, isAdmin } from '@/lib/permissions'
-import type { StaffRole } from '@/types/next-auth'
 
 import ClassRegisterCard, {
   type RegisterStudent,
@@ -26,10 +24,8 @@ export default async function AllClassRegistersPage({
 }: {
   searchParams: Promise<{ year?: string }>
 }) {
-  const session = await auth()
-  if (!session) redirect('/login')
-
-  const role = session.user?.role as StaffRole
+  const actor = await requireSession()
+  const role = actor.role
   const canSeeAll = canSeeAllData(role)
   const canBrowseYears = isAdmin(role)
 
@@ -39,7 +35,7 @@ export default async function AllClassRegistersPage({
 
   const classList = canSeeAll
     ? await getClassesByAcademicYear(yearId)
-    : await getClassesByTeacher(session.user.staffId)
+    : await getClassesByTeacher(actor.staffId)
 
   const classes = (
     await Promise.all(
