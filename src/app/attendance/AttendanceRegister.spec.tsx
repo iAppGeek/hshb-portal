@@ -16,6 +16,7 @@ import {
   getAttendanceByClassAndDate,
   getEnrolmentsForClass,
 } from '@/db'
+import { todayInSchoolTz } from '@/lib/datetime'
 
 import AttendanceRegister from './AttendanceRegister'
 import AttendanceForm from './AttendanceForm'
@@ -220,7 +221,9 @@ describe('AttendanceRegister', () => {
   })
 
   it("shows Today label for today's date", async () => {
-    const today = new Date().toISOString().split('T')[0]
+    // Europe/London, not UTC: between 23:00 and midnight UTC the two differ
+    // and the component would be compared against yesterday.
+    const today = todayInSchoolTz()
 
     render(
       await AttendanceRegister({
