@@ -190,3 +190,4 @@ export type {
   StudentFeeYear,
 } from './student-fees'
 export { logAuditEvent } from './audit-log'
+export type { AuditAction, AuditEntry } from './audit-log'
