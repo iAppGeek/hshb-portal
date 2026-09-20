@@ -412,6 +412,44 @@ describe('runAction — audit', () => {
     })
   })
 
+  it('derives the action name from the result when given a function', async () => {
+    await runAction({
+      name: 'hr.payroll',
+      schema,
+      formData: formData({ name: 'Ada' }),
+      run: vi.fn().mockResolvedValue({ existed: false }),
+      audit: {
+        entity: 'staff_payroll',
+        action: (result: { existed: boolean }) =>
+          result.existed ? 'update' : 'create',
+      },
+      fallbackError: 'Failed.',
+    })
+
+    expect(mockAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'create' }),
+    )
+
+    mockAudit.mockClear()
+
+    await runAction({
+      name: 'hr.payroll',
+      schema,
+      formData: formData({ name: 'Ada' }),
+      run: vi.fn().mockResolvedValue({ existed: true }),
+      audit: {
+        entity: 'staff_payroll',
+        action: (result: { existed: boolean }) =>
+          result.existed ? 'update' : 'create',
+      },
+      fallbackError: 'Failed.',
+    })
+
+    expect(mockAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'update' }),
+    )
+  })
+
   it('redacts the listed fields', async () => {
     const payrollSchema = z.object({
       bank_sort_code: z.string(),

@@ -39,7 +39,11 @@ export class ActionError extends Error {
 
 type AuditOptions<TInput, TResult> = {
   entity: string
-  action: AuditAction
+  /**
+   * A function when the name depends on what happened — an upsert records
+   * 'create' or 'update' according to whether a row already existed.
+   */
+  action: AuditAction | ((result: TResult, input: TInput) => AuditAction)
   entityId?: (result: TResult, input: TInput) => string | undefined
   details?: (result: TResult, input: TInput) => Record<string, unknown>
   /** Field names replaced with '[changed]'/'[unchanged]' via redactChanges. */
@@ -152,7 +156,7 @@ export async function runAction<TInput = undefined, TResult = void>(
     const record = isRecord ? (raw as Record<string, unknown>) : undefined
     logAuditEvent({
       staffId: actor?.staffId ?? null,
-      action,
+      action: typeof action === 'function' ? action(result, input) : action,
       entity,
       entityId: entityId?.(result, input),
       details:

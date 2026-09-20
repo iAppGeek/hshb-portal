@@ -3,7 +3,6 @@
 import { z } from 'zod'
 
 import {
-  logAuditEvent,
   getAttendanceByClassAndDate,
   getClassById,
   getCurrentAcademicYear,
@@ -128,17 +127,15 @@ export async function saveAttendanceAction(
 
       await saveAttendance(records)
 
-      // Logged here rather than through `runAction`'s `audit` option: the
-      // action name depends on whether the register already had rows.
-      logAuditEvent({
-        staffId: actor.staffId,
-        action: isUpdate ? 'update' : 'create',
-        entity: 'attendance',
-        entityId: classId,
-        details: { date, studentCount: records.length },
-      })
-
       notifyOthers(cls.name, actor.staffId, isUpdate)
+
+      return { classId, date, count: records.length, isUpdate }
+    },
+    audit: {
+      entity: 'attendance',
+      action: ({ isUpdate }) => (isUpdate ? 'update' : 'create'),
+      entityId: ({ classId }) => classId,
+      details: ({ date, count }) => ({ date, studentCount: count }),
     },
     revalidate: ['/attendance'],
     fallbackError: 'Failed to save attendance. Please try again.',

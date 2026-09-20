@@ -1,10 +1,6 @@
 'use server'
 
-import {
-  getStaffPayrollByStaffId,
-  logAuditEvent,
-  upsertStaffPayroll,
-} from '@/db'
+import { getStaffPayrollByStaffId, upsertStaffPayroll } from '@/db'
 import { runAction, type ActionResult } from '@/lib/action'
 import { BANK_DETAIL_FIELDS, redactChanges } from '@/lib/audit-redaction'
 import { canManageHr } from '@/lib/permissions'
@@ -35,20 +31,18 @@ export async function saveStaffPayrollAction(
           : null,
       }
       const saved = await upsertStaffPayroll(staffId, record)
-
-      // Logged here rather than through `runAction`'s `audit` option: the
-      // action name depends on whether a row already existed, and the
-      // redaction compares against that row rather than against null.
-      logAuditEvent({
-        staffId: actor.staffId,
-        action: existing ? 'update' : 'create',
-        entity: 'staff_payroll',
-        entityId: saved.id,
-        details: {
-          staff_id: staffId,
-          ...redactChanges(record, existing, BANK_DETAIL_FIELDS),
-        },
-      })
+      return { saved, existing, record }
+    },
+    audit: {
+      entity: 'staff_payroll',
+      action: ({ existing }) => (existing ? 'update' : 'create'),
+      entityId: ({ saved }) => saved.id,
+      // `redact` is not used: the comparison needs the previous row, so
+      // redactChanges runs against `existing` rather than against null.
+      details: ({ existing, record }) => ({
+        staff_id: staffId,
+        ...redactChanges(record, existing, BANK_DETAIL_FIELDS),
+      }),
     },
     revalidate: ['/hr'],
     redirectTo: '/hr',
