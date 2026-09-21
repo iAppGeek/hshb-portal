@@ -14,6 +14,8 @@ import { tbody, thead } from '@/lib/grid/styles'
 import { isTeacher } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
+import PageHeader from '../_components/PageHeader'
+
 type Props = {
   incidents: IncidentRow[]
   role: StaffRole
@@ -40,15 +42,17 @@ export default function IncidentsClient({ incidents, role, canEdit }: Props) {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Incidents</h1>
-        <Link
-          href={`/incidents/new?type=${activeTab}`}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
-        >
-          Add incident
-        </Link>
-      </div>
+      <PageHeader
+        title="Incidents"
+        action={
+          <Link
+            href={`/incidents/new?type=${activeTab}`}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+          >
+            Add incident
+          </Link>
+        }
+      />
 
       <div className="mb-4 flex gap-2">
         {TABS.map((tab) => (

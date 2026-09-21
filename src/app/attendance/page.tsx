@@ -14,6 +14,7 @@ import { isClassOpen } from '@/lib/classes'
 import { todayInSchoolTz } from '@/lib/datetime'
 import { isAdmin, isTeacher } from '@/lib/permissions'
 
+import PageHeader from '../_components/PageHeader'
 import YearSelector from '../_components/YearSelector'
 
 import AttendanceFilters from './AttendanceFilters'
@@ -108,18 +109,18 @@ export default async function AttendancePage({
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Attendance Register
-        </h1>
-        {admin && (
-          <YearSelector
-            years={years}
-            value={selectedYear.id}
-            basePath="/attendance"
-          />
-        )}
-      </div>
+      <PageHeader
+        title="Attendance Register"
+        action={
+          admin && (
+            <YearSelector
+              years={years}
+              value={selectedYear.id}
+              basePath="/attendance"
+            />
+          )
+        }
+      />
 
       {classes.length === 0 ? (
         <div className="rounded-xl bg-white p-12 text-center shadow-sm ring-1 ring-gray-200">
