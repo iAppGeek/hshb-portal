@@ -19,7 +19,6 @@ export default async function AcademicYearsTab(): Promise<React.ReactElement> {
     })),
   )
   const countsById = new Map(counts.map((c) => [c.id, c]))
-  const hasCurrent = years.some((y) => y.is_current)
   const latest = years[0] ?? null
   const suggested = latest
     ? nextAcademicYear(latest.code)
@@ -27,12 +26,6 @@ export default async function AcademicYearsTab(): Promise<React.ReactElement> {
 
   return (
     <div className="space-y-6">
-      {years.length > 0 && !hasCurrent && (
-        <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700 ring-1 ring-red-200">
-          No academic year is marked current. Make one current below.
-        </div>
-      )}
-
       {years.length > 0 && (
         <AcademicYearsTable
           years={years.map((y) => ({

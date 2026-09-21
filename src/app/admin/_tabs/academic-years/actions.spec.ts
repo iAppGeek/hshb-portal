@@ -184,7 +184,7 @@ describe('setCurrentAcademicYearAction', () => {
     vi.mocked(setCurrentAcademicYear).mockResolvedValue(undefined)
 
     const result = await setCurrentAcademicYearAction(YEAR_ID, PREVIOUS_ID)
-    expect(result).toBeUndefined()
+    expect(result).toEqual({ data: { currentId: YEAR_ID } })
 
     expect(setCurrentAcademicYear).toHaveBeenCalledWith(YEAR_ID)
     expect(logAuditEvent).toHaveBeenCalledWith(

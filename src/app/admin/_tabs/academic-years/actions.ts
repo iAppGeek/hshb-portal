@@ -44,15 +44,19 @@ export async function updateAcademicYearAction(
   })
 }
 
+/** Stays on the tab: returns the new current year's id for the table to show. */
 export async function setCurrentAcademicYearAction(
   id: string,
   previousId: string | null,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ currentId: string }>> {
   return runAction({
     name: 'admin.academic-years.set-current',
     permission: canAccessAdminTasks,
     formData: new FormData(),
-    run: () => setCurrentAcademicYear(id),
+    run: async () => {
+      await setCurrentAcademicYear(id)
+      return { currentId: id }
+    },
     audit: {
       entity: 'academic_year',
       action: 'update',
