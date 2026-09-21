@@ -3,7 +3,13 @@
 import type { z } from 'zod'
 
 import { createGuardian, createStudent, getGuardianById } from '@/db'
-import { ActionError, runAction, type ActionResult } from '@/lib/action'
+import {
+  ActionError,
+  firstFieldErrors,
+  prefixFieldErrors,
+  runAction,
+  type ActionResult,
+} from '@/lib/action'
 import { canCreateStudents } from '@/lib/permissions'
 import {
   createStudentSchema,
@@ -43,7 +49,11 @@ async function resolveGuardianSlot(
   schema: typeof guardianSchema | typeof guardianSchemaWithOccupation,
 ): Promise<string> {
   const parsed = schema.safeParse(extractGuardianFields(formData, prefix))
-  if (!parsed.success) throw new ActionError(parsed.error.issues[0].message)
+  if (!parsed.success)
+    throw new ActionError(
+      parsed.error.issues[0].message,
+      prefixFieldErrors(firstFieldErrors(parsed.error), prefix),
+    )
   return resolveGuardian(parsed.data)
 }
 
@@ -56,7 +66,11 @@ export async function createStudentAction(
     formData,
     run: async (_input, { formData }) => {
       const parsed = createStudentSchema.safeParse(extractFormFields(formData))
-      if (!parsed.success) throw new ActionError(parsed.error.issues[0].message)
+      if (!parsed.success)
+        throw new ActionError(
+          parsed.error.issues[0].message,
+          firstFieldErrors(parsed.error),
+        )
       const d = parsed.data
 
       const primaryGuardianId = await resolveGuardianSlot(

@@ -1,8 +1,15 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import Link from 'next/link'
+import { useState } from 'react'
 
+import {
+  FormActions,
+  FormGrid,
+  FormSection,
+  TextField,
+  formStyles,
+  useServerForm,
+} from '@/components/form'
 import { roleDescriptions } from '@/lib/roleLabels'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -31,58 +38,48 @@ export default function EditStaffForm({ staff }: { staff: StaffData }) {
   const [selectedRole, setSelectedRole] = useState<StaffRole>(
     staff.role as StaffRole,
   )
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
-
-  function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    const form = e.currentTarget
-    startTransition(async () => {
-      const result = await updateStaffAction(staff.id, new FormData(form))
-      if (result?.error) setError(result.error)
-    })
-  }
+  const { handleSubmit, isPending, error, fieldError } = useServerForm((fd) =>
+    updateStaffAction(staff.id, fd),
+  )
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-        <h2 className="mb-4 text-sm font-semibold text-gray-900">
-          Staff Details
-        </h2>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field
+      <FormSection title="Staff Details">
+        <FormGrid>
+          <TextField
             label="Title"
             name="title"
             required
             defaultValue={staff.title}
+            error={fieldError('title')}
           />
-          <Field
+          <TextField
             label="First name"
             name="first_name"
             required
             defaultValue={staff.first_name}
+            autoComplete="given-name"
+            error={fieldError('first_name')}
           />
-          <Field
+          <TextField
             label="Last name"
             name="last_name"
             required
             defaultValue={staff.last_name}
+            autoComplete="family-name"
+            error={fieldError('last_name')}
           />
-          <Field
+          <TextField
             label="Email"
             name="email"
             type="email"
             required
             defaultValue={staff.email}
+            error={fieldError('email')}
           />
           <div>
-            <label
-              htmlFor="role"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Role<span className="ml-0.5 text-red-500">*</span>
+            <label htmlFor="role" className={formStyles.label}>
+              Role<span className={formStyles.requiredMark}>*</span>
             </label>
             <select
               id="role"
@@ -90,7 +87,7 @@ export default function EditStaffForm({ staff }: { staff: StaffData }) {
               required
               value={selectedRole}
               onChange={(e) => setSelectedRole(e.target.value as StaffRole)}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+              className={formStyles.input}
             >
               <option value="">Select a role…</option>
               {ROLES.map((r) => (
@@ -99,77 +96,37 @@ export default function EditStaffForm({ staff }: { staff: StaffData }) {
                 </option>
               ))}
             </select>
-            <p className="mt-1.5 text-sm text-gray-500">
-              {roleDescriptions[selectedRole]}
-            </p>
+            <p className={formStyles.hint}>{roleDescriptions[selectedRole]}</p>
           </div>
-          <Field
+          <TextField
             label="Display name"
             name="display_name"
-            defaultValue={staff.display_name ?? undefined}
+            defaultValue={staff.display_name}
+            error={fieldError('display_name')}
           />
-          <Field
+          <TextField
             label="Contact number"
             name="contact_number"
             type="tel"
-            defaultValue={staff.contact_number ?? undefined}
+            defaultValue={staff.contact_number}
+            error={fieldError('contact_number')}
           />
-          <Field
+          <TextField
             label="Personal email"
             name="personal_email"
             type="email"
-            defaultValue={staff.personal_email ?? undefined}
+            defaultValue={staff.personal_email}
+            error={fieldError('personal_email')}
           />
-        </div>
-      </div>
+        </FormGrid>
+      </FormSection>
 
-      <div className="flex items-center gap-4">
-        <button
-          type="submit"
-          disabled={isPending}
-          className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 disabled:pointer-events-none disabled:opacity-50"
-        >
-          {isPending ? 'Saving…' : 'Save changes'}
-        </button>
-        <Link
-          href="/staff"
-          className="text-sm font-medium text-gray-500 hover:text-gray-700"
-        >
-          Cancel
-        </Link>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-      </div>
-    </form>
-  )
-}
-
-function Field({
-  label,
-  name,
-  type = 'text',
-  required = false,
-  defaultValue,
-}: {
-  label: string
-  name: string
-  type?: string
-  required?: boolean
-  defaultValue?: string
-}) {
-  return (
-    <div>
-      <label htmlFor={name} className="block text-sm font-medium text-gray-700">
-        {label}
-        {required && <span className="ml-0.5 text-red-500">*</span>}
-      </label>
-      <input
-        id={name}
-        name={name}
-        type={type}
-        required={required}
-        defaultValue={defaultValue}
-        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+      <FormActions
+        submitLabel="Save changes"
+        isPending={isPending}
+        cancelHref="/staff"
+        error={error ?? undefined}
       />
-    </div>
+    </form>
   )
 }

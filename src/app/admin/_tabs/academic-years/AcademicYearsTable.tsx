@@ -7,7 +7,7 @@ import TableCard from '@/components/grid/TableCard'
 import Td from '@/components/grid/Td'
 import Th from '@/components/grid/Th'
 import { rowLink, tbody, thead } from '@/lib/grid/styles'
-import type { ActionResult } from '@/lib/schemas'
+import type { ActionResult } from '@/lib/action'
 
 import AcademicYearForm from './AcademicYearForm'
 import MakeCurrentButton from './MakeCurrentButton'

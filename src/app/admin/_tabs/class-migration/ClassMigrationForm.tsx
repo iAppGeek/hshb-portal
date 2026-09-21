@@ -1,11 +1,19 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 import { LEAVING_REASONS, LEAVING_REASON_LABELS } from '@/lib/schemas'
-import type { ActionResult } from '@/lib/schemas'
+import type { ActionResult } from '@/lib/action'
+import {
+  FieldError,
+  FormGrid,
+  FormSection,
+  TextField,
+  formStyles,
+  useServerForm,
+} from '@/components/form'
 
 export type MigrationYear = { id: string; code: string }
 
@@ -59,10 +67,9 @@ export default function ClassMigrationForm({
   baseUrl,
 }: Props): React.ReactElement {
   const router = useRouter()
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
   const canCreateNewClass = years.length > 0
   const [createNewClass, setCreateNewClass] = useState(canCreateNewClass)
+  const { handleSubmit, isPending, error, fieldError } = useServerForm(action)
 
   function buildUrl(next: {
     sourceClassId?: string | null
@@ -103,16 +110,6 @@ export default function ClassMigrationForm({
     )
   }
 
-  function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>): void {
-    e.preventDefault()
-    setError(null)
-    const form = e.currentTarget
-    startTransition(async () => {
-      const result = await action(new FormData(form))
-      if (result?.error) setError(result.error)
-    })
-  }
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <input
@@ -129,23 +126,16 @@ export default function ClassMigrationForm({
       </p>
 
       {/* ── Section 1: Source Class ───────────────────────────────────── */}
-      <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-        <h2 className="mb-4 text-sm font-semibold text-gray-900">
-          Class to migrate
-        </h2>
-
+      <FormSection title="Class to migrate">
         <div>
-          <label
-            htmlFor="source_class_select"
-            className="block text-sm font-medium text-gray-700"
-          >
-            Class to migrate<span className="ml-0.5 text-red-500">*</span>
+          <label htmlFor="source_class_select" className={formStyles.label}>
+            Class to migrate<span className={formStyles.requiredMark}>*</span>
           </label>
           <select
             id="source_class_select"
             value={sourceClassId ?? ''}
             onChange={handleSourceChange}
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+            className={formStyles.input}
           >
             <option value="">Select a class…</option>
             {classes.map((c) => (
@@ -155,7 +145,7 @@ export default function ClassMigrationForm({
             ))}
           </select>
           {classes.length === 0 && (
-            <p className="mt-1 text-xs text-gray-500">
+            <p className={formStyles.hint}>
               No active classes available to migrate.
             </p>
           )}
@@ -176,7 +166,7 @@ export default function ClassMigrationForm({
                 Create a new class for these students
               </label>
               {!canCreateNewClass && (
-                <p className="mt-1 text-xs text-gray-500">
+                <p className={formStyles.hint}>
                   Create the next academic year first to move students into a
                   new class.
                 </p>
@@ -225,28 +215,21 @@ export default function ClassMigrationForm({
             </div>
           </>
         )}
-      </div>
+      </FormSection>
 
       {/* ── Section 2: New Class Details ─────────────────────────────── */}
       {sourceClassId && createNewClass && (
-        <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-          <h2 className="mb-4 text-sm font-semibold text-gray-900">
-            New Class Details
-          </h2>
-
+        <FormSection title="New Class Details">
           <div className="mb-4">
-            <label
-              htmlFor="target_year_select"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Academic year<span className="ml-0.5 text-red-500">*</span>
+            <label htmlFor="target_year_select" className={formStyles.label}>
+              Academic year<span className={formStyles.requiredMark}>*</span>
             </label>
             <select
               id="target_year_select"
               name="academic_year_id"
               value={targetYearId ?? ''}
               onChange={handleTargetYearChange}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+              className={formStyles.input}
             >
               {years.map((y) => (
                 <option key={y.id} value={y.id}>
@@ -256,22 +239,37 @@ export default function ClassMigrationForm({
             </select>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Class name" name="name" required />
-            <Field label="Year group" name="year_group" required />
-            <Field label="Room number" name="room_number" />
+          <FormGrid>
+            <TextField
+              label="Class name"
+              name="name"
+              required
+              error={fieldError('name')}
+            />
+            <TextField
+              label="Year group"
+              name="year_group"
+              required
+              error={fieldError('year_group')}
+            />
+            <TextField
+              label="Room number"
+              name="room_number"
+              error={fieldError('room_number')}
+            />
             <div className="sm:col-span-2">
-              <label
-                htmlFor="teacher_id"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Teacher<span className="ml-0.5 text-red-500">*</span>
+              <label htmlFor="teacher_id" className={formStyles.label}>
+                Teacher<span className={formStyles.requiredMark}>*</span>
               </label>
               <select
                 id="teacher_id"
                 name="teacher_id"
                 required
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                aria-invalid={fieldError('teacher_id') ? true : undefined}
+                aria-describedby={
+                  fieldError('teacher_id') ? 'teacher_id-error' : undefined
+                }
+                className={`${formStyles.input}${fieldError('teacher_id') ? ` ${formStyles.inputInvalid}` : ''}`}
               >
                 <option value="">Select a teacher…</option>
                 {teachers.map((t) => (
@@ -281,9 +279,13 @@ export default function ClassMigrationForm({
                   </option>
                 ))}
               </select>
+              <FieldError
+                id="teacher_id-error"
+                error={fieldError('teacher_id')}
+              />
             </div>
-          </div>
-        </div>
+          </FormGrid>
+        </FormSection>
       )}
 
       {/* ── Actions ──────────────────────────────────────────────────── */}
@@ -301,37 +303,12 @@ export default function ClassMigrationForm({
         >
           Cancel
         </Link>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-red-600">
+            {error}
+          </p>
+        )}
       </div>
     </form>
-  )
-}
-
-function Field({
-  label,
-  name,
-  required = false,
-  placeholder,
-}: {
-  label: string
-  name: string
-  required?: boolean
-  placeholder?: string
-}): React.ReactElement {
-  return (
-    <div>
-      <label htmlFor={name} className="block text-sm font-medium text-gray-700">
-        {label}
-        {required && <span className="ml-0.5 text-red-500">*</span>}
-      </label>
-      <input
-        id={name}
-        name={name}
-        type="text"
-        required={required}
-        placeholder={placeholder}
-        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-      />
-    </div>
   )
 }

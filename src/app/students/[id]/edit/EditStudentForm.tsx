@@ -1,9 +1,20 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 
 import type { GuardianSummary } from '@/db'
+import {
+  CheckboxField,
+  FieldError,
+  FormActions,
+  FormGrid,
+  FormSection,
+  RadioGroup,
+  TextField,
+  formStyles,
+  useServerForm,
+} from '@/components/form'
 
 import { updateStudentAction } from './actions'
 
@@ -77,21 +88,12 @@ export default function EditStudentForm({
     initialAddressMode,
   )
 
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+  const { handleSubmit, isPending, error, fieldError } = useServerForm((fd) =>
+    updateStudentAction(student.id, fd),
+  )
 
   function handleRemoveSecondary() {
     setShowSecondary(false)
-  }
-
-  function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    const form = e.currentTarget
-    startTransition(async () => {
-      const result = await updateStudentAction(student.id, new FormData(form))
-      if (result?.error) setError(result.error)
-    })
   }
 
   return (
@@ -107,111 +109,116 @@ export default function EditStudentForm({
 
       {/* ── Student Details ─────────────────────────────────────────── */}
       <FormSection title="Student Details">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field
+        <FormGrid>
+          <TextField
             label="First name"
             name="student_first_name"
             required
             defaultValue={student.first_name}
+            error={fieldError('student_first_name')}
           />
-          <Field
+          <TextField
             label="Last name"
             name="student_last_name"
             required
             defaultValue={student.last_name}
+            error={fieldError('student_last_name')}
           />
-          <Field
+          <TextField
             label="Date of birth"
             name="student_date_of_birth"
             type="date"
-            defaultValue={student.date_of_birth ?? undefined}
+            defaultValue={student.date_of_birth}
+            error={fieldError('student_date_of_birth')}
           />
-          <Field
+          <TextField
             label="Student code"
             name="student_code"
-            defaultValue={student.student_code ?? undefined}
+            defaultValue={student.student_code}
+            error={fieldError('student_code')}
           />
-          <Field
+          <TextField
             label="English (mainstream) school"
             name="student_english_school_name"
-            defaultValue={student.english_school_name ?? undefined}
+            defaultValue={student.english_school_name}
+            error={fieldError('student_english_school_name')}
           />
-        </div>
+        </FormGrid>
 
         <div className="mt-4">
-          <p className="mb-2 text-sm font-medium text-gray-700">Address</p>
-          <div className="mb-3 flex gap-4">
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
-              <input
-                type="radio"
-                name="address_mode"
-                checked={addressMode === 'guardian'}
-                onChange={() => setAddressMode('guardian')}
-                className="text-blue-600 focus:ring-blue-500"
-              />
-              Same as guardian
-            </label>
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
-              <input
-                type="radio"
-                name="address_mode"
-                checked={addressMode === 'own'}
-                onChange={() => setAddressMode('own')}
-                className="text-blue-600 focus:ring-blue-500"
-              />
-              Enter address
-            </label>
-          </div>
+          <RadioGroup
+            name="address_mode"
+            legend="Address"
+            value={addressMode}
+            onChange={(v) => setAddressMode(v as 'own' | 'guardian')}
+            options={[
+              { value: 'guardian', label: 'Same as guardian' },
+              { value: 'own', label: 'Enter address' },
+            ]}
+          />
 
           {addressMode === 'guardian' ? (
-            <p className="text-sm text-gray-500">
+            <p className="mt-3 text-sm text-gray-500">
               Student will use the primary guardian&apos;s address.
             </p>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field
+            <FormGrid>
+              <TextField
                 label="Address line 1"
                 name="student_address_line_1"
                 required
-                defaultValue={student.address_line_1 ?? undefined}
+                defaultValue={student.address_line_1}
+                autoComplete="address-line1"
+                error={fieldError('student_address_line_1')}
               />
-              <Field
+              <TextField
                 label="Address line 2"
                 name="student_address_line_2"
-                defaultValue={student.address_line_2 ?? undefined}
+                defaultValue={student.address_line_2}
+                autoComplete="address-line2"
+                error={fieldError('student_address_line_2')}
               />
-              <Field
+              <TextField
                 label="City"
                 name="student_city"
                 required
-                defaultValue={student.city ?? undefined}
+                defaultValue={student.city}
+                autoComplete="address-level2"
+                error={fieldError('student_city')}
               />
-              <Field
+              <TextField
                 label="Postcode"
                 name="student_postcode"
                 required
-                defaultValue={student.postcode ?? undefined}
+                defaultValue={student.postcode}
+                autoComplete="postal-code"
+                error={fieldError('student_postcode')}
               />
-            </div>
+            </FormGrid>
           )}
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field
-            label="Allergies"
-            name="student_allergies"
-            defaultValue={student.allergies ?? undefined}
-          />
-          <Field
-            label="Medical Details"
-            name="student_medical_details"
-            defaultValue={student.medical_details ?? undefined}
-          />
-          <Field
-            label="Notes"
-            name="student_notes"
-            defaultValue={student.notes ?? undefined}
-          />
+        <div className="mt-4">
+          <FormGrid>
+            <TextField
+              label="Allergies"
+              name="student_allergies"
+              defaultValue={student.allergies}
+              error={fieldError('student_allergies')}
+            />
+            <TextField
+              label="Medical Details"
+              name="student_medical_details"
+              defaultValue={student.medical_details}
+              error={fieldError('student_medical_details')}
+            />
+            <TextField
+              label="Notes"
+              name="student_notes"
+              defaultValue={student.notes}
+              error={fieldError('student_notes')}
+            />
+          </FormGrid>
         </div>
       </FormSection>
 
@@ -228,6 +235,7 @@ export default function EditStudentForm({
           defaultRelationship={
             student.primary_guardian_relationship ?? undefined
           }
+          fieldError={fieldError}
         />
       </FormSection>
 
@@ -246,6 +254,7 @@ export default function EditStudentForm({
             defaultRelationship={
               student.secondary_guardian_relationship ?? undefined
             }
+            fieldError={fieldError}
           />
         </FormSection>
       ) : (
@@ -274,6 +283,7 @@ export default function EditStudentForm({
             defaultRelationship={
               student.additional_contact_1_relationship ?? undefined
             }
+            fieldError={fieldError}
           />
         </FormSection>
       ) : (
@@ -299,6 +309,7 @@ export default function EditStudentForm({
               defaultRelationship={
                 student.additional_contact_2_relationship ?? undefined
               }
+              fieldError={fieldError}
             />
           </FormSection>
         ) : (
@@ -340,27 +351,27 @@ export default function EditStudentForm({
           Tick only what the parent has signed for.
         </p>
         <div className="space-y-2">
-          <ConsentCheckbox
+          <CheckboxField
             name="consent_privacy_notice"
             label="Privacy notice"
             defaultChecked={student.consent_privacy_notice}
           />
-          <ConsentCheckbox
+          <CheckboxField
             name="consent_emergency_first_aid"
             label="Emergency first aid"
             defaultChecked={student.consent_emergency_first_aid}
           />
-          <ConsentCheckbox
+          <CheckboxField
             name="consent_photo_media"
             label="Photo & media"
             defaultChecked={student.consent_photo_media}
           />
-          <ConsentCheckbox
+          <CheckboxField
             name="consent_home_school"
             label="Home–school agreement"
             defaultChecked={student.consent_home_school}
           />
-          <ConsentCheckbox
+          <CheckboxField
             name="consent_comms_email_sms"
             label="Email & SMS"
             defaultChecked={student.consent_comms_email_sms}
@@ -369,22 +380,12 @@ export default function EditStudentForm({
       </FormSection>
 
       {/* ── Actions ─────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-4">
-        <button
-          type="submit"
-          disabled={isPending}
-          className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 disabled:pointer-events-none disabled:opacity-50"
-        >
-          {isPending ? 'Saving…' : 'Save changes'}
-        </button>
-        <Link
-          href="/students"
-          className="text-sm font-medium text-gray-500 hover:text-gray-700"
-        >
-          Cancel
-        </Link>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-      </div>
+      <FormActions
+        submitLabel="Save changes"
+        isPending={isPending}
+        cancelHref="/students"
+        error={error ?? undefined}
+      />
     </form>
   )
 }
@@ -416,6 +417,7 @@ function GuardianSelector({
   requireOccupation = false,
   defaultId,
   defaultRelationship,
+  fieldError,
 }: {
   prefix: string
   guardians: GuardianSummary[]
@@ -425,6 +427,7 @@ function GuardianSelector({
   requireOccupation?: boolean
   defaultId?: string
   defaultRelationship?: string
+  fieldError: (name: string) => string | undefined
 }) {
   const [mode, setMode] = useState<'new' | 'existing'>(
     defaultId ? 'existing' : 'new',
@@ -444,37 +447,24 @@ function GuardianSelector({
       <input type="hidden" name={`${prefix}_mode`} value={mode} />
 
       {guardians.length > 0 && (
-        <div className="mb-4 flex gap-4">
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
-            <input
-              type="radio"
-              name={`${prefix}_mode_radio`}
-              checked={mode === 'new'}
-              onChange={() => switchMode('new')}
-              className="text-blue-600 focus:ring-blue-500"
-            />
-            Add new
-          </label>
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
-            <input
-              type="radio"
-              name={`${prefix}_mode_radio`}
-              checked={mode === 'existing'}
-              onChange={() => switchMode('existing')}
-              className="text-blue-600 focus:ring-blue-500"
-            />
-            Select existing
-          </label>
+        <div className="mb-4">
+          <RadioGroup
+            name={`${prefix}_mode_radio`}
+            legend="Guardian source"
+            value={mode}
+            onChange={(v) => switchMode(v as 'new' | 'existing')}
+            options={[
+              { value: 'new', label: 'Add new' },
+              { value: 'existing', label: 'Select existing' },
+            ]}
+          />
         </div>
       )}
 
       {mode === 'existing' ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <FormGrid>
           <div className="sm:col-span-2">
-            <label
-              htmlFor={`${prefix}_search`}
-              className="block text-sm font-medium text-gray-700"
-            >
+            <label htmlFor={`${prefix}_search`} className={formStyles.label}>
               Search guardians
             </label>
             <input
@@ -483,18 +473,18 @@ function GuardianSelector({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Type at least 5 characters…"
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+              className={formStyles.input}
             />
-            <p className="mt-1 text-xs text-gray-400">
+            <p className={formStyles.hint}>
               Type at least 5 characters · top 10 results shown
             </p>
           </div>
           <div className="sm:col-span-2">
             <label
               htmlFor={`${prefix}_existing_id`}
-              className="block text-sm font-medium text-gray-700"
+              className={formStyles.label}
             >
-              Guardian<span className="ml-0.5 text-red-500">*</span>
+              Guardian<span className={formStyles.requiredMark}>*</span>
             </label>
             <select
               id={`${prefix}_existing_id`}
@@ -502,7 +492,15 @@ function GuardianSelector({
               required
               value={selectedId}
               onChange={(e) => setSelectedId(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+              aria-invalid={
+                fieldError(`${prefix}_existing_id`) ? true : undefined
+              }
+              aria-describedby={
+                fieldError(`${prefix}_existing_id`)
+                  ? `${prefix}_existing_id-error`
+                  : undefined
+              }
+              className={`${formStyles.input}${fieldError(`${prefix}_existing_id`) ? ` ${formStyles.inputInvalid}` : ''}`}
             >
               <option value="">
                 {search.trim().length === 0
@@ -531,6 +529,10 @@ function GuardianSelector({
                 </option>
               ))}
             </select>
+            <FieldError
+              id={`${prefix}_existing_id-error`}
+              error={fieldError(`${prefix}_existing_id`)}
+            />
             {selectedId && (
               <Link
                 href={`/guardians/${selectedId}/edit`}
@@ -541,13 +543,14 @@ function GuardianSelector({
               </Link>
             )}
           </div>
-          <Field
+          <TextField
             label="Relationship to student"
             name={`${prefix}_relationship`}
             required
             defaultValue={defaultRelationship}
+            error={fieldError(`${prefix}_relationship`)}
           />
-        </div>
+        </FormGrid>
       ) : (
         <GuardianFields
           prefix={prefix}
@@ -555,37 +558,10 @@ function GuardianSelector({
           requireAddress={requireAddress}
           requireEmail={requireEmail}
           requireOccupation={requireOccupation}
+          fieldError={fieldError}
         />
       )}
     </>
-  )
-}
-
-function FormSection({
-  title,
-  children,
-  onRemove,
-}: {
-  title: string
-  children: React.ReactNode
-  onRemove?: () => void
-}) {
-  return (
-    <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
-        {onRemove && (
-          <button
-            type="button"
-            onClick={onRemove}
-            className="text-xs text-gray-400 hover:text-red-500"
-          >
-            Remove
-          </button>
-        )}
-      </div>
-      {children}
-    </div>
   )
 }
 
@@ -595,109 +571,92 @@ function GuardianFields({
   requireAddress = false,
   requireEmail = false,
   requireOccupation = false,
+  fieldError,
 }: {
   prefix: string
   showAddress?: boolean
   requireAddress?: boolean
   requireEmail?: boolean
   requireOccupation?: boolean
+  fieldError: (name: string) => string | undefined
 }) {
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="First name" name={`${prefix}_first_name`} required />
-        <Field label="Last name" name={`${prefix}_last_name`} required />
-        <Field label="Phone" name={`${prefix}_phone`} type="tel" required />
-        <Field
+      <FormGrid>
+        <TextField
+          label="First name"
+          name={`${prefix}_first_name`}
+          required
+          autoComplete="given-name"
+          error={fieldError(`${prefix}_first_name`)}
+        />
+        <TextField
+          label="Last name"
+          name={`${prefix}_last_name`}
+          required
+          autoComplete="family-name"
+          error={fieldError(`${prefix}_last_name`)}
+        />
+        <TextField
+          label="Phone"
+          name={`${prefix}_phone`}
+          type="tel"
+          required
+          error={fieldError(`${prefix}_phone`)}
+        />
+        <TextField
           label="Email"
           name={`${prefix}_email`}
           type="email"
           required={requireEmail}
+          error={fieldError(`${prefix}_email`)}
         />
-        <Field
+        <TextField
           label="Relationship to student"
           name={`${prefix}_relationship`}
           required
+          error={fieldError(`${prefix}_relationship`)}
         />
-        <Field
+        <TextField
           label="Occupation"
           name={`${prefix}_occupation`}
           required={requireOccupation}
+          error={fieldError(`${prefix}_occupation`)}
         />
-      </div>
+      </FormGrid>
       {showAddress && (
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field
-            label="Address line 1"
-            name={`${prefix}_address_line_1`}
-            required={requireAddress}
-          />
-          <Field label="Address line 2" name={`${prefix}_address_line_2`} />
-          <Field
-            label="City"
-            name={`${prefix}_city`}
-            required={requireAddress}
-          />
-          <Field
-            label="Postcode"
-            name={`${prefix}_postcode`}
-            required={requireAddress}
-          />
+        <div className="mt-4">
+          <FormGrid>
+            <TextField
+              label="Address line 1"
+              name={`${prefix}_address_line_1`}
+              required={requireAddress}
+              autoComplete="address-line1"
+              error={fieldError(`${prefix}_address_line_1`)}
+            />
+            <TextField
+              label="Address line 2"
+              name={`${prefix}_address_line_2`}
+              autoComplete="address-line2"
+              error={fieldError(`${prefix}_address_line_2`)}
+            />
+            <TextField
+              label="City"
+              name={`${prefix}_city`}
+              required={requireAddress}
+              autoComplete="address-level2"
+              error={fieldError(`${prefix}_city`)}
+            />
+            <TextField
+              label="Postcode"
+              name={`${prefix}_postcode`}
+              required={requireAddress}
+              autoComplete="postal-code"
+              error={fieldError(`${prefix}_postcode`)}
+            />
+          </FormGrid>
         </div>
       )}
     </>
-  )
-}
-
-function Field({
-  label,
-  name,
-  type = 'text',
-  required = false,
-  defaultValue,
-}: {
-  label: string
-  name: string
-  type?: string
-  required?: boolean
-  defaultValue?: string
-}) {
-  return (
-    <div>
-      <label htmlFor={name} className="block text-sm font-medium text-gray-700">
-        {label}
-        {required && <span className="ml-0.5 text-red-500">*</span>}
-      </label>
-      <input
-        id={name}
-        name={name}
-        type={type}
-        required={required}
-        defaultValue={defaultValue}
-        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-      />
-    </div>
-  )
-}
-
-function ConsentCheckbox({
-  name,
-  label,
-  defaultChecked,
-}: {
-  name: string
-  label: string
-  defaultChecked: boolean
-}) {
-  return (
-    <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
-      <input
-        type="checkbox"
-        name={name}
-        defaultChecked={defaultChecked}
-        className="rounded text-blue-600 focus:ring-blue-500"
-      />
-      {label}
-    </label>
   )
 }

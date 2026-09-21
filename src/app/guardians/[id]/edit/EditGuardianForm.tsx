@@ -1,9 +1,15 @@
 'use client'
 
-import { useState, useTransition } from 'react'
 import Link from 'next/link'
 
 import type { GuardianFull, GuardianStudentLink } from '@/db'
+import {
+  FormActions,
+  FormGrid,
+  FormSection,
+  TextField,
+  useServerForm,
+} from '@/components/form'
 
 import { updateGuardianAction } from './actions'
 
@@ -13,107 +19,104 @@ type Props = {
 }
 
 export default function EditGuardianForm({ guardian, linkedStudents }: Props) {
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
-
-  function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    const form = e.currentTarget
-    startTransition(async () => {
-      const result = await updateGuardianAction(guardian.id, new FormData(form))
-      if (result?.error) setError(result.error)
-    })
-  }
+  const { handleSubmit, isPending, error, fieldError } = useServerForm((fd) =>
+    updateGuardianAction(guardian.id, fd),
+  )
 
   return (
     <div className="space-y-6">
       <form onSubmit={handleSubmit}>
-        <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-          <h2 className="mb-4 text-sm font-semibold text-gray-900">
-            Guardian Details
-          </h2>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field
+        <FormSection title="Guardian Details">
+          <FormGrid>
+            <TextField
               label="First name"
               name="first_name"
               required
               defaultValue={guardian.first_name}
+              autoComplete="given-name"
+              error={fieldError('first_name')}
             />
-            <Field
+            <TextField
               label="Last name"
               name="last_name"
               required
               defaultValue={guardian.last_name}
+              autoComplete="family-name"
+              error={fieldError('last_name')}
             />
-            <Field
+            <TextField
               label="Phone"
               name="phone"
               type="tel"
               required
               defaultValue={guardian.phone}
+              error={fieldError('phone')}
             />
-            <Field
+            <TextField
               label="Email"
               name="email"
               type="email"
-              defaultValue={guardian.email ?? undefined}
+              defaultValue={guardian.email}
+              error={fieldError('email')}
             />
-            <Field
+            <TextField
               label="Occupation"
               name="occupation"
-              defaultValue={guardian.occupation ?? undefined}
+              defaultValue={guardian.occupation}
+              error={fieldError('occupation')}
             />
-          </div>
+          </FormGrid>
 
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field
-              label="Address line 1"
-              name="address_line_1"
-              defaultValue={guardian.address_line_1 ?? undefined}
-            />
-            <Field
-              label="Address line 2"
-              name="address_line_2"
-              defaultValue={guardian.address_line_2 ?? undefined}
-            />
-            <Field
-              label="City"
-              name="city"
-              defaultValue={guardian.city ?? undefined}
-            />
-            <Field
-              label="Postcode"
-              name="postcode"
-              defaultValue={guardian.postcode ?? undefined}
-            />
+          <div className="mt-4">
+            <FormGrid>
+              <TextField
+                label="Address line 1"
+                name="address_line_1"
+                defaultValue={guardian.address_line_1}
+                autoComplete="address-line1"
+                error={fieldError('address_line_1')}
+              />
+              <TextField
+                label="Address line 2"
+                name="address_line_2"
+                defaultValue={guardian.address_line_2}
+                autoComplete="address-line2"
+                error={fieldError('address_line_2')}
+              />
+              <TextField
+                label="City"
+                name="city"
+                defaultValue={guardian.city}
+                autoComplete="address-level2"
+                error={fieldError('city')}
+              />
+              <TextField
+                label="Postcode"
+                name="postcode"
+                defaultValue={guardian.postcode}
+                autoComplete="postal-code"
+                error={fieldError('postcode')}
+              />
+            </FormGrid>
           </div>
 
           <div className="mt-4">
-            <Field
+            <TextField
               label="Notes"
               name="notes"
-              defaultValue={guardian.notes ?? undefined}
+              defaultValue={guardian.notes}
+              error={fieldError('notes')}
             />
           </div>
-        </div>
+        </FormSection>
 
-        <div className="mt-6 flex items-center gap-4">
-          <button
-            type="submit"
-            disabled={isPending}
-            className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 disabled:pointer-events-none disabled:opacity-50"
-          >
-            {isPending ? 'Saving…' : 'Save changes'}
-          </button>
-          <Link
-            href="/students"
-            className="text-sm font-medium text-gray-500 hover:text-gray-700"
-          >
-            Back to students
-          </Link>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+        <div className="mt-6">
+          <FormActions
+            submitLabel="Save changes"
+            isPending={isPending}
+            cancelHref="/students"
+            error={error ?? undefined}
+          />
         </div>
       </form>
 
@@ -147,37 +150,6 @@ export default function EditGuardianForm({ guardian, linkedStudents }: Props) {
           </ul>
         )}
       </div>
-    </div>
-  )
-}
-
-function Field({
-  label,
-  name,
-  type = 'text',
-  required = false,
-  defaultValue,
-}: {
-  label: string
-  name: string
-  type?: string
-  required?: boolean
-  defaultValue?: string
-}) {
-  return (
-    <div>
-      <label htmlFor={name} className="block text-sm font-medium text-gray-700">
-        {label}
-        {required && <span className="ml-0.5 text-red-500">*</span>}
-      </label>
-      <input
-        id={name}
-        name={name}
-        type={type}
-        required={required}
-        defaultValue={defaultValue}
-        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-      />
     </div>
   )
 }

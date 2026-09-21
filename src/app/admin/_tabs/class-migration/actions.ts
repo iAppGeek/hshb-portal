@@ -2,7 +2,12 @@
 
 import { migrateClass, logAuditEvent } from '@/db'
 import type { MigrationAction } from '@/db'
-import { ActionError, runAction, type ActionResult } from '@/lib/action'
+import {
+  ActionError,
+  firstFieldErrors,
+  runAction,
+  type ActionResult,
+} from '@/lib/action'
 import { canMigrateClasses } from '@/lib/permissions'
 import { migrateClassSchema, extractFormFields } from '@/lib/schemas'
 
@@ -29,7 +34,11 @@ export async function migrateClassAction(
         ...extractFormFields(formData),
         student_actions,
       })
-      if (!parsed.success) throw new ActionError(parsed.error.issues[0].message)
+      if (!parsed.success)
+        throw new ActionError(
+          parsed.error.issues[0].message,
+          firstFieldErrors(parsed.error),
+        )
 
       const newClass =
         parsed.data.create_new_class === 'true'

@@ -5,6 +5,7 @@ import Link from 'next/link'
 
 import type { RegistrationFull, ContactRole, StudentMatch } from '@/db'
 import type { GuardianMatch } from '@/db'
+import DefinitionList from '@/components/DefinitionList'
 import Tooltip from '@/components/Tooltip'
 import { formatDateInSchoolTz, formatDateTimeInSchoolTz } from '@/lib/datetime'
 import { guardianReuseDiff, type FieldDiff } from '@/lib/guardianDiff'
@@ -82,6 +83,40 @@ export default function RegistrationReview({
     submission.contacts.map((c) => [c.contact_role, c]),
   )
 
+  const workflowItems = [
+    {
+      label: 'Submitted',
+      value: formatDateTimeInSchoolTz(submission.submitted_at),
+    },
+    { label: 'Status', value: submission.status },
+    ...(submission.actioned_at
+      ? [
+          {
+            label: 'Actioned',
+            value: formatDateTimeInSchoolTz(submission.actioned_at),
+          },
+        ]
+      : []),
+    ...(submission.student_id
+      ? [
+          {
+            label: 'Student',
+            value: (
+              <Link
+                href={`/students/${submission.student_id}/edit`}
+                className="text-blue-600 hover:text-blue-800"
+              >
+                View student
+              </Link>
+            ),
+          },
+        ]
+      : []),
+    ...(submission.rejected_reason
+      ? [{ label: 'Rejected reason', value: submission.rejected_reason }]
+      : []),
+  ]
+
   return (
     <div className="max-w-3xl space-y-6">
       <PageHeader
@@ -91,186 +126,185 @@ export default function RegistrationReview({
         backLabel="Registrations"
       />
 
-      <Section title="Child">
-        <Field label="First name" value={submission.child_first_name} />
-        <Field label="Last name" value={submission.child_last_name} />
-        <Field
-          label="Date of birth"
-          value={formatDateInSchoolTz(submission.date_of_birth)}
-        />
-        <Field
-          label="Year group preference"
-          value={submission.preferred_year_group ?? '—'}
-        />
-        <Field
-          label="English (mainstream) school"
-          value={submission.english_school_name ?? '—'}
-        />
-      </Section>
+      <DefinitionList
+        title="Child"
+        items={[
+          { label: 'First name', value: submission.child_first_name },
+          { label: 'Last name', value: submission.child_last_name },
+          {
+            label: 'Date of birth',
+            value: formatDateInSchoolTz(submission.date_of_birth),
+          },
+          {
+            label: 'Year group preference',
+            value: submission.preferred_year_group ?? '—',
+          },
+          {
+            label: 'English (mainstream) school',
+            value: submission.english_school_name ?? '—',
+          },
+        ]}
+      />
 
-      <Section title="Home address">
-        <Field label="Address line 1" value={submission.address_line_1} />
-        <Field
-          label="Address line 2"
-          value={submission.address_line_2 ?? '—'}
-        />
-        <Field label="City" value={submission.city} />
-        <Field label="Postcode" value={submission.postcode} />
-      </Section>
+      <DefinitionList
+        title="Home address"
+        items={[
+          { label: 'Address line 1', value: submission.address_line_1 },
+          { label: 'Address line 2', value: submission.address_line_2 ?? '—' },
+          { label: 'City', value: submission.city },
+          { label: 'Postcode', value: submission.postcode },
+        ]}
+      />
 
-      <Section title="Medical">
-        <Field label="Allergies" value={submission.allergies ?? '—'} />
-        <Field
-          label="Medical details"
-          value={submission.medical_details ?? '—'}
-        />
-      </Section>
+      <DefinitionList
+        title="Medical"
+        items={[
+          { label: 'Allergies', value: submission.allergies ?? '—' },
+          {
+            label: 'Medical details',
+            value: submission.medical_details ?? '—',
+          },
+        ]}
+      />
 
       {CONTACT_ORDER.map((contactRole) => {
         const contact = contactsByRole.get(contactRole)
         if (!contact) return null
         const guardianMatches = guardianMatchesByContact[contact.id] ?? []
         return (
-          <Section key={contactRole} title={CONTACT_LABELS[contactRole]}>
-            <Field
-              label="Name"
-              value={`${contact.first_name} ${contact.last_name}`}
-            />
-            <Field label="Relationship" value={contact.relationship ?? '—'} />
-            <Field label="Phone" value={contact.phone} />
-            <Field label="Email" value={contact.email ?? '—'} />
-            <Field label="Occupation" value={contact.occupation ?? '—'} />
-            <Field
-              label="Address"
-              value={
-                contact.same_as_child_address
-                  ? 'Same as child'
-                  : [
-                      contact.address_line_1,
-                      contact.address_line_2,
-                      contact.city,
-                      contact.postcode,
-                    ]
-                      .filter(Boolean)
-                      .join(', ') || '—'
-              }
-            />
-            {guardianMatches.map((m) => {
-              const diff = guardianReuseDiff(m, contact, submission)
-              return (
-                <div
-                  key={m.id}
-                  className="col-span-full rounded-lg bg-amber-50 p-3 text-sm text-amber-800"
-                >
-                  Matches existing guardian{' '}
-                  <strong>
-                    {m.first_name} {m.last_name}
-                  </strong>{' '}
-                  ({m.phone}
-                  {m.email ? `, ${m.email}` : ''}) by {m.matched_on}. Approving
-                  with &quot;reuse&quot; on will link the student to that record
-                  and update its phone, occupation and address.
-                  {diff.length === 0 ? (
-                    <p className="mt-2 text-xs text-amber-700">
-                      No contact details will change.
-                    </p>
-                  ) : (
-                    <dl className="mt-2 space-y-1 text-xs">
-                      {diff.map((d: FieldDiff) => (
-                        <div key={d.field} className="flex gap-1">
-                          <dt className="font-medium">
-                            {GUARDIAN_FIELD_LABELS[d.field]}:
-                          </dt>
-                          <dd>
-                            {d.old ?? '(empty)'} → {d.new ?? '(empty)'}
-                          </dd>
-                        </div>
-                      ))}
-                    </dl>
-                  )}
-                </div>
-              )
-            })}
-          </Section>
+          <div
+            key={contactRole}
+            className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200"
+          >
+            <h2 className="mb-3 text-sm font-semibold text-gray-900">
+              {CONTACT_LABELS[contactRole]}
+            </h2>
+            <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <ContactField
+                label="Name"
+                value={`${contact.first_name} ${contact.last_name}`}
+              />
+              <ContactField
+                label="Relationship"
+                value={contact.relationship ?? '—'}
+              />
+              <ContactField label="Phone" value={contact.phone} />
+              <ContactField label="Email" value={contact.email ?? '—'} />
+              <ContactField
+                label="Occupation"
+                value={contact.occupation ?? '—'}
+              />
+              <ContactField
+                label="Address"
+                value={
+                  contact.same_as_child_address
+                    ? 'Same as child'
+                    : [
+                        contact.address_line_1,
+                        contact.address_line_2,
+                        contact.city,
+                        contact.postcode,
+                      ]
+                        .filter(Boolean)
+                        .join(', ') || '—'
+                }
+              />
+              {guardianMatches.map((m) => {
+                const diff = guardianReuseDiff(m, contact, submission)
+                return (
+                  <div
+                    key={m.id}
+                    className="col-span-full rounded-lg bg-amber-50 p-3 text-sm text-amber-800"
+                  >
+                    Matches existing guardian{' '}
+                    <strong>
+                      {m.first_name} {m.last_name}
+                    </strong>{' '}
+                    ({m.phone}
+                    {m.email ? `, ${m.email}` : ''}) by {m.matched_on}.
+                    Approving with &quot;reuse&quot; on will link the student to
+                    that record and update its phone, occupation and address.
+                    {diff.length === 0 ? (
+                      <p className="mt-2 text-xs text-amber-700">
+                        No contact details will change.
+                      </p>
+                    ) : (
+                      <dl className="mt-2 space-y-1 text-xs">
+                        {diff.map((d: FieldDiff) => (
+                          <div key={d.field} className="flex gap-1">
+                            <dt className="font-medium">
+                              {GUARDIAN_FIELD_LABELS[d.field]}:
+                            </dt>
+                            <dd>
+                              {d.old ?? '(empty)'} → {d.new ?? '(empty)'}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    )}
+                  </div>
+                )
+              })}
+            </dl>
+          </div>
         )
       })}
 
       {(submission.collect_authorised || submission.collect_password) && (
-        <Section title="Collection arrangements">
-          <Field
-            label="Who is authorised to collect"
-            value={submission.collect_authorised ?? '—'}
-          />
-          <Field
-            label="Collection password"
-            value={submission.collect_password ?? '—'}
-          />
-        </Section>
+        <DefinitionList
+          title="Collection arrangements"
+          items={[
+            {
+              label: 'Who is authorised to collect',
+              value: submission.collect_authorised ?? '—',
+            },
+            {
+              label: 'Collection password',
+              value: submission.collect_password ?? '—',
+            },
+          ]}
+        />
       )}
 
-      <Section title="Consents">
-        <ConsentField
-          label="Privacy notice"
-          value={submission.consent_privacy_notice}
-        />
-        <ConsentField
-          label="Emergency first aid"
-          value={submission.consent_emergency_first_aid}
-        />
-        <ConsentField
-          label="Photo & media"
-          value={submission.consent_photo_media}
-        />
-        <ConsentField
-          label="Home–school agreement"
-          value={submission.consent_home_school}
-        />
-        <ConsentField
-          label="Email & SMS"
-          value={submission.consent_comms_email_sms}
-        />
-        <Field label="Signed by" value={submission.declaration_name} />
-      </Section>
+      <DefinitionList
+        title="Consents"
+        items={[
+          {
+            label: 'Privacy notice',
+            value: submission.consent_privacy_notice ? 'Yes' : 'No',
+          },
+          {
+            label: 'Emergency first aid',
+            value: submission.consent_emergency_first_aid ? 'Yes' : 'No',
+          },
+          {
+            label: 'Photo & media',
+            value: submission.consent_photo_media ? 'Yes' : 'No',
+          },
+          {
+            label: 'Home–school agreement',
+            value: submission.consent_home_school ? 'Yes' : 'No',
+          },
+          {
+            label: 'Email & SMS',
+            value: submission.consent_comms_email_sms ? 'Yes' : 'No',
+          },
+          { label: 'Signed by', value: submission.declaration_name },
+        ]}
+      />
 
       <p className="text-xs text-gray-400">
         Spotted a typo? Approve, then correct it on the student or guardian edit
         page.
       </p>
 
-      <Section title="Workflow">
-        <Field
-          label="Submitted"
-          value={formatDateTimeInSchoolTz(submission.submitted_at)}
-        />
-        <Field label="Status" value={submission.status} />
-        {submission.actioned_at && (
-          <Field
-            label="Actioned"
-            value={formatDateTimeInSchoolTz(submission.actioned_at)}
-          />
-        )}
-        {submission.student_id && (
-          <div>
-            <dt className="text-xs font-medium tracking-wide text-gray-500 uppercase">
-              Student
-            </dt>
-            <dd className="mt-0.5 text-sm text-gray-900">
-              <Link
-                href={`/students/${submission.student_id}/edit`}
-                className="text-blue-600 hover:text-blue-800"
-              >
-                View student
-              </Link>
-            </dd>
-          </div>
-        )}
-        {submission.rejected_reason && (
-          <Field label="Rejected reason" value={submission.rejected_reason} />
-        )}
-      </Section>
+      <DefinitionList title="Workflow" items={workflowItems} />
 
       {isAdmin && submission.status === 'pending' && (
-        <Section title="Possible existing students">
+        <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
+          <h2 className="mb-3 text-sm font-semibold text-gray-900">
+            Possible existing students
+          </h2>
           {matches.length === 0 ? (
             <p className="text-sm text-gray-500">No existing students match.</p>
           ) : (
@@ -289,7 +323,7 @@ export default function RegistrationReview({
               ))}
             </ul>
           )}
-        </Section>
+        </div>
       )}
 
       <div className="flex flex-wrap items-center gap-3">
@@ -405,22 +439,12 @@ function ActionButton({
   return null
 }
 
-function Section({
-  title,
-  children,
-}: {
-  title: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-      <h2 className="mb-3 text-sm font-semibold text-gray-900">{title}</h2>
-      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">{children}</dl>
-    </div>
-  )
-}
-
-function Field({ label, value }: { label: string; value: string }) {
+/**
+ * Not `DefinitionList`: this contact block interleaves guardian-match warning
+ * cards after the field pairs, which `DefinitionList`'s items-only API
+ * doesn't support.
+ */
+function ContactField({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <dt className="text-xs font-medium tracking-wide text-gray-500 uppercase">
@@ -429,8 +453,4 @@ function Field({ label, value }: { label: string; value: string }) {
       <dd className="mt-0.5 text-sm text-gray-900">{value}</dd>
     </div>
   )
-}
-
-function ConsentField({ label, value }: { label: string; value: boolean }) {
-  return <Field label={label} value={value ? 'Yes' : 'No'} />
 }

@@ -1,9 +1,16 @@
 'use client'
 
-import { useState, useTransition, useRef, useEffect } from 'react'
-import Link from 'next/link'
+import { useState, useRef, useEffect } from 'react'
 
 import type { IncidentType } from '@/db'
+import {
+  FormActions,
+  FormSection,
+  SelectField,
+  TextAreaField,
+  TextField,
+  useServerForm,
+} from '@/components/form'
 import { nowDatetimeLocalInSchoolTz } from '@/lib/datetime'
 
 import { createIncidentAction } from '../actions'
@@ -17,91 +24,70 @@ type Props = {
 }
 
 export default function AddIncidentForm({ students, type }: Props) {
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
   const [studentId, setStudentId] = useState('')
   const [parentNotified, setParentNotified] = useState(false)
-
-  function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (!studentId) {
-      setError('Please select a student.')
-      return
-    }
-    setError(null)
-    const form = e.currentTarget
-    const fd = new FormData(form)
-    fd.set('student_id', studentId)
-    fd.set('parent_notified', String(parentNotified))
-    startTransition(async () => {
-      const result = await createIncidentAction(fd)
-      if (result?.error) setError(result.error)
-    })
-  }
+  const { handleSubmit, isPending, error, fieldError } =
+    useServerForm(createIncidentAction)
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-        <h2 className="mb-4 text-sm font-semibold text-gray-900">
-          Incident Details
-        </h2>
-
+      <FormSection title="Incident Details">
         <div className="grid grid-cols-1 gap-4">
-          <div>
-            <label
-              htmlFor="type"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Type<span className="ml-0.5 text-red-500">*</span>
-            </label>
-            <select
-              id="type"
-              name="type"
-              required
-              defaultValue={type}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-            >
-              <option value="medical">Medical</option>
-              <option value="behaviour">Behaviour</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
+          <SelectField
+            label="Type"
+            name="type"
+            required
+            defaultValue={type}
+            options={[
+              { value: 'medical', label: 'Medical' },
+              { value: 'behaviour', label: 'Behaviour' },
+              { value: 'other', label: 'Other' },
+            ]}
+            error={fieldError('type')}
+          />
 
-          <StudentSearch students={students} onSelect={setStudentId} />
+          <input type="hidden" name="student_id" value={studentId} />
+          <StudentSearch
+            students={students}
+            onSelect={setStudentId}
+            error={fieldError('student_id')}
+          />
 
-          <Field label="Title" name="title" required />
+          <TextField
+            label="Title"
+            name="title"
+            required
+            error={fieldError('title')}
+          />
 
-          <div>
-            <label
-              htmlFor="description"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Description<span className="ml-0.5 text-red-500">*</span>
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              required
-              rows={4}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-            />
-          </div>
+          <TextAreaField
+            label="Description"
+            name="description"
+            required
+            rows={4}
+            error={fieldError('description')}
+          />
 
-          <Field
+          <TextField
             label="Incident date & time"
             name="incident_date"
             type="datetime-local"
             required
             defaultValue={nowDatetimeLocalInSchoolTz()}
+            error={fieldError('incident_date')}
           />
         </div>
-      </div>
+      </FormSection>
 
-      <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-        <h2 className="mb-4 text-sm font-semibold text-gray-900">
-          Parent / Guardian Notification
-        </h2>
-
+      <FormSection title="Parent / Guardian Notification">
+        {/* `parent_notified` is a boolean-string field (booleanFromString), not
+            the on/off checkbox schema helper, so the visible checkbox stays
+            unnamed and this hidden input carries the value the schema reads. */}
+        <input
+          type="hidden"
+          name="parent_notified"
+          value={String(parentNotified)}
+        />
         <label className="flex cursor-pointer items-center gap-3">
           <input
             type="checkbox"
@@ -116,32 +102,23 @@ export default function AddIncidentForm({ students, type }: Props) {
 
         {parentNotified && (
           <div className="mt-4">
-            <Field
+            <TextField
               label="Date & time notified"
               name="parent_notified_at"
               type="datetime-local"
               defaultValue={nowDatetimeLocalInSchoolTz()}
+              error={fieldError('parent_notified_at')}
             />
           </div>
         )}
-      </div>
+      </FormSection>
 
-      <div className="flex items-center gap-4">
-        <button
-          type="submit"
-          disabled={isPending}
-          className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 disabled:pointer-events-none disabled:opacity-50"
-        >
-          {isPending ? 'Saving…' : 'Add Incident'}
-        </button>
-        <Link
-          href={`/incidents?tab=${type}`}
-          className="text-sm font-medium text-gray-500 hover:text-gray-700"
-        >
-          Cancel
-        </Link>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-      </div>
+      <FormActions
+        submitLabel="Add Incident"
+        isPending={isPending}
+        cancelHref={`/incidents?tab=${type}`}
+        error={error ?? undefined}
+      />
     </form>
   )
 }
@@ -149,9 +126,11 @@ export default function AddIncidentForm({ students, type }: Props) {
 function StudentSearch({
   students,
   onSelect,
+  error,
 }: {
   students: StudentSummary[]
   onSelect: (id: string) => void
+  error?: string
 }) {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<StudentSummary | null>(null)
@@ -228,7 +207,12 @@ function StudentSearch({
             }}
             onFocus={() => setOpen(true)}
             autoComplete="off"
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+            aria-invalid={error ? true : undefined}
+            className={`mt-1 block w-full rounded-lg border px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none ${
+              error
+                ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
+                : 'border-gray-300'
+            }`}
           />
           {open && filtered.length > 0 && (
             <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
@@ -250,37 +234,7 @@ function StudentSearch({
           )}
         </>
       )}
-    </div>
-  )
-}
-
-function Field({
-  label,
-  name,
-  type = 'text',
-  required = false,
-  defaultValue,
-}: {
-  label: string
-  name: string
-  type?: string
-  required?: boolean
-  defaultValue?: string
-}) {
-  return (
-    <div>
-      <label htmlFor={name} className="block text-sm font-medium text-gray-700">
-        {label}
-        {required && <span className="ml-0.5 text-red-500">*</span>}
-      </label>
-      <input
-        id={name}
-        name={name}
-        type={type}
-        required={required}
-        defaultValue={defaultValue}
-        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-      />
+      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>
   )
 }

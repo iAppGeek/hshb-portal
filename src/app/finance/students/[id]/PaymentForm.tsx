@@ -1,13 +1,20 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState } from 'react'
 
 import {
   academicYearForDate,
   type AcademicYearRange,
 } from '@/lib/academicYears'
 import { PAYMENT_METHOD_LABELS } from '@/lib/fees'
-import type { ActionResult } from '@/lib/schemas'
+import type { ActionResult } from '@/lib/action'
+import {
+  FieldError,
+  SelectField,
+  TextField,
+  formStyles,
+  useServerForm,
+} from '@/components/form'
 
 export type PaymentFormYear = AcademicYearRange & { id: string }
 
@@ -19,22 +26,29 @@ type Props = {
   action: (formData: FormData) => Promise<ActionResult>
 }
 
-const INPUT =
-  'mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none'
-const LABEL = 'block text-sm font-medium text-gray-700'
-
 export default function PaymentForm({
   defaultDate,
   years,
   defaultYearId,
   action,
 }: Props): React.ReactElement {
+  const formRef = useRef<HTMLFormElement>(null)
   const [date, setDate] = useState(defaultDate)
   const [yearId, setYearId] = useState(
     academicYearForDate(years, defaultDate)?.id ?? defaultYearId,
   )
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+
+  const { handleSubmit, isPending, error, fieldError } = useServerForm(
+    async (fd) => {
+      const result = await action(fd)
+      if (!result || !('error' in result)) {
+        formRef.current?.reset()
+        setDate(defaultDate)
+        setYearId(academicYearForDate(years, defaultDate)?.id ?? defaultYearId)
+      }
+      return result
+    },
+  )
 
   function handleDateChange(e: React.ChangeEvent<HTMLInputElement>): void {
     const value = e.target.value
@@ -42,43 +56,21 @@ export default function PaymentForm({
     setYearId(academicYearForDate(years, value)?.id ?? defaultYearId)
   }
 
-  function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>): void {
-    e.preventDefault()
-    setError(null)
-    const form = e.currentTarget
-    startTransition(async () => {
-      const result = await action(new FormData(form))
-      if (result?.error) {
-        setError(result.error)
-      } else {
-        form.reset()
-        setDate(defaultDate)
-        setYearId(academicYearForDate(years, defaultDate)?.id ?? defaultYearId)
-      }
-    })
-  }
-
   return (
-    <form onSubmit={handleSubmit} aria-label="Record a payment">
+    <form ref={formRef} onSubmit={handleSubmit} aria-label="Record a payment">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+        <TextField
+          label="Amount (£)"
+          name="amount"
+          type="number"
+          min="0.01"
+          step="0.01"
+          required
+          error={fieldError('amount')}
+        />
         <div>
-          <label htmlFor="amount" className={LABEL}>
-            Amount (£)<span className="ml-0.5 text-red-500">*</span>
-          </label>
-          <input
-            id="amount"
-            name="amount"
-            type="number"
-            min="0.01"
-            step="0.01"
-            inputMode="decimal"
-            required
-            className={INPUT}
-          />
-        </div>
-        <div>
-          <label htmlFor="payment_date" className={LABEL}>
-            Payment date<span className="ml-0.5 text-red-500">*</span>
+          <label htmlFor="payment_date" className={formStyles.label}>
+            Payment date<span className={formStyles.requiredMark}>*</span>
           </label>
           <input
             id="payment_date"
@@ -87,12 +79,20 @@ export default function PaymentForm({
             required
             value={date}
             onChange={handleDateChange}
-            className={INPUT}
+            aria-invalid={fieldError('payment_date') ? true : undefined}
+            aria-describedby={
+              fieldError('payment_date') ? 'payment_date-error' : undefined
+            }
+            className={`${formStyles.input}${fieldError('payment_date') ? ` ${formStyles.inputInvalid}` : ''}`}
+          />
+          <FieldError
+            id="payment_date-error"
+            error={fieldError('payment_date')}
           />
         </div>
         <div>
-          <label htmlFor="academic_year_id" className={LABEL}>
-            Pays for<span className="ml-0.5 text-red-500">*</span>
+          <label htmlFor="academic_year_id" className={formStyles.label}>
+            Pays for<span className={formStyles.requiredMark}>*</span>
           </label>
           <select
             id="academic_year_id"
@@ -100,7 +100,13 @@ export default function PaymentForm({
             required
             value={yearId}
             onChange={(e) => setYearId(e.target.value)}
-            className={INPUT}
+            aria-invalid={fieldError('academic_year_id') ? true : undefined}
+            aria-describedby={
+              fieldError('academic_year_id')
+                ? 'academic_year_id-error'
+                : undefined
+            }
+            className={`${formStyles.input}${fieldError('academic_year_id') ? ` ${formStyles.inputInvalid}` : ''}`}
           >
             {years.map((y) => (
               <option key={y.id} value={y.id}>
@@ -108,40 +114,34 @@ export default function PaymentForm({
               </option>
             ))}
           </select>
-        </div>
-        <div>
-          <label htmlFor="reference" className={LABEL}>
-            Reference<span className="ml-0.5 text-red-500">*</span>
-          </label>
-          <input
-            id="reference"
-            name="reference"
-            type="text"
-            required
-            className={INPUT}
+          <FieldError
+            id="academic_year_id-error"
+            error={fieldError('academic_year_id')}
           />
         </div>
-        <div>
-          <label htmlFor="method" className={LABEL}>
-            Method<span className="ml-0.5 text-red-500">*</span>
-          </label>
-          <select id="method" name="method" required className={INPUT}>
-            {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <TextField
+          label="Reference"
+          name="reference"
+          required
+          error={fieldError('reference')}
+        />
+        <SelectField
+          label="Method"
+          name="method"
+          required
+          options={Object.entries(PAYMENT_METHOD_LABELS).map(
+            ([value, label]) => ({
+              value,
+              label,
+            }),
+          )}
+          error={fieldError('method')}
+        />
         <div className="sm:col-span-4">
-          <label htmlFor="payment_notes" className={LABEL}>
-            Payment notes
-          </label>
-          <input
-            id="payment_notes"
+          <TextField
+            label="Payment notes"
             name="notes"
-            type="text"
-            className={INPUT}
+            error={fieldError('notes')}
           />
         </div>
       </div>

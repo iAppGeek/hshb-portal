@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import TurnstileWidget from '@/clientComponents/TurnstileWidget'
 import { PRIVACY_NOTICE_URL, YEAR_GROUP_NOT_SURE } from '@/lib/registration'
@@ -11,6 +11,13 @@ import {
   PHONE_MAX,
   EMAIL_MAX,
 } from '@/lib/schemas'
+import {
+  FormGrid,
+  FormSection,
+  TextAreaField,
+  TextField,
+  useServerForm,
+} from '@/components/form'
 
 import { submitRegistrationAction } from './actions'
 
@@ -28,8 +35,9 @@ export default function RegistrationForm({
   const [showContact2, setShowContact2] = useState(false)
   const [token, setToken] = useState<string | null>(null)
   const [captchaError, setCaptchaError] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+  const { handleSubmit, isPending, error, fieldError } = useServerForm(
+    submitRegistrationAction,
+  )
 
   function handleToken(newToken: string | null) {
     setToken(newToken)
@@ -44,16 +52,6 @@ export default function RegistrationForm({
         ? 'Please complete the security check above before submitting.'
         : null
 
-  function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    const form = e.currentTarget
-    startTransition(async () => {
-      const result = await submitRegistrationAction(new FormData(form))
-      if (result?.error) setError(result.error)
-    })
-  }
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <input type="hidden" name="has_secondary" value={String(showSecondary)} />
@@ -62,35 +60,39 @@ export default function RegistrationForm({
 
       {/* ── Child's details ─────────────────────────────────────────── */}
       <FormSection title="Child's details">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field
+        <FormGrid>
+          <TextField
             label="First name"
             name="child_first_name"
             required
             maxLength={SHORT_TEXT_MAX}
             autoComplete="off"
+            error={fieldError('child_first_name')}
           />
-          <Field
+          <TextField
             label="Last name"
             name="child_last_name"
             required
             maxLength={SHORT_TEXT_MAX}
             autoComplete="off"
+            error={fieldError('child_last_name')}
           />
-          <Field
+          <TextField
             label="Date of birth"
             name="date_of_birth"
             type="date"
             required
             autoComplete="off"
+            error={fieldError('date_of_birth')}
           />
-          <Field
+          <TextField
             label="English (mainstream) school"
             name="english_school_name"
             required
             maxLength={SHORT_TEXT_MAX}
             hint="The school your child attends during the week"
             autoComplete="off"
+            error={fieldError('english_school_name')}
           />
           <div>
             <label
@@ -113,56 +115,62 @@ export default function RegistrationForm({
               <option value={YEAR_GROUP_NOT_SURE}>{YEAR_GROUP_NOT_SURE}</option>
             </select>
           </div>
-        </div>
+        </FormGrid>
       </FormSection>
 
       {/* ── Home address ────────────────────────────────────────────── */}
       <FormSection title="Home address">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field
+        <FormGrid>
+          <TextField
             label="Address line 1"
             name="address_line_1"
             required
             maxLength={ADDRESS_TEXT_MAX}
             autoComplete="address-line1"
+            error={fieldError('address_line_1')}
           />
-          <Field
+          <TextField
             label="Address line 2"
             name="address_line_2"
             maxLength={ADDRESS_TEXT_MAX}
             autoComplete="address-line2"
+            error={fieldError('address_line_2')}
           />
-          <Field
+          <TextField
             label="City"
             name="city"
             required
             maxLength={ADDRESS_TEXT_MAX}
             autoComplete="address-level2"
+            error={fieldError('city')}
           />
-          <Field
+          <TextField
             label="Postcode"
             name="postcode"
             required
             autoComplete="postal-code"
             maxLength={ADDRESS_TEXT_MAX}
+            error={fieldError('postcode')}
           />
-        </div>
+        </FormGrid>
       </FormSection>
 
       {/* ── Medical & dietary ───────────────────────────────────────── */}
       <FormSection title="Medical & dietary">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <TextArea
+        <FormGrid>
+          <TextAreaField
             label="Allergies"
             name="allergies"
             maxLength={LONG_TEXT_MAX}
+            error={fieldError('allergies')}
           />
-          <TextArea
+          <TextAreaField
             label="Medical details"
             name="medical_details"
             maxLength={LONG_TEXT_MAX}
+            error={fieldError('medical_details')}
           />
-        </div>
+        </FormGrid>
       </FormSection>
 
       {/* ── Parent/carer 1 ──────────────────────────────────────────── */}
@@ -172,22 +180,23 @@ export default function RegistrationForm({
           requireEmail={false}
           requireOccupation
           defaultSameAddress
+          fieldError={fieldError}
         />
       </FormSection>
 
       {/* ── Parent/carer 2 ──────────────────────────────────────────── */}
       {showSecondary ? (
-        <FormSection
+        <ScrollSection
           title="Parent/carer 2"
           onRemove={() => setShowSecondary(false)}
-          scrollIntoViewOnMount
         >
           <ContactFields
             prefix="secondary"
             requireOccupation
             defaultSameAddress
+            fieldError={fieldError}
           />
-        </FormSection>
+        </ScrollSection>
       ) : (
         <button
           type="button"
@@ -200,16 +209,19 @@ export default function RegistrationForm({
 
       {/* ── Emergency contacts ──────────────────────────────────────── */}
       {showContact1 ? (
-        <FormSection
+        <ScrollSection
           title="Emergency contact 1"
           onRemove={() => {
             setShowContact1(false)
             setShowContact2(false)
           }}
-          scrollIntoViewOnMount
         >
-          <ContactFields prefix="contact1" defaultSameAddress />
-        </FormSection>
+          <ContactFields
+            prefix="contact1"
+            defaultSameAddress
+            fieldError={fieldError}
+          />
+        </ScrollSection>
       ) : (
         <button
           type="button"
@@ -222,13 +234,16 @@ export default function RegistrationForm({
 
       {showContact1 &&
         (showContact2 ? (
-          <FormSection
+          <ScrollSection
             title="Emergency contact 2"
             onRemove={() => setShowContact2(false)}
-            scrollIntoViewOnMount
           >
-            <ContactFields prefix="contact2" defaultSameAddress />
-          </FormSection>
+            <ContactFields
+              prefix="contact2"
+              defaultSameAddress
+              fieldError={fieldError}
+            />
+          </ScrollSection>
         ) : (
           <button
             type="button"
@@ -241,25 +256,31 @@ export default function RegistrationForm({
 
       {showContact1 && (
         <FormSection title="Collection arrangements">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <TextArea
+          <FormGrid>
+            <TextAreaField
               label="Who is authorised to collect the child?"
               name="collect_authorised"
               maxLength={LONG_TEXT_MAX}
+              error={fieldError('collect_authorised')}
             />
-            <Field
+            <TextField
               label="Collection password"
               name="collect_password"
               maxLength={LONG_TEXT_MAX}
+              error={fieldError('collect_password')}
             />
-          </div>
+          </FormGrid>
         </FormSection>
       )}
 
       {/* ── Consents ─────────────────────────────────────────────────── */}
       <FormSection title="Consents">
         <div className="space-y-3">
-          <Checkbox name="consent_privacy_notice" required>
+          <ConsentCheckbox
+            name="consent_privacy_notice"
+            required
+            error={fieldError('consent_privacy_notice')}
+          >
             I have read and accept the school&apos;s{' '}
             <a
               href={PRIVACY_NOTICE_URL}
@@ -269,33 +290,38 @@ export default function RegistrationForm({
             >
               privacy notice
             </a>
-          </Checkbox>
-          <Checkbox name="consent_emergency_first_aid" required>
+          </ConsentCheckbox>
+          <ConsentCheckbox
+            name="consent_emergency_first_aid"
+            required
+            error={fieldError('consent_emergency_first_aid')}
+          >
             I consent to emergency first aid being given to my child if needed
-          </Checkbox>
-          <Checkbox name="consent_photo_media">
+          </ConsentCheckbox>
+          <ConsentCheckbox name="consent_photo_media">
             I consent to my child&apos;s photo being used on social media, the
             school website and promotional material. You can withdraw this at
             any time via the school office.
-          </Checkbox>
-          <Checkbox name="consent_home_school">
+          </ConsentCheckbox>
+          <ConsentCheckbox name="consent_home_school">
             I agree to the home–school agreement
-          </Checkbox>
-          <Checkbox name="consent_comms_email_sms">
+          </ConsentCheckbox>
+          <ConsentCheckbox name="consent_comms_email_sms">
             I consent to receiving communications by email and SMS
-          </Checkbox>
+          </ConsentCheckbox>
         </div>
       </FormSection>
 
       {/* ── Declaration ──────────────────────────────────────────────── */}
       <FormSection title="Declaration">
-        <Field
+        <TextField
           label="Your full name"
           name="declaration_name"
           required
           hint="Typing your name here acts as your signature"
           autoComplete="section-declaration name"
           maxLength={SHORT_TEXT_MAX}
+          error={fieldError('declaration_name')}
         />
         {turnstileSiteKey && (
           <div className="mt-4">
@@ -340,11 +366,13 @@ function ContactFields({
   requireEmail = false,
   requireOccupation = false,
   defaultSameAddress = false,
+  fieldError,
 }: {
   prefix: string
   requireEmail?: boolean
   requireOccupation?: boolean
   defaultSameAddress?: boolean
+  fieldError: (name: string) => string | undefined
 }) {
   const [sameAddress, setSameAddress] = useState(defaultSameAddress)
   // Scope autofill per contact so the browser offers each person separately
@@ -353,51 +381,57 @@ function ContactFields({
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field
+      <FormGrid>
+        <TextField
           label="First name"
           name={`${prefix}_first_name`}
           required
           maxLength={SHORT_TEXT_MAX}
           autoComplete={`${section} given-name`}
+          error={fieldError(`${prefix}_first_name`)}
         />
-        <Field
+        <TextField
           label="Last name"
           name={`${prefix}_last_name`}
           required
           maxLength={SHORT_TEXT_MAX}
           autoComplete={`${section} family-name`}
+          error={fieldError(`${prefix}_last_name`)}
         />
-        <Field
+        <TextField
           label="Relationship to child"
           name={`${prefix}_relationship`}
           maxLength={SHORT_TEXT_MAX}
           autoComplete="off"
+          error={fieldError(`${prefix}_relationship`)}
         />
-        <Field
+        <TextField
           label="Occupation"
           name={`${prefix}_occupation`}
           required={requireOccupation}
           maxLength={SHORT_TEXT_MAX}
           autoComplete="off"
+          error={fieldError(`${prefix}_occupation`)}
         />
-        <Field
+        <TextField
           label="Phone"
           name={`${prefix}_phone`}
           type="tel"
           required
           maxLength={PHONE_MAX}
           autoComplete={`${section} tel`}
+          error={fieldError(`${prefix}_phone`)}
         />
-        <Field
+        <TextField
           label="Email"
           name={`${prefix}_email`}
           type="email"
           required={requireEmail}
           maxLength={EMAIL_MAX}
           autoComplete={`${section} email`}
+          error={fieldError(`${prefix}_email`)}
         />
-      </div>
+      </FormGrid>
       <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm text-gray-700">
         <input
           type="checkbox"
@@ -409,166 +443,104 @@ function ContactFields({
         Same address as the child
       </label>
       {!sameAddress && (
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field
-            label="Address line 1"
-            name={`${prefix}_address_line_1`}
-            maxLength={ADDRESS_TEXT_MAX}
-            autoComplete={`${section} address-line1`}
-          />
-          <Field
-            label="Address line 2"
-            name={`${prefix}_address_line_2`}
-            maxLength={ADDRESS_TEXT_MAX}
-            autoComplete={`${section} address-line2`}
-          />
-          <Field
-            label="City"
-            name={`${prefix}_city`}
-            maxLength={ADDRESS_TEXT_MAX}
-            autoComplete={`${section} address-level2`}
-          />
-          <Field
-            label="Postcode"
-            name={`${prefix}_postcode`}
-            maxLength={ADDRESS_TEXT_MAX}
-            autoComplete={`${section} postal-code`}
-          />
+        <div className="mt-4">
+          <FormGrid>
+            <TextField
+              label="Address line 1"
+              name={`${prefix}_address_line_1`}
+              maxLength={ADDRESS_TEXT_MAX}
+              autoComplete={`${section} address-line1`}
+              error={fieldError(`${prefix}_address_line_1`)}
+            />
+            <TextField
+              label="Address line 2"
+              name={`${prefix}_address_line_2`}
+              maxLength={ADDRESS_TEXT_MAX}
+              autoComplete={`${section} address-line2`}
+              error={fieldError(`${prefix}_address_line_2`)}
+            />
+            <TextField
+              label="City"
+              name={`${prefix}_city`}
+              maxLength={ADDRESS_TEXT_MAX}
+              autoComplete={`${section} address-level2`}
+              error={fieldError(`${prefix}_city`)}
+            />
+            <TextField
+              label="Postcode"
+              name={`${prefix}_postcode`}
+              maxLength={ADDRESS_TEXT_MAX}
+              autoComplete={`${section} postal-code`}
+              error={fieldError(`${prefix}_postcode`)}
+            />
+          </FormGrid>
         </div>
       )}
     </>
   )
 }
 
-function FormSection({
+/**
+ * Wraps the kit's `FormSection` to preserve the smooth scroll-into-view a
+ * newly revealed optional block gets on this public form; the kit's
+ * `FormSection` has no such option.
+ */
+function ScrollSection({
   title,
   children,
   onRemove,
-  scrollIntoViewOnMount = false,
 }: {
   title: string
   children: React.ReactNode
   onRemove?: () => void
-  scrollIntoViewOnMount?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (scrollIntoViewOnMount)
-      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    // scrollIntoViewOnMount is constant for the lifetime of a given
-    // FormSection instance (it only mounts when its parent starts showing
-    // it), so this intentionally runs once on mount, not on every change.
-  }, [scrollIntoViewOnMount])
+    // Runs once on mount: this component only mounts when its parent starts
+    // showing it.
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
 
   return (
-    <div
-      ref={ref}
-      className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200"
-    >
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
-        {onRemove && (
-          <button
-            type="button"
-            onClick={onRemove}
-            className="text-xs text-gray-400 hover:text-red-500"
-          >
-            Remove
-          </button>
-        )}
-      </div>
-      {children}
+    <div ref={ref}>
+      <FormSection title={title} onRemove={onRemove}>
+        {children}
+      </FormSection>
     </div>
   )
 }
 
-function Field({
-  label,
-  name,
-  type = 'text',
-  required = false,
-  hint,
-  maxLength,
-  autoComplete,
-}: {
-  label: string
-  name: string
-  type?: string
-  required?: boolean
-  hint?: string
-  maxLength?: number
-  autoComplete?: string
-}) {
-  return (
-    <div>
-      <label htmlFor={name} className="block text-sm font-medium text-gray-700">
-        {label}
-        {required && <span className="ml-0.5 text-red-500">*</span>}
-      </label>
-      <input
-        id={name}
-        name={name}
-        type={type}
-        required={required}
-        maxLength={maxLength}
-        autoComplete={autoComplete}
-        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-      />
-      {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
-    </div>
-  )
-}
-
-function TextArea({
-  label,
-  name,
-  maxLength,
-}: {
-  label: string
-  name: string
-  maxLength?: number
-}) {
-  return (
-    <div>
-      <label htmlFor={name} className="block text-sm font-medium text-gray-700">
-        {label}
-      </label>
-      <textarea
-        id={name}
-        name={name}
-        rows={3}
-        maxLength={maxLength}
-        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-      />
-    </div>
-  )
-}
-
-function Checkbox({
+function ConsentCheckbox({
   name,
   required = false,
   defaultChecked = false,
+  error,
   children,
 }: {
   name: string
   required?: boolean
   defaultChecked?: boolean
+  error?: string
   children: React.ReactNode
 }) {
   return (
-    <label className="flex cursor-pointer items-start gap-2 text-sm text-gray-700">
-      <input
-        type="checkbox"
-        name={name}
-        required={required}
-        defaultChecked={defaultChecked}
-        className="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
-      />
-      <span>
-        {children}
-        {required && <span className="ml-0.5 text-red-500">*</span>}
-      </span>
-    </label>
+    <div>
+      <label className="flex cursor-pointer items-start gap-2 text-sm text-gray-700">
+        <input
+          type="checkbox"
+          name={name}
+          required={required}
+          defaultChecked={defaultChecked}
+          aria-invalid={error ? true : undefined}
+          className="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
+        />
+        <span>
+          {children}
+          {required && <span className="ml-0.5 text-red-500">*</span>}
+        </span>
+      </label>
+      {error && <p className="mt-1 ml-6 text-sm text-red-600">{error}</p>}
+    </div>
   )
 }
