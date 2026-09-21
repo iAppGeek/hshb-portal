@@ -6,8 +6,8 @@ import type { IncidentType } from '@/db'
 import { isTeacher } from '@/lib/permissions'
 
 import PageHeader, { RequiredFieldsNote } from '../../_components/PageHeader'
-
-import AddIncidentForm from './AddIncidentForm'
+import { saveIncidentAction } from '../actions'
+import IncidentForm from '../IncidentForm'
 
 export const metadata: Metadata = { title: 'Add Incident' }
 
@@ -35,10 +35,11 @@ export default async function AddIncidentPage({
         backHref="/incidents"
         backLabel="Incidents"
       />
-      <AddIncidentForm
+      <IncidentForm
         students={students}
-        staffId={staffId}
-        type={incidentType}
+        defaultType={incidentType}
+        action={saveIncidentAction.bind(null, null)}
+        submitLabel="Add Incident"
       />
     </div>
   )

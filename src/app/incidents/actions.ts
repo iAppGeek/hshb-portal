@@ -15,42 +15,44 @@ function notifiedAt(
     : null
 }
 
-// TODO(plan-05): align with canEditIncidents
-export async function createIncidentAction(
+/**
+ * Any signed-in staff member can record an incident (teachers pick from their
+ * own students on the new-incident page); only `canEditIncidents` can edit.
+ * The student is fixed once recorded, so only creating parses `student_id`.
+ */
+export async function saveIncidentAction(
+  id: string | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  return runAction({
-    name: 'incidents.create',
-    schema: createIncidentSchema,
-    formData,
-    run: async (
-      { type, parent_notified, parent_notified_at, incident_date, ...rest },
-      { actor },
-    ) => {
-      const incident = await createIncident({
-        type,
-        ...rest,
-        incident_date: datetimeLocalToUtcIso(incident_date),
-        created_by: actor.staffId,
-        parent_notified,
-        parent_notified_at: notifiedAt(parent_notified, parent_notified_at),
-      })
-      return { id: incident.id, type }
-    },
-    audit: {
-      entity: 'incident',
-      action: 'create',
-      entityId: (result) => result.id,
-    },
-    redirectTo: (result) => `/incidents?tab=${result.type}`,
-    fallbackError: 'Failed to create incident. Please try again.',
-  })
-}
+  if (id === null) {
+    return runAction({
+      name: 'incidents.create',
+      schema: createIncidentSchema,
+      formData,
+      run: async (
+        { type, parent_notified, parent_notified_at, incident_date, ...rest },
+        { actor },
+      ) => {
+        const incident = await createIncident({
+          type,
+          ...rest,
+          incident_date: datetimeLocalToUtcIso(incident_date),
+          created_by: actor.staffId,
+          parent_notified,
+          parent_notified_at: notifiedAt(parent_notified, parent_notified_at),
+        })
+        return { id: incident.id, type }
+      },
+      audit: {
+        entity: 'incident',
+        action: 'create',
+        entityId: (result) => result.id,
+      },
+      redirectTo: (result) => `/incidents?tab=${result.type}`,
+      fallbackError: 'Failed to create incident. Please try again.',
+    })
+  }
 
-export async function updateIncidentAction(
-  id: string,
-  formData: FormData,
-): Promise<ActionResult> {
   return runAction({
     name: 'incidents.update',
     permission: canEditIncidents,

@@ -5,7 +5,7 @@ import { getActor } from '@/auth/require'
 import { createIncident, updateIncident } from '@/db'
 import { getUserFriendlyDbError } from '@/lib/db-error'
 
-import { createIncidentAction, updateIncidentAction } from './actions'
+import { saveIncidentAction } from './actions'
 
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('next/navigation', async (importOriginal) => ({
@@ -65,20 +65,23 @@ const baseUpdateFields: Record<string, string> = {
   parent_notified_at: '2026-03-28T11:00',
 }
 
-// ─── createIncidentAction ───────────────────────────────────────────────────
+// ─── saveIncidentAction: create ─────────────────────────────────────────────
 
-describe('createIncidentAction', () => {
+describe('saveIncidentAction (create)', () => {
   it('returns error when not authenticated', async () => {
     vi.mocked(getActor).mockResolvedValue(null as any)
 
-    const result = await createIncidentAction(makeFormData(baseCreateFields))
+    const result = await saveIncidentAction(
+      null,
+      makeFormData(baseCreateFields),
+    )
     expect(result).toEqual({ error: 'Not authenticated' })
     expect(createIncident).not.toHaveBeenCalled()
   })
 
   it('returns error when validation fails', async () => {
     const fields = { ...baseCreateFields, title: '' }
-    const result = await createIncidentAction(makeFormData(fields))
+    const result = await saveIncidentAction(null, makeFormData(fields))
 
     expect(result).toMatchObject({ error: expect.any(String) })
     expect(createIncident).not.toHaveBeenCalled()
@@ -91,7 +94,7 @@ describe('createIncidentAction', () => {
     })
 
     await expect(
-      createIncidentAction(makeFormData(baseCreateFields)),
+      saveIncidentAction(null, makeFormData(baseCreateFields)),
     ).rejects.toThrow('NEXT_REDIRECT')
 
     expect(createIncident).toHaveBeenCalledWith(
@@ -111,7 +114,7 @@ describe('createIncidentAction', () => {
     })
 
     await expect(
-      createIncidentAction(makeFormData(baseCreateFields)),
+      saveIncidentAction(null, makeFormData(baseCreateFields)),
     ).rejects.toThrow('NEXT_REDIRECT')
 
     expect(createIncident).toHaveBeenCalledWith(
@@ -125,7 +128,10 @@ describe('createIncidentAction', () => {
   it('returns error when creation fails', async () => {
     vi.mocked(createIncident).mockRejectedValue(new Error('DB error'))
 
-    const result = await createIncidentAction(makeFormData(baseCreateFields))
+    const result = await saveIncidentAction(
+      null,
+      makeFormData(baseCreateFields),
+    )
     expect(result).toEqual({
       error: 'Failed to create incident. Please try again.',
     })
@@ -136,7 +142,7 @@ describe('createIncidentAction', () => {
     const dbErr = new Error('DB error')
     vi.mocked(createIncident).mockRejectedValue(dbErr)
 
-    await createIncidentAction(makeFormData(baseCreateFields))
+    await saveIncidentAction(null, makeFormData(baseCreateFields))
 
     expect(getUserFriendlyDbError).toHaveBeenCalledWith(
       dbErr,
@@ -145,13 +151,13 @@ describe('createIncidentAction', () => {
   })
 })
 
-// ─── updateIncidentAction ───────────────────────────────────────────────────
+// ─── saveIncidentAction: update ─────────────────────────────────────────────
 
-describe('updateIncidentAction', () => {
+describe('saveIncidentAction (update)', () => {
   it('returns error when not authenticated', async () => {
     vi.mocked(getActor).mockResolvedValue(null as any)
 
-    const result = await updateIncidentAction(
+    const result = await saveIncidentAction(
       INCIDENT_ID,
       makeFormData(baseUpdateFields),
     )
@@ -162,7 +168,7 @@ describe('updateIncidentAction', () => {
   it('returns error when not authorised', async () => {
     vi.mocked(getActor).mockResolvedValue(teacherSession as any)
 
-    const result = await updateIncidentAction(
+    const result = await saveIncidentAction(
       INCIDENT_ID,
       makeFormData(baseUpdateFields),
     )
@@ -177,7 +183,7 @@ describe('updateIncidentAction', () => {
     })
 
     await expect(
-      updateIncidentAction(INCIDENT_ID, makeFormData(baseUpdateFields)),
+      saveIncidentAction(INCIDENT_ID, makeFormData(baseUpdateFields)),
     ).rejects.toThrow('NEXT_REDIRECT')
 
     expect(updateIncident).toHaveBeenCalledWith(
@@ -193,7 +199,7 @@ describe('updateIncidentAction', () => {
   it('returns error when update fails', async () => {
     vi.mocked(updateIncident).mockRejectedValue(new Error('DB error'))
 
-    const result = await updateIncidentAction(
+    const result = await saveIncidentAction(
       INCIDENT_ID,
       makeFormData(baseUpdateFields),
     )
@@ -205,7 +211,7 @@ describe('updateIncidentAction', () => {
 
   it('returns error when validation fails', async () => {
     const fields = { ...baseUpdateFields, description: '' }
-    const result = await updateIncidentAction(INCIDENT_ID, makeFormData(fields))
+    const result = await saveIncidentAction(INCIDENT_ID, makeFormData(fields))
 
     expect(result).toMatchObject({ error: expect.any(String) })
     expect(updateIncident).not.toHaveBeenCalled()

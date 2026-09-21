@@ -17,11 +17,13 @@ vi.mock('@/db', () => ({
   getStudentsByTeacher: vi.fn(),
 }))
 
-vi.mock('./AddIncidentForm', () => ({
-  default: ({ type }: { type: string }) => (
-    <div>AddIncidentForm type={type}</div>
+vi.mock('../IncidentForm', () => ({
+  default: ({ defaultType }: { defaultType: string }) => (
+    <div>IncidentForm type={defaultType}</div>
   ),
 }))
+
+vi.mock('../actions', () => ({ saveIncidentAction: vi.fn() }))
 
 import { auth } from '@/auth'
 import { getStudentsForList, getStudentsByTeacher } from '@/db'
@@ -47,14 +49,14 @@ describe('AddIncidentPage', () => {
     ).rejects.toThrow('NEXT_REDIRECT:/login')
   })
 
-  it('renders AddIncidentForm for admin with default medical type', async () => {
+  it('renders IncidentForm for admin with default medical type', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
     vi.mocked(getStudentsForList).mockResolvedValue([mockStudent] as any)
 
     render(await AddIncidentPage({ searchParams: Promise.resolve({}) }))
-    expect(screen.getByText('AddIncidentForm type=medical')).toBeTruthy()
+    expect(screen.getByText('IncidentForm type=medical')).toBeTruthy()
   })
 
   it('passes behaviour type from searchParams', async () => {
@@ -68,17 +70,17 @@ describe('AddIncidentPage', () => {
         searchParams: Promise.resolve({ type: 'behaviour' }),
       }),
     )
-    expect(screen.getByText('AddIncidentForm type=behaviour')).toBeTruthy()
+    expect(screen.getByText('IncidentForm type=behaviour')).toBeTruthy()
   })
 
-  it('renders AddIncidentForm for secretary with all students', async () => {
+  it('renders IncidentForm for secretary with all students', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'secretary', staffId: 'staff-4' },
     } as any)
     vi.mocked(getStudentsForList).mockResolvedValue([mockStudent] as any)
 
     render(await AddIncidentPage({ searchParams: Promise.resolve({}) }))
-    expect(screen.getByText('AddIncidentForm type=medical')).toBeTruthy()
+    expect(screen.getByText('IncidentForm type=medical')).toBeTruthy()
     expect(getStudentsForList).toHaveBeenCalled()
     expect(getStudentsByTeacher).not.toHaveBeenCalled()
   })
