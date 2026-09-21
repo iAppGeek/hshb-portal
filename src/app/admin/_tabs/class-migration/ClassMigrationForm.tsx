@@ -1,11 +1,19 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import Link from 'next/link'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { LEAVING_REASONS, LEAVING_REASON_LABELS } from '@/lib/schemas'
-import type { ActionResult } from '@/lib/schemas'
+import type { ActionResult } from '@/lib/action'
+import {
+  FormActions,
+  FormGrid,
+  FormSection,
+  SelectField,
+  TextField,
+  formStyles,
+  useServerForm,
+} from '@/components/form'
 
 export type MigrationYear = { id: string; code: string }
 
@@ -59,10 +67,9 @@ export default function ClassMigrationForm({
   baseUrl,
 }: Props): React.ReactElement {
   const router = useRouter()
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
   const canCreateNewClass = years.length > 0
   const [createNewClass, setCreateNewClass] = useState(canCreateNewClass)
+  const { handleSubmit, isPending, error, fieldError } = useServerForm(action)
 
   function buildUrl(next: {
     sourceClassId?: string | null
@@ -90,10 +97,8 @@ export default function ClassMigrationForm({
     )
   }
 
-  function handleTargetYearChange(
-    e: React.ChangeEvent<HTMLSelectElement>,
-  ): void {
-    router.push(buildUrl({ targetYearId: e.target.value }))
+  function handleTargetYearChange(value: string): void {
+    router.push(buildUrl({ targetYearId: value }))
   }
 
   function handleCreateNewClassToggle(checked: boolean): void {
@@ -101,16 +106,6 @@ export default function ClassMigrationForm({
     router.push(
       buildUrl({ targetYearId: checked ? (years[0]?.id ?? null) : null }),
     )
-  }
-
-  function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>): void {
-    e.preventDefault()
-    setError(null)
-    const form = e.currentTarget
-    startTransition(async () => {
-      const result = await action(new FormData(form))
-      if (result?.error) setError(result.error)
-    })
   }
 
   return (
@@ -129,23 +124,16 @@ export default function ClassMigrationForm({
       </p>
 
       {/* ── Section 1: Source Class ───────────────────────────────────── */}
-      <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-        <h2 className="mb-4 text-sm font-semibold text-gray-900">
-          Class to migrate
-        </h2>
-
+      <FormSection title="Class to migrate">
         <div>
-          <label
-            htmlFor="source_class_select"
-            className="block text-sm font-medium text-gray-700"
-          >
-            Class to migrate<span className="ml-0.5 text-red-500">*</span>
+          <label htmlFor="source_class_select" className={formStyles.label}>
+            Class to migrate<span className={formStyles.requiredMark}>*</span>
           </label>
           <select
             id="source_class_select"
             value={sourceClassId ?? ''}
             onChange={handleSourceChange}
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+            className={formStyles.input}
           >
             <option value="">Select a class…</option>
             {classes.map((c) => (
@@ -155,7 +143,7 @@ export default function ClassMigrationForm({
             ))}
           </select>
           {classes.length === 0 && (
-            <p className="mt-1 text-xs text-gray-500">
+            <p className={formStyles.hint}>
               No active classes available to migrate.
             </p>
           )}
@@ -176,7 +164,7 @@ export default function ClassMigrationForm({
                 Create a new class for these students
               </label>
               {!canCreateNewClass && (
-                <p className="mt-1 text-xs text-gray-500">
+                <p className={formStyles.hint}>
                   Create the next academic year first to move students into a
                   new class.
                 </p>
@@ -225,113 +213,65 @@ export default function ClassMigrationForm({
             </div>
           </>
         )}
-      </div>
+      </FormSection>
 
       {/* ── Section 2: New Class Details ─────────────────────────────── */}
       {sourceClassId && createNewClass && (
-        <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-          <h2 className="mb-4 text-sm font-semibold text-gray-900">
-            New Class Details
-          </h2>
+        <FormSection title="New Class Details">
+          <SelectField
+            label="Academic year"
+            name="academic_year_id"
+            required
+            className="mb-4"
+            value={targetYearId ?? ''}
+            onChange={handleTargetYearChange}
+            options={years.map((y) => ({ value: y.id, label: y.code }))}
+            error={fieldError('academic_year_id')}
+          />
 
-          <div className="mb-4">
-            <label
-              htmlFor="target_year_select"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Academic year<span className="ml-0.5 text-red-500">*</span>
-            </label>
-            <select
-              id="target_year_select"
-              name="academic_year_id"
-              value={targetYearId ?? ''}
-              onChange={handleTargetYearChange}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-            >
-              {years.map((y) => (
-                <option key={y.id} value={y.id}>
-                  {y.code}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Class name" name="name" required />
-            <Field label="Year group" name="year_group" required />
-            <Field label="Room number" name="room_number" />
-            <div className="sm:col-span-2">
-              <label
-                htmlFor="teacher_id"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Teacher<span className="ml-0.5 text-red-500">*</span>
-              </label>
-              <select
-                id="teacher_id"
-                name="teacher_id"
-                required
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-              >
-                <option value="">Select a teacher…</option>
-                {teachers.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.last_name}, {t.first_name}
-                    {t.display_name ? ` (${t.display_name})` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
+          <FormGrid>
+            <TextField
+              label="Class name"
+              name="name"
+              required
+              error={fieldError('name')}
+            />
+            <TextField
+              label="Year group"
+              name="year_group"
+              required
+              error={fieldError('year_group')}
+            />
+            <TextField
+              label="Room number"
+              name="room_number"
+              error={fieldError('room_number')}
+            />
+            <SelectField
+              label="Teacher"
+              name="teacher_id"
+              required
+              className="sm:col-span-2"
+              placeholder="Select a teacher…"
+              options={teachers.map((t) => ({
+                value: t.id,
+                label: `${t.last_name}, ${t.first_name}${t.display_name ? ` (${t.display_name})` : ''}`,
+              }))}
+              error={fieldError('teacher_id')}
+            />
+          </FormGrid>
+        </FormSection>
       )}
 
       {/* ── Actions ──────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-4">
-        <button
-          type="submit"
-          disabled={isPending || !sourceClassId}
-          className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 disabled:pointer-events-none disabled:opacity-50"
-        >
-          {isPending ? 'Migrating…' : 'Migrate Class'}
-        </button>
-        <Link
-          href="/classes"
-          className="text-sm font-medium text-gray-500 hover:text-gray-700"
-        >
-          Cancel
-        </Link>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-      </div>
-    </form>
-  )
-}
-
-function Field({
-  label,
-  name,
-  required = false,
-  placeholder,
-}: {
-  label: string
-  name: string
-  required?: boolean
-  placeholder?: string
-}): React.ReactElement {
-  return (
-    <div>
-      <label htmlFor={name} className="block text-sm font-medium text-gray-700">
-        {label}
-        {required && <span className="ml-0.5 text-red-500">*</span>}
-      </label>
-      <input
-        id={name}
-        name={name}
-        type="text"
-        required={required}
-        placeholder={placeholder}
-        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+      <FormActions
+        submitLabel="Migrate Class"
+        pendingLabel="Migrating…"
+        isPending={isPending}
+        disabled={!sourceClassId}
+        cancelHref="/classes"
+        error={error ?? undefined}
       />
-    </div>
+    </form>
   )
 }

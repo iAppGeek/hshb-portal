@@ -212,7 +212,7 @@ export const updateGuardianSchema = z.object({
 
 export const createIncidentSchema = z.object({
   type: incidentType,
-  student_id: uuid,
+  student_id: z.string().uuid('Please select a student.'),
   title: requiredString,
   description: requiredString,
   incident_date: isoDateTime,
@@ -688,9 +688,6 @@ export const studentPaymentSchema = z.object({
 })
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-/** @deprecated Import from '@/lib/action'. Re-exported for one release. */
-export type { ActionResult } from './action'
 
 export function extractFormFields(
   formData: FormData,

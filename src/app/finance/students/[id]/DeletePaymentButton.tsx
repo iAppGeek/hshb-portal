@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 
-import type { ActionResult } from '@/lib/schemas'
+import type { ActionResult } from '@/lib/action'
 
 type Props = {
   paymentId: string

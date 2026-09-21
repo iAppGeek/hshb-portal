@@ -11,7 +11,10 @@ const planOptions = [
 ]
 
 function customWrapper(): HTMLElement {
-  return screen.getByLabelText('Agreed total (£)').parentElement as HTMLElement
+  // The `hidden` attribute lives on the wrapper around the TextField, one
+  // level above the TextField's own label/input wrapper.
+  return screen.getByLabelText('Agreed total (£)').parentElement
+    ?.parentElement as HTMLElement
 }
 
 describe('StudentFeesForm', () => {

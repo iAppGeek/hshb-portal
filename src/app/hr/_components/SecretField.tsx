@@ -3,11 +3,14 @@
 import { useState } from 'react'
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
 
+import { FieldError, formStyles } from '@/components/form'
+
 type Props = {
   label: string
   name: string
   defaultValue: string | null
   maxLength?: number
+  error?: string
 }
 
 /** Masked input with an eye toggle, for bank details on the payroll form. */
@@ -16,13 +19,14 @@ export default function SecretField({
   name,
   defaultValue,
   maxLength,
+  error,
 }: Props): React.ReactElement {
   const [revealed, setRevealed] = useState(false)
   const action = revealed ? 'Hide' : 'Show'
 
   return (
     <div>
-      <label htmlFor={name} className="block text-sm font-medium text-gray-700">
+      <label htmlFor={name} className={formStyles.label}>
         {label}
       </label>
       <div className="relative mt-1">
@@ -36,7 +40,9 @@ export default function SecretField({
           data-lpignore="true"
           maxLength={maxLength}
           defaultValue={defaultValue ?? ''}
-          className="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${name}-error` : undefined}
+          className={`${formStyles.inputBase} pr-10${error ? ` ${formStyles.inputInvalid}` : ''}`}
         />
         <button
           type="button"
@@ -52,6 +58,7 @@ export default function SecretField({
           )}
         </button>
       </div>
+      <FieldError id={`${name}-error`} error={error} />
     </div>
   )
 }

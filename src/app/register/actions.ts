@@ -3,7 +3,13 @@
 import type { z } from 'zod'
 
 import { createRegistrationSubmission } from '@/db'
-import { ActionError, runAction, type ActionResult } from '@/lib/action'
+import {
+  ActionError,
+  firstFieldErrors,
+  prefixFieldErrors,
+  runAction,
+  type ActionResult,
+} from '@/lib/action'
 import { getClientIp } from '@/lib/request-ip'
 import {
   registrationSubmissionSchema,
@@ -51,7 +57,11 @@ function extractContacts(
       ? registrationParentContactSchema
       : registrationContactSchema
     const c = schema.safeParse(extractRegistrationContact(formData, prefix))
-    if (!c.success) throw new ActionError(c.error.issues[0].message)
+    if (!c.success)
+      throw new ActionError(
+        c.error.issues[0].message,
+        prefixFieldErrors(firstFieldErrors(c.error), prefix),
+      )
     contacts.push({ contact_role: role, ...c.data })
   }
   return contacts
@@ -68,7 +78,11 @@ export async function submitRegistrationAction(
       const parsed = registrationSubmissionSchema.safeParse(
         extractFormFields(formData),
       )
-      if (!parsed.success) throw new ActionError(parsed.error.issues[0].message)
+      if (!parsed.success)
+        throw new ActionError(
+          parsed.error.issues[0].message,
+          firstFieldErrors(parsed.error),
+        )
 
       const contacts = extractContacts(formData, parsed.data)
 

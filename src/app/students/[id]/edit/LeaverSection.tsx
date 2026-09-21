@@ -1,39 +1,31 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-
+import { useServerForm } from '@/components/form'
 import { LEAVING_REASONS, LEAVING_REASON_LABELS } from '@/lib/schemas'
 
 import { markStudentAsLeaverAction } from './actions'
 
 export default function LeaverSection({ studentId }: { studentId: string }) {
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+  const { handleSubmit, isPending, error } = useServerForm((fd) =>
+    markStudentAsLeaverAction(studentId, fd),
+  )
 
-  function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
-    e.preventDefault()
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     if (
       !confirm(
         'Mark this student as a leaver? They will be removed from all classes today.',
       )
     ) {
+      e.preventDefault()
       return
     }
-    setError(null)
-    const form = e.currentTarget
-    startTransition(async () => {
-      const result = await markStudentAsLeaverAction(
-        studentId,
-        new FormData(form),
-      )
-      if (result?.error) setError(result.error)
-    })
+    handleSubmit(e)
   }
 
   return (
     <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
       <h2 className="mb-4 text-sm font-semibold text-gray-900">Leaver</h2>
-      <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-4">
+      <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-4">
         <div>
           <label
             htmlFor="reason"

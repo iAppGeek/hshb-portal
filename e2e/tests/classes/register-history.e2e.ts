@@ -867,14 +867,14 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
             .getByRole('button', { name: 'Approve & save student' })
             .click()
           await expect(
-            page.locator(`#approve_class_id option[value="${classId}"]`),
+            page.locator(`select[name="class_id"] option[value="${classId}"]`),
           ).toHaveCount(1, { timeout: 3_000 })
         },
       )
       await page
         .getByRole('radio', { name: 'Link to existing student' })
         .click()
-      await page.locator('#approve_class_id').selectOption(classId)
+      await page.locator('select[name="class_id"]').selectOption(classId)
       await page.getByRole('button', { name: 'Approve' }).click()
 
       await expect(page).toHaveURL(`/students/${existingStudent.id}/edit`)
@@ -1026,7 +1026,7 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
         },
       )
       // Last year's class defaults to the current year, never a past one.
-      await expect(page.locator('#target_year_select')).toHaveValue(
+      await expect(page.locator('select[name="academic_year_id"]')).toHaveValue(
         SEED_IDS.academicYears.current,
       )
 

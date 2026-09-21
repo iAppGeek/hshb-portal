@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useTransition } from 'react'
 import {
   Dialog,
   DialogBackdrop,
   DialogPanel,
   DialogTitle,
 } from '@headlessui/react'
+
+import { TextAreaField, useServerForm } from '@/components/form'
 
 import { rejectPhotoOptOutAction } from './photo-opt-out-actions'
 
@@ -16,21 +17,9 @@ type Props = {
 }
 
 export default function RejectOptOutDialog({ requestId, onClose }: Props) {
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
-
-  function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    const form = e.currentTarget
-    startTransition(async () => {
-      const result = await rejectPhotoOptOutAction(
-        requestId,
-        new FormData(form),
-      )
-      if (result?.error) setError(result.error)
-    })
-  }
+  const { handleSubmit, isPending, error, fieldError } = useServerForm((fd) =>
+    rejectPhotoOptOutAction(requestId, fd),
+  )
 
   return (
     <Dialog open onClose={onClose} className="relative z-50">
@@ -42,21 +31,13 @@ export default function RejectOptOutDialog({ requestId, onClose }: Props) {
           </DialogTitle>
 
           <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-            <div>
-              <label
-                htmlFor="opt_out_reject_reason"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Reason<span className="ml-0.5 text-red-500">*</span>
-              </label>
-              <textarea
-                id="opt_out_reject_reason"
-                name="reason"
-                required
-                rows={3}
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-              />
-            </div>
+            <TextAreaField
+              label="Reason"
+              name="reason"
+              required
+              rows={3}
+              error={fieldError('reason')}
+            />
 
             {error && <p className="text-sm text-red-600">{error}</p>}
 

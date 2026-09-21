@@ -35,4 +35,31 @@ describe('SecretField', () => {
       (screen.getByLabelText('Account number') as HTMLInputElement).value,
     ).toBe('')
   })
+
+  it('shows a field error linked to the input', () => {
+    render(
+      <SecretField
+        label="Sort code"
+        name="bank_sort_code"
+        defaultValue="12"
+        error="Enter a 6-digit sort code"
+      />,
+    )
+
+    const input = screen.getByLabelText('Sort code')
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    expect(input).toHaveAttribute('aria-describedby', 'bank_sort_code-error')
+    expect(document.getElementById('bank_sort_code-error')).toHaveTextContent(
+      'Enter a 6-digit sort code',
+    )
+  })
+
+  it('is not marked invalid without an error', () => {
+    render(
+      <SecretField label="Sort code" name="bank_sort_code" defaultValue="" />,
+    )
+    const input = screen.getByLabelText('Sort code')
+    expect(input).not.toHaveAttribute('aria-invalid')
+    expect(input).not.toHaveAttribute('aria-describedby')
+  })
 })

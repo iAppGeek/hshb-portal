@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import {
   Dialog,
   DialogBackdrop,
@@ -9,6 +9,14 @@ import {
 } from '@headlessui/react'
 
 import type { StudentMatch } from '@/db'
+import {
+  CheckboxField,
+  RadioGroup,
+  SelectField,
+  TextField,
+  formStyles,
+  useServerForm,
+} from '@/components/form'
 
 import { approveRegistrationAction } from '../actions'
 
@@ -54,26 +62,14 @@ export default function ApproveDialog({
     matches[0]?.id ?? '',
   )
   const [search, setSearch] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+  const { handleSubmit, isPending, error, fieldError } = useServerForm((fd) =>
+    approveRegistrationAction(submissionId, fd),
+  )
 
   const selectedExisting = studentsForLinking.find(
     (s) => s.id === existingStudentId,
   )
   const filtered = filterStudents(studentsForLinking, search)
-
-  function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    const form = e.currentTarget
-    startTransition(async () => {
-      const result = await approveRegistrationAction(
-        submissionId,
-        new FormData(form),
-      )
-      if (result?.error) setError(result.error)
-    })
-  }
 
   return (
     <Dialog open onClose={onClose} className="relative z-50">
@@ -91,26 +87,16 @@ export default function ApproveDialog({
               value={mode === 'link' ? existingStudentId : ''}
             />
 
-            <div className="flex gap-4">
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
-                <input
-                  type="radio"
-                  checked={mode === 'create'}
-                  onChange={() => setMode('create')}
-                  className="text-blue-600 focus:ring-blue-500"
-                />
-                Create new student
-              </label>
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
-                <input
-                  type="radio"
-                  checked={mode === 'link'}
-                  onChange={() => setMode('link')}
-                  className="text-blue-600 focus:ring-blue-500"
-                />
-                Link to existing student
-              </label>
-            </div>
+            <RadioGroup
+              name="approve_mode"
+              legend="Student record"
+              value={mode}
+              onChange={(v) => setMode(v as 'create' | 'link')}
+              options={[
+                { value: 'create', label: 'Create new student' },
+                { value: 'link', label: 'Link to existing student' },
+              ]}
+            />
 
             {mode === 'link' && (
               <div className="space-y-3 rounded-lg bg-gray-50 p-3">
@@ -127,7 +113,7 @@ export default function ApproveDialog({
                     <select
                       value={existingStudentId}
                       onChange={(e) => setExistingStudentId(e.target.value)}
-                      className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                      className={formStyles.input}
                     >
                       {matches.map((m) => (
                         <option key={m.id} value={m.id}>
@@ -152,7 +138,7 @@ export default function ApproveDialog({
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Type at least 5 characters…"
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                    className={formStyles.input}
                   />
                   {filtered.length > 0 && (
                     <ul className="mt-2 max-h-40 divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200">
@@ -185,60 +171,34 @@ export default function ApproveDialog({
               </div>
             )}
 
-            <div>
-              <label
-                htmlFor="approve_student_code"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Student code
-              </label>
-              <input
-                id="approve_student_code"
-                name="student_code"
-                type="text"
-                defaultValue={selectedExisting?.student_code ?? ''}
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-              />
-            </div>
+            <TextField
+              label="Student code"
+              name="student_code"
+              defaultValue={selectedExisting?.student_code}
+              error={fieldError('student_code')}
+            />
 
-            <div>
-              <label
-                htmlFor="approve_class_id"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Class
-              </label>
-              <select
-                id="approve_class_id"
-                name="class_id"
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-              >
-                <option value="">No class</option>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} (Year {c.year_group})
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SelectField
+              label="Class"
+              name="class_id"
+              placeholder="No class"
+              options={classes.map((c) => ({
+                value: c.id,
+                label: `${c.name} (Year ${c.year_group})`,
+              }))}
+              error={fieldError('class_id')}
+            />
 
-            <div>
-              <label className="flex cursor-pointer items-start gap-2 text-sm text-gray-700">
-                <input
-                  type="checkbox"
-                  name="reuse_guardians"
-                  defaultChecked
-                  className="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
-                />
-                Reuse matching guardian records (updates their phone and address
-                from this submission)
-              </label>
-              {!hasGuardianMatches && (
-                <p className="mt-1 text-xs text-gray-400">
-                  No existing guardians match this submission.
-                </p>
-              )}
-            </div>
+            <CheckboxField
+              label="Reuse matching guardian records (updates their phone and address from this submission)"
+              name="reuse_guardians"
+              defaultChecked
+              description={
+                !hasGuardianMatches
+                  ? 'No existing guardians match this submission.'
+                  : undefined
+              }
+            />
 
             {error && <p className="text-sm text-red-600">{error}</p>}
 

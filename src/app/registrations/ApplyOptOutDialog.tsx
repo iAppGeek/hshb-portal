@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import {
   Dialog,
   DialogBackdrop,
@@ -9,6 +9,7 @@ import {
 } from '@headlessui/react'
 
 import type { StudentMatch } from '@/db'
+import { formStyles, useServerForm } from '@/components/form'
 
 import { applyPhotoOptOutAction } from './photo-opt-out-actions'
 
@@ -45,22 +46,12 @@ export default function ApplyOptOutDialog({
 }: Props) {
   const [studentId, setStudentId] = useState(matches[0]?.id ?? '')
   const [search, setSearch] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+  const { handleSubmit, isPending, error } = useServerForm((fd) =>
+    applyPhotoOptOutAction(requestId, fd),
+  )
 
   const selected = studentsForLinking.find((s) => s.id === studentId)
   const filtered = filterStudents(studentsForLinking, search)
-
-  function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    const form = e.currentTarget
-    const fd = new FormData(form)
-    startTransition(async () => {
-      const result = await applyPhotoOptOutAction(requestId, fd)
-      if (result?.error) setError(result.error)
-    })
-  }
 
   return (
     <Dialog open onClose={onClose} className="relative z-50">
@@ -86,7 +77,7 @@ export default function ApplyOptOutDialog({
                 <select
                   value={studentId}
                   onChange={(e) => setStudentId(e.target.value)}
-                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                  className={formStyles.input}
                 >
                   {matches.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -111,7 +102,7 @@ export default function ApplyOptOutDialog({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Type at least 5 characters…"
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                className={formStyles.input}
               />
               {filtered.length > 0 && (
                 <ul className="mt-2 max-h-40 divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200">

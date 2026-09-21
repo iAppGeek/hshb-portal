@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 
 import StudentDetailsModal, {
   type StudentForModal,
@@ -10,6 +10,7 @@ import TableCard from '@/components/grid/TableCard'
 import Th from '@/components/grid/Th'
 import Tooltip from '@/components/Tooltip'
 import Tr from '@/components/grid/Tr'
+import { useServerForm } from '@/components/form'
 import { tbody, theadStacked } from '@/lib/grid/styles'
 import { canUpdateAttendance } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
@@ -53,28 +54,18 @@ export default function AttendanceForm({
     return initial
   })
   const [saved, setSaved] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
   const readOnly = hasExisting && !canUpdateAttendance(role)
+
+  const { handleSubmit, isPending, error } = useServerForm(async (fd) => {
+    const result = await saveAttendanceAction(fd)
+    if (!result || !('error' in result)) setSaved(true)
+    return result
+  })
 
   function toggle(studentId: string, status: AttendanceStatus) {
     if (archived) return
     setSaved(false)
     setStatuses((prev) => ({ ...prev, [studentId]: status }))
-  }
-
-  function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    const form = e.currentTarget
-    startTransition(async () => {
-      const result = await saveAttendanceAction(new FormData(form))
-      if (result?.error) {
-        setError(result.error)
-      } else {
-        setSaved(true)
-      }
-    })
   }
 
   const allSelected = students.every((s) => statuses[s.id] !== null)

@@ -10,7 +10,13 @@ import {
   updateStudentClasses,
   markStudentAsLeaver,
 } from '@/db'
-import { ActionError, runAction, type ActionResult } from '@/lib/action'
+import {
+  ActionError,
+  firstFieldErrors,
+  prefixFieldErrors,
+  runAction,
+  type ActionResult,
+} from '@/lib/action'
 import { canEditStudents } from '@/lib/permissions'
 import {
   updateStudentSchema,
@@ -51,7 +57,11 @@ async function resolveGuardianSlot(
   schema: typeof guardianSchema | typeof guardianSchemaWithOccupation,
 ): Promise<string> {
   const parsed = schema.safeParse(extractGuardianFields(formData, prefix))
-  if (!parsed.success) throw new ActionError(parsed.error.issues[0].message)
+  if (!parsed.success)
+    throw new ActionError(
+      parsed.error.issues[0].message,
+      prefixFieldErrors(firstFieldErrors(parsed.error), prefix),
+    )
   return resolveGuardian(parsed.data)
 }
 
@@ -67,7 +77,11 @@ export async function updateStudentAction(
       const parsed = updateStudentSchema.safeParse(
         extractFormFields(formData, ['class_ids']),
       )
-      if (!parsed.success) throw new ActionError(parsed.error.issues[0].message)
+      if (!parsed.success)
+        throw new ActionError(
+          parsed.error.issues[0].message,
+          firstFieldErrors(parsed.error),
+        )
       const d = parsed.data
 
       const primaryGuardianId = await resolveGuardianSlot(

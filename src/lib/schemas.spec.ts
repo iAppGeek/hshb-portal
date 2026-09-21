@@ -535,6 +535,15 @@ describe('createIncidentSchema', () => {
       createIncidentSchema.parse({ ...valid, type: 'unknown' }),
     ).toThrow()
   })
+
+  it('asks for a student when none is selected', () => {
+    const result = createIncidentSchema.safeParse({ ...valid, student_id: '' })
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0]).toMatchObject({
+      path: ['student_id'],
+      message: 'Please select a student.',
+    })
+  })
 })
 
 describe('updateIncidentSchema', () => {

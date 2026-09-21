@@ -1,13 +1,12 @@
 'use client'
 
-import { useTransition, useState } from 'react'
-
 import type { StaffAttendanceRow } from '@/db'
 import Table from '@/components/grid/Table'
 import TableCard from '@/components/grid/TableCard'
 import Th from '@/components/grid/Th'
 import Tooltip from '@/components/Tooltip'
 import Tr from '@/components/grid/Tr'
+import { useServerForm } from '@/components/form'
 import { formatTimeInSchoolTz } from '@/lib/datetime'
 import { tbody, theadStacked } from '@/lib/grid/styles'
 import { canManageStaffAttendance } from '@/lib/permissions'
@@ -61,41 +60,22 @@ function StaffRowInteractive({
   role: StaffRole
   currentStaffId: string
 }) {
-  const [isPending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
-
   const isSignedIn = !!record && !record.signed_out_at
   const name = staff.display_name ?? `${staff.first_name} ${staff.last_name}`
   const canManageOthers = canManageStaffAttendance(role)
   const isSelf = staff.id === currentStaffId
   const disabled = !canManageOthers && !isSelf
 
-  function handleSignIn(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    const fd = new FormData(e.currentTarget)
-    startTransition(async () => {
-      const result = await signInAction(fd)
-      if (result?.error) setError(result.error)
-    })
-  }
-
-  function handleSignOut(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    const fd = new FormData(e.currentTarget)
-    startTransition(async () => {
-      const result = await signOutAction(fd)
-      if (result?.error) setError(result.error)
-    })
-  }
+  const signIn = useServerForm(signInAction)
+  const signOut = useServerForm(signOutAction)
+  const { handleSubmit, isPending, error } = isSignedIn ? signOut : signIn
 
   const actionForm = disabled ? (
     <Tooltip text="You can only sign yourself in/out">
       <span className="text-sm text-gray-400">—</span>
     </Tooltip>
   ) : isSignedIn ? (
-    <form onSubmit={handleSignOut} className="flex items-center gap-2">
+    <form onSubmit={handleSubmit} className="flex items-center gap-2">
       <input type="hidden" name="staffId" value={staff.id} />
       <input type="hidden" name="date" value={date} />
       <input
@@ -115,7 +95,7 @@ function StaffRowInteractive({
       </button>
     </form>
   ) : (
-    <form onSubmit={handleSignIn} className="flex items-center gap-2">
+    <form onSubmit={handleSubmit} className="flex items-center gap-2">
       <input type="hidden" name="staffId" value={staff.id} />
       <input type="hidden" name="date" value={date} />
       <input

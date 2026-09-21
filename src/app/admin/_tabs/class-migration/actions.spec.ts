@@ -86,7 +86,7 @@ describe('migrateClassAction', () => {
     const result = await migrateClassAction(
       makeFormData({ ...withNewClassFields, source_class_id: 'not-a-uuid' }),
     )
-    expect(result).toEqual({ error: expect.any(String) })
+    expect(result).toMatchObject({ error: expect.any(String) })
     expect(migrateClass).not.toHaveBeenCalled()
   })
 
@@ -97,7 +97,7 @@ describe('migrateClassAction', () => {
         [`action_${STUDENT_1}`]: 'move',
       }),
     )
-    expect(result).toEqual({ error: expect.any(String) })
+    expect(result).toMatchObject({ error: expect.any(String) })
     expect(migrateClass).not.toHaveBeenCalled()
   })
 

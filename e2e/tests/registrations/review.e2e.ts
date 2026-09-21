@@ -225,7 +225,7 @@ test.describe('Registration review', () => {
 
     await page.goto(`/registrations/${id}`)
     await page.getByRole('button', { name: 'Approve & save student' }).click()
-    await page.locator('#approve_student_code').fill(dupCode)
+    await page.getByLabel('Student code').fill(dupCode)
     await page.getByRole('button', { name: 'Approve' }).click()
 
     await expect(page.getByText(/already in use/)).toBeVisible()

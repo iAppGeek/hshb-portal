@@ -15,10 +15,17 @@ import { getUserFriendlyDbError } from './db-error'
 import { logError } from './log'
 import { extractFormFields } from './schemas'
 
-export type ActionResult = {
-  error: string
-  fieldErrors?: Record<string, string>
-} | void
+export type ActionResult<T = void> =
+  | {
+      error: string
+      fieldErrors?: Record<string, string>
+    }
+  // `runAction` never resolves a `data` payload today (it only redirects or
+  // returns void on success), so the branch collapses away for the default
+  // `T = void` that every existing action is typed with. It exists purely so
+  // `useServerForm<T>`'s `action` parameter type-checks against a future
+  // action that resolves `{ data: T }` on success without a redirect.
+  | (T extends void ? void : { data: T })
 
 export type ActionContext<TActor extends Actor | null = Actor> = {
   actor: TActor
@@ -31,9 +38,12 @@ export type ActionContext<TActor extends Actor | null = Actor> = {
  * puts it through `getUserFriendlyDbError`.
  */
 export class ActionError extends Error {
-  constructor(message: string) {
+  fieldErrors?: Record<string, string>
+
+  constructor(message: string, fieldErrors?: Record<string, string>) {
     super(message)
     this.name = 'ActionError'
+    this.fieldErrors = fieldErrors
   }
 }
 
@@ -89,8 +99,13 @@ export type RunActionOptions<TInput, TResult> =
 export const NOT_AUTHENTICATED = 'Not authenticated'
 export const NOT_AUTHORISED = 'Not authorised'
 
-/** The first message per field, which is all the forms render. */
-function firstFieldErrors(error: z.ZodError): Record<string, string> {
+/**
+ * The first message per field, which is all the forms render. Exported so an
+ * action that parses a sub-schema by hand inside `run` (a guardian block, a
+ * per-row migration schema) can build the same `fieldErrors` shape to throw
+ * with `ActionError`, prefixing paths to match the form field names.
+ */
+export function firstFieldErrors(error: z.ZodError): Record<string, string> {
   const flattened = z.flattenError(error).fieldErrors as Record<
     string,
     string[] | undefined
@@ -99,6 +114,18 @@ function firstFieldErrors(error: z.ZodError): Record<string, string> {
   for (const [field, messages] of Object.entries(flattened)) {
     const first = messages?.[0]
     if (first !== undefined) result[field] = first
+  }
+  return result
+}
+
+/** Prefixes every key of `fieldErrors`, e.g. for a guardian block parsed under `${prefix}_`. */
+export function prefixFieldErrors(
+  fieldErrors: Record<string, string>,
+  prefix: string,
+): Record<string, string> {
+  const result: Record<string, string> = {}
+  for (const [field, message] of Object.entries(fieldErrors)) {
+    result[`${prefix}_${field}`] = message
   }
   return result
 }
@@ -144,7 +171,10 @@ export async function runAction<TInput = undefined, TResult = void>(
     // redirect()/notFound() and friends throw framework interrupts that must
     // reach Next, not be reported to the form as a failed save.
     unstable_rethrow(err)
-    if (err instanceof ActionError) return { error: err.message }
+    if (err instanceof ActionError)
+      return err.fieldErrors && Object.keys(err.fieldErrors).length > 0
+        ? { error: err.message, fieldErrors: err.fieldErrors }
+        : { error: err.message }
     logError(opts.name, err)
     return { error: getUserFriendlyDbError(err, opts.fallbackError) }
   }
