@@ -79,6 +79,11 @@ export const registrationStatusFilter = z
   .enum(['pending', 'actioned', 'rejected', 'all'])
   .catch('pending')
 
+/** Which list the /registrations page shows; opt-outs are its last tab. */
+export const registrationsTab = z
+  .enum(['registrations', 'photo-opt-outs'])
+  .catch('registrations')
+
 export const SHORT_TEXT_MAX = 100
 export const ADDRESS_TEXT_MAX = 200
 export const LONG_TEXT_MAX = 2000

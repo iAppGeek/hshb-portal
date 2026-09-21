@@ -17,6 +17,7 @@ import {
   requiredCheckbox,
   submissionStatus,
   registrationStatusFilter,
+  registrationsTab,
   createClassSchema,
   updateClassSchema,
   LEAVING_REASONS,
@@ -282,6 +283,14 @@ describe('registrationStatusFilter', () => {
     expect(registrationStatusFilter.parse('actioned')).toBe('actioned')
     expect(registrationStatusFilter.parse('rejected')).toBe('rejected')
     expect(registrationStatusFilter.parse('all')).toBe('all')
+  })
+})
+
+describe('registrationsTab', () => {
+  it('defaults to registrations for anything but the opt-outs tab', () => {
+    expect(registrationsTab.parse(undefined)).toBe('registrations')
+    expect(registrationsTab.parse('nonsense')).toBe('registrations')
+    expect(registrationsTab.parse('photo-opt-outs')).toBe('photo-opt-outs')
   })
 })
 
