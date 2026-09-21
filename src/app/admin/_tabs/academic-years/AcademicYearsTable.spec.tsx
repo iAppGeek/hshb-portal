@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 
 vi.mock('./AcademicYearForm', () => ({
   default: ({ defaultValues }: { defaultValues: { code: string } }) => (
@@ -7,8 +7,23 @@ vi.mock('./AcademicYearForm', () => ({
   ),
 }))
 vi.mock('./MakeCurrentButton', () => ({
-  default: ({ yearCode }: { yearCode: string }) => (
-    <button>Make current ({yearCode})</button>
+  default: ({
+    yearCode,
+    action,
+    onMadeCurrent,
+  }: {
+    yearCode: string
+    action: () => Promise<{ data: { currentId: string } } | void>
+    onMadeCurrent: (id: string) => void
+  }) => (
+    <button
+      onClick={async () => {
+        const result = await action()
+        if (result) onMadeCurrent(result.data.currentId)
+      }}
+    >
+      Make current ({yearCode})
+    </button>
   ),
 }))
 
@@ -57,6 +72,45 @@ describe('AcademicYearsTable', () => {
     expect(screen.getByText('2026-27')).toBeTruthy()
     expect(screen.getByText('2025-26')).toBeTruthy()
     expect(screen.getByText('Current')).toBeTruthy()
+  })
+
+  it('moves the Current badge when another year is made current', async () => {
+    makeCurrentAction.mockResolvedValue({ data: { currentId: 'year-1' } })
+    render(
+      <AcademicYearsTable
+        years={years}
+        updateAction={updateAction}
+        makeCurrentAction={makeCurrentAction}
+      />,
+    )
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Make current (2025-26)'))
+    })
+
+    expect(makeCurrentAction).toHaveBeenCalledWith('year-1', 'year-2')
+    expect(screen.getAllByText('Current')).toHaveLength(1)
+    expect(screen.getByText('Make current (2026-27)')).toBeTruthy()
+    expect(screen.queryByText('Make current (2025-26)')).toBeNull()
+  })
+
+  it('warns when no year is marked current, until one is made current', async () => {
+    makeCurrentAction.mockResolvedValue({ data: { currentId: 'year-1' } })
+    render(
+      <AcademicYearsTable
+        years={years.map((y) => ({ ...y, is_current: false }))}
+        updateAction={updateAction}
+        makeCurrentAction={makeCurrentAction}
+      />,
+    )
+    expect(screen.getByText(/no academic year is marked current/i)).toBeTruthy()
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Make current (2025-26)'))
+    })
+
+    expect(makeCurrentAction).toHaveBeenCalledWith('year-1', null)
+    expect(screen.queryByText(/no academic year is marked current/i)).toBeNull()
   })
 
   it('does not show Make current for the current year', () => {

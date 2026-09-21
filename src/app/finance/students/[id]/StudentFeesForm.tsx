@@ -17,7 +17,9 @@ type Props = {
   account: StudentFeeAccountRow | null
   academicYearId: string
   planOptions: { id: string; label: string }[]
-  action: (formData: FormData) => Promise<ActionResult>
+  action: (formData: FormData) => Promise<ActionResult<StudentFeeAccountRow>>
+  /** The account as saved, so the page's summary updates in place. */
+  onSaved: (account: StudentFeeAccountRow) => void
 }
 
 export default function StudentFeesForm({
@@ -25,17 +27,22 @@ export default function StudentFeesForm({
   academicYearId,
   planOptions,
   action,
+  onSaved,
 }: Props): React.ReactElement {
   const [paymentPlan, setPaymentPlan] = useState(account?.payment_plan ?? '')
   const [saved, setSaved] = useState(false)
   const isCustom = paymentPlan === 'custom'
 
   const { handleSubmit, isPending, error, fieldError } = useServerForm(
-    async (fd) => {
+    async (fd: FormData) => {
       setSaved(false)
-      const result = await action(fd)
-      if (!result || !('error' in result)) setSaved(true)
-      return result
+      return action(fd)
+    },
+    {
+      onSuccess: (saved) => {
+        setSaved(true)
+        onSaved(saved)
+      },
     },
   )
 

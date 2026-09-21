@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { getActor } from '@/auth/require'
@@ -19,7 +18,6 @@ vi.mock('next/navigation', async (importOriginal) => ({
   ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn(),
 }))
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/db', () => ({
   createGuardian: vi.fn(),
   getGuardianById: vi.fn(),
@@ -130,7 +128,6 @@ describe('updateStudentAction', () => {
         primary_guardian_id: GUARDIAN_1,
       }),
     )
-    expect(revalidatePath).toHaveBeenCalledWith('/students')
     expect(redirect).toHaveBeenCalledWith('/students')
   })
 
@@ -375,7 +372,7 @@ describe('markStudentAsLeaverAction', () => {
     expect(markStudentAsLeaver).not.toHaveBeenCalled()
   })
 
-  it('marks the student as a leaver, logs, revalidates and redirects', async () => {
+  it('marks the student as a leaver, logs and redirects', async () => {
     vi.mocked(markStudentAsLeaver).mockResolvedValue(undefined)
     vi.mocked(redirect).mockImplementation(() => {
       throw new Error('NEXT_REDIRECT')
@@ -389,7 +386,6 @@ describe('markStudentAsLeaverAction', () => {
     ).rejects.toThrow('NEXT_REDIRECT')
 
     expect(markStudentAsLeaver).toHaveBeenCalledWith(STUDENT_ID, 'graduated')
-    expect(revalidatePath).toHaveBeenCalledWith('/students')
     expect(redirect).toHaveBeenCalledWith('/students')
   })
 

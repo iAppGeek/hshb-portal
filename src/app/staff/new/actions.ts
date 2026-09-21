@@ -19,7 +19,6 @@ export async function createStaffAction(
       action: 'create',
       entityId: (staff) => staff.id,
     },
-    revalidate: ['/staff'],
     redirectTo: '/staff',
     fallbackError: 'Failed to create staff member. Please try again.',
   })

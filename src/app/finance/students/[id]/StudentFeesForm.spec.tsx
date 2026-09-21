@@ -25,6 +25,7 @@ describe('StudentFeesForm', () => {
         academicYearId="year-1"
         planOptions={planOptions}
         action={vi.fn()}
+        onSaved={vi.fn()}
       />,
     )
 
@@ -47,6 +48,7 @@ describe('StudentFeesForm', () => {
         academicYearId="year-1"
         planOptions={planOptions}
         action={vi.fn()}
+        onSaved={vi.fn()}
       />,
     )
 
@@ -69,6 +71,7 @@ describe('StudentFeesForm', () => {
         academicYearId="year-0"
         planOptions={planOptions}
         action={vi.fn()}
+        onSaved={vi.fn()}
       />,
     )
 
@@ -96,6 +99,7 @@ describe('StudentFeesForm', () => {
         academicYearId="year-1"
         planOptions={planOptions}
         action={vi.fn()}
+        onSaved={vi.fn()}
       />,
     )
 
@@ -118,14 +122,20 @@ describe('StudentFeesForm', () => {
     expect(customWrapper().hidden).toBe(true)
   })
 
-  it('submits and confirms the save', async () => {
-    const action = vi.fn().mockResolvedValue(undefined)
+  it('submits, confirms the save and hands back the saved account', async () => {
+    const savedAccount = {
+      id: 'acc-1',
+      payment_plan: 'monthly',
+    } as StudentFeeAccountRow
+    const action = vi.fn().mockResolvedValue({ data: savedAccount })
+    const onSaved = vi.fn()
     render(
       <StudentFeesForm
         account={null}
         academicYearId="year-1"
         planOptions={planOptions}
         action={action}
+        onSaved={onSaved}
       />,
     )
 
@@ -141,6 +151,7 @@ describe('StudentFeesForm', () => {
     expect(fd.get('payment_plan')).toBe('monthly')
     // Hidden custom fields are still submitted
     expect(fd.get('custom_total_amount')).toBe('')
+    expect(onSaved).toHaveBeenCalledWith(savedAccount)
   })
 
   it('shows an action error', async () => {
@@ -151,6 +162,7 @@ describe('StudentFeesForm', () => {
         academicYearId="year-1"
         planOptions={[]}
         action={action}
+        onSaved={vi.fn()}
       />,
     )
 

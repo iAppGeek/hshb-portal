@@ -1,5 +1,7 @@
 'use client'
 
+import { useOptimistic, useState } from 'react'
+
 import type { StaffAttendanceRow } from '@/db'
 import Table from '@/components/grid/Table'
 import TableCard from '@/components/grid/TableCard'
@@ -7,12 +9,13 @@ import Th from '@/components/grid/Th'
 import Tooltip from '@/components/Tooltip'
 import Tr from '@/components/grid/Tr'
 import { useServerForm } from '@/components/form'
-import { formatTimeInSchoolTz } from '@/lib/datetime'
+import { formatTimeInSchoolTz, schoolTzToUtcIso } from '@/lib/datetime'
 import { tbody, theadStacked } from '@/lib/grid/styles'
 import { canManageStaffAttendance } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
 import { signInAction, signOutAction } from './actions'
+import SignInSheetPrintTable from './SignInSheetPrintTable'
 
 export type StaffMember = {
   id: string
@@ -45,30 +48,72 @@ function StatusBadge({ record }: { record: StaffAttendanceRow | null }) {
   )
 }
 
+/** What the row will look like once the save lands, from the submitted form. */
+function predictRecord(
+  current: StaffAttendanceRow | null,
+  formData: FormData,
+  signingIn: boolean,
+): StaffAttendanceRow | null {
+  const staffId = String(formData.get('staffId'))
+  const date = String(formData.get('date'))
+  const at = schoolTzToUtcIso(date, String(formData.get('time')))
+  if (!signingIn) return current && { ...current, signed_out_at: at }
+  return {
+    id: current?.id ?? `pending-${staffId}`,
+    staff_id: staffId,
+    date,
+    signed_in_at: at,
+    signed_out_at: null,
+    created_at: current?.created_at ?? null,
+    updated_at: current?.updated_at ?? null,
+  }
+}
+
 function StaffRowInteractive({
   staff,
-  record,
+  record: saved,
+  onSaved,
   defaultTime,
   date,
   role,
   currentStaffId,
 }: {
   staff: StaffMember
+  /** The row as last written. */
   record: StaffAttendanceRow | null
+  onSaved: (staffId: string, record: StaffAttendanceRow | null) => void
   defaultTime: string
   date: string
   role: StaffRole
   currentStaffId: string
 }) {
+  // Shows a tap straight away and falls back to `saved` by itself if the
+  // save fails.
+  const [record, setOptimisticRecord] = useOptimistic(saved)
   const isSignedIn = !!record && !record.signed_out_at
   const name = staff.display_name ?? `${staff.first_name} ${staff.last_name}`
   const canManageOthers = canManageStaffAttendance(role)
   const isSelf = staff.id === currentStaffId
   const disabled = !canManageOthers && !isSelf
 
-  const signIn = useServerForm(signInAction)
-  const signOut = useServerForm(signOutAction)
-  const { handleSubmit, isPending, error } = isSignedIn ? signOut : signIn
+  const signIn = useServerForm(
+    async (fd: FormData) => {
+      setOptimisticRecord(predictRecord(saved, fd, true))
+      return signInAction(fd)
+    },
+    { onSuccess: (row) => onSaved(staff.id, row) },
+  )
+  const signOut = useServerForm(
+    async (fd: FormData) => {
+      setOptimisticRecord(predictRecord(saved, fd, false))
+      return signOutAction(fd)
+    },
+    { onSuccess: (row) => onSaved(staff.id, row) },
+  )
+  const { handleSubmit, error } = isSignedIn ? signOut : signIn
+  // The optimistic row flips which form shows mid-save, so either pending
+  // save keeps the row's controls disabled.
+  const isPending = signIn.isPending || signOut.isPending
 
   const actionForm = disabled ? (
     <Tooltip text="You can only sign yourself in/out">
@@ -168,16 +213,41 @@ type Props = {
   date: string
   role: StaffRole
   currentStaffId: string
+  /** Also render the print-only sign-in sheet, from the same saved rows. */
+  withPrintSheet?: boolean
 }
 
+/**
+ * Saves are applied over the rows the page rendered with, so the screen and
+ * the printed sheet both show them without a re-fetch. The page keys this on
+ * the date: a `?date=` change doesn't remount it.
+ */
 export default function StaffAttendanceTable({
   rows,
   defaultTime,
   date,
   role,
   currentStaffId,
+  withPrintSheet = false,
 }: Props) {
-  return (
+  // Staff id → the row as last saved; null when a sign-out found no row.
+  const [savedById, setSavedById] = useState<
+    Record<string, StaffAttendanceRow | null>
+  >({})
+  const current = rows.map((row) =>
+    row.staff.id in savedById
+      ? { ...row, record: savedById[row.staff.id] ?? null }
+      : row,
+  )
+
+  function handleSaved(
+    staffId: string,
+    record: StaffAttendanceRow | null,
+  ): void {
+    setSavedById((prev) => ({ ...prev, [staffId]: record }))
+  }
+
+  const table = (
     <TableCard>
       <Table>
         <thead className={theadStacked}>
@@ -188,11 +258,12 @@ export default function StaffAttendanceTable({
           </tr>
         </thead>
         <tbody className={tbody}>
-          {rows.map(({ staff, record }) => (
+          {current.map(({ staff, record }) => (
             <StaffRowInteractive
               key={staff.id}
               staff={staff}
               record={record}
+              onSaved={handleSaved}
               defaultTime={defaultTime}
               date={date}
               role={role}
@@ -202,5 +273,13 @@ export default function StaffAttendanceTable({
         </tbody>
       </Table>
     </TableCard>
+  )
+
+  if (!withPrintSheet) return table
+  return (
+    <>
+      <div className="print:hidden">{table}</div>
+      <SignInSheetPrintTable rows={current} />
+    </>
   )
 }

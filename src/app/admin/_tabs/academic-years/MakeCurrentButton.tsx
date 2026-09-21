@@ -6,12 +6,14 @@ import type { ActionResult } from '@/lib/action'
 
 type Props = {
   yearCode: string
-  action: () => Promise<ActionResult>
+  action: () => Promise<ActionResult<{ currentId: string }>>
+  onMadeCurrent: (currentId: string) => void
 }
 
 export default function MakeCurrentButton({
   yearCode,
   action,
+  onMadeCurrent,
 }: Props): React.ReactElement {
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -21,7 +23,9 @@ export default function MakeCurrentButton({
     setError(null)
     startTransition(async () => {
       const result = await action()
-      if (result?.error) setError(result.error)
+      if (!result) return
+      if ('error' in result) setError(result.error)
+      else onMadeCurrent(result.data.currentId)
     })
   }
 

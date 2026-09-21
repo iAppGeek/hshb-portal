@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { updateTag } from 'next/cache'
 
 import {
   createPhotoOptOut,
@@ -14,11 +13,6 @@ import {
 const mockFrom = vi.hoisted(() => vi.fn())
 const mockRpc = vi.hoisted(() => vi.fn())
 
-vi.mock('next/cache', () => ({
-  unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
-  updateTag: vi.fn(),
-}))
-
 vi.mock('./client', () => ({
   supabase: { from: mockFrom, rpc: mockRpc },
 }))
@@ -28,7 +22,7 @@ beforeEach(() => {
 })
 
 describe('createPhotoOptOut', () => {
-  it('inserts a request and revalidates', async () => {
+  it('inserts a request', async () => {
     mockFrom.mockReturnValue({
       insert: vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
@@ -45,7 +39,6 @@ describe('createPhotoOptOut', () => {
     } as never)
 
     expect(result).toEqual({ id: 'req-1' })
-    expect(updateTag).toHaveBeenCalledWith('photo-opt-outs')
   })
 
   it('throws when the insert fails', async () => {
@@ -135,7 +128,7 @@ describe('getPhotoOptOutById', () => {
 })
 
 describe('applyPhotoOptOut', () => {
-  it('passes rpc args through and revalidates', async () => {
+  it('passes rpc args through', async () => {
     mockRpc.mockResolvedValue({ data: 'student-1', error: null })
 
     const result = await applyPhotoOptOut({
@@ -150,8 +143,6 @@ describe('applyPhotoOptOut', () => {
       p_staff_id: 'staff-1',
       p_student_id: 'student-1',
     })
-    expect(updateTag).toHaveBeenCalledWith('photo-opt-outs')
-    expect(updateTag).toHaveBeenCalledWith('students')
   })
 
   it('throws the rpc error', async () => {
@@ -184,7 +175,6 @@ describe('rejectPhotoOptOut', () => {
       staffId: 'staff-1',
       reason: 'Cannot match',
     })
-    expect(updateTag).toHaveBeenCalledWith('photo-opt-outs')
   })
 
   it('throws when already actioned', async () => {
@@ -219,7 +209,6 @@ describe('deletePhotoOptOut', () => {
     })
 
     await deletePhotoOptOut('req-1')
-    expect(updateTag).toHaveBeenCalledWith('photo-opt-outs')
   })
 
   it('throws when no row is deleted (missing)', async () => {

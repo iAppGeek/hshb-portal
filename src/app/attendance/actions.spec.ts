@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { revalidatePath } from 'next/cache'
 
 import { getActor } from '@/auth/require'
 import {
@@ -30,10 +29,6 @@ vi.mock('@/db', () => ({
 
 vi.mock('@/lib/push', () => ({
   sendPushNotification: vi.fn(),
-}))
-
-vi.mock('next/cache', () => ({
-  revalidatePath: vi.fn(),
 }))
 
 const CLASS_ID = '00000000-0000-4000-8000-000000000001'
@@ -129,7 +124,6 @@ describe('saveAttendanceAction', () => {
         recorded_by: STAFF_ID,
       }),
     ])
-    expect(revalidatePath).toHaveBeenCalledWith('/attendance')
   })
 
   it('defaults missing status to absent', async () => {
@@ -334,10 +328,10 @@ describe('saveAttendanceAction', () => {
       studentId: STUDENT_1,
     })
 
-    await expect(saveAttendanceAction(fd)).resolves.toBeUndefined()
+    await expect(saveAttendanceAction(fd)).resolves.toHaveProperty('data')
   })
 
-  it('still calls revalidatePath even when push dispatch is involved', async () => {
+  it('saves the register when push dispatch is involved', async () => {
     vi.mocked(getActor).mockResolvedValue({
       staffId: STAFF_ID,
       name: null,
@@ -360,8 +354,80 @@ describe('saveAttendanceAction', () => {
       studentId: STUDENT_1,
     })
 
-    await saveAttendanceAction(fd)
-    expect(revalidatePath).toHaveBeenCalledWith('/attendance')
+    await expect(saveAttendanceAction(fd)).resolves.toHaveProperty('data')
+    expect(saveAttendance).toHaveBeenCalled()
+  })
+
+  it('returns the rows as written so the form can update in place', async () => {
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      name: null,
+      email: '',
+    } as any)
+    vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
+    const written = [
+      {
+        id: 'att-1',
+        class_id: CLASS_ID,
+        student_id: STUDENT_1,
+        date: '2024-03-08',
+        status: 'present',
+        updated_at: '2024-03-08T09:00:00Z',
+      },
+    ]
+    vi.mocked(saveAttendance).mockResolvedValue(written as any)
+    vi.mocked(getClassById).mockResolvedValue({
+      id: CLASS_ID,
+      name: 'Class A',
+      academic_year_id: YEAR_ID,
+      active: true,
+    } as any)
+    vi.mocked(getAdminSubscriptions).mockResolvedValue([])
+
+    const result = await saveAttendanceAction(
+      makeFormData({
+        classId: CLASS_ID,
+        date: '2024-03-08',
+        studentId: STUDENT_1,
+      }),
+    )
+
+    expect(result).toEqual({
+      data: {
+        classId: CLASS_ID,
+        date: '2024-03-08',
+        isUpdate: false,
+        saved: written,
+      },
+    })
+  })
+
+  it('responds without waiting for the push notifications', async () => {
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      name: null,
+      email: '',
+    } as any)
+    vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
+    vi.mocked(saveAttendance).mockResolvedValue([] as any)
+    vi.mocked(getClassById).mockResolvedValue({
+      id: CLASS_ID,
+      name: 'Class A',
+      academic_year_id: YEAR_ID,
+      active: true,
+    } as any)
+    // Never settles: if the action awaited the push it would never resolve.
+    vi.mocked(getAdminSubscriptions).mockReturnValue(new Promise(() => {}))
+
+    await expect(
+      saveAttendanceAction(
+        makeFormData({
+          classId: CLASS_ID,
+          date: '2024-03-08',
+          studentId: STUDENT_1,
+        }),
+      ),
+    ).resolves.toHaveProperty('data')
   })
 
   it('allows secretary to save new attendance (no existing records)', async () => {
@@ -390,7 +456,7 @@ describe('saveAttendanceAction', () => {
 
     const result = await saveAttendanceAction(fd)
 
-    expect(result).toBeUndefined()
+    expect(result).toHaveProperty('data')
     expect(saveAttendance).toHaveBeenCalledWith([
       expect.objectContaining({
         class_id: CLASS_ID,
@@ -398,7 +464,6 @@ describe('saveAttendanceAction', () => {
         recorded_by: SECRETARY_ID,
       }),
     ])
-    expect(revalidatePath).toHaveBeenCalledWith('/attendance')
   })
 
   it('blocks secretary from updating existing attendance records', async () => {
@@ -426,7 +491,6 @@ describe('saveAttendanceAction', () => {
         'You do not have permission to update existing attendance records.',
     })
     expect(saveAttendance).not.toHaveBeenCalled()
-    expect(revalidatePath).not.toHaveBeenCalled()
   })
 
   it('rejects a class that does not exist', async () => {
@@ -477,7 +541,6 @@ describe('saveAttendanceAction', () => {
         "This register can't be changed. The class has been completed or is not in the current academic year.",
     })
     expect(saveAttendance).not.toHaveBeenCalled()
-    expect(revalidatePath).not.toHaveBeenCalled()
   })
 
   it('rejects saving a register for an inactive (completed) current-year class', async () => {
@@ -571,7 +634,7 @@ describe('saveAttendanceAction', () => {
       }),
     )
 
-    expect(result).toBeUndefined()
+    expect(result).toHaveProperty('data')
     expect(saveAttendance).toHaveBeenCalled()
   })
 })

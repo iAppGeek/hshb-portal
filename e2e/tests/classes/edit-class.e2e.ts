@@ -72,27 +72,7 @@ test.describe('Edit class', () => {
     for (const email of teacherEmails) await deleteStaffByEmail(email)
   })
 
-  test('selects the saved teacher without reloading', async ({
-    page,
-    isMobile,
-  }) => {
-    await page.goto(`/classes/${classId}/edit`)
-
-    // The fixture teachers were inserted directly, bypassing the app's cache
-    // invalidation, so clear the cached teacher list via "Refresh data"
-    if (isMobile) {
-      await page.getByRole('button', { name: 'Open navigation' }).click()
-    }
-    const refreshed = page.waitForResponse(
-      (res) => res.request().method() === 'POST' && res.ok(),
-    )
-    await page
-      .getByRole('button', { name: 'Refresh data' })
-      .filter({ visible: true })
-      .click()
-    await refreshed
-
-    // Load the edit page so the class is cached before the save
+  test('selects the saved teacher without reloading', async ({ page }) => {
     await page.goto(`/classes/${classId}/edit`)
     const teacher = page.locator('#teacher_id')
     await expect(teacher).toHaveValue(originalTeacherId)

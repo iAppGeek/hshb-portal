@@ -105,7 +105,6 @@ test.describe('Finance', () => {
 
   test('sets up a fee plan and records and deletes a student payment', async ({
     page,
-    isMobile,
   }) => {
     await page.goto('/finance?tab=fee-plans')
     await expect(
@@ -118,15 +117,10 @@ test.describe('Finance', () => {
     const classCheckbox = page.getByRole('checkbox', {
       name: new RegExp(`^${className}`),
     })
-    await loadWithFreshData(
-      page,
-      isMobile,
-      '/finance/fee-plans/new',
-      async () => {
-        await page.getByLabel('Academic year').selectOption(academicYearId)
-        await expect(classCheckbox).toBeVisible({ timeout: 3_000 })
-      },
-    )
+    await loadWithFreshData(page, '/finance/fee-plans/new', async () => {
+      await page.getByLabel('Academic year').selectOption(academicYearId)
+      await expect(classCheckbox).toBeVisible({ timeout: 3_000 })
+    })
 
     await page.getByRole('textbox', { name: /^Name/ }).fill(planName)
     await page.getByLabel('Full year amount').fill('800')
@@ -167,6 +161,41 @@ test.describe('Finance', () => {
       .click()
     await expect(paymentRow).toHaveCount(0)
     await expect(page.getByTestId('paid-to-date')).toHaveText('£0.00')
+  })
+
+  test("switching year shows that year's payments, not the last one's", async ({
+    page,
+  }) => {
+    const reference = `E2E-${suffix}`
+    const { error } = await db.from('student_payments').insert({
+      student_id: studentId,
+      academic_year_id: academicYearId,
+      amount: 100,
+      payment_date: academicYearForSuffix(suffix).start_date,
+      reference,
+      method: 'cash',
+    })
+    if (error) throw error
+
+    const paymentRow = page.getByRole('row', { name: new RegExp(reference) })
+    await page.goto(`/finance/students/${studentId}?year=${academicYearId}`)
+    await expect(paymentRow).toContainText('£100.00')
+
+    // A client-side ?year= change: the page isn't remounted.
+    await page
+      .getByRole('combobox', { name: 'Academic year' })
+      .selectOption(SEED_IDS.academicYears.previous)
+    await expect(page).toHaveURL(
+      new RegExp(`year=${SEED_IDS.academicYears.previous}`),
+    )
+    await expect(page.getByText('No payments recorded.')).toBeVisible()
+    await expect(paymentRow).toHaveCount(0)
+    await expect(page.getByTestId('paid-to-date')).toHaveText('£0.00')
+
+    await page
+      .getByRole('combobox', { name: 'Academic year' })
+      .selectOption(academicYearId)
+    await expect(paymentRow).toContainText('£100.00')
   })
 })
 
@@ -368,10 +397,7 @@ test.describe('Finance — Student Fees search and filters', () => {
     await deleteAcademicYearByCode(yearCode)
   })
 
-  test('searches and filters the Student Fees list', async ({
-    page,
-    isMobile,
-  }) => {
+  test('searches and filters the Student Fees list', async ({ page }) => {
     // The Student Fees list includes every active student in the school (see
     // getStudentFeeList's `s.active || …` filter), not just this test's
     // fixtures, so "Showing X of Y" assertions below scope Y down with a
@@ -381,7 +407,6 @@ test.describe('Finance — Student Fees search and filters', () => {
 
     await loadWithFreshData(
       page,
-      isMobile,
       `/finance?tab=students&year=${yearId}`,
       async () => {
         await expect(
@@ -586,11 +611,9 @@ test.describe('Finance — Student Fees sorting', () => {
 
   test('sorts by Owed (prev. years) within the owes-prior-years filter', async ({
     page,
-    isMobile,
   }) => {
     await loadWithFreshData(
       page,
-      isMobile,
       `/finance?tab=students&year=${yearId}`,
       async () => {
         await expect(

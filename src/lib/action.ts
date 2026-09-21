@@ -1,6 +1,5 @@
 import 'server-only'
 
-import { revalidatePath } from 'next/cache'
 import { redirect, unstable_rethrow } from 'next/navigation'
 import { z } from 'zod'
 
@@ -15,17 +14,22 @@ import { getUserFriendlyDbError } from './db-error'
 import { logError } from './log'
 import { extractFormFields } from './schemas'
 
-export type ActionResult<T = void> =
+/**
+ * `{ data }` is what a stay-on-page action resolves with, so the client can
+ * update its local state from the saved rows instead of re-fetching the page.
+ * The default `never` (an action that redirects or returns nothing) drops the
+ * branch, so callers can still read `result?.error` without narrowing.
+ */
+export type ActionResult<T = never> =
   | {
       error: string
       fieldErrors?: Record<string, string>
     }
-  // `runAction` never resolves a `data` payload today (it only redirects or
-  // returns void on success), so the branch collapses away for the default
-  // `T = void` that every existing action is typed with. It exists purely so
-  // `useServerForm<T>`'s `action` parameter type-checks against a future
-  // action that resolves `{ data: T }` on success without a redirect.
-  | (T extends void ? void : { data: T })
+  | ([T] extends [never] ? void : { data: T })
+  | void
+
+/** What `run` resolving to `void` passes through: nothing. */
+type PassedThrough<T> = [T] extends [void] ? never : T
 
 export type ActionContext<TActor extends Actor | null = Actor> = {
   actor: TActor
@@ -71,8 +75,6 @@ type BaseRunActionOptions<TInput, TResult, TActor extends Actor | null> = {
   run: (input: TInput, ctx: ActionContext<TActor>) => Promise<TResult>
   /** Written after `run` resolves. `details` defaults to `input` (redacted). */
   audit?: AuditOptions<TInput, TResult>
-  /** Paths passed to revalidatePath after success. Removed in plan 03. */
-  revalidate?: string[]
   /** Static path or derived from the result. Executed outside try/catch. */
   redirectTo?: string | ((result: TResult) => string)
   /** Message when the thrown error has no friendly mapping. */
@@ -130,9 +132,21 @@ export function prefixFieldErrors(
   return result
 }
 
+/**
+ * With `redirectTo` the result only builds the path; without it a non-void
+ * result goes back to the client as `{ data }`.
+ */
+export async function runAction<TInput = undefined, TResult = void>(
+  opts: RunActionOptions<TInput, TResult> & {
+    redirectTo: NonNullable<RunActionOptions<TInput, TResult>['redirectTo']>
+  },
+): Promise<ActionResult>
 export async function runAction<TInput = undefined, TResult = void>(
   opts: RunActionOptions<TInput, TResult>,
-): Promise<ActionResult> {
+): Promise<ActionResult<PassedThrough<TResult>>>
+export async function runAction<TInput = undefined, TResult = void>(
+  opts: RunActionOptions<TInput, TResult>,
+): Promise<ActionResult<PassedThrough<TResult>>> {
   let actor: Actor | null = null
 
   if (!opts.public) {
@@ -196,17 +210,15 @@ export async function runAction<TInput = undefined, TResult = void>(
     })
   }
 
-  if (opts.revalidate) {
-    for (const path of opts.revalidate) revalidatePath(path)
+  // Only a call with nowhere to redirect to hands its result back.
+  if (!opts.redirectTo) {
+    if (result === undefined) return undefined
+    return { data: result } as ActionResult<PassedThrough<TResult>>
   }
 
-  if (opts.redirectTo) {
-    const path =
-      typeof opts.redirectTo === 'function'
-        ? opts.redirectTo(result)
-        : opts.redirectTo
-    redirect(path)
-  }
-
-  return undefined
+  redirect(
+    typeof opts.redirectTo === 'function'
+      ? opts.redirectTo(result)
+      : opts.redirectTo,
+  )
 }

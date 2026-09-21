@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { revalidatePath } from 'next/cache'
 
 import { getActor } from '@/auth/require'
 import { updateStaff } from '@/db'
@@ -13,10 +12,6 @@ vi.mock('next/navigation', async (importOriginal) => ({
   redirect: vi.fn().mockImplementation((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`)
   }),
-}))
-
-vi.mock('next/cache', () => ({
-  revalidatePath: vi.fn(),
 }))
 
 vi.mock('@/db', () => ({
@@ -120,14 +115,12 @@ describe('updateStaffAction', () => {
     )
   })
 
-  it('revalidates /staff on success', async () => {
+  it('redirects to /staff on success', async () => {
     vi.mocked(updateStaff).mockResolvedValue(undefined)
 
     await expect(
       updateStaffAction('staff-1', makeFormData(validFields)),
     ).rejects.toThrow('NEXT_REDIRECT:/staff')
-
-    expect(revalidatePath).toHaveBeenCalledWith('/staff')
   })
 
   it('returns error when updateStaff throws', async () => {

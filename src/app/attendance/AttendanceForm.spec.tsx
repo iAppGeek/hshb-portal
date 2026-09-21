@@ -29,6 +29,26 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
+const header = {
+  className: 'Year 3A',
+  date: '2024-03-08',
+  dateLabel: 'Historical' as const,
+}
+
+function savedRow(studentId: string, status: string): Record<string, unknown> {
+  return {
+    id: `att-${studentId}`,
+    class_id: 'class-1',
+    student_id: studentId,
+    date: '2024-03-08',
+    status,
+    notes: null,
+    recorded_by: 'staff-1',
+    created_at: '2024-03-08T09:00:00Z',
+    updated_at: '2024-03-08T09:00:00Z',
+  }
+}
+
 const students = [
   {
     id: 'student-1',
@@ -130,6 +150,7 @@ describe('AttendanceForm', () => {
         existing={{}}
         role="admin"
         hasExisting={false}
+        header={header}
       />,
     )
 
@@ -146,6 +167,7 @@ describe('AttendanceForm', () => {
         existing={{}}
         role="admin"
         hasExisting={false}
+        header={header}
       />,
     )
     expect(screen.getByText('No students in this class.')).toBeTruthy()
@@ -160,6 +182,7 @@ describe('AttendanceForm', () => {
         existing={{ 'student-1': 'absent', 'student-2': 'late' }}
         role="admin"
         hasExisting={false}
+        header={header}
       />,
     )
     expect(screen.getByText('0 present')).toBeTruthy()
@@ -176,6 +199,7 @@ describe('AttendanceForm', () => {
         existing={{}}
         role="admin"
         hasExisting={false}
+        header={header}
       />,
     )
     expect(screen.getByText('0 present')).toBeTruthy()
@@ -191,6 +215,7 @@ describe('AttendanceForm', () => {
         existing={{}}
         role="admin"
         hasExisting={false}
+        header={header}
       />,
     )
 
@@ -211,6 +236,7 @@ describe('AttendanceForm', () => {
         existing={{}}
         role="admin"
         hasExisting={false}
+        header={header}
       />,
     )
     expect(screen.getByText('Save register')).toBeTruthy()
@@ -225,6 +251,7 @@ describe('AttendanceForm', () => {
         existing={{}}
         role="admin"
         hasExisting={false}
+        header={header}
       />,
     )
 
@@ -244,6 +271,7 @@ describe('AttendanceForm', () => {
         existing={{}}
         role="admin"
         hasExisting={false}
+        header={header}
       />,
     )
     // Details button renders twice per student (mobile card + desktop column)
@@ -259,6 +287,7 @@ describe('AttendanceForm', () => {
         existing={{}}
         role="admin"
         hasExisting={false}
+        header={header}
       />,
     )
     expect(screen.queryByTestId('student-modal')).toBeNull()
@@ -281,6 +310,7 @@ describe('AttendanceForm', () => {
         existing={{}}
         role="admin"
         hasExisting={false}
+        header={header}
       />,
     )
     fireEvent.click(screen.getAllByRole('button', { name: 'Details' })[0])
@@ -299,6 +329,7 @@ describe('AttendanceForm', () => {
         existing={{ 'student-1': 'present', 'student-2': 'present' }}
         role="secretary"
         hasExisting
+        header={header}
       />,
     )
 
@@ -317,6 +348,7 @@ describe('AttendanceForm', () => {
         existing={{}}
         role="secretary"
         hasExisting={false}
+        header={header}
       />,
     )
 
@@ -337,6 +369,7 @@ describe('AttendanceForm', () => {
         role="admin"
         hasExisting
         archived
+        header={header}
       />,
     )
 
@@ -352,5 +385,113 @@ describe('AttendanceForm', () => {
     fireEvent.click(absent)
     expect(screen.getByText('1 present')).toBeTruthy()
     expect(screen.getByText('0 absent')).toBeTruthy()
+  })
+
+  it('shows the header with the already-taken notice for a taken register', () => {
+    render(
+      <AttendanceForm
+        classId="class-1"
+        date="2024-03-08"
+        students={[students[0]]}
+        existing={{ 'student-1': 'present' }}
+        role="admin"
+        hasExisting
+        header={header}
+      />,
+    )
+
+    expect(screen.getByText(/Year 3A/)).toBeTruthy()
+    expect(screen.getByText('Historical')).toBeTruthy()
+    expect(screen.getByText('(register already taken)')).toBeTruthy()
+  })
+
+  it('updates in place from the saved rows: notice, statuses and "Register saved."', async () => {
+    vi.mocked(saveAttendanceAction).mockResolvedValue({
+      data: {
+        classId: 'class-1',
+        date: '2024-03-08',
+        isUpdate: false,
+        saved: [savedRow('student-1', 'late')],
+      },
+    } as never)
+
+    render(
+      <AttendanceForm
+        classId="class-1"
+        date="2024-03-08"
+        students={[students[0]]}
+        existing={{}}
+        role="admin"
+        hasExisting={false}
+        header={header}
+      />,
+    )
+    expect(screen.queryByText('(register already taken)')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Present' }))
+    fireEvent.submit(screen.getByText('Save register').closest('form')!)
+
+    expect(await screen.findByText('Register saved.')).toBeTruthy()
+    expect(screen.getByText('(register already taken)')).toBeTruthy()
+    // The row as written wins over the local tap.
+    expect(screen.getByText('1 late')).toBeTruthy()
+    expect(screen.getByText('0 present')).toBeTruthy()
+  })
+
+  it('locks the register after the first save for a role that cannot update', async () => {
+    vi.mocked(saveAttendanceAction).mockResolvedValue({
+      data: {
+        classId: 'class-1',
+        date: '2024-03-08',
+        isUpdate: false,
+        saved: [savedRow('student-1', 'present')],
+      },
+    } as never)
+
+    render(
+      <AttendanceForm
+        classId="class-1"
+        date="2024-03-08"
+        students={[students[0]]}
+        existing={{}}
+        role="secretary"
+        hasExisting={false}
+        header={header}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Present' }))
+    fireEvent.submit(screen.getByText('Save register').closest('form')!)
+
+    expect(await screen.findByText('Register saved.')).toBeTruthy()
+    expect(screen.getByText('Save register').tagName).not.toBe('BUTTON')
+  })
+
+  it('keeps the taps and shows the error when the save fails', async () => {
+    vi.mocked(saveAttendanceAction).mockResolvedValue({
+      error: 'Failed to save attendance. Please try again.',
+    })
+
+    render(
+      <AttendanceForm
+        classId="class-1"
+        date="2024-03-08"
+        students={[students[0]]}
+        existing={{}}
+        role="admin"
+        hasExisting={false}
+        header={header}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Absent' }))
+    fireEvent.submit(screen.getByText('Save register').closest('form')!)
+
+    expect(
+      await screen.findByText('Failed to save attendance. Please try again.'),
+    ).toBeTruthy()
+    expect(screen.getByText('1 absent')).toBeTruthy()
+    expect(screen.queryByText('Register saved.')).toBeNull()
+    expect(screen.queryByText('(register already taken)')).toBeNull()
   })
 })

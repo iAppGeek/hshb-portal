@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { getActor } from '@/auth/require'
@@ -14,10 +13,6 @@ vi.mock('@/db', () => ({
   createStudent: vi.fn(),
   getGuardianById: vi.fn(),
   logAuditEvent: vi.fn(),
-}))
-
-vi.mock('next/cache', () => ({
-  revalidatePath: vi.fn(),
 }))
 
 vi.mock('next/navigation', async (importOriginal) => ({
@@ -140,7 +135,6 @@ describe('createStudentAction', () => {
         additional_contact_2_id: null,
       }),
     )
-    expect(revalidatePath).toHaveBeenCalledWith('/students')
     expect(redirect).toHaveBeenCalledWith('/students')
   })
 

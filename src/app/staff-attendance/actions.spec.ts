@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { revalidatePath } from 'next/cache'
 
 import { getActor } from '@/auth/require'
 import { signInStaff, signOutStaff } from '@/db'
@@ -11,8 +10,6 @@ vi.mock('@/db', () => ({
   logAuditEvent: vi.fn(),
 }))
 
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
-
 import { signInAction, signOutAction } from './actions'
 
 const STAFF_1 = '00000000-0000-4000-8000-000000000001'
@@ -23,6 +20,20 @@ const SECRETARY_1 = '00000000-0000-4000-8000-000000000020'
 beforeEach(() => {
   vi.clearAllMocks()
 })
+
+const signedInRow = {
+  id: 'sa-1',
+  staff_id: STAFF_1,
+  date: '2026-03-18',
+  signed_in_at: '2026-03-18T09:00:00.000Z',
+  signed_out_at: null,
+  created_at: '2026-03-18T09:00:00Z',
+  updated_at: '2026-03-18T09:00:00Z',
+}
+const signedOutRow = {
+  ...signedInRow,
+  signed_out_at: '2026-03-18T17:00:00.000Z',
+}
 
 function makeFormData(fields: Record<string, string>): FormData {
   const fd = new FormData()
@@ -47,9 +58,9 @@ const secretarySession = {
 // ─── signInAction ─────────────────────────────────────────────────────────────
 
 describe('signInAction', () => {
-  it('signs in the authenticated staff member and revalidates', async () => {
+  it('signs in the authenticated staff member', async () => {
     vi.mocked(getActor).mockResolvedValue(teacherSession as any)
-    vi.mocked(signInStaff).mockResolvedValue(undefined)
+    vi.mocked(signInStaff).mockResolvedValue(signedInRow)
 
     const fd = makeFormData({
       staffId: STAFF_1,
@@ -59,13 +70,12 @@ describe('signInAction', () => {
 
     const result = await signInAction(fd)
 
-    expect(result).toBeUndefined()
+    expect(result).toEqual({ data: signedInRow })
     expect(signInStaff).toHaveBeenCalledWith(
       STAFF_1,
       '2026-03-18',
       '2026-03-18T09:00:00.000Z',
     )
-    expect(revalidatePath).toHaveBeenCalledWith('/staff-attendance')
   })
 
   it('returns error when teacher tries to sign in another staff member', async () => {
@@ -85,7 +95,7 @@ describe('signInAction', () => {
 
   it('allows admin to sign in any staff member', async () => {
     vi.mocked(getActor).mockResolvedValue(adminSession as any)
-    vi.mocked(signInStaff).mockResolvedValue(undefined)
+    vi.mocked(signInStaff).mockResolvedValue(signedInRow)
 
     const fd = makeFormData({
       staffId: STAFF_1,
@@ -95,7 +105,7 @@ describe('signInAction', () => {
 
     const result = await signInAction(fd)
 
-    expect(result).toBeUndefined()
+    expect(result).toEqual({ data: signedInRow })
     expect(signInStaff).toHaveBeenCalledWith(
       STAFF_1,
       '2026-03-18',
@@ -129,7 +139,6 @@ describe('signInAction', () => {
     const result = await signInAction(fd)
 
     expect(result).toEqual({ error: 'Failed to sign in. Please try again.' })
-    expect(revalidatePath).not.toHaveBeenCalled()
   })
 
   it('returns error when required fields are missing', async () => {
@@ -144,7 +153,7 @@ describe('signInAction', () => {
 
   it('allows secretary to sign themselves in', async () => {
     vi.mocked(getActor).mockResolvedValue(secretarySession as any)
-    vi.mocked(signInStaff).mockResolvedValue(undefined)
+    vi.mocked(signInStaff).mockResolvedValue(signedInRow)
 
     const fd = makeFormData({
       staffId: SECRETARY_1,
@@ -154,13 +163,12 @@ describe('signInAction', () => {
 
     const result = await signInAction(fd)
 
-    expect(result).toBeUndefined()
+    expect(result).toEqual({ data: signedInRow })
     expect(signInStaff).toHaveBeenCalledWith(
       SECRETARY_1,
       '2026-03-18',
       '2026-03-18T09:00:00.000Z',
     )
-    expect(revalidatePath).toHaveBeenCalledWith('/staff-attendance')
   })
 
   it('returns error when secretary tries to sign in another staff member', async () => {
@@ -182,9 +190,9 @@ describe('signInAction', () => {
 // ─── signOutAction ────────────────────────────────────────────────────────────
 
 describe('signOutAction', () => {
-  it('signs out the authenticated staff member and revalidates', async () => {
+  it('signs out the authenticated staff member', async () => {
     vi.mocked(getActor).mockResolvedValue(teacherSession as any)
-    vi.mocked(signOutStaff).mockResolvedValue(undefined)
+    vi.mocked(signOutStaff).mockResolvedValue(signedOutRow)
 
     const fd = makeFormData({
       staffId: STAFF_1,
@@ -194,13 +202,12 @@ describe('signOutAction', () => {
 
     const result = await signOutAction(fd)
 
-    expect(result).toBeUndefined()
+    expect(result).toEqual({ data: signedOutRow })
     expect(signOutStaff).toHaveBeenCalledWith(
       STAFF_1,
       '2026-03-18',
       '2026-03-18T17:00:00.000Z',
     )
-    expect(revalidatePath).toHaveBeenCalledWith('/staff-attendance')
   })
 
   it('returns error when teacher tries to sign out another staff member', async () => {
@@ -219,7 +226,7 @@ describe('signOutAction', () => {
 
   it('allows admin to sign out any staff member', async () => {
     vi.mocked(getActor).mockResolvedValue(adminSession as any)
-    vi.mocked(signOutStaff).mockResolvedValue(undefined)
+    vi.mocked(signOutStaff).mockResolvedValue(signedOutRow)
 
     const fd = makeFormData({
       staffId: STAFF_1,
@@ -228,7 +235,7 @@ describe('signOutAction', () => {
     })
     const result = await signOutAction(fd)
 
-    expect(result).toBeUndefined()
+    expect(result).toEqual({ data: signedOutRow })
     expect(signOutStaff).toHaveBeenCalled()
   })
 
@@ -244,12 +251,11 @@ describe('signOutAction', () => {
     const result = await signOutAction(fd)
 
     expect(result).toEqual({ error: 'Failed to sign out. Please try again.' })
-    expect(revalidatePath).not.toHaveBeenCalled()
   })
 
   it('allows secretary to sign themselves out', async () => {
     vi.mocked(getActor).mockResolvedValue(secretarySession as any)
-    vi.mocked(signOutStaff).mockResolvedValue(undefined)
+    vi.mocked(signOutStaff).mockResolvedValue(signedOutRow)
 
     const fd = makeFormData({
       staffId: SECRETARY_1,
@@ -259,13 +265,23 @@ describe('signOutAction', () => {
 
     const result = await signOutAction(fd)
 
-    expect(result).toBeUndefined()
+    expect(result).toEqual({ data: signedOutRow })
     expect(signOutStaff).toHaveBeenCalledWith(
       SECRETARY_1,
       '2026-03-18',
       '2026-03-18T17:00:00.000Z',
     )
-    expect(revalidatePath).toHaveBeenCalledWith('/staff-attendance')
+  })
+
+  it('returns null data when there was no sign-in to close', async () => {
+    vi.mocked(getActor).mockResolvedValue(teacherSession as any)
+    vi.mocked(signOutStaff).mockResolvedValue(null)
+
+    const result = await signOutAction(
+      makeFormData({ staffId: STAFF_1, date: '2026-03-18', time: '17:00' }),
+    )
+
+    expect(result).toEqual({ data: null })
   })
 
   it('returns error when secretary tries to sign out another staff member', async () => {

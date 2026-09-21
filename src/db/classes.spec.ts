@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { updateTag } from 'next/cache'
 
 import {
   getAllClasses,
@@ -17,11 +16,6 @@ import {
 const mockFrom = vi.hoisted(() => vi.fn())
 const mockRpc = vi.hoisted(() => vi.fn())
 const mockGetCurrentAcademicYear = vi.hoisted(() => vi.fn())
-
-vi.mock('next/cache', () => ({
-  unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
-  updateTag: vi.fn(),
-}))
 
 vi.mock('./client', () => ({
   supabase: { from: mockFrom, rpc: mockRpc },
@@ -335,7 +329,6 @@ describe('createClass', () => {
     const result = await createClass(input)
     expect(result).toEqual(created)
     expect(mockFrom).toHaveBeenCalledWith('classes')
-    expect(updateTag).toHaveBeenCalledWith('classes')
   })
 
   it('throws when supabase returns an error', async () => {
@@ -357,7 +350,6 @@ describe('createClass', () => {
         teacher_id: 'staff-1',
       }),
     ).rejects.toThrow('DB error')
-    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 
@@ -371,8 +363,6 @@ describe('updateClass', () => {
     await updateClass('class-1', { name: 'Year 1B' })
     expect(mockFrom).toHaveBeenCalledWith('classes')
     expect(mockEq).toHaveBeenCalledWith('id', 'class-1')
-    expect(updateTag).toHaveBeenCalledWith('classes')
-    expect(updateTag).toHaveBeenCalledWith('students')
   })
 
   it('throws when supabase returns an error', async () => {
@@ -385,7 +375,6 @@ describe('updateClass', () => {
     await expect(updateClass('class-1', { name: 'X' })).rejects.toThrow(
       'DB error',
     )
-    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 
@@ -401,8 +390,6 @@ describe('setClassStudents', () => {
       p_ids: ['student-1', 'student-2'],
     })
     expect(mockFrom).not.toHaveBeenCalled()
-    expect(updateTag).toHaveBeenCalledWith('classes')
-    expect(updateTag).toHaveBeenCalledWith('students')
   })
 
   it('throws on rpc error', async () => {
@@ -411,7 +398,6 @@ describe('setClassStudents', () => {
     await expect(setClassStudents('class-1', [])).rejects.toThrow(
       'Completed classes',
     )
-    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 
@@ -449,8 +435,6 @@ describe('migrateClass', () => {
       p_room_number: undefined,
       p_teacher_id: 'staff-1',
     })
-    expect(updateTag).toHaveBeenCalledWith('classes')
-    expect(updateTag).toHaveBeenCalledWith('students')
   })
 
   it('passes undefined new-class fields when no new class is created', async () => {
@@ -486,6 +470,5 @@ describe('migrateClass', () => {
         newClass: null,
       }),
     ).rejects.toThrow('DB error')
-    expect(updateTag).not.toHaveBeenCalled()
   })
 })

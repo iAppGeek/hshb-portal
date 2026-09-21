@@ -2,6 +2,7 @@
 
 import { z } from 'zod'
 
+import type { AttendanceRow } from '@/db'
 import {
   getAttendanceByClassAndDate,
   getClassById,
@@ -24,7 +25,18 @@ const attendanceRecordSchema = z.object({
   notes: optionalString,
 })
 
-/** Plan 12 moves this out of the action. */
+/** The rows as written, so the form updates in place without a re-fetch. */
+export type SavedRegister = {
+  classId: string
+  date: string
+  isUpdate: boolean
+  saved: AttendanceRow[]
+}
+
+/**
+ * Fire-and-forget: the action returns before any push is sent. Plan 12 moves
+ * this out of the action.
+ */
 function notifyOthers(
   className: string,
   staffId: string,
@@ -56,7 +68,7 @@ function notifyOthers(
 
 export async function saveAttendanceAction(
   formData: FormData,
-): Promise<ActionResult> {
+): Promise<ActionResult<SavedRegister>> {
   return runAction({
     name: 'attendance.save',
     formData,
@@ -125,19 +137,18 @@ export async function saveAttendanceAction(
         )
       }
 
-      await saveAttendance(records)
+      const saved = await saveAttendance(records)
 
       notifyOthers(cls.name, actor.staffId, isUpdate)
 
-      return { classId, date, count: records.length, isUpdate }
+      return { classId, date, isUpdate, saved }
     },
     audit: {
       entity: 'attendance',
       action: ({ isUpdate }) => (isUpdate ? 'update' : 'create'),
       entityId: ({ classId }) => classId,
-      details: ({ date, count }) => ({ date, studentCount: count }),
+      details: ({ date, saved }) => ({ date, studentCount: saved.length }),
     },
-    revalidate: ['/attendance'],
     fallbackError: 'Failed to save attendance. Please try again.',
   })
 }

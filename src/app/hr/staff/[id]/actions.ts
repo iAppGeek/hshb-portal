@@ -44,7 +44,6 @@ export async function saveStaffPayrollAction(
         ...redactChanges(record, existing, BANK_DETAIL_FIELDS),
       }),
     },
-    revalidate: ['/hr'],
     redirectTo: '/hr',
     fallbackError: 'Failed to save the payroll record. Please try again.',
   })

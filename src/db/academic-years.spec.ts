@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
-import { updateTag } from 'next/cache'
 
 import {
   getAcademicYears,
@@ -13,11 +12,6 @@ import {
 
 const mockFrom = vi.hoisted(() => vi.fn())
 const mockRpc = vi.hoisted(() => vi.fn())
-
-vi.mock('next/cache', () => ({
-  unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
-  updateTag: vi.fn(),
-}))
 
 vi.mock('./client', () => ({
   supabase: { from: mockFrom, rpc: mockRpc },
@@ -117,7 +111,7 @@ describe('getAcademicYearForDate', () => {
 })
 
 describe('createAcademicYear', () => {
-  it('inserts the year and invalidates related caches', async () => {
+  it('inserts the year', async () => {
     const c = chain({ data: { id: 'y3' }, error: null })
     mockFrom.mockReturnValue(c)
 
@@ -128,9 +122,6 @@ describe('createAcademicYear', () => {
     }
     expect(await createAcademicYear(input)).toEqual({ id: 'y3' })
     expect(c.insert).toHaveBeenCalledWith(input)
-    expect(updateTag).toHaveBeenCalledWith('academic-years')
-    expect(updateTag).toHaveBeenCalledWith('classes')
-    expect(updateTag).toHaveBeenCalledWith('student-fees')
   })
 
   it('throws on error', async () => {
@@ -142,12 +133,11 @@ describe('createAcademicYear', () => {
         end_date: '2028-08-31',
       }),
     ).rejects.toThrow('dup')
-    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 
 describe('updateAcademicYear', () => {
-  it('updates the dates and invalidates related caches', async () => {
+  it('updates the dates', async () => {
     const c = chain({ error: null })
     mockFrom.mockReturnValue(c)
 
@@ -156,7 +146,6 @@ describe('updateAcademicYear', () => {
       end_date: '2026-08-31',
     })
     expect(c.eq).toHaveBeenCalledWith('id', 'y1')
-    expect(updateTag).toHaveBeenCalledWith('academic-years')
   })
 
   it('throws on error', async () => {
@@ -164,26 +153,21 @@ describe('updateAcademicYear', () => {
     await expect(
       updateAcademicYear('y1', { start_date: 'x', end_date: 'y' }),
     ).rejects.toThrow('bad')
-    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 
 describe('setCurrentAcademicYear', () => {
-  it('calls the RPC and invalidates related caches', async () => {
+  it('calls the RPC', async () => {
     mockRpc.mockResolvedValue({ error: null })
 
     await setCurrentAcademicYear('y1')
     expect(mockRpc).toHaveBeenCalledWith('set_current_academic_year', {
       p_id: 'y1',
     })
-    expect(updateTag).toHaveBeenCalledWith('academic-years')
-    expect(updateTag).toHaveBeenCalledWith('classes')
-    expect(updateTag).toHaveBeenCalledWith('student-fees')
   })
 
   it('throws on error', async () => {
     mockRpc.mockResolvedValue({ error: new Error('not found') })
     await expect(setCurrentAcademicYear('missing')).rejects.toThrow('not found')
-    expect(updateTag).not.toHaveBeenCalled()
   })
 })

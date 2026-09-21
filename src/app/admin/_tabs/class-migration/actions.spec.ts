@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { getActor } from '@/auth/require'
@@ -12,7 +11,6 @@ vi.mock('next/navigation', async (importOriginal) => ({
   ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn(),
 }))
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/db', () => ({
   migrateClass: vi.fn(),
   logAuditEvent: vi.fn(),
@@ -115,7 +113,7 @@ describe('migrateClassAction', () => {
     expect(redirect).not.toHaveBeenCalled()
   })
 
-  it('calls migrateClass with correct args when creating a new class, logs audit, revalidates, and redirects', async () => {
+  it('calls migrateClass with correct args when creating a new class, logs audit, and redirects', async () => {
     vi.mocked(migrateClass).mockResolvedValue({
       new_class_id: NEW_CLASS_ID,
       moved: 1,
@@ -164,7 +162,6 @@ describe('migrateClassAction', () => {
         },
       }),
     )
-    expect(revalidatePath).toHaveBeenCalledWith('/admin')
     expect(redirect).toHaveBeenCalledWith('/admin')
   })
 

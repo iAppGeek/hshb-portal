@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { updateTag } from 'next/cache'
 
 import {
   getAllStudents,
@@ -21,11 +20,6 @@ import {
 } from './students'
 const mockFrom = vi.hoisted(() => vi.fn())
 const mockRpc = vi.hoisted(() => vi.fn())
-
-vi.mock('next/cache', () => ({
-  unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
-  updateTag: vi.fn(),
-}))
 
 vi.mock('./client', () => ({
   supabase: { from: mockFrom, rpc: mockRpc },
@@ -455,7 +449,6 @@ describe('createStudent', () => {
 
     expect(result).toEqual({ id: 'student-new' })
     expect(mockFrom).toHaveBeenCalledWith('students')
-    expect(updateTag).toHaveBeenCalledWith('students')
   })
 
   it('throws when the database returns an error', async () => {
@@ -480,7 +473,6 @@ describe('createStudent', () => {
         postcode: 'E1 1AA',
       }),
     ).rejects.toThrow('DB error')
-    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 
@@ -495,7 +487,6 @@ describe('updateStudent', () => {
 
     expect(mockFrom).toHaveBeenCalledWith('students')
     expect(mockUpdate).toHaveBeenCalledWith({ first_name: 'Updated' })
-    expect(updateTag).toHaveBeenCalledWith('students')
   })
 
   it('throws when the database returns an error', async () => {
@@ -508,7 +499,6 @@ describe('updateStudent', () => {
     await expect(
       updateStudent('student-1', { first_name: 'X' }),
     ).rejects.toThrow('DB error')
-    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 
@@ -524,9 +514,6 @@ describe('updateStudentClasses', () => {
       p_ids: ['class-1', 'class-2'],
     })
     expect(mockFrom).not.toHaveBeenCalled()
-    expect(updateTag).toHaveBeenCalledWith('students')
-    expect(updateTag).toHaveBeenCalledWith('classes')
-    expect(updateTag).toHaveBeenCalledWith('student-fees')
   })
 
   it('throws on rpc error', async () => {
@@ -537,7 +524,6 @@ describe('updateStudentClasses', () => {
     await expect(
       updateStudentClasses('student-1', ['class-1']),
     ).rejects.toThrow()
-    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 
@@ -551,9 +537,6 @@ describe('markStudentAsLeaver', () => {
       p_student_id: 'student-1',
       p_reason: 'graduated',
     })
-    expect(updateTag).toHaveBeenCalledWith('students')
-    expect(updateTag).toHaveBeenCalledWith('classes')
-    expect(updateTag).toHaveBeenCalledWith('student-fees')
   })
 
   it('throws on rpc error', async () => {
@@ -564,7 +547,6 @@ describe('markStudentAsLeaver', () => {
     await expect(markStudentAsLeaver('student-1', 'left')).rejects.toThrow(
       'already left',
     )
-    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 

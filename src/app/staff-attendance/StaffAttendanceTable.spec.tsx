@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent, act, within } from '@testing-library/react'
 
 vi.mock('./actions', () => ({
   signInAction: vi.fn(),
@@ -44,6 +44,16 @@ const signedInRecord = {
 const signedOutRecord = {
   ...signedInRecord,
   signed_out_at: '2026-03-18T17:00:00Z',
+}
+
+type Deferred<T> = { promise: Promise<T>; resolve: (value: T) => void }
+
+function deferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((r) => {
+    resolve = r
+  })
+  return { promise, resolve }
 }
 
 describe('StaffAttendanceTable', () => {
@@ -295,5 +305,169 @@ describe('StaffAttendanceTable', () => {
     expect(
       screen.getByText('You can only sign yourself in/out'),
     ).toBeInTheDocument()
+  })
+
+  describe('optimistic sign in / sign out', () => {
+    it('flips to signed in straight away, then keeps the saved row', async () => {
+      const save = deferred<Awaited<ReturnType<typeof signInAction>>>()
+      vi.mocked(signInAction).mockReturnValue(save.promise)
+
+      render(
+        <StaffAttendanceTable
+          rows={[{ staff: staffA, record: null }]}
+          defaultTime="09:00"
+          date="2026-03-18"
+          role="admin"
+          currentStaffId="admin-1"
+        />,
+      )
+
+      await act(async () => {
+        fireEvent.submit(
+          screen.getByRole('button', { name: 'Sign In' }).closest('form')!,
+        )
+      })
+
+      // Still saving: the row already shows as signed in, controls disabled.
+      expect(screen.getAllByText(/Signed In/).length).toBeGreaterThan(0)
+      expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled()
+
+      await act(async () => {
+        save.resolve({ data: signedInRecord })
+      })
+
+      expect(screen.getByRole('button', { name: 'Sign Out' })).toBeEnabled()
+      expect(screen.getAllByText(/Signed In/).length).toBeGreaterThan(0)
+    })
+
+    it('rolls back to not signed in and shows the error when the save fails', async () => {
+      const save = deferred<Awaited<ReturnType<typeof signInAction>>>()
+      vi.mocked(signInAction).mockReturnValue(save.promise)
+
+      render(
+        <StaffAttendanceTable
+          rows={[{ staff: staffA, record: null }]}
+          defaultTime="09:00"
+          date="2026-03-18"
+          role="admin"
+          currentStaffId="admin-1"
+        />,
+      )
+
+      await act(async () => {
+        fireEvent.submit(
+          screen.getByRole('button', { name: 'Sign In' }).closest('form')!,
+        )
+      })
+      expect(screen.getAllByText(/Signed In/).length).toBeGreaterThan(0)
+
+      await act(async () => {
+        save.resolve({ error: 'Failed to sign in. Please try again.' })
+      })
+
+      expect(screen.getByRole('button', { name: 'Sign In' })).toBeEnabled()
+      expect(screen.queryByText(/Signed In/)).toBeNull()
+      expect(
+        screen.getByText('Failed to sign in. Please try again.'),
+      ).toBeInTheDocument()
+    })
+
+    it('shows the signed-out times from the saved row after signing out', async () => {
+      vi.mocked(signOutAction).mockResolvedValue({ data: signedOutRecord })
+
+      render(
+        <StaffAttendanceTable
+          rows={[{ staff: staffA, record: signedInRecord }]}
+          defaultTime="17:00"
+          date="2026-03-18"
+          role="admin"
+          currentStaffId="admin-1"
+        />,
+      )
+
+      await act(async () => {
+        fireEvent.submit(
+          screen.getByRole('button', { name: 'Sign Out' }).closest('form')!,
+        )
+      })
+
+      expect(screen.getByRole('button', { name: 'Sign In' })).toBeEnabled()
+      expect(
+        screen.getAllByText(/In 09:00 · Out 17:00/).length,
+      ).toBeGreaterThan(0)
+    })
+  })
+
+  describe('print sheet', () => {
+    function printSheet(): HTMLElement {
+      return screen
+        .getByText('Staff Sign-In Sheet')
+        .parentElement!.nextElementSibling!.querySelector('table')!
+    }
+
+    it('is only rendered when asked for', () => {
+      const props = {
+        rows: [{ staff: staffA, record: null }],
+        defaultTime: '09:00',
+        date: '2026-03-18',
+        role: 'admin' as const,
+        currentStaffId: 'admin-1',
+      }
+      const { rerender } = render(<StaffAttendanceTable {...props} />)
+      expect(screen.queryByText('Staff Sign-In Sheet')).toBeNull()
+
+      rerender(<StaffAttendanceTable {...props} withPrintSheet />)
+      expect(screen.getByText('Staff Sign-In Sheet')).toBeInTheDocument()
+    })
+
+    it('shows a sign-in as soon as it is saved', async () => {
+      vi.mocked(signInAction).mockResolvedValue({ data: signedInRecord })
+
+      render(
+        <StaffAttendanceTable
+          rows={[{ staff: staffA, record: null }]}
+          defaultTime="09:00"
+          date="2026-03-18"
+          role="admin"
+          currentStaffId="admin-1"
+          withPrintSheet
+        />,
+      )
+      expect(within(printSheet()).queryByText('09:00')).toBeNull()
+
+      await act(async () => {
+        fireEvent.submit(
+          screen.getByRole('button', { name: 'Sign In' }).closest('form')!,
+        )
+      })
+
+      expect(within(printSheet()).getByText('09:00')).toBeInTheDocument()
+    })
+
+    it('keeps the rendered rows when a save fails', async () => {
+      vi.mocked(signOutAction).mockResolvedValue({
+        error: 'Failed to sign out. Please try again.',
+      })
+
+      render(
+        <StaffAttendanceTable
+          rows={[{ staff: staffA, record: signedInRecord }]}
+          defaultTime="17:00"
+          date="2026-03-18"
+          role="admin"
+          currentStaffId="admin-1"
+          withPrintSheet
+        />,
+      )
+
+      await act(async () => {
+        fireEvent.submit(
+          screen.getByRole('button', { name: 'Sign Out' }).closest('form')!,
+        )
+      })
+
+      expect(within(printSheet()).getByText('09:00')).toBeInTheDocument()
+      expect(within(printSheet()).queryByText('17:00')).toBeNull()
+    })
   })
 })

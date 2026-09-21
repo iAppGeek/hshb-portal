@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { getActor } from '@/auth/require'
@@ -18,7 +17,6 @@ vi.mock('next/navigation', async (importOriginal) => ({
     throw new Error(`NEXT_REDIRECT:${url}`)
   }),
 }))
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/db', () => ({
   getStaffPayrollByStaffId: vi.fn(),
   upsertStaffPayroll: vi.fn(),
@@ -153,7 +151,6 @@ describe('saveStaffPayrollAction', () => {
       },
     })
     expect(JSON.stringify(entry)).not.toContain('12345678')
-    expect(revalidatePath).toHaveBeenCalledWith('/hr')
     expect(redirect).toHaveBeenCalledWith('/hr')
   })
 

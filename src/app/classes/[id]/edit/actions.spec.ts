@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { getActor } from '@/auth/require'
@@ -17,7 +16,6 @@ vi.mock('next/navigation', async (importOriginal) => ({
   ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn(),
 }))
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/db', () => ({
   updateClass: vi.fn(),
   setClassStudents: vi.fn(),
@@ -93,7 +91,7 @@ describe('updateClassAction', () => {
     expect(updateClass).not.toHaveBeenCalled()
   })
 
-  it('updates class, sets students, revalidates, and redirects', async () => {
+  it('updates class, sets students, and redirects', async () => {
     vi.mocked(updateClass).mockResolvedValue(undefined)
     vi.mocked(setClassStudents).mockResolvedValue(undefined)
     vi.mocked(redirect).mockImplementation(() => {
@@ -118,7 +116,6 @@ describe('updateClassAction', () => {
     )
     expect(vi.mocked(updateClass).mock.calls[0][1]).not.toHaveProperty('active')
     expect(setClassStudents).toHaveBeenCalledWith(CLASS_ID, [])
-    expect(revalidatePath).toHaveBeenCalledWith('/classes')
     expect(redirect).toHaveBeenCalledWith('/classes')
   })
 

@@ -1,5 +1,3 @@
-import { unstable_cache, updateTag } from 'next/cache'
-
 import type { Database } from '@/types/database'
 import { isUuid } from '@/lib/uuid'
 
@@ -41,8 +39,6 @@ export type GuardianWithChildCount = GuardianListItem & {
   child_count: number
 }
 
-const OPTS = { revalidate: 60, tags: ['students'] }
-
 const GUARDIAN_SLOTS_SELECT =
   'primary_guardian_id, secondary_guardian_id, additional_contact_1_id, additional_contact_2_id'
 
@@ -79,17 +75,11 @@ export async function getGuardianCount(): Promise<number> {
   return count ?? 0
 }
 
-// Not cached: getStudentsForLinking (src/db/students.ts) is the same shape
-// of function — a full list backing a picker — and is uncached for the same
-// reason. This result also backs the guardian pickers on /students/new and
-// /students/[id]/edit, which must see a guardian created moments earlier;
-// unstable_cache's revalidate window would otherwise hide it for up to 60s.
-//
 // Deliberately does not include the per-guardian child count — that's
 // getGuardianChildCounts, a separate full students-table scan that only the
-// /guardians list page needs. The two picker pages above discarded that
-// count while still paying for the scan on every load, before it was split
-// out.
+// /guardians list page needs. The guardian pickers on /students/new and
+// /students/[id]/edit discarded that count while still paying for the scan
+// on every load, before it was split out.
 //
 // PostgREST caps a response at 1000 rows (supabase/config.toml max_rows), so
 // this pages through fetchAllPages rather than trusting a single response to
@@ -137,7 +127,6 @@ export async function createGuardian(data: GuardianInsert) {
     .select('id')
     .single()
   if (error) throw error
-  updateTag('students')
   return guardian
 }
 
@@ -285,99 +274,97 @@ const FAMILY_STUDENT_SELECT = `
 // is what lets a child with a different primary guardian still surface: open
 // either parent and both children show, with the other parent listed as a
 // co-guardian.
-export const getFamilyForGuardian = unstable_cache(
-  async (rawGuardianId: string): Promise<GuardianFamily> => {
-    // Postgres always returns UUIDs in canonical lowercase, so normalise the
-    // incoming id here — otherwise a differently-cased id (e.g. typed into
-    // the URL) would defeat every `===` slot comparison below and every
-    // child would fall back to slot: 'primary', rendering the guardian as
-    // their own co-guardian.
-    const guardianId = rawGuardianId.toLowerCase()
+export async function getFamilyForGuardian(
+  rawGuardianId: string,
+): Promise<GuardianFamily> {
+  // Postgres always returns UUIDs in canonical lowercase, so normalise the
+  // incoming id here — otherwise a differently-cased id (e.g. typed into
+  // the URL) would defeat every `===` slot comparison below and every
+  // child would fall back to slot: 'primary', rendering the guardian as
+  // their own co-guardian.
+  const guardianId = rawGuardianId.toLowerCase()
 
-    // guardianId is interpolated into the filter below; a non-UUID must
-    // never reach it (see isUuid). Returning the empty family here — rather
-    // than throwing — lets the guardian page's existing "not found" redirect
-    // handle a malformed or stale id instead of surfacing a 500.
-    if (!isUuid(guardianId)) return { children: [], coGuardians: [] }
+  // guardianId is interpolated into the filter below; a non-UUID must
+  // never reach it (see isUuid). Returning the empty family here — rather
+  // than throwing — lets the guardian page's existing "not found" redirect
+  // handle a malformed or stale id instead of surfacing a 500.
+  if (!isUuid(guardianId)) return { children: [], coGuardians: [] }
 
-    const { data: students, error } = await withCurrentClasses(
-      supabase
-        .from('students')
-        .select(FAMILY_STUDENT_SELECT)
-        .or(
-          `primary_guardian_id.eq.${guardianId},secondary_guardian_id.eq.${guardianId},additional_contact_1_id.eq.${guardianId},additional_contact_2_id.eq.${guardianId}`,
-        ),
-    ).order('last_name')
-    if (error) throw error
+  const { data: students, error } = await withCurrentClasses(
+    supabase
+      .from('students')
+      .select(FAMILY_STUDENT_SELECT)
+      .or(
+        `primary_guardian_id.eq.${guardianId},secondary_guardian_id.eq.${guardianId},additional_contact_1_id.eq.${guardianId},additional_contact_2_id.eq.${guardianId}`,
+      ),
+  ).order('last_name')
+  if (error) throw error
 
-    const rows = (students ?? []) as unknown as FamilyStudentRow[]
-    if (rows.length === 0) return { children: [], coGuardians: [] }
+  const rows = (students ?? []) as unknown as FamilyStudentRow[]
+  if (rows.length === 0) return { children: [], coGuardians: [] }
 
-    const children: FamilyChild[] = []
-    const coGuardianLinks = new Map<string, FamilyCoGuardianLink[]>()
+  const children: FamilyChild[] = []
+  const coGuardianLinks = new Map<string, FamilyCoGuardianLink[]>()
 
-    for (const student of rows) {
-      const slots = slotsForStudent(student)
-      const matched = slots.find((slot) => slot.guardianId === guardianId)
+  for (const student of rows) {
+    const slots = slotsForStudent(student)
+    const matched = slots.find((slot) => slot.guardianId === guardianId)
 
-      children.push({
-        id: student.id,
-        first_name: student.first_name,
-        last_name: student.last_name,
-        student_code: student.student_code,
-        active: student.active,
-        leaving_reason: student.leaving_reason,
-        relationship: matched?.relationship ?? null,
-        slot: matched?.slot ?? 'primary',
-        classes: student.student_classes
-          .map((sc) => sc.class)
-          .filter((c): c is { id: string; name: string } => c !== null),
-      })
+    children.push({
+      id: student.id,
+      first_name: student.first_name,
+      last_name: student.last_name,
+      student_code: student.student_code,
+      active: student.active,
+      leaving_reason: student.leaving_reason,
+      relationship: matched?.relationship ?? null,
+      slot: matched?.slot ?? 'primary',
+      classes: student.student_classes
+        .map((sc) => sc.class)
+        .filter((c): c is { id: string; name: string } => c !== null),
+    })
 
-      // A guardian occupying more than one slot on the same child (e.g.
-      // secondary and an additional contact) is recorded once per child,
-      // under whichever of their slots is checked first — otherwise they'd
-      // get duplicate "also linked" entries for that one child.
-      const recordedForStudent = new Set<string>()
-      for (const slot of slots) {
-        if (
-          slot.guardianId &&
-          slot.guardianId !== guardianId &&
-          !recordedForStudent.has(slot.guardianId)
-        ) {
-          recordedForStudent.add(slot.guardianId)
-          const links = coGuardianLinks.get(slot.guardianId) ?? []
-          links.push({
-            childId: student.id,
-            childName: `${student.first_name} ${student.last_name}`,
-            slot: slot.slot,
-          })
-          coGuardianLinks.set(slot.guardianId, links)
-        }
+    // A guardian occupying more than one slot on the same child (e.g.
+    // secondary and an additional contact) is recorded once per child,
+    // under whichever of their slots is checked first — otherwise they'd
+    // get duplicate "also linked" entries for that one child.
+    const recordedForStudent = new Set<string>()
+    for (const slot of slots) {
+      if (
+        slot.guardianId &&
+        slot.guardianId !== guardianId &&
+        !recordedForStudent.has(slot.guardianId)
+      ) {
+        recordedForStudent.add(slot.guardianId)
+        const links = coGuardianLinks.get(slot.guardianId) ?? []
+        links.push({
+          childId: student.id,
+          childName: `${student.first_name} ${student.last_name}`,
+          slot: slot.slot,
+        })
+        coGuardianLinks.set(slot.guardianId, links)
       }
     }
+  }
 
-    if (coGuardianLinks.size === 0) return { children, coGuardians: [] }
+  if (coGuardianLinks.size === 0) return { children, coGuardians: [] }
 
-    const { data: coGuardianRows, error: coGuardianError } = await supabase
-      .from('guardians')
-      .select('id, first_name, last_name, phone, email')
-      .in('id', [...coGuardianLinks.keys()])
-      .order('last_name')
-    if (coGuardianError) throw coGuardianError
+  const { data: coGuardianRows, error: coGuardianError } = await supabase
+    .from('guardians')
+    .select('id, first_name, last_name, phone, email')
+    .in('id', [...coGuardianLinks.keys()])
+    .order('last_name')
+  if (coGuardianError) throw coGuardianError
 
-    const coGuardians: FamilyCoGuardian[] = (coGuardianRows ?? []).map(
-      (guardian) => ({
-        ...guardian,
-        links: coGuardianLinks.get(guardian.id) ?? [],
-      }),
-    )
+  const coGuardians: FamilyCoGuardian[] = (coGuardianRows ?? []).map(
+    (guardian) => ({
+      ...guardian,
+      links: coGuardianLinks.get(guardian.id) ?? [],
+    }),
+  )
 
-    return { children, coGuardians }
-  },
-  ['guardian-family'],
-  OPTS,
-)
+  return { children, coGuardians }
+}
 
 export async function updateGuardian(id: string, data: GuardianInsert) {
   const { error } = await supabase
@@ -385,7 +372,6 @@ export async function updateGuardian(id: string, data: GuardianInsert) {
     .update({ ...data, updated_at: new Date().toISOString() })
     .eq('id', id)
   if (error) throw error
-  updateTag('students')
 }
 
 export type GuardianMatch = {

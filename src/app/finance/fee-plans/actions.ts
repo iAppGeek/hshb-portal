@@ -38,7 +38,6 @@ export async function createFeePlanAction(
       action: 'create',
       entityId: (plan) => plan.id,
     },
-    revalidate: ['/finance'],
     redirectTo: '/finance?tab=fee-plans',
     fallbackError: 'Failed to create the fee plan. Please try again.',
   })
@@ -68,7 +67,6 @@ export async function updateFeePlanAction(
       await updateFeePlan(id, input, class_ids)
     },
     audit: { entity: 'fee_plan', action: 'update', entityId: () => id },
-    revalidate: ['/finance'],
     redirectTo: '/finance?tab=fee-plans',
     fallbackError: 'Failed to update the fee plan. Please try again.',
   })

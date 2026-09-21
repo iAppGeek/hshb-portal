@@ -39,6 +39,7 @@ import {
 import { todayInSchoolTz } from '@/lib/datetime'
 
 import StaffAttendancePage from './page'
+import StaffAttendanceTable from './StaffAttendanceTable'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -208,6 +209,14 @@ describe('StaffAttendancePage', () => {
       render(await StaffAttendancePage({ searchParams: makeSearchParams() }))
 
       expect(screen.getByText('Print List')).toBeTruthy()
+    })
+
+    it('asks the table for the print sheet', async () => {
+      render(await StaffAttendancePage({ searchParams: makeSearchParams() }))
+
+      expect(vi.mocked(StaffAttendanceTable).mock.calls[0][0]).toMatchObject({
+        withPrintSheet: true,
+      })
     })
 
     it('throws if getAllStaff rejects', async () => {

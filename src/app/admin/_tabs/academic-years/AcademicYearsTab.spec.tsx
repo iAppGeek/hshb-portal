@@ -59,14 +59,16 @@ describe('AcademicYearsTab', () => {
     expect(screen.getByTestId('add-form').textContent).toBe('2027-28')
   })
 
-  it('warns when no year is marked current', async () => {
+  it('leaves the no-current warning to the table, which can clear it', async () => {
     vi.mocked(getAcademicYears).mockResolvedValue(
       years.map((y) => ({ ...y, is_current: false })) as any,
     )
 
     render(await AcademicYearsTab())
 
-    expect(screen.getByText(/no academic year is marked current/i)).toBeTruthy()
+    // The table is mocked here; AcademicYearsTable.spec covers the warning.
+    expect(screen.getByTestId('years-table')).toBeTruthy()
+    expect(screen.queryByText(/no academic year is marked current/i)).toBeNull()
   })
 
   it('does not warn when a year is current', async () => {

@@ -21,7 +21,6 @@ import type { StaffRole } from '@/types/next-auth'
 import PageHeader from '../_components/PageHeader'
 
 import PrintButton from './PrintButton'
-import SignInSheetPrintTable from './SignInSheetPrintTable'
 import StaffAttendanceTable from './StaffAttendanceTable'
 
 export const metadata: Metadata = { title: 'Staff Sign-In' }
@@ -142,18 +141,16 @@ export default async function StaffAttendancePage({
         />
       </div>
 
-      {/* Screen interactive table */}
-      <div className="print:hidden">
-        <StaffAttendanceTable
-          rows={rows}
-          defaultTime={defaultTime}
-          date={selectedDate}
-          role={role}
-          currentStaffId={staffId}
-        />
-      </div>
-
-      <SignInSheetPrintTable rows={rows} />
+      {/* Screen table, plus the print-only sheet from the same saved rows */}
+      <StaffAttendanceTable
+        key={selectedDate}
+        rows={rows}
+        defaultTime={defaultTime}
+        date={selectedDate}
+        role={role}
+        currentStaffId={staffId}
+        withPrintSheet
+      />
     </div>
   )
 }

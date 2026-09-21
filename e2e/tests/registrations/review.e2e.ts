@@ -39,9 +39,8 @@ test.describe('Registration review', () => {
       contact_email: `e2e.${suffix}.todo@example.com`,
     })
 
-    // The list page's cached data doesn't see rows inserted directly via this
-    // fixture (bypassing the app's own updateTag), so check the detail
-    // page — which is fetched fresh per id — rather than the shared list.
+    // Check the detail page for this one row rather than scanning the shared
+    // list, which every parallel project writes to.
     await page.goto(`/registrations/${id}`)
     await expect(
       page.getByRole('heading', { name: new RegExp(childLastName) }),
@@ -264,10 +263,7 @@ test.describe('Registration review', () => {
     await expect(page).toHaveURL(/\/registrations\?status=rejected/)
 
     // Assert the outcome on the row itself rather than by reading it back off
-    // the inbox list. getRegistrationSubmissions is an unstable_cache read
-    // shared by every browser hitting this one dev server, so under the 8
-    // parallel projects the list is routinely a revalidation behind — the
-    // same staleness the sibling test at the top of this file documents.
+    // the inbox list, which every parallel project writes to.
     const { data: rejected } = await db
       .from('registration_submissions')
       .select('status, rejected_reason, actioned_by, actioned_at')

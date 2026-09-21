@@ -158,7 +158,7 @@ describe('AttendanceRegister', () => {
     expect(screen.getByText(/2024-06-15/)).toBeTruthy()
   })
 
-  it('shows already-taken notice when existing attendance exists', async () => {
+  it('hands a taken register and its header to the form, which owns the notice', async () => {
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([
       {
         id: 'att-1',
@@ -168,6 +168,7 @@ describe('AttendanceRegister', () => {
         date: '2024-06-15',
       },
     ] as any)
+    vi.mocked(getStudentsByIds).mockResolvedValue([mockStudent] as any)
 
     render(
       await AttendanceRegister({
@@ -178,7 +179,19 @@ describe('AttendanceRegister', () => {
       }),
     )
 
-    expect(screen.getByText('(register already taken)')).toBeTruthy()
+    expect(vi.mocked(AttendanceForm)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hasExisting: true,
+        header: expect.objectContaining({
+          className: 'Year 3A',
+          date: '2024-06-15',
+          dateLabel: 'Historical',
+        }),
+      }),
+      undefined,
+    )
+    // The form is mocked, so the register itself renders no second header.
+    expect(screen.queryByText('(register already taken)')).toBeNull()
   })
 
   it('does not show already-taken notice when no existing attendance', async () => {

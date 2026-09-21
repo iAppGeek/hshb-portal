@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { getActor } from '@/auth/require'
@@ -17,7 +16,6 @@ vi.mock('next/navigation', async (importOriginal) => ({
   ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn(),
 }))
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/db', () => ({
   createLessonPlan: vi.fn(),
   updateLessonPlan: vi.fn(),
@@ -114,7 +112,6 @@ describe('createLessonPlanAction', () => {
         created_by: STAFF_ID,
       }),
     )
-    expect(revalidatePath).toHaveBeenCalledWith('/lesson-plans')
     expect(redirect).toHaveBeenCalledWith('/lesson-plans')
   })
 
@@ -209,7 +206,6 @@ describe('updateLessonPlanAction', () => {
       description: 'Fractions introduction — updated',
       updated_by: STAFF_ID,
     })
-    expect(revalidatePath).toHaveBeenCalledWith('/lesson-plans')
     expect(redirect).toHaveBeenCalledWith('/lesson-plans')
   })
 

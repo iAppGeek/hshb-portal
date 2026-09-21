@@ -26,7 +26,6 @@ export async function createClassAction(
       return cls
     },
     audit: { entity: 'class', action: 'create', entityId: (cls) => cls.id },
-    revalidate: ['/classes'],
     redirectTo: '/classes',
     fallbackError: 'Failed to create class. Please try again.',
   })

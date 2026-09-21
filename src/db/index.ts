@@ -135,7 +135,11 @@ export {
   getAttendanceByDateRange,
   saveAttendance,
 } from './attendance'
-export type { AttendanceStatus, AttendanceInsert } from './attendance'
+export type {
+  AttendanceStatus,
+  AttendanceInsert,
+  AttendanceRow,
+} from './attendance'
 export { fetchAllPages } from './paging'
 export {
   getStaffAttendanceForToday,

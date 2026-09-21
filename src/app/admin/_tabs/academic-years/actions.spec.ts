@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { getActor } from '@/auth/require'
@@ -21,7 +20,6 @@ vi.mock('next/navigation', async (importOriginal) => ({
   ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn(),
 }))
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/db', () => ({
   createAcademicYear: vi.fn(),
   updateAcademicYear: vi.fn(),
@@ -104,7 +102,6 @@ describe('createAcademicYearAction', () => {
         entityId: YEAR_ID,
       }),
     )
-    expect(revalidatePath).toHaveBeenCalledWith('/admin')
     expect(redirect).toHaveBeenCalledWith('/admin?tab=academic-years')
   })
 
@@ -183,11 +180,11 @@ describe('setCurrentAcademicYearAction', () => {
     expect(setCurrentAcademicYear).not.toHaveBeenCalled()
   })
 
-  it('sets the current year, logs an audit event, and revalidates', async () => {
+  it('sets the current year and logs an audit event', async () => {
     vi.mocked(setCurrentAcademicYear).mockResolvedValue(undefined)
 
     const result = await setCurrentAcademicYearAction(YEAR_ID, PREVIOUS_ID)
-    expect(result).toBeUndefined()
+    expect(result).toEqual({ data: { currentId: YEAR_ID } })
 
     expect(setCurrentAcademicYear).toHaveBeenCalledWith(YEAR_ID)
     expect(logAuditEvent).toHaveBeenCalledWith(
@@ -199,10 +196,6 @@ describe('setCurrentAcademicYearAction', () => {
         details: { previous: PREVIOUS_ID, current: YEAR_ID },
       }),
     )
-    expect(revalidatePath).toHaveBeenCalledWith('/admin')
-    expect(revalidatePath).toHaveBeenCalledWith('/classes')
-    expect(revalidatePath).toHaveBeenCalledWith('/attendance')
-    expect(revalidatePath).toHaveBeenCalledWith('/finance')
   })
 
   it('returns a friendly error when setCurrentAcademicYear throws', async () => {

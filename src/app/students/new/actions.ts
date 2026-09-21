@@ -152,7 +152,6 @@ export async function createStudentAction(
       entityId: (result) => result.id,
       details: (result) => result.details,
     },
-    revalidate: ['/students'],
     redirectTo: '/students',
     fallbackError: 'Failed to save student. Please try again.',
   })

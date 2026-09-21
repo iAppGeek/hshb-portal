@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { getActor } from '@/auth/require'
@@ -22,7 +21,6 @@ vi.mock('next/navigation', async (importOriginal) => ({
   ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn(),
 }))
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/db', () => ({
   applyPhotoOptOut: vi.fn(),
   rejectPhotoOptOut: vi.fn(),
@@ -134,7 +132,6 @@ describe('applyPhotoOptOutAction', () => {
     expect(logAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'photo_opt_out_applied' }),
     )
-    expect(revalidatePath).toHaveBeenCalledWith('/registrations')
     expect(redirect).toHaveBeenCalledWith('/registrations')
   })
 })

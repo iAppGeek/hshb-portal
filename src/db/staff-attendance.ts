@@ -45,31 +45,42 @@ export async function signInStaff(
   staffId: string,
   date: string,
   signedInAt: string,
-): Promise<void> {
-  const { error } = await supabase.from('staff_attendance').upsert(
-    {
-      staff_id: staffId,
-      date,
-      signed_in_at: signedInAt,
-      signed_out_at: null,
-    },
-    { onConflict: 'staff_id,date' },
-  )
+): Promise<StaffAttendanceRow> {
+  const { data, error } = await supabase
+    .from('staff_attendance')
+    .upsert(
+      {
+        staff_id: staffId,
+        date,
+        signed_in_at: signedInAt,
+        signed_out_at: null,
+      },
+      { onConflict: 'staff_id,date' },
+    )
+    .select()
+    .single()
   if (error) throw error
+  return data
 }
 
-/** Update the signed_out_at timestamp for an existing record. */
+/**
+ * Update the signed_out_at timestamp for an existing record. Null when there
+ * was no record to update — a no-op, as before, rather than an error.
+ */
 export async function signOutStaff(
   staffId: string,
   date: string,
   signedOutAt: string,
-): Promise<void> {
-  const { error } = await supabase
+): Promise<StaffAttendanceRow | null> {
+  const { data, error } = await supabase
     .from('staff_attendance')
     .update({ signed_out_at: signedOutAt })
     .eq('staff_id', staffId)
     .eq('date', date)
+    .select()
+    .maybeSingle()
   if (error) throw error
+  return data
 }
 
 /** Fetch all staff attendance records within a date range (inclusive). */
