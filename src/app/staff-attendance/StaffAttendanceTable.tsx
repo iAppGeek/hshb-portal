@@ -1,6 +1,7 @@
 'use client'
 
 import { useOptimistic, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 
 import type { StaffAttendanceRow } from '@/db'
 import Table from '@/components/grid/Table'
@@ -9,13 +10,19 @@ import Th from '@/components/grid/Th'
 import Tooltip from '@/components/Tooltip'
 import Tr from '@/components/grid/Tr'
 import { useServerForm } from '@/components/form'
-import { formatTimeInSchoolTz, schoolTzToUtcIso } from '@/lib/datetime'
+import {
+  formatTimeInSchoolTz,
+  nowTimeInSchoolTz,
+  schoolTzToUtcIso,
+  todayInSchoolTz,
+} from '@/lib/datetime'
 import { tbody, theadStacked } from '@/lib/grid/styles'
 import { canManageStaffAttendance } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
 import { signInAction, signOutAction } from './actions'
 import SignInSheetPrintTable from './SignInSheetPrintTable'
+import { useSchoolClock } from './useSchoolClock'
 
 export type StaffMember = {
   id: string
@@ -69,11 +76,76 @@ function predictRecord(
   }
 }
 
+const timeInputClass =
+  'min-w-0 flex-1 rounded-md border border-gray-200 px-2 py-1 text-sm tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-60 sm:flex-none'
+
+/**
+ * The time a tap will record. Until opened for editing it is a read-only
+ * chip (the live clock today); a double-click, or Enter/Space, swaps in a
+ * time input so the time can be set by hand.
+ */
+function SignTimeField({
+  time,
+  editing,
+  autoFocus,
+  disabled,
+  onEdit,
+  onCancel,
+}: {
+  time: string
+  editing: boolean
+  autoFocus: boolean
+  disabled: boolean
+  onEdit: () => void
+  onCancel?: () => void
+}) {
+  if (editing) {
+    return (
+      <input
+        type="time"
+        name="time"
+        aria-label="Time"
+        defaultValue={time}
+        required
+        autoFocus={autoFocus}
+        disabled={disabled}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && onCancel) {
+            e.preventDefault()
+            onCancel()
+          }
+        }}
+        className={timeInputClass}
+      />
+    )
+  }
+  return (
+    <button
+      type="button"
+      title="Double-click to change the time"
+      aria-label={`Time ${time}, double-click to change`}
+      disabled={disabled}
+      onDoubleClick={onEdit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onEdit()
+        }
+      }}
+      className={`${timeInputClass} cursor-pointer touch-manipulation bg-gray-50 text-left text-gray-700 select-none`}
+    >
+      {time}
+    </button>
+  )
+}
+
 function StaffRowInteractive({
   staff,
   record: saved,
   onSaved,
-  defaultTime,
+  time,
+  live,
+  isHistorical,
   date,
   role,
   currentStaffId,
@@ -82,7 +154,12 @@ function StaffRowInteractive({
   /** The row as last written. */
   record: StaffAttendanceRow | null
   onSaved: (staffId: string, record: StaffAttendanceRow | null) => void
-  defaultTime: string
+  /** The live clock today, otherwise the day's default time. */
+  time: string
+  /** Whether `time` is the live clock (the page shows today). */
+  live: boolean
+  /** Past days open straight into the time input. */
+  isHistorical: boolean
   date: string
   role: StaffRole
   currentStaffId: string
@@ -90,25 +167,39 @@ function StaffRowInteractive({
   // Shows a tap straight away and falls back to `saved` by itself if the
   // save fails.
   const [record, setOptimisticRecord] = useOptimistic(saved)
+  const [editing, setEditing] = useState(isHistorical)
   const isSignedIn = !!record && !record.signed_out_at
   const name = staff.display_name ?? `${staff.first_name} ${staff.last_name}`
   const canManageOthers = canManageStaffAttendance(role)
   const isSelf = staff.id === currentStaffId
   const disabled = !canManageOthers && !isSelf
 
+  /** Unless the time was set by hand, record the moment of the tap. */
+  function withTime(fd: FormData): FormData {
+    if (!editing) fd.set('time', live ? nowTimeInSchoolTz() : time)
+    return fd
+  }
+
+  function handleSaved(row: StaffAttendanceRow | null): void {
+    onSaved(staff.id, row)
+    if (!isHistorical) setEditing(false)
+  }
+
   const signIn = useServerForm(
     async (fd: FormData) => {
+      withTime(fd)
       setOptimisticRecord(predictRecord(saved, fd, true))
       return signInAction(fd)
     },
-    { onSuccess: (row) => onSaved(staff.id, row) },
+    { onSuccess: handleSaved },
   )
   const signOut = useServerForm(
     async (fd: FormData) => {
+      withTime(fd)
       setOptimisticRecord(predictRecord(saved, fd, false))
       return signOutAction(fd)
     },
-    { onSuccess: (row) => onSaved(staff.id, row) },
+    { onSuccess: handleSaved },
   )
   const { handleSubmit, error } = isSignedIn ? signOut : signIn
   // The optimistic row flips which form shows mid-save, so either pending
@@ -119,44 +210,28 @@ function StaffRowInteractive({
     <Tooltip text="You can only sign yourself in/out">
       <span className="text-sm text-gray-400">—</span>
     </Tooltip>
-  ) : isSignedIn ? (
-    <form onSubmit={handleSubmit} className="flex items-center gap-2">
-      <input type="hidden" name="staffId" value={staff.id} />
-      <input type="hidden" name="date" value={date} />
-      <input
-        type="time"
-        name="time"
-        defaultValue={defaultTime}
-        required
-        disabled={isPending}
-        className="min-w-0 flex-1 rounded-md border border-gray-200 px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-60 sm:flex-none"
-      />
-      <button
-        type="submit"
-        disabled={isPending}
-        className="w-24 shrink-0 rounded-lg bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-800 transition hover:bg-amber-200 disabled:opacity-60"
-      >
-        {isPending ? 'Saving…' : 'Sign Out'}
-      </button>
-    </form>
   ) : (
     <form onSubmit={handleSubmit} className="flex items-center gap-2">
       <input type="hidden" name="staffId" value={staff.id} />
       <input type="hidden" name="date" value={date} />
-      <input
-        type="time"
-        name="time"
-        defaultValue={defaultTime}
-        required
+      <SignTimeField
+        time={time}
+        editing={editing}
+        autoFocus={!isHistorical}
         disabled={isPending}
-        className="min-w-0 flex-1 rounded-md border border-gray-200 px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-60 sm:flex-none"
+        onEdit={() => setEditing(true)}
+        onCancel={isHistorical ? undefined : () => setEditing(false)}
       />
       <button
         type="submit"
         disabled={isPending}
-        className="w-24 shrink-0 rounded-lg bg-green-100 px-3 py-1.5 text-sm font-medium text-green-800 transition hover:bg-green-200 disabled:opacity-60"
+        className={`w-24 shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition disabled:opacity-60 ${
+          isSignedIn
+            ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+            : 'bg-green-100 text-green-800 hover:bg-green-200'
+        }`}
       >
-        {isPending ? 'Saving…' : 'Sign In'}
+        {isPending ? 'Saving…' : isSignedIn ? 'Sign Out' : 'Sign In'}
       </button>
     </form>
   )
@@ -209,42 +284,67 @@ function StaffRowInteractive({
 
 type Props = {
   rows: TableRow[]
+  /** Today: the server's current time. Other days: that day's default. */
   defaultTime: string
   date: string
+  /** The school's today when the page rendered. */
+  today: string
   role: StaffRole
   currentStaffId: string
   /** Also render the print-only sign-in sheet, from the same saved rows. */
   withPrintSheet?: boolean
 }
 
+/** A save, and the `updated_at` of the rendered row it replaced. */
+type SavedOverride = {
+  record: StaffAttendanceRow | null
+  basis: string | null
+}
+
 /**
  * Saves are applied over the rows the page rendered with, so the screen and
  * the printed sheet both show them without a re-fetch. The page keys this on
  * the date: a `?date=` change doesn't remount it.
+ *
+ * Today, the clock ticks every minute and each tick re-fetches the rows, so
+ * a tablet left open at reception also picks up sign-ins made on phones, and
+ * moves on to the new day once the date changes.
  */
 export default function StaffAttendanceTable({
   rows,
   defaultTime,
   date,
+  today,
   role,
   currentStaffId,
   withPrintSheet = false,
 }: Props) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const live = date === today
+  const time = useSchoolClock(defaultTime, live, () => {
+    // Dropping `?date=` lets the page fall back to the new today.
+    if (todayInSchoolTz() !== date) router.replace(pathname)
+    else router.refresh()
+  })
+
   // Staff id → the row as last saved; null when a sign-out found no row.
-  const [savedById, setSavedById] = useState<
-    Record<string, StaffAttendanceRow | null>
-  >({})
-  const current = rows.map((row) =>
-    row.staff.id in savedById
-      ? { ...row, record: savedById[row.staff.id] ?? null }
-      : row,
-  )
+  const [savedById, setSavedById] = useState<Record<string, SavedOverride>>({})
+  // A save wins until a re-fetch brings a newer row than the one it replaced.
+  const current = rows.map((row) => {
+    const saved = savedById[row.staff.id]
+    return saved && saved.basis === (row.record?.updated_at ?? null)
+      ? { ...row, record: saved.record }
+      : row
+  })
 
   function handleSaved(
     staffId: string,
     record: StaffAttendanceRow | null,
   ): void {
-    setSavedById((prev) => ({ ...prev, [staffId]: record }))
+    const rendered = rows.find((row) => row.staff.id === staffId)
+    const basis = rendered?.record?.updated_at ?? null
+    setSavedById((prev) => ({ ...prev, [staffId]: { record, basis } }))
   }
 
   const table = (
@@ -264,7 +364,9 @@ export default function StaffAttendanceTable({
               staff={staff}
               record={record}
               onSaved={handleSaved}
-              defaultTime={defaultTime}
+              time={time}
+              live={live}
+              isHistorical={date < today}
               date={date}
               role={role}
               currentStaffId={currentStaffId}

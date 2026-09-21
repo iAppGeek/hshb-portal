@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 
 import {
   datetimeLocalToUtcIso,
+  defaultSignInTimeFor,
   formatCalendarDate,
   formatDateInSchoolTz,
   formatDateTimeInSchoolTz,
@@ -173,6 +174,27 @@ describe('nowTimeInSchoolTz', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-01-15T08:30:00Z'))
     expect(nowTimeInSchoolTz()).toBe('08:30')
+  })
+})
+
+describe('defaultSignInTimeFor', () => {
+  it('returns 09:30 on a Saturday', () => {
+    expect(defaultSignInTimeFor('2026-09-19')).toBe('09:30')
+  })
+
+  it('returns 09:30 on a Sunday', () => {
+    expect(defaultSignInTimeFor('2026-09-20')).toBe('09:30')
+  })
+
+  it('returns 18:00 on a weekday', () => {
+    expect(defaultSignInTimeFor('2026-09-21')).toBe('18:00')
+    expect(defaultSignInTimeFor('2026-09-25')).toBe('18:00')
+  })
+
+  it('keeps the calendar weekday across the clocks changing', () => {
+    // BST ends on Sunday 25 October 2026; the Monday after is still a weekday.
+    expect(defaultSignInTimeFor('2026-10-25')).toBe('09:30')
+    expect(defaultSignInTimeFor('2026-10-26')).toBe('18:00')
   })
 })
 

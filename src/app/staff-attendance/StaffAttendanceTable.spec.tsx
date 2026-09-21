@@ -1,5 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, act, within } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import {
+  render,
+  screen,
+  fireEvent,
+  act,
+  within,
+  cleanup,
+} from '@testing-library/react'
+
+const router = vi.hoisted(() => ({ refresh: vi.fn(), replace: vi.fn() }))
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => router,
+  usePathname: () => '/staff-attendance',
+}))
 
 vi.mock('./actions', () => ({
   signInAction: vi.fn(),
@@ -66,6 +80,7 @@ describe('StaffAttendanceTable', () => {
         ]}
         defaultTime="09:00"
         date="2026-03-18"
+        today="2026-03-18"
         role="admin"
         currentStaffId="admin-1"
       />,
@@ -83,6 +98,7 @@ describe('StaffAttendanceTable', () => {
         rows={[{ staff: staffA, record: null }]}
         defaultTime="09:00"
         date="2026-03-18"
+        today="2026-03-18"
         role="admin"
         currentStaffId="admin-1"
       />,
@@ -97,6 +113,7 @@ describe('StaffAttendanceTable', () => {
         rows={[{ staff: staffA, record: signedInRecord }]}
         defaultTime="09:00"
         date="2026-03-18"
+        today="2026-03-18"
         role="admin"
         currentStaffId="admin-1"
       />,
@@ -112,6 +129,7 @@ describe('StaffAttendanceTable', () => {
         rows={[{ staff: staffA, record: signedOutRecord }]}
         defaultTime="09:00"
         date="2026-03-18"
+        today="2026-03-18"
         role="admin"
         currentStaffId="admin-1"
       />,
@@ -129,6 +147,7 @@ describe('StaffAttendanceTable', () => {
         rows={[{ staff: staffA, record: null }]}
         defaultTime="09:00"
         date="2026-03-18"
+        today="2026-03-18"
         role="admin"
         currentStaffId="admin-1"
       />,
@@ -151,6 +170,7 @@ describe('StaffAttendanceTable', () => {
         rows={[{ staff: staffA, record: signedInRecord }]}
         defaultTime="09:00"
         date="2026-03-18"
+        today="2026-03-18"
         role="admin"
         currentStaffId="admin-1"
       />,
@@ -173,6 +193,7 @@ describe('StaffAttendanceTable', () => {
         rows={[{ staff: staffA, record: null }]}
         defaultTime="09:00"
         date="2026-03-18"
+        today="2026-03-18"
         role="admin"
         currentStaffId="admin-1"
       />,
@@ -197,6 +218,7 @@ describe('StaffAttendanceTable', () => {
         rows={[{ staff: staffA, record: signedInRecord }]}
         defaultTime="09:00"
         date="2026-03-18"
+        today="2026-03-18"
         role="admin"
         currentStaffId="admin-1"
       />,
@@ -219,6 +241,7 @@ describe('StaffAttendanceTable', () => {
         rows={[{ staff: staffA, record: null }]}
         defaultTime="09:00"
         date="2026-03-18"
+        today="2026-03-18"
         role="admin"
         currentStaffId="admin-1"
       />,
@@ -233,6 +256,7 @@ describe('StaffAttendanceTable', () => {
         rows={[{ staff: staffB, record: null }]}
         defaultTime="09:00"
         date="2026-03-18"
+        today="2026-03-18"
         role="admin"
         currentStaffId="admin-1"
       />,
@@ -247,6 +271,7 @@ describe('StaffAttendanceTable', () => {
         rows={[{ staff: staffA, record: signedInRecord }]}
         defaultTime="09:00"
         date="2026-03-18"
+        today="2026-03-18"
         role="admin"
         currentStaffId="admin-1"
       />,
@@ -267,6 +292,7 @@ describe('StaffAttendanceTable', () => {
         ]}
         defaultTime="09:00"
         date="2026-03-18"
+        today="2026-03-18"
         role="secretary"
         currentStaffId="staff-1"
       />,
@@ -292,6 +318,7 @@ describe('StaffAttendanceTable', () => {
         ]}
         defaultTime="09:00"
         date="2026-03-18"
+        today="2026-03-18"
         role="secretary"
         currentStaffId="staff-1"
       />,
@@ -317,6 +344,7 @@ describe('StaffAttendanceTable', () => {
           rows={[{ staff: staffA, record: null }]}
           defaultTime="09:00"
           date="2026-03-18"
+          today="2026-03-18"
           role="admin"
           currentStaffId="admin-1"
         />,
@@ -349,6 +377,7 @@ describe('StaffAttendanceTable', () => {
           rows={[{ staff: staffA, record: null }]}
           defaultTime="09:00"
           date="2026-03-18"
+          today="2026-03-18"
           role="admin"
           currentStaffId="admin-1"
         />,
@@ -380,6 +409,7 @@ describe('StaffAttendanceTable', () => {
           rows={[{ staff: staffA, record: signedInRecord }]}
           defaultTime="17:00"
           date="2026-03-18"
+          today="2026-03-18"
           role="admin"
           currentStaffId="admin-1"
         />,
@@ -410,6 +440,7 @@ describe('StaffAttendanceTable', () => {
         rows: [{ staff: staffA, record: null }],
         defaultTime: '09:00',
         date: '2026-03-18',
+        today: '2026-03-18',
         role: 'admin' as const,
         currentStaffId: 'admin-1',
       }
@@ -428,6 +459,7 @@ describe('StaffAttendanceTable', () => {
           rows={[{ staff: staffA, record: null }]}
           defaultTime="09:00"
           date="2026-03-18"
+          today="2026-03-18"
           role="admin"
           currentStaffId="admin-1"
           withPrintSheet
@@ -454,6 +486,7 @@ describe('StaffAttendanceTable', () => {
           rows={[{ staff: staffA, record: signedInRecord }]}
           defaultTime="17:00"
           date="2026-03-18"
+          today="2026-03-18"
           role="admin"
           currentStaffId="admin-1"
           withPrintSheet
@@ -468,6 +501,285 @@ describe('StaffAttendanceTable', () => {
 
       expect(within(printSheet()).getByText('09:00')).toBeInTheDocument()
       expect(within(printSheet()).queryByText('17:00')).toBeNull()
+    })
+  })
+
+  describe('sign-in time', () => {
+    function submittedTime(action: (formData: FormData) => unknown): string {
+      return String(vi.mocked(action).mock.calls[0][0].get('time'))
+    }
+
+    function timeChip(time: string): HTMLElement {
+      return screen.getByRole('button', {
+        name: `Time ${time}, double-click to change`,
+      })
+    }
+
+    function submit(label: 'Sign In' | 'Sign Out'): Promise<void> {
+      return act(async () => {
+        fireEvent.submit(
+          screen.getByRole('button', { name: label }).closest('form')!,
+        )
+      })
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers()
+      // 09:14:30 GMT == 09:14 in London in March.
+      vi.setSystemTime(new Date('2026-03-18T09:14:30Z'))
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    describe('today', () => {
+      function renderToday(record: typeof signedInRecord | null = null): void {
+        render(
+          <StaffAttendanceTable
+            rows={[{ staff: staffA, record }]}
+            defaultTime="09:14"
+            date="2026-03-18"
+            today="2026-03-18"
+            role="admin"
+            currentStaffId="admin-1"
+          />,
+        )
+      }
+
+      it('shows the time as a read-only chip that keeps up with the clock', () => {
+        renderToday()
+
+        expect(timeChip('09:14')).toBeInTheDocument()
+        expect(screen.queryByLabelText('Time')).toBeNull()
+
+        act(() => vi.advanceTimersByTime(30_000))
+        expect(timeChip('09:15')).toBeInTheDocument()
+
+        act(() => vi.advanceTimersByTime(60_000))
+        expect(timeChip('09:16')).toBeInTheDocument()
+      })
+
+      it('re-fetches the rows on every tick', () => {
+        renderToday()
+
+        act(() => vi.advanceTimersByTime(30_000))
+        expect(router.refresh).toHaveBeenCalledTimes(1)
+
+        act(() => vi.advanceTimersByTime(60_000))
+        expect(router.refresh).toHaveBeenCalledTimes(2)
+        expect(router.replace).not.toHaveBeenCalled()
+      })
+
+      it('moves to the new day once the date changes', () => {
+        vi.setSystemTime(new Date('2026-03-18T23:59:30Z'))
+        renderToday()
+
+        act(() => vi.advanceTimersByTime(30_000))
+
+        expect(router.replace).toHaveBeenCalledWith('/staff-attendance')
+        expect(router.refresh).not.toHaveBeenCalled()
+      })
+
+      it('records the time of the tap, not the time last shown', async () => {
+        vi.mocked(signInAction).mockResolvedValue({ data: signedInRecord })
+        renderToday()
+
+        // The clock has moved on but no tick has fired yet.
+        vi.setSystemTime(new Date('2026-03-18T09:16:05Z'))
+        expect(timeChip('09:14')).toBeInTheDocument()
+        await submit('Sign In')
+
+        expect(submittedTime(signInAction)).toBe('09:16')
+      })
+
+      it('opens a time input on double-click and records the time entered', async () => {
+        vi.mocked(signInAction).mockResolvedValue({ data: signedInRecord })
+        renderToday()
+
+        fireEvent.doubleClick(timeChip('09:14'))
+        const input = screen.getByLabelText('Time')
+        expect(input).toHaveValue('09:14')
+        expect(input).toHaveFocus()
+
+        fireEvent.change(input, { target: { value: '08:45' } })
+        await submit('Sign In')
+
+        expect(submittedTime(signInAction)).toBe('08:45')
+        // Back to the live clock once saved.
+        expect(screen.queryByLabelText('Time')).toBeNull()
+        expect(timeChip('09:14')).toBeInTheDocument()
+      })
+
+      it('keeps an edited time while the clock ticks', () => {
+        renderToday()
+
+        fireEvent.doubleClick(timeChip('09:14'))
+        fireEvent.change(screen.getByLabelText('Time'), {
+          target: { value: '08:45' },
+        })
+        act(() => vi.advanceTimersByTime(90_000))
+
+        expect(screen.getByLabelText('Time')).toHaveValue('08:45')
+      })
+
+      it('goes back to the live clock on Escape', () => {
+        renderToday()
+
+        fireEvent.doubleClick(timeChip('09:14'))
+        fireEvent.keyDown(screen.getByLabelText('Time'), { key: 'Escape' })
+
+        expect(screen.queryByLabelText('Time')).toBeNull()
+        expect(timeChip('09:14')).toBeInTheDocument()
+      })
+
+      it('opens the time input from the keyboard', () => {
+        renderToday()
+
+        fireEvent.keyDown(timeChip('09:14'), { key: 'Enter' })
+
+        expect(screen.getByLabelText('Time')).toHaveValue('09:14')
+      })
+
+      it('works the same way for signing out', async () => {
+        vi.mocked(signOutAction).mockResolvedValue({ data: signedOutRecord })
+        renderToday(signedInRecord)
+
+        vi.setSystemTime(new Date('2026-03-18T17:02:00Z'))
+        await submit('Sign Out')
+        expect(submittedTime(signOutAction)).toBe('17:02')
+
+        vi.mocked(signOutAction).mockClear()
+        vi.mocked(signOutAction).mockResolvedValue({ data: signedOutRecord })
+        cleanup()
+        renderToday(signedInRecord)
+        fireEvent.doubleClick(timeChip('09:14'))
+        fireEvent.change(screen.getByLabelText('Time'), {
+          target: { value: '16:30' },
+        })
+        await submit('Sign Out')
+        expect(submittedTime(signOutAction)).toBe('16:30')
+      })
+    })
+
+    it('opens a past day straight into the time input with its default', async () => {
+      vi.mocked(signInAction).mockResolvedValue({ data: signedInRecord })
+      render(
+        <StaffAttendanceTable
+          rows={[{ staff: staffA, record: null }]}
+          defaultTime="09:30"
+          date="2026-03-14"
+          today="2026-03-18"
+          role="admin"
+          currentStaffId="admin-1"
+        />,
+      )
+
+      const input = screen.getByLabelText('Time')
+      expect(input).toHaveValue('09:30')
+      expect(input).not.toHaveFocus()
+
+      act(() => vi.advanceTimersByTime(5 * 60_000))
+      expect(router.refresh).not.toHaveBeenCalled()
+
+      await submit('Sign In')
+      expect(submittedTime(signInAction)).toBe('09:30')
+      // Still open for the next entry.
+      expect(screen.getByLabelText('Time')).toBeInTheDocument()
+    })
+
+    it("shows a future day's default as a chip that does not tick", async () => {
+      vi.mocked(signInAction).mockResolvedValue({ data: signedInRecord })
+      render(
+        <StaffAttendanceTable
+          rows={[{ staff: staffA, record: null }]}
+          defaultTime="18:00"
+          date="2026-03-20"
+          today="2026-03-18"
+          role="admin"
+          currentStaffId="admin-1"
+        />,
+      )
+
+      expect(timeChip('18:00')).toBeInTheDocument()
+      act(() => vi.advanceTimersByTime(5 * 60_000))
+      expect(timeChip('18:00')).toBeInTheDocument()
+      expect(router.refresh).not.toHaveBeenCalled()
+
+      await submit('Sign In')
+      expect(submittedTime(signInAction)).toBe('18:00')
+    })
+  })
+
+  describe('re-fetched rows', () => {
+    const saved = { ...signedInRecord, updated_at: '2026-03-18T09:00:01Z' }
+    const props = {
+      defaultTime: '09:00',
+      date: '2026-03-18',
+      today: '2026-03-18',
+      role: 'admin' as const,
+      currentStaffId: 'admin-1',
+    }
+
+    it('keeps a save over a re-fetch that predates it', async () => {
+      vi.mocked(signInAction).mockResolvedValue({ data: saved })
+      const { rerender } = render(
+        <StaffAttendanceTable
+          rows={[{ staff: staffA, record: null }]}
+          {...props}
+        />,
+      )
+
+      await act(async () => {
+        fireEvent.submit(
+          screen.getByRole('button', { name: 'Sign In' }).closest('form')!,
+        )
+      })
+      rerender(
+        <StaffAttendanceTable
+          rows={[{ staff: staffA, record: null }]}
+          {...props}
+        />,
+      )
+
+      expect(
+        screen.getByRole('button', { name: 'Sign Out' }),
+      ).toBeInTheDocument()
+    })
+
+    it('shows a newer row from the server over an earlier save', async () => {
+      vi.mocked(signInAction).mockResolvedValue({ data: saved })
+      const { rerender } = render(
+        <StaffAttendanceTable
+          rows={[{ staff: staffA, record: null }]}
+          {...props}
+        />,
+      )
+
+      await act(async () => {
+        fireEvent.submit(
+          screen.getByRole('button', { name: 'Sign In' }).closest('form')!,
+        )
+      })
+      // Signed out on a phone since.
+      const newer = {
+        ...saved,
+        signed_out_at: '2026-03-18T17:00:00Z',
+        updated_at: '2026-03-18T17:00:01Z',
+      }
+      rerender(
+        <StaffAttendanceTable
+          rows={[{ staff: staffA, record: newer }]}
+          {...props}
+        />,
+      )
+
+      expect(
+        screen.getByRole('button', { name: 'Sign In' }),
+      ).toBeInTheDocument()
+      expect(
+        screen.getAllByText(/In 09:00 · Out 17:00/).length,
+      ).toBeGreaterThan(0)
     })
   })
 })

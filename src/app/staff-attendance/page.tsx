@@ -10,6 +10,7 @@ import {
   getStaffAttendanceForToday,
 } from '@/db'
 import {
+  defaultSignInTimeFor,
   formatCalendarDate,
   nowTimeInSchoolTz,
   todayInSchoolTz,
@@ -60,6 +61,7 @@ export default async function StaffAttendancePage({
           rows={[{ staff: staffRow, record }]}
           defaultTime={currentTime}
           date={today}
+          today={today}
           role={role}
           currentStaffId={staffId}
         />
@@ -71,7 +73,7 @@ export default async function StaffAttendancePage({
   const { date: qDate } = await searchParams
   const selectedDate = qDate ?? today
   const isToday = selectedDate === today
-  const defaultTime = isToday ? currentTime : '09:00'
+  const defaultTime = isToday ? currentTime : defaultSignInTimeFor(selectedDate)
 
   const [allStaff, attendanceRecords, classes] = await Promise.all([
     getAllStaff(),
@@ -113,7 +115,7 @@ export default async function StaffAttendancePage({
 
   return (
     <div className="max-w-5xl print:max-w-none">
-      <style>{`@page { size: A4 portrait; margin: 10mm; } @media print { a[href]::after { content: none !important; } }`}</style>
+      <PrintPageSetup />
 
       {/* Screen toolbar */}
       <div className="print:hidden">
@@ -147,6 +149,7 @@ export default async function StaffAttendancePage({
         rows={rows}
         defaultTime={defaultTime}
         date={selectedDate}
+        today={today}
         role={role}
         currentStaffId={staffId}
         withPrintSheet

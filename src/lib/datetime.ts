@@ -159,6 +159,18 @@ export function nowTimeInSchoolTz(): string {
 }
 
 /**
+ * Prefilled staff sign-in time for a day other than today, as `HH:MM`:
+ * `09:30` for weekend school, `18:00` for weekday evening school.
+ *
+ * @param date - `YYYY-MM-DD`. Read as a calendar day, so neither the runtime
+ * timezone nor DST can move it onto a neighbouring weekday.
+ */
+export function defaultSignInTimeFor(date: string): string {
+  const weekday = new Date(`${date}T12:00:00Z`).getUTCDay()
+  return weekday === 0 || weekday === 6 ? '09:30' : '18:00'
+}
+
+/**
  * Current moment in Europe/London formatted as `YYYY-MM-DDTHH:MM`.
  *
  * Use as the `defaultValue` for `<input type="datetime-local">` inputs
