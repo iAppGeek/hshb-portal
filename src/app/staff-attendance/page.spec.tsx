@@ -199,6 +199,44 @@ describe('StaffAttendancePage', () => {
       expect(getStaffAttendanceByDate).toHaveBeenCalledWith('2026-01-15')
     })
 
+    it('defaults a weekend day to 09:30', async () => {
+      render(
+        await StaffAttendancePage({
+          searchParams: makeSearchParams({ date: '2026-03-14' }),
+        }),
+      )
+
+      expect(vi.mocked(StaffAttendanceTable).mock.calls[0][0]).toMatchObject({
+        date: '2026-03-14',
+        today: todayInSchoolTz(),
+        defaultTime: '09:30',
+      })
+    })
+
+    it('defaults a weekday to 18:00', async () => {
+      render(
+        await StaffAttendancePage({
+          searchParams: makeSearchParams({ date: '2026-01-15' }),
+        }),
+      )
+
+      expect(vi.mocked(StaffAttendanceTable).mock.calls[0][0]).toMatchObject({
+        date: '2026-01-15',
+        defaultTime: '18:00',
+      })
+    })
+
+    it('passes today and the current time when showing today', async () => {
+      render(await StaffAttendancePage({ searchParams: makeSearchParams() }))
+
+      const today = todayInSchoolTz()
+      expect(vi.mocked(StaffAttendanceTable).mock.calls[0][0]).toMatchObject({
+        date: today,
+        today,
+        defaultTime: expect.stringMatching(/^\d{2}:\d{2}$/),
+      })
+    })
+
     it('renders the date picker for admin', async () => {
       render(await StaffAttendancePage({ searchParams: makeSearchParams() }))
 
