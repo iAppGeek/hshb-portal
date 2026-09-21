@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+import { routes } from '@/lib/routes'
+import type { StaffRole } from '@/types/next-auth'
+
 const mockRedirect = vi.hoisted(() =>
   vi.fn((url: URL) => ({ redirected: true, url })),
 )
@@ -23,6 +26,8 @@ const makeReq = (pathname: string, auth: any = null) =>
     } as any,
     {} as any,
   ] as const
+
+const ALL_ROLES: StaffRole[] = ['admin', 'headteacher', 'secretary', 'teacher']
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -48,78 +53,6 @@ describe('middleware', () => {
     expect(mockRedirect).not.toHaveBeenCalled()
   })
 
-  it('blocks teacher from accessing reports and redirects to dashboard', () => {
-    middleware(...makeReq('/reports', { user: { role: 'teacher' } }))
-    expect(mockRedirect).toHaveBeenCalledWith(
-      new URL('/dashboard', 'http://localhost:3000'),
-    )
-  })
-
-  it('allows admin to access reports', () => {
-    middleware(...makeReq('/reports', { user: { role: 'admin' } }))
-    expect(mockRedirect).not.toHaveBeenCalled()
-  })
-
-  it('allows headteacher to access reports', () => {
-    middleware(...makeReq('/reports', { user: { role: 'headteacher' } }))
-    expect(mockRedirect).not.toHaveBeenCalled()
-  })
-
-  it.each(['headteacher', 'secretary', 'teacher'])(
-    'redirects %s away from /finance to dashboard',
-    (role) => {
-      middleware(...makeReq('/finance', { user: { role } }))
-      expect(mockRedirect).toHaveBeenCalledWith(
-        new URL('/dashboard', 'http://localhost:3000'),
-      )
-    },
-  )
-
-  it('redirects non-admin away from nested /finance pages', () => {
-    middleware(
-      ...makeReq('/finance/students/abc', { user: { role: 'headteacher' } }),
-    )
-    expect(mockRedirect).toHaveBeenCalledWith(
-      new URL('/dashboard', 'http://localhost:3000'),
-    )
-  })
-
-  it('allows admin to access /finance and nested pages', () => {
-    middleware(...makeReq('/finance', { user: { role: 'admin' } }))
-    middleware(
-      ...makeReq('/finance/fee-plans/new', { user: { role: 'admin' } }),
-    )
-    expect(mockRedirect).not.toHaveBeenCalled()
-  })
-
-  it('does not treat /financeX as a finance page', () => {
-    middleware(...makeReq('/financeX', { user: { role: 'teacher' } }))
-    expect(mockRedirect).not.toHaveBeenCalled()
-  })
-
-  it.each(['headteacher', 'secretary', 'teacher'])(
-    'redirects %s away from /hr and nested HR pages to dashboard',
-    (role) => {
-      middleware(...makeReq('/hr', { user: { role } }))
-      middleware(...makeReq('/hr/staff/abc', { user: { role } }))
-      expect(mockRedirect).toHaveBeenCalledTimes(2)
-      expect(mockRedirect).toHaveBeenCalledWith(
-        new URL('/dashboard', 'http://localhost:3000'),
-      )
-    },
-  )
-
-  it('allows admin to access /hr and nested pages', () => {
-    middleware(...makeReq('/hr', { user: { role: 'admin' } }))
-    middleware(...makeReq('/hr/staff/abc', { user: { role: 'admin' } }))
-    expect(mockRedirect).not.toHaveBeenCalled()
-  })
-
-  it('does not treat /hrX as an HR page', () => {
-    middleware(...makeReq('/hrX', { user: { role: 'teacher' } }))
-    expect(mockRedirect).not.toHaveBeenCalled()
-  })
-
   it('allows unauthenticated access to /register', () => {
     middleware(...makeReq('/register'))
     expect(mockRedirect).not.toHaveBeenCalled()
@@ -141,4 +74,38 @@ describe('middleware', () => {
       new URL('/login', 'http://localhost:3000'),
     )
   })
+
+  for (const route of routes.filter((r) => r.permission)) {
+    const allowedRoles = ALL_ROLES.filter((role) => route.permission!(role))
+    const deniedRoles = ALL_ROLES.filter((role) => !route.permission!(role))
+
+    it.each(deniedRoles)(
+      `redirects %s away from ${route.href} to dashboard`,
+      (role) => {
+        middleware(...makeReq(route.href, { user: { role } }))
+        expect(mockRedirect).toHaveBeenCalledWith(
+          new URL('/dashboard', 'http://localhost:3000'),
+        )
+      },
+    )
+
+    it.each(allowedRoles)(`allows %s to access ${route.href}`, (role) => {
+      middleware(...makeReq(route.href, { user: { role } }))
+      expect(mockRedirect).not.toHaveBeenCalled()
+    })
+
+    it(`allows access to a nested path under ${route.href} for an allowed role`, () => {
+      const role = allowedRoles[0]
+      if (!role) return
+      middleware(...makeReq(`${route.href}/nested/id`, { user: { role } }))
+      expect(mockRedirect).not.toHaveBeenCalled()
+    })
+
+    it(`does not treat ${route.href}X as the same route`, () => {
+      const role = deniedRoles[0]
+      if (!role) return
+      middleware(...makeReq(`${route.href}X`, { user: { role } }))
+      expect(mockRedirect).not.toHaveBeenCalled()
+    })
+  }
 })
