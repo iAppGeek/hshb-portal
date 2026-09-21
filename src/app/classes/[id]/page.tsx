@@ -1,15 +1,17 @@
+import { Suspense } from 'react'
 import { type Metadata } from 'next'
-import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 
 import { requireSession } from '@/auth/require'
 import BulkEmailDropdown from '@/clientComponents/BulkEmailDropdown'
 import PrintPageSetup from '@/components/grid/PrintPageSetup'
+import TableSkeleton from '@/components/grid/TableSkeleton'
 import { getClassWithStudents } from '@/db'
 import { compareByName } from '@/lib/grid/sort'
 import { guardianEmailsForMailto, mailtoWithBcc } from '@/lib/mailto'
 import { isTeacher } from '@/lib/permissions'
 
+import PageHeader from '../../_components/PageHeader'
 import PrintButton from '../PrintButton'
 
 import ClassRegisterCard, { type RegisterStudent } from './ClassRegisterCard'
@@ -38,10 +40,10 @@ export default async function ClassRegisterPage({
   const { id } = await params
 
   const cls = await getClassWithStudents(id)
-  if (!cls) redirect('/classes')
+  if (!cls) notFound()
 
   if (isTeacher(role) && cls.teacher_id !== actor.staffId) {
-    redirect('/classes')
+    notFound()
   }
 
   const teacher = cls.teacher as {
@@ -72,31 +74,27 @@ export default async function ClassRegisterPage({
     <div className="max-w-5xl print:max-w-none">
       <PrintPageSetup />
       {/* Screen-only toolbar */}
-      <div className="mb-6 flex items-center justify-between print:hidden">
-        <div>
-          <Link
-            href="/classes"
-            className="text-sm text-blue-600 hover:text-blue-800"
-          >
-            ← Back to Classes
-          </Link>
-          <h1 className="mt-1 text-2xl font-bold text-gray-900">
-            {cls.name} — Register
-          </h1>
-        </div>
-        <div className="flex shrink-0 items-center gap-3">
-          {students.length > 0 && (
-            <BulkEmailDropdown
-              emails={classBccEmails}
-              mailtoHref={classMailtoHref}
-              buttonLabel="Email class"
-              triggerClassName="rounded-lg border border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 shadow-sm transition hover:bg-blue-50"
-              emptyReason="No guardian email addresses on file for this class."
-              mailtoUnavailableReason="Too many addresses for your email app. Use copy instead."
-            />
-          )}
-          <PrintButton />
-        </div>
+      <div className="print:hidden">
+        <PageHeader
+          title={`${cls.name} — Register`}
+          backHref="/classes"
+          backLabel="Classes"
+          action={
+            <div className="flex shrink-0 items-center gap-3">
+              {students.length > 0 && (
+                <BulkEmailDropdown
+                  emails={classBccEmails}
+                  mailtoHref={classMailtoHref}
+                  buttonLabel="Email class"
+                  triggerClassName="rounded-lg border border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 shadow-sm transition hover:bg-blue-50"
+                  emptyReason="No guardian email addresses on file for this class."
+                  mailtoUnavailableReason="Too many addresses for your email app. Use copy instead."
+                />
+              )}
+              <PrintButton />
+            </div>
+          }
+        />
       </div>
 
       {/* Print-only title */}
@@ -118,7 +116,9 @@ export default async function ClassRegisterPage({
       />
 
       <div className="print:hidden">
-        <EnrolmentHistoryTable rows={enrolmentHistory} />
+        <Suspense fallback={<TableSkeleton columns={3} />}>
+          <EnrolmentHistoryTable rows={enrolmentHistory} />
+        </Suspense>
       </div>
     </div>
   )

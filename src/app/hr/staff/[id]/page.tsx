@@ -1,10 +1,10 @@
 import { type Metadata } from 'next'
-import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 
-import { requireRole } from '@/auth/require'
+import { requireRouteAccess } from '@/auth/require'
 import { getAllStaff, getStaffById, getStaffPayrollByStaffId } from '@/db'
-import { canManageHr } from '@/lib/permissions'
+
+import PageHeader from '../../../_components/PageHeader'
 
 import StaffPayrollForm from './StaffPayrollForm'
 import { saveStaffPayrollAction } from './actions'
@@ -16,7 +16,7 @@ export default async function StaffPayrollPage({
 }: {
   params: Promise<{ id: string }>
 }): Promise<React.ReactElement> {
-  await requireRole(canManageHr)
+  await requireRouteAccess('/hr')
 
   const { id } = await params
   const [staff, payroll, allStaff] = await Promise.all([
@@ -26,7 +26,7 @@ export default async function StaffPayrollPage({
   ])
 
   if (!staff) {
-    redirect('/hr')
+    notFound()
   }
 
   function nameOf(staffId: string | null): string | null {
@@ -36,22 +36,16 @@ export default async function StaffPayrollPage({
 
   return (
     <div className="max-w-3xl">
-      <div className="mb-6">
-        <Link
-          href="/hr"
-          className="text-sm font-medium text-blue-600 hover:text-blue-800"
-        >
-          ← HR
-        </Link>
-        <h1 className="mt-2 text-2xl font-bold text-gray-900">
-          {staff.title} {staff.first_name} {staff.last_name}
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          {payroll
+      <PageHeader
+        title={`${staff.title} ${staff.first_name} ${staff.last_name}`}
+        subtitle={
+          payroll
             ? 'Payroll and compliance record.'
-            : 'No payroll record yet. Payment funding is required to create one.'}
-        </p>
-      </div>
+            : 'No payroll record yet. Payment funding is required to create one.'
+        }
+        backHref="/hr"
+        backLabel="HR"
+      />
 
       <StaffPayrollForm
         payroll={payroll}

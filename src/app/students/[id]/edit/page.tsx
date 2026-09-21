@@ -1,11 +1,13 @@
 import { type Metadata } from 'next'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 
 import { requireSession } from '@/auth/require'
 import { getStudentById, getAllGuardians, getAllClasses } from '@/db'
 import LeaverBadge from '@/components/LeaverBadge'
 import { formatCalendarDate } from '@/lib/datetime'
 import { canEditStudents } from '@/lib/permissions'
+
+import PageHeader, { RequiredFieldsNote } from '../../../_components/PageHeader'
 
 import EditStudentForm from './EditStudentForm'
 import LeaverSection from './LeaverSection'
@@ -33,7 +35,7 @@ export default async function EditStudentPage({
   ])
 
   if (!student) {
-    redirect('/students')
+    notFound()
   }
 
   const enrolledClassIds = (
@@ -52,15 +54,12 @@ export default async function EditStudentPage({
 
   return (
     <div className="max-w-2xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Edit Student: {student.last_name}, {student.first_name}
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Fields marked with <span className="text-red-500">*</span> are
-          required.
-        </p>
-      </div>
+      <PageHeader
+        title={`Edit Student: ${student.last_name}, ${student.first_name}`}
+        subtitle={RequiredFieldsNote}
+        backHref="/students"
+        backLabel="Students"
+      />
 
       {!student.active && (
         <div className="mb-6 flex items-center gap-3 rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">

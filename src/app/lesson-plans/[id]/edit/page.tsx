@@ -1,9 +1,11 @@
 import { type Metadata } from 'next'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 
 import { requireSession } from '@/auth/require'
 import { getLessonPlanById, getClassesByTeacher } from '@/db'
 import { canEditLessonPlans, isTeacher } from '@/lib/permissions'
+
+import PageHeader, { RequiredFieldsNote } from '../../../_components/PageHeader'
 
 import EditLessonPlanForm from './EditLessonPlanForm'
 
@@ -20,24 +22,23 @@ export default async function EditLessonPlanPage({
 
   const { id } = await params
   const plan = await getLessonPlanById(id)
-  if (!plan) redirect('/lesson-plans')
+  if (!plan) notFound()
 
   if (isTeacher(role)) {
     const classes = await getClassesByTeacher(actor.staffId)
     if (!classes.some((c) => c.id === plan.class_id)) {
-      redirect('/lesson-plans')
+      notFound()
     }
   }
 
   return (
     <div className="max-w-2xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Edit Lesson Plan</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Fields marked with <span className="text-red-500">*</span> are
-          required.
-        </p>
-      </div>
+      <PageHeader
+        title="Edit Lesson Plan"
+        subtitle={RequiredFieldsNote}
+        backHref="/lesson-plans"
+        backLabel="Lesson Plans"
+      />
       <EditLessonPlanForm plan={plan} />
     </div>
   )

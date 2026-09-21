@@ -1,16 +1,17 @@
 import { type Metadata } from 'next'
-import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 
-import { requireRole } from '@/auth/require'
+import { requireRouteAccess } from '@/auth/require'
 import {
   getAcademicYears,
   getClassesByAcademicYear,
   getFeePlanById,
   getFeePlans,
 } from '@/db'
-import { canManageFinance } from '@/lib/permissions'
 
+import PageHeader, {
+  RequiredFieldsNote,
+} from '../../../../_components/PageHeader'
 import { takenClassLabels, toClassOptions } from '../../../_lib/feePlanClasses'
 import FeePlanForm from '../../FeePlanForm'
 import { updateFeePlanAction } from '../../actions'
@@ -22,7 +23,7 @@ export default async function EditFeePlanPage({
 }: {
   params: Promise<{ id: string }>
 }): Promise<React.ReactElement> {
-  await requireRole(canManageFinance)
+  await requireRouteAccess('/finance')
 
   const { id } = await params
   const [plan, years, plans] = await Promise.all([
@@ -32,7 +33,7 @@ export default async function EditFeePlanPage({
   ])
 
   if (!plan) {
-    redirect('/finance?tab=fee-plans')
+    notFound()
   }
 
   const classes = (
@@ -41,21 +42,12 @@ export default async function EditFeePlanPage({
 
   return (
     <div className="max-w-3xl">
-      <div className="mb-6">
-        <Link
-          href="/finance?tab=fee-plans"
-          className="text-sm font-medium text-blue-600 hover:text-blue-800"
-        >
-          ← Fee plans
-        </Link>
-        <h1 className="mt-2 text-2xl font-bold text-gray-900">
-          Edit Fee Plan: {plan.name} ({plan.academic_year.code})
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Fields marked with <span className="text-red-500">*</span> are
-          required.
-        </p>
-      </div>
+      <PageHeader
+        title={`Edit Fee Plan: ${plan.name} (${plan.academic_year.code})`}
+        subtitle={RequiredFieldsNote}
+        backHref="/finance?tab=fee-plans"
+        backLabel="Fee plans"
+      />
 
       <FeePlanForm
         plan={plan}

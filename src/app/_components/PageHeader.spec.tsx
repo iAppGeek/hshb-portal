@@ -18,4 +18,31 @@ describe('PageHeader', () => {
     render(<PageHeader title="Students" />)
     expect(screen.queryByRole('button')).toBeNull()
   })
+
+  it('renders a subtitle when provided', () => {
+    render(<PageHeader title="Staff" subtitle="Admin" />)
+    expect(screen.getByText('Admin')).toBeTruthy()
+  })
+
+  it('renders no subtitle when omitted', () => {
+    render(<PageHeader title="Staff" />)
+    expect(screen.queryByText('Admin')).toBeNull()
+  })
+
+  it('renders a back link when backHref is provided', () => {
+    render(
+      <PageHeader
+        title="Add Student"
+        backHref="/students"
+        backLabel="Students"
+      />,
+    )
+    const link = screen.getByRole('link', { name: '← Students' })
+    expect(link.getAttribute('href')).toBe('/students')
+  })
+
+  it('renders no back link when backHref is omitted', () => {
+    render(<PageHeader title="Add Student" />)
+    expect(screen.queryByRole('link')).toBeNull()
+  })
 })

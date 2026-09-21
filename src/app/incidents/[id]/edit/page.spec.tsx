@@ -71,14 +71,14 @@ describe('EditIncidentPage', () => {
     )
   })
 
-  it('redirects to /incidents when incident not found', async () => {
+  it('shows not found when incident not found', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
     vi.mocked(getIncidentById).mockResolvedValue(null as any)
 
     await expect(EditIncidentPage({ params })).rejects.toThrow(
-      'NEXT_REDIRECT:/incidents',
+      'NEXT_HTTP_ERROR_FALLBACK;404',
     )
   })
 

@@ -107,19 +107,15 @@ describe('EditGuardianPage', () => {
     expect(redirect).toHaveBeenCalledWith('/students')
   })
 
-  it('redirects to students list when guardian not found', async () => {
+  it('shows not found when guardian not found', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
     vi.mocked(getGuardianById).mockResolvedValue(null)
     vi.mocked(getStudentsByGuardian).mockResolvedValue([])
-    vi.mocked(redirect).mockImplementation(() => {
-      throw new Error('NEXT_REDIRECT')
-    })
 
     await expect(
       EditGuardianPage({ params: Promise.resolve({ id: 'missing-id' }) }),
-    ).rejects.toThrow('NEXT_REDIRECT')
-    expect(redirect).toHaveBeenCalledWith('/students')
+    ).rejects.toThrow('NEXT_HTTP_ERROR_FALLBACK;404')
   })
 })

@@ -1,8 +1,8 @@
 import { type Metadata } from 'next'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 
-import { requireRole } from '@/auth/require'
+import { requireRouteAccess } from '@/auth/require'
 import SimpleGrid from '@/components/grid/SimpleGrid'
 import {
   getAcademicYears,
@@ -21,9 +21,9 @@ import {
 } from '@/lib/fees'
 import type { GridColumn } from '@/lib/grid/columns'
 import { rowLink } from '@/lib/grid/styles'
-import { canManageFinance } from '@/lib/permissions'
 import LeaverBadge from '@/components/LeaverBadge'
 
+import PageHeader from '../../../_components/PageHeader'
 import FeeStatusBadge from '../../_components/FeeStatusBadge'
 import YearSelector from '../../../_components/YearSelector'
 import { planLabel } from '../../_lib/feePlanClasses'
@@ -80,7 +80,7 @@ export default async function StudentFeesPage({
   params: Promise<{ id: string }>
   searchParams: Promise<{ year?: string }>
 }): Promise<React.ReactElement> {
-  await requireRole(canManageFinance)
+  await requireRouteAccess('/finance')
 
   const { id } = await params
   const { year } = await searchParams
@@ -97,7 +97,7 @@ export default async function StudentFeesPage({
   ])
 
   if (!detail) {
-    redirect('/finance?tab=students')
+    notFound()
   }
 
   const today = todayInSchoolTz()
@@ -213,30 +213,28 @@ export default async function StudentFeesPage({
 
   return (
     <div className="max-w-4xl space-y-6">
-      <div>
-        <Link
-          href={`/finance?tab=students&year=${yearId}`}
-          className="text-sm font-medium text-blue-600 hover:text-blue-800"
-        >
-          ← Student fees
-        </Link>
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
             {student.last_name}, {student.first_name}
             {!student.active && <LeaverBadge reason={student.leaving_reason} />}
-          </h1>
+          </span>
+        }
+        subtitle={
+          [student.student_code, classes.map((c) => c.name).join(', ')]
+            .filter(Boolean)
+            .join(' · ') || 'No classes this year'
+        }
+        backHref={`/finance?tab=students&year=${yearId}`}
+        backLabel="Student fees"
+        action={
           <YearSelector
             years={years}
             value={yearId}
             basePath={`/finance/students/${student.id}`}
           />
-        </div>
-        <p className="mt-1 text-sm text-gray-500">
-          {[student.student_code, classes.map((c) => c.name).join(', ')]
-            .filter(Boolean)
-            .join(' · ') || 'No classes this year'}
-        </p>
-      </div>
+        }
+      />
 
       <div className={CARD}>
         <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">

@@ -1,6 +1,6 @@
 import { type Metadata } from 'next'
 
-import { requireRole } from '@/auth/require'
+import { requireRouteAccess } from '@/auth/require'
 import { logError } from '@/lib/log'
 import {
   getRegistrationSubmissions,
@@ -9,10 +9,7 @@ import {
   findStudentMatches,
   type StudentMatch,
 } from '@/db'
-import {
-  canReviewRegistrations,
-  canApproveRegistrations,
-} from '@/lib/permissions'
+import { canApproveRegistrations } from '@/lib/permissions'
 import { registrationStatusFilter } from '@/lib/schemas'
 
 import EmptyState from '../_components/EmptyState'
@@ -30,7 +27,7 @@ export default async function RegistrationsPage({
 }: {
   searchParams: Promise<{ status?: string }>
 }) {
-  const { role } = await requireRole(canReviewRegistrations)
+  const { role } = await requireRouteAccess('/registrations')
 
   const params = await searchParams
   const status = registrationStatusFilter.parse(params.status)

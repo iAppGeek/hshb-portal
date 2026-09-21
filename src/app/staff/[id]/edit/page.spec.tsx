@@ -73,14 +73,14 @@ describe('EditStaffPage', () => {
     )
   })
 
-  it('redirects to /staff when staff not found', async () => {
+  it('shows not found when staff not found', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
     vi.mocked(getStaffById).mockResolvedValue(null as any)
 
     await expect(EditStaffPage({ params })).rejects.toThrow(
-      'NEXT_REDIRECT:/staff',
+      'NEXT_HTTP_ERROR_FALLBACK;404',
     )
   })
 

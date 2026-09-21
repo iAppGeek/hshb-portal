@@ -129,10 +129,16 @@ describe('ClassRegisterPage', () => {
     await expect(renderPage()).rejects.toThrow('REDIRECT:/login')
   })
 
-  it("redirects a teacher away from another teacher's class", async () => {
+  it('shows not found when the class does not exist', async () => {
+    mockSession('admin')
+    mockClass(null)
+    await expect(renderPage()).rejects.toThrow('NEXT_HTTP_ERROR_FALLBACK;404')
+  })
+
+  it("shows not found for another teacher's class", async () => {
     mockSession('teacher', 'staff-2')
     mockClass(makeClass())
-    await expect(renderPage()).rejects.toThrow('REDIRECT:/classes')
+    await expect(renderPage()).rejects.toThrow('NEXT_HTTP_ERROR_FALLBACK;404')
   })
 
   it("shows the teacher's work email as a mailto link, not a phone number", async () => {

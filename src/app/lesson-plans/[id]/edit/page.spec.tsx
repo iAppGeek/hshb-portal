@@ -68,18 +68,18 @@ describe('EditLessonPlanPage', () => {
     )
   })
 
-  it('redirects to /lesson-plans when plan not found', async () => {
+  it('shows not found when plan not found', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
     vi.mocked(getLessonPlanById).mockResolvedValue(null as any)
 
     await expect(EditLessonPlanPage({ params })).rejects.toThrow(
-      'NEXT_REDIRECT:/lesson-plans',
+      'NEXT_HTTP_ERROR_FALLBACK;404',
     )
   })
 
-  it('redirects teacher when plan class does not belong to them', async () => {
+  it('shows not found when plan class does not belong to the teacher', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'teacher', staffId: 'staff-3' },
     } as any)
@@ -88,7 +88,7 @@ describe('EditLessonPlanPage', () => {
     ] as any)
 
     await expect(EditLessonPlanPage({ params })).rejects.toThrow(
-      'NEXT_REDIRECT:/lesson-plans',
+      'NEXT_HTTP_ERROR_FALLBACK;404',
     )
   })
 
