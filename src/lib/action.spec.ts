@@ -556,15 +556,37 @@ describe('runAction — redirect', () => {
 // ─── 7. Success with no redirect ─────────────────────────────────────────────
 
 describe('runAction — success', () => {
-  it('returns undefined when there is nothing to redirect to', async () => {
+  it('passes the result back as data when there is nothing to redirect to', async () => {
     const result = await runAction({
       name: 'test.action',
       formData: formData(),
-      run: vi.fn().mockResolvedValue({ id: 'x' }),
+      run: async () => ({ id: 'x' }),
+      fallbackError: 'Failed.',
+    })
+
+    expect(result).toEqual({ data: { id: 'x' } })
+  })
+
+  it('returns undefined when run resolves to nothing', async () => {
+    const result = await runAction({
+      name: 'test.action',
+      formData: formData(),
+      run: async () => {},
       fallbackError: 'Failed.',
     })
 
     expect(result).toBeUndefined()
+  })
+
+  it('passes a falsy result such as 0 back as data', async () => {
+    const result = await runAction({
+      name: 'test.action',
+      formData: formData(),
+      run: async () => 0,
+      fallbackError: 'Failed.',
+    })
+
+    expect(result).toEqual({ data: 0 })
   })
 })
 

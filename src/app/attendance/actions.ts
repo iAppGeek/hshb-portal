@@ -54,9 +54,14 @@ function notifyOthers(
     .catch(() => {})
 }
 
-export async function saveAttendanceAction(
-  formData: FormData,
-): Promise<ActionResult> {
+export async function saveAttendanceAction(formData: FormData): Promise<
+  ActionResult<{
+    classId: string
+    date: string
+    count: number
+    isUpdate: boolean
+  }>
+> {
   return runAction({
     name: 'attendance.save',
     formData,

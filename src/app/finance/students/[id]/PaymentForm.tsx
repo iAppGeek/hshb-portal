@@ -17,7 +17,7 @@ type Props = {
   years: PaymentFormYear[]
   /** Used when the payment date falls outside every known year. */
   defaultYearId: string
-  action: (formData: FormData) => Promise<ActionResult>
+  action: (formData: FormData) => Promise<ActionResult<{ id: string }>>
 }
 
 export default function PaymentForm({

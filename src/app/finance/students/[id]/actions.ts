@@ -34,7 +34,7 @@ export async function saveStudentFeeAccountAction(
 export async function addStudentPaymentAction(
   studentId: string,
   formData: FormData,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ id: string }>> {
   return runAction({
     name: 'finance.student-fees.add-payment',
     permission: canManageFinance,

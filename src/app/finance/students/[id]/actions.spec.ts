@@ -138,9 +138,9 @@ describe('addStudentPaymentAction', () => {
   it('records the payment against the current admin', async () => {
     vi.mocked(addStudentPayment).mockResolvedValue({ id: 'pay1' })
 
-    expect(
-      await addStudentPaymentAction('s1', makeFormData(payment)),
-    ).toBeUndefined()
+    expect(await addStudentPaymentAction('s1', makeFormData(payment))).toEqual({
+      data: { id: 'pay1' },
+    })
 
     expect(addStudentPayment).toHaveBeenCalledWith('s1', {
       amount: 100.5,

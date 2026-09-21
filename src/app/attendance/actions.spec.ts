@@ -328,7 +328,7 @@ describe('saveAttendanceAction', () => {
       studentId: STUDENT_1,
     })
 
-    await expect(saveAttendanceAction(fd)).resolves.toBeUndefined()
+    await expect(saveAttendanceAction(fd)).resolves.toHaveProperty('data')
   })
 
   it('saves the register when push dispatch is involved', async () => {
@@ -354,7 +354,7 @@ describe('saveAttendanceAction', () => {
       studentId: STUDENT_1,
     })
 
-    await expect(saveAttendanceAction(fd)).resolves.toBeUndefined()
+    await expect(saveAttendanceAction(fd)).resolves.toHaveProperty('data')
     expect(saveAttendance).toHaveBeenCalled()
   })
 
@@ -384,7 +384,7 @@ describe('saveAttendanceAction', () => {
 
     const result = await saveAttendanceAction(fd)
 
-    expect(result).toBeUndefined()
+    expect(result).toHaveProperty('data')
     expect(saveAttendance).toHaveBeenCalledWith([
       expect.objectContaining({
         class_id: CLASS_ID,
@@ -562,7 +562,7 @@ describe('saveAttendanceAction', () => {
       }),
     )
 
-    expect(result).toBeUndefined()
+    expect(result).toHaveProperty('data')
     expect(saveAttendance).toHaveBeenCalled()
   })
 })
