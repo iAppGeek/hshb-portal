@@ -5,6 +5,7 @@ import { useState } from 'react'
 import TurnstileWidget from '@/clientComponents/TurnstileWidget'
 import { SHORT_TEXT_MAX, LONG_TEXT_MAX } from '@/lib/schemas'
 import {
+  FormActions,
   FormGrid,
   FormSection,
   TextAreaField,
@@ -78,16 +79,13 @@ export default function PhotoOptOutForm({ turnstileSiteKey }: Props) {
         )}
       </FormSection>
 
-      <div className="flex items-center gap-4">
-        <button
-          type="submit"
-          disabled={isPending || !token}
-          className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 disabled:pointer-events-none disabled:opacity-50"
-        >
-          {isPending ? 'Submitting…' : 'Withdraw photo consent'}
-        </button>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-      </div>
+      <FormActions
+        submitLabel="Withdraw photo consent"
+        pendingLabel="Submitting…"
+        isPending={isPending}
+        disabled={!token}
+        error={error ?? undefined}
+      />
     </form>
   )
 }

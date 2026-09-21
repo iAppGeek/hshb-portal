@@ -4,11 +4,13 @@ import { useState, useRef, useEffect } from 'react'
 
 import type { IncidentType } from '@/db'
 import {
+  FieldError,
   FormActions,
   FormSection,
   SelectField,
   TextAreaField,
   TextField,
+  formStyles,
   useServerForm,
 } from '@/components/form'
 import { nowDatetimeLocalInSchoolTz } from '@/lib/datetime'
@@ -177,8 +179,8 @@ function StudentSearch({
 
   return (
     <div ref={containerRef} className="relative">
-      <label className="block text-sm font-medium text-gray-700">
-        Student<span className="ml-0.5 text-red-500">*</span>
+      <label htmlFor="student_search" className={formStyles.label}>
+        Student<span className={formStyles.requiredMark}>*</span>
       </label>
 
       {selected ? (
@@ -198,6 +200,7 @@ function StudentSearch({
       ) : (
         <>
           <input
+            id="student_search"
             type="text"
             placeholder="Search by name…"
             value={search}
@@ -208,11 +211,8 @@ function StudentSearch({
             onFocus={() => setOpen(true)}
             autoComplete="off"
             aria-invalid={error ? true : undefined}
-            className={`mt-1 block w-full rounded-lg border px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none ${
-              error
-                ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
-                : 'border-gray-300'
-            }`}
+            aria-describedby={error ? 'student_id-error' : undefined}
+            className={`${formStyles.input}${error ? ` ${formStyles.inputInvalid}` : ''}`}
           />
           {open && filtered.length > 0 && (
             <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
@@ -234,7 +234,7 @@ function StudentSearch({
           )}
         </>
       )}
-      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+      <FieldError id="student_id-error" error={error} />
     </div>
   )
 }

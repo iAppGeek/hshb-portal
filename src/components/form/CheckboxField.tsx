@@ -5,6 +5,9 @@ type Props = {
   label: string
   name: string
   defaultChecked?: boolean
+  /** Makes the checkbox controlled; pass `onChange` with it. */
+  checked?: boolean
+  onChange?: (checked: boolean) => void
   description?: string
   error?: string
   required?: boolean
@@ -14,6 +17,8 @@ export default function CheckboxField({
   label: labelText,
   name,
   defaultChecked,
+  checked,
+  onChange,
   description,
   error,
   required = false,
@@ -34,7 +39,9 @@ export default function CheckboxField({
           type="checkbox"
           value="on"
           required={required}
-          defaultChecked={defaultChecked}
+          {...(checked !== undefined
+            ? { checked, onChange: (e) => onChange?.(e.target.checked) }
+            : { defaultChecked })}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
           className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"

@@ -11,8 +11,8 @@ import {
 import type { StudentMatch } from '@/db'
 import {
   CheckboxField,
-  FieldError,
   RadioGroup,
+  SelectField,
   TextField,
   formStyles,
   useServerForm,
@@ -178,31 +178,16 @@ export default function ApproveDialog({
               error={fieldError('student_code')}
             />
 
-            <div>
-              <label htmlFor="approve_class_id" className={formStyles.label}>
-                Class
-              </label>
-              <select
-                id="approve_class_id"
-                name="class_id"
-                aria-invalid={fieldError('class_id') ? true : undefined}
-                aria-describedby={
-                  fieldError('class_id') ? 'approve_class_id-error' : undefined
-                }
-                className={`${formStyles.input}${fieldError('class_id') ? ` ${formStyles.inputInvalid}` : ''}`}
-              >
-                <option value="">No class</option>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} (Year {c.year_group})
-                  </option>
-                ))}
-              </select>
-              <FieldError
-                id="approve_class_id-error"
-                error={fieldError('class_id')}
-              />
-            </div>
+            <SelectField
+              label="Class"
+              name="class_id"
+              placeholder="No class"
+              options={classes.map((c) => ({
+                value: c.id,
+                label: `${c.name} (Year ${c.year_group})`,
+              }))}
+              error={fieldError('class_id')}
+            />
 
             <CheckboxField
               label="Reuse matching guardian records (updates their phone and address from this submission)"

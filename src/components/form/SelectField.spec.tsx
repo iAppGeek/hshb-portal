@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
 
 import SelectField from './SelectField'
 
@@ -57,5 +57,45 @@ describe('SelectField', () => {
     const select = screen.getByLabelText('Choice')
     expect(select).toHaveAttribute('aria-invalid', 'true')
     expect(screen.getByText('Required')).toBeInTheDocument()
+  })
+
+  it('is controlled when given a value, reporting changes via onChange', () => {
+    const onChange = vi.fn()
+    render(
+      <SelectField
+        label="Choice"
+        name="choice"
+        options={options}
+        value="b"
+        onChange={onChange}
+      />,
+    )
+    const select = screen.getByLabelText('Choice')
+    expect(select).toHaveValue('b')
+    fireEvent.change(select, { target: { value: 'a' } })
+    expect(onChange).toHaveBeenCalledWith('a')
+  })
+
+  it('disables the placeholder option only when required', () => {
+    const { rerender } = render(
+      <SelectField
+        label="Choice"
+        name="choice"
+        options={options}
+        placeholder="Select…"
+        required
+      />,
+    )
+    expect(screen.getByRole('option', { name: 'Select…' })).toBeDisabled()
+
+    rerender(
+      <SelectField
+        label="Choice"
+        name="choice"
+        options={options}
+        placeholder="Select…"
+      />,
+    )
+    expect(screen.getByRole('option', { name: 'Select…' })).toBeEnabled()
   })
 })

@@ -7,11 +7,9 @@ import { PAYMENT_PLAN_LABELS } from '@/lib/fees'
 import type { ActionResult } from '@/lib/action'
 import {
   CheckboxField,
-  FieldError,
   SelectField,
   TextAreaField,
   TextField,
-  formStyles,
   useServerForm,
 } from '@/components/form'
 
@@ -50,33 +48,20 @@ export default function StudentFeesForm({
       <input type="hidden" name="academic_year_id" value={academicYearId} />
 
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <label htmlFor="payment_plan" className={formStyles.label}>
-            Payment plan
-          </label>
-          <select
-            id="payment_plan"
-            name="payment_plan"
-            value={paymentPlan}
-            onChange={(e) => setPaymentPlan(e.target.value)}
-            aria-invalid={fieldError('payment_plan') ? true : undefined}
-            aria-describedby={
-              fieldError('payment_plan') ? 'payment_plan-error' : undefined
-            }
-            className={`${formStyles.input}${fieldError('payment_plan') ? ` ${formStyles.inputInvalid}` : ''}`}
-          >
-            <option value="">No payment plan</option>
-            {Object.entries(PAYMENT_PLAN_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <FieldError
-            id="payment_plan-error"
-            error={fieldError('payment_plan')}
-          />
-        </div>
+        <SelectField
+          label="Payment plan"
+          name="payment_plan"
+          value={paymentPlan}
+          onChange={setPaymentPlan}
+          placeholder="No payment plan"
+          options={Object.entries(PAYMENT_PLAN_LABELS).map(
+            ([value, label]) => ({
+              value,
+              label,
+            }),
+          )}
+          error={fieldError('payment_plan')}
+        />
 
         <SelectField
           label="Fee plan override"

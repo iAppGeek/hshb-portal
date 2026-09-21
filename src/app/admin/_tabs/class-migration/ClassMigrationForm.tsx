@@ -1,15 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 import { LEAVING_REASONS, LEAVING_REASON_LABELS } from '@/lib/schemas'
 import type { ActionResult } from '@/lib/action'
 import {
-  FieldError,
+  FormActions,
   FormGrid,
   FormSection,
+  SelectField,
   TextField,
   formStyles,
   useServerForm,
@@ -97,10 +97,8 @@ export default function ClassMigrationForm({
     )
   }
 
-  function handleTargetYearChange(
-    e: React.ChangeEvent<HTMLSelectElement>,
-  ): void {
-    router.push(buildUrl({ targetYearId: e.target.value }))
+  function handleTargetYearChange(value: string): void {
+    router.push(buildUrl({ targetYearId: value }))
   }
 
   function handleCreateNewClassToggle(checked: boolean): void {
@@ -220,24 +218,16 @@ export default function ClassMigrationForm({
       {/* ── Section 2: New Class Details ─────────────────────────────── */}
       {sourceClassId && createNewClass && (
         <FormSection title="New Class Details">
-          <div className="mb-4">
-            <label htmlFor="target_year_select" className={formStyles.label}>
-              Academic year<span className={formStyles.requiredMark}>*</span>
-            </label>
-            <select
-              id="target_year_select"
-              name="academic_year_id"
-              value={targetYearId ?? ''}
-              onChange={handleTargetYearChange}
-              className={formStyles.input}
-            >
-              {years.map((y) => (
-                <option key={y.id} value={y.id}>
-                  {y.code}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SelectField
+            label="Academic year"
+            name="academic_year_id"
+            required
+            className="mb-4"
+            value={targetYearId ?? ''}
+            onChange={handleTargetYearChange}
+            options={years.map((y) => ({ value: y.id, label: y.code }))}
+            error={fieldError('academic_year_id')}
+          />
 
           <FormGrid>
             <TextField
@@ -257,58 +247,31 @@ export default function ClassMigrationForm({
               name="room_number"
               error={fieldError('room_number')}
             />
-            <div className="sm:col-span-2">
-              <label htmlFor="teacher_id" className={formStyles.label}>
-                Teacher<span className={formStyles.requiredMark}>*</span>
-              </label>
-              <select
-                id="teacher_id"
-                name="teacher_id"
-                required
-                aria-invalid={fieldError('teacher_id') ? true : undefined}
-                aria-describedby={
-                  fieldError('teacher_id') ? 'teacher_id-error' : undefined
-                }
-                className={`${formStyles.input}${fieldError('teacher_id') ? ` ${formStyles.inputInvalid}` : ''}`}
-              >
-                <option value="">Select a teacher…</option>
-                {teachers.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.last_name}, {t.first_name}
-                    {t.display_name ? ` (${t.display_name})` : ''}
-                  </option>
-                ))}
-              </select>
-              <FieldError
-                id="teacher_id-error"
-                error={fieldError('teacher_id')}
-              />
-            </div>
+            <SelectField
+              label="Teacher"
+              name="teacher_id"
+              required
+              className="sm:col-span-2"
+              placeholder="Select a teacher…"
+              options={teachers.map((t) => ({
+                value: t.id,
+                label: `${t.last_name}, ${t.first_name}${t.display_name ? ` (${t.display_name})` : ''}`,
+              }))}
+              error={fieldError('teacher_id')}
+            />
           </FormGrid>
         </FormSection>
       )}
 
       {/* ── Actions ──────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-4">
-        <button
-          type="submit"
-          disabled={isPending || !sourceClassId}
-          className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 disabled:pointer-events-none disabled:opacity-50"
-        >
-          {isPending ? 'Migrating…' : 'Migrate Class'}
-        </button>
-        <Link
-          href="/classes"
-          className="text-sm font-medium text-gray-500 hover:text-gray-700"
-        >
-          Cancel
-        </Link>
-        {error && (
-          <p role="alert" className="text-sm text-red-600">
-            {error}
-          </p>
-        )}
-      </div>
+      <FormActions
+        submitLabel="Migrate Class"
+        pendingLabel="Migrating…"
+        isPending={isPending}
+        disabled={!sourceClassId}
+        cancelHref="/classes"
+        error={error ?? undefined}
+      />
     </form>
   )
 }

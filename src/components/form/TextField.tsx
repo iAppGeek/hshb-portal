@@ -3,6 +3,7 @@ import {
   hint as hintClass,
   input,
   inputInvalid,
+  inputReadOnly,
   label,
   requiredMark,
 } from './styles'
@@ -23,8 +24,6 @@ type TextFieldType =
   | 'tel'
   | 'date'
   | 'time'
-  // Not in the plan's literal type union, added because incident forms need
-  // a combined date+time picker; see the plan-04 report's discrepancy list.
   | 'datetime-local'
   | 'number'
   | 'password'
@@ -47,6 +46,11 @@ const INPUT_MODE_BY_TYPE: Partial<
 type Props = FieldBase & {
   type?: TextFieldType
   defaultValue?: string | null
+  /** Makes the input controlled; pass `onChange` with it. */
+  value?: string
+  onChange?: (value: string) => void
+  /** Unlike `disabled`, a read-only input is still submitted with the form. */
+  readOnly?: boolean
   placeholder?: string
   autoComplete?: string
   inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']
@@ -66,6 +70,9 @@ export default function TextField({
   className,
   disabled,
   defaultValue,
+  value,
+  onChange,
+  readOnly,
   placeholder,
   autoComplete,
   inputMode,
@@ -92,7 +99,10 @@ export default function TextField({
         type={type}
         required={required}
         disabled={disabled}
-        defaultValue={defaultValue ?? undefined}
+        readOnly={readOnly}
+        {...(value !== undefined
+          ? { value, onChange: (e) => onChange?.(e.target.value) }
+          : { defaultValue: defaultValue ?? undefined })}
         placeholder={placeholder}
         autoComplete={autoComplete ?? AUTO_COMPLETE_BY_TYPE[type]}
         inputMode={inputMode ?? INPUT_MODE_BY_TYPE[type]}
@@ -102,7 +112,9 @@ export default function TextField({
         step={step}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
-        className={`${input}${error ? ` ${inputInvalid}` : ''}`}
+        className={[input, readOnly && inputReadOnly, error && inputInvalid]
+          .filter(Boolean)
+          .join(' ')}
       />
       {hint && !error && (
         <p id={hintId} className={hintClass}>

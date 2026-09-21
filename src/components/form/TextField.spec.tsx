@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
 
 import TextField from './TextField'
 
@@ -62,5 +62,31 @@ describe('TextField', () => {
     const input = screen.getByLabelText('Postcode')
     expect(input).toHaveAttribute('autoComplete', 'postal-code')
     expect(input).toHaveAttribute('inputMode', 'text')
+  })
+
+  it('is controlled when given a value, reporting changes via onChange', () => {
+    const onChange = vi.fn()
+    render(
+      <TextField
+        label="Issue date"
+        name="issue_date"
+        value="2026-01-01"
+        onChange={onChange}
+      />,
+    )
+    const input = screen.getByLabelText('Issue date')
+    expect(input).toHaveValue('2026-01-01')
+    fireEvent.change(input, { target: { value: '2026-02-02' } })
+    expect(onChange).toHaveBeenCalledWith('2026-02-02')
+  })
+
+  it('renders readOnly with read-only styling, keeping the value submittable', () => {
+    render(
+      <TextField label="Code" name="code" defaultValue="2026-27" readOnly />,
+    )
+    const input = screen.getByLabelText('Code')
+    expect(input).toHaveAttribute('readonly')
+    expect(input).not.toBeDisabled()
+    expect(input).toHaveClass('bg-gray-50')
   })
 })

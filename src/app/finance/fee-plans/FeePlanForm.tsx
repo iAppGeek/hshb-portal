@@ -6,13 +6,12 @@ import type { FeePlanWithClasses } from '@/db'
 import type { ActionResult } from '@/lib/action'
 import {
   CheckboxField,
-  FieldError,
   FormActions,
   FormGrid,
   FormSection,
+  SelectField,
   TextAreaField,
   TextField,
-  formStyles,
   useServerForm,
 } from '@/components/form'
 
@@ -60,38 +59,16 @@ export default function FeePlanForm({
             defaultValue={plan?.name ?? ''}
             error={fieldError('name')}
           />
-          <div>
-            <label htmlFor="academic_year_id" className={formStyles.label}>
-              Academic year<span className={formStyles.requiredMark}>*</span>
-            </label>
-            <select
-              id="academic_year_id"
-              name="academic_year_id"
-              required
-              value={academicYearId}
-              onChange={(e) => setAcademicYearId(e.target.value)}
-              aria-invalid={fieldError('academic_year_id') ? true : undefined}
-              aria-describedby={
-                fieldError('academic_year_id')
-                  ? 'academic_year_id-error'
-                  : undefined
-              }
-              className={`${formStyles.input}${fieldError('academic_year_id') ? ` ${formStyles.inputInvalid}` : ''}`}
-            >
-              <option value="" disabled>
-                Select a year…
-              </option>
-              {years.map((y) => (
-                <option key={y.id} value={y.id}>
-                  {y.code}
-                </option>
-              ))}
-            </select>
-            <FieldError
-              id="academic_year_id-error"
-              error={fieldError('academic_year_id')}
-            />
-          </div>
+          <SelectField
+            label="Academic year"
+            name="academic_year_id"
+            required
+            value={academicYearId}
+            onChange={setAcademicYearId}
+            placeholder="Select a year…"
+            options={years.map((y) => ({ value: y.id, label: y.code }))}
+            error={fieldError('academic_year_id')}
+          />
           <TextField
             label="Full year amount (£)"
             name="full_year_amount"

@@ -55,4 +55,23 @@ describe('FormActions', () => {
     )
     expect(screen.getByRole('alert')).toHaveTextContent('Something failed')
   })
+
+  it('disables submit when disabled, even when not pending', () => {
+    render(<FormActions submitLabel="Save" isPending={false} disabled />)
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+  })
+
+  it('uses cancelLabel for the cancel link text', () => {
+    render(
+      <FormActions
+        submitLabel="Save"
+        isPending={false}
+        cancelHref="/students"
+        cancelLabel="Back to students"
+      />,
+    )
+    expect(
+      screen.getByRole('link', { name: 'Back to students' }),
+    ).toHaveAttribute('href', '/students')
+  })
 })

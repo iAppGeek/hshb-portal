@@ -212,7 +212,7 @@ export const updateGuardianSchema = z.object({
 
 export const createIncidentSchema = z.object({
   type: incidentType,
-  student_id: uuid,
+  student_id: z.string().uuid('Please select a student.'),
   title: requiredString,
   description: requiredString,
   incident_date: isoDateTime,

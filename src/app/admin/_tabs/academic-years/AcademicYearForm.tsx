@@ -1,13 +1,7 @@
 'use client'
 
 import type { ActionResult } from '@/lib/action'
-import {
-  FieldError,
-  FormActions,
-  TextField,
-  formStyles,
-  useServerForm,
-} from '@/components/form'
+import { FormActions, TextField, useServerForm } from '@/components/form'
 
 type Props = {
   mode: 'create' | 'edit'
@@ -30,26 +24,15 @@ export default function AcademicYearForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Three columns: not a layout FormGrid supports (cols is 1 | 2 only). */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div>
-          {/* readOnly, not TextField's `disabled`: a disabled input is left
-              out of FormData, but `code` must still submit on edit. */}
-          <label htmlFor="code" className={formStyles.label}>
-            Code<span className={formStyles.requiredMark}>*</span>
-          </label>
-          <input
-            id="code"
-            name="code"
-            type="text"
-            required
-            readOnly={mode === 'edit'}
-            defaultValue={defaultValues.code}
-            placeholder="e.g. 2026-27"
-            aria-invalid={fieldError('code') ? true : undefined}
-            aria-describedby={fieldError('code') ? 'code-error' : undefined}
-            className={`mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm read-only:bg-gray-50 read-only:text-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none${fieldError('code') ? ` ${formStyles.inputInvalid}` : ''}`}
-          />
-          <FieldError id="code-error" error={fieldError('code')} />
-        </div>
+        <TextField
+          label="Code"
+          name="code"
+          required
+          readOnly={mode === 'edit'}
+          defaultValue={defaultValues.code}
+          placeholder="e.g. 2026-27"
+          error={fieldError('code')}
+        />
         <TextField
           label="Start date"
           name="start_date"

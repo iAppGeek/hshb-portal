@@ -151,6 +151,31 @@ describe('StaffPayrollForm', () => {
     expect(fd.get('id_verified')).toBeNull()
   })
 
+  it('shows bank-detail field errors under the masked inputs', async () => {
+    const action = vi.fn().mockResolvedValue({
+      error: 'Enter the sort code',
+      fieldErrors: { bank_sort_code: 'Enter the sort code' },
+    })
+    renderForm({ action })
+
+    fireEvent.change(input('Payment funding'), {
+      target: { value: 'school' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save payroll record' }))
+
+    await waitFor(() =>
+      expect(input('Sort code')).toHaveAttribute('aria-invalid', 'true'),
+    )
+    expect(input('Sort code')).toHaveAttribute(
+      'aria-describedby',
+      'bank_sort_code-error',
+    )
+    expect(document.getElementById('bank_sort_code-error')).toHaveTextContent(
+      'Enter the sort code',
+    )
+    expect(input('Account number')).not.toHaveAttribute('aria-invalid')
+  })
+
   it('does not submit while a ticked check is missing its details', () => {
     const action = vi.fn()
     renderForm({ action })

@@ -8,13 +8,7 @@ import {
 } from '@/lib/academicYears'
 import { PAYMENT_METHOD_LABELS } from '@/lib/fees'
 import type { ActionResult } from '@/lib/action'
-import {
-  FieldError,
-  SelectField,
-  TextField,
-  formStyles,
-  useServerForm,
-} from '@/components/form'
+import { SelectField, TextField, useServerForm } from '@/components/form'
 
 export type PaymentFormYear = AcademicYearRange & { id: string }
 
@@ -50,8 +44,7 @@ export default function PaymentForm({
     },
   )
 
-  function handleDateChange(e: React.ChangeEvent<HTMLInputElement>): void {
-    const value = e.target.value
+  function handleDateChange(value: string): void {
     setDate(value)
     setYearId(academicYearForDate(years, value)?.id ?? defaultYearId)
   }
@@ -68,57 +61,24 @@ export default function PaymentForm({
           required
           error={fieldError('amount')}
         />
-        <div>
-          <label htmlFor="payment_date" className={formStyles.label}>
-            Payment date<span className={formStyles.requiredMark}>*</span>
-          </label>
-          <input
-            id="payment_date"
-            name="payment_date"
-            type="date"
-            required
-            value={date}
-            onChange={handleDateChange}
-            aria-invalid={fieldError('payment_date') ? true : undefined}
-            aria-describedby={
-              fieldError('payment_date') ? 'payment_date-error' : undefined
-            }
-            className={`${formStyles.input}${fieldError('payment_date') ? ` ${formStyles.inputInvalid}` : ''}`}
-          />
-          <FieldError
-            id="payment_date-error"
-            error={fieldError('payment_date')}
-          />
-        </div>
-        <div>
-          <label htmlFor="academic_year_id" className={formStyles.label}>
-            Pays for<span className={formStyles.requiredMark}>*</span>
-          </label>
-          <select
-            id="academic_year_id"
-            name="academic_year_id"
-            required
-            value={yearId}
-            onChange={(e) => setYearId(e.target.value)}
-            aria-invalid={fieldError('academic_year_id') ? true : undefined}
-            aria-describedby={
-              fieldError('academic_year_id')
-                ? 'academic_year_id-error'
-                : undefined
-            }
-            className={`${formStyles.input}${fieldError('academic_year_id') ? ` ${formStyles.inputInvalid}` : ''}`}
-          >
-            {years.map((y) => (
-              <option key={y.id} value={y.id}>
-                {y.code}
-              </option>
-            ))}
-          </select>
-          <FieldError
-            id="academic_year_id-error"
-            error={fieldError('academic_year_id')}
-          />
-        </div>
+        <TextField
+          label="Payment date"
+          name="payment_date"
+          type="date"
+          required
+          value={date}
+          onChange={handleDateChange}
+          error={fieldError('payment_date')}
+        />
+        <SelectField
+          label="Pays for"
+          name="academic_year_id"
+          required
+          value={yearId}
+          onChange={setYearId}
+          options={years.map((y) => ({ value: y.id, label: y.code }))}
+          error={fieldError('academic_year_id')}
+        />
         <TextField
           label="Reference"
           name="reference"

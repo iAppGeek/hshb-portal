@@ -3,12 +3,11 @@
 import { useState } from 'react'
 
 import {
-  FieldError,
   FormActions,
   FormGrid,
   FormSection,
+  SelectField,
   TextField,
-  formStyles,
   useServerForm,
 } from '@/components/form'
 import { roleDescriptions } from '@/lib/roleLabels'
@@ -60,36 +59,17 @@ export default function AddStaffForm() {
             required
             error={fieldError('email')}
           />
-          <div>
-            <label htmlFor="role" className={formStyles.label}>
-              Role<span className={formStyles.requiredMark}>*</span>
-            </label>
-            <select
-              id="role"
-              name="role"
-              required
-              value={selectedRole}
-              onChange={(e) =>
-                setSelectedRole(e.target.value as StaffRole | '')
-              }
-              aria-invalid={fieldError('role') ? true : undefined}
-              aria-describedby={fieldError('role') ? 'role-error' : undefined}
-              className={`${formStyles.input}${fieldError('role') ? ` ${formStyles.inputInvalid}` : ''}`}
-            >
-              <option value="">Select a role…</option>
-              {ROLES.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-            {selectedRole && !fieldError('role') && (
-              <p className={formStyles.hint}>
-                {roleDescriptions[selectedRole]}
-              </p>
-            )}
-            <FieldError id="role-error" error={fieldError('role')} />
-          </div>
+          <SelectField
+            label="Role"
+            name="role"
+            required
+            value={selectedRole}
+            onChange={(v) => setSelectedRole(v as StaffRole | '')}
+            placeholder="Select a role…"
+            options={ROLES}
+            hint={selectedRole ? roleDescriptions[selectedRole] : undefined}
+            error={fieldError('role')}
+          />
           <TextField
             label="Display name"
             name="display_name"

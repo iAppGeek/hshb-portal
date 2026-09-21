@@ -1,7 +1,32 @@
 import { describe, it, expect, vi } from 'vitest'
-import { act, renderHook } from '@testing-library/react'
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 
+import type { ActionResult } from '@/lib/action'
+
+import TextField from './TextField'
 import { useServerForm } from './useServerForm'
+
+function TestForm({
+  action,
+}: {
+  action: (formData: FormData) => Promise<ActionResult>
+}): React.ReactElement {
+  const { handleSubmit, fieldError } = useServerForm(action)
+  return (
+    <form aria-label="Test form" onSubmit={handleSubmit}>
+      <TextField label="Name" name="name" error={fieldError('name')} />
+      <TextField label="Email" name="email" error={fieldError('email')} />
+      <button type="submit">Save</button>
+    </form>
+  )
+}
 
 function buildForm(fields: Record<string, string> = {}): HTMLFormElement {
   const form = document.createElement('form')
@@ -23,16 +48,8 @@ function submit(form: HTMLFormElement): React.FormEvent<HTMLFormElement> {
 }
 
 describe('useServerForm', () => {
-  it('sets error and fieldErrors, and scrolls/focuses the first invalid field, on an error result', async () => {
+  it('sets error and fieldErrors on an error result', async () => {
     const form = buildForm()
-    const input = document.createElement('input')
-    input.name = 'email'
-    input.setAttribute('aria-invalid', 'true')
-    form.appendChild(input)
-    const scrollIntoView = vi.fn()
-    input.scrollIntoView = scrollIntoView
-    const focus = vi.spyOn(input, 'focus')
-
     const action = vi.fn().mockResolvedValue({
       error: 'Fix the errors below',
       fieldErrors: { email: 'Invalid email' },
@@ -46,8 +63,44 @@ describe('useServerForm', () => {
     expect(result.current.error).toBe('Fix the errors below')
     expect(result.current.fieldErrors).toEqual({ email: 'Invalid email' })
     expect(result.current.fieldError('email')).toBe('Invalid email')
+  })
+
+  it('scrolls to and focuses the field that renders as invalid once the errors commit', async () => {
+    const scrollIntoView = vi
+      .spyOn(Element.prototype, 'scrollIntoView')
+      .mockImplementation(() => {})
+    const action = vi.fn().mockResolvedValue({
+      error: 'Fix the errors below',
+      fieldErrors: { email: 'Invalid email' },
+    })
+    render(<TestForm action={action} />)
+
+    await act(async () => {
+      fireEvent.submit(screen.getByRole('form', { name: 'Test form' }))
+    })
+
+    const email = screen.getByLabelText('Email')
+    await waitFor(() => expect(email).toHaveFocus())
+    expect(email).toHaveAttribute('aria-invalid', 'true')
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center' })
-    expect(focus).toHaveBeenCalled()
+    expect(scrollIntoView.mock.contexts).toContain(email)
+    scrollIntoView.mockRestore()
+  })
+
+  it('does not scroll on a successful submit', async () => {
+    const scrollIntoView = vi
+      .spyOn(Element.prototype, 'scrollIntoView')
+      .mockImplementation(() => {})
+    const action = vi.fn().mockResolvedValue(undefined)
+    render(<TestForm action={action} />)
+
+    await act(async () => {
+      fireEvent.submit(screen.getByRole('form', { name: 'Test form' }))
+    })
+
+    expect(action).toHaveBeenCalled()
+    expect(scrollIntoView).not.toHaveBeenCalled()
+    scrollIntoView.mockRestore()
   })
 
   it('calls onSuccess with data and clears errors on a data result', async () => {

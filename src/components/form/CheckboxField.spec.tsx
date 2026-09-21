@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
 
 import CheckboxField from './CheckboxField'
 
@@ -38,5 +38,21 @@ describe('CheckboxField', () => {
     const checkbox = screen.getByLabelText('Agree')
     expect(checkbox).toHaveAttribute('aria-invalid', 'true')
     expect(screen.getByText('You must agree')).toBeInTheDocument()
+  })
+
+  it('is controlled when given checked, reporting changes via onChange', () => {
+    const onChange = vi.fn()
+    render(
+      <CheckboxField
+        label="Agree"
+        name="agree"
+        checked={false}
+        onChange={onChange}
+      />,
+    )
+    const checkbox = screen.getByLabelText('Agree')
+    expect(checkbox).not.toBeChecked()
+    fireEvent.click(checkbox)
+    expect(onChange).toHaveBeenCalledWith(true)
   })
 })

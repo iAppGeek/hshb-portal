@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState, useTransition } from 'react'
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 
 import type { ActionResult } from '@/lib/action'
 
@@ -30,19 +30,31 @@ export function useServerForm<T = unknown>(
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [isPending, startTransition] = useTransition()
+  const formRef = useRef<HTMLFormElement | null>(null)
+  const scrollPending = useRef(false)
+
+  // The fields only get `aria-invalid` once React commits the new
+  // `fieldErrors`, so the scroll has to wait for the commit rather than run
+  // straight after `setFieldErrors`.
+  useEffect(() => {
+    if (!scrollPending.current) return
+    scrollPending.current = false
+    if (formRef.current) scrollToFirstInvalid(formRef.current)
+  }, [fieldErrors])
 
   const handleSubmit = useCallback(
-    (e: React.FormEvent<HTMLFormElement>) => {
+    (e: React.FormEvent<HTMLFormElement>): void => {
       e.preventDefault()
       const form = e.currentTarget
+      formRef.current = form
       setError(null)
       setFieldErrors({})
       startTransition(async () => {
         const r = await action(new FormData(form))
         if (r && 'error' in r) {
+          scrollPending.current = true
           setError(r.error)
           setFieldErrors(r.fieldErrors ?? {})
-          scrollToFirstInvalid(form)
         } else if (r && 'data' in r) {
           options?.onSuccess?.(r.data)
         }
@@ -52,11 +64,11 @@ export function useServerForm<T = unknown>(
   )
 
   const fieldError = useCallback(
-    (name: string) => fieldErrors[name],
+    (name: string): string | undefined => fieldErrors[name],
     [fieldErrors],
   )
 
-  const reset = useCallback(() => {
+  const reset = useCallback((): void => {
     setError(null)
     setFieldErrors({})
   }, [])

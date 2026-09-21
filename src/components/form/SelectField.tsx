@@ -11,6 +11,9 @@ import {
 type Props = FieldBase & {
   options: { value: string; label: string }[]
   defaultValue?: string | null
+  /** Makes the select controlled; pass `onChange` with it. */
+  value?: string
+  onChange?: (value: string) => void
   placeholder?: string
 }
 
@@ -24,6 +27,8 @@ export default function SelectField({
   disabled,
   options,
   defaultValue,
+  value,
+  onChange,
   placeholder,
 }: Props): React.ReactElement {
   const hintId = `${name}-hint`
@@ -43,12 +48,19 @@ export default function SelectField({
         name={name}
         required={required}
         disabled={disabled}
-        defaultValue={defaultValue ?? ''}
+        {...(value !== undefined
+          ? { value, onChange: (e) => onChange?.(e.target.value) }
+          : { defaultValue: defaultValue ?? '' })}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
         className={`${input}${error ? ` ${inputInvalid}` : ''}`}
       >
-        {placeholder !== undefined && <option value="">{placeholder}</option>}
+        {/* Disabled when required, so the placeholder can't be picked back. */}
+        {placeholder !== undefined && (
+          <option value="" disabled={required}>
+            {placeholder}
+          </option>
+        )}
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}

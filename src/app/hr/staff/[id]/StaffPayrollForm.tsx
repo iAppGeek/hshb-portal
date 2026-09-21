@@ -13,13 +13,11 @@ import {
 import type { ActionResult } from '@/lib/action'
 import {
   CheckboxField,
-  FieldError,
   FormActions,
   FormGrid,
   FormSection,
   SelectField,
   TextField,
-  formStyles,
   useServerForm,
 } from '@/components/form'
 
@@ -99,25 +97,26 @@ export default function StaffPayrollForm({
         description="Hidden by default. Use the eye button to check what was entered."
       >
         <FormGrid>
-          <div className="sm:col-span-2">
-            <TextField
-              label="Account holder name"
-              name="bank_account_name"
-              defaultValue={payroll?.bank_account_name}
-              error={fieldError('bank_account_name')}
-            />
-          </div>
+          <TextField
+            label="Account holder name"
+            name="bank_account_name"
+            defaultValue={payroll?.bank_account_name}
+            className="sm:col-span-2"
+            error={fieldError('bank_account_name')}
+          />
           <SecretField
             label="Sort code"
             name="bank_sort_code"
             defaultValue={payroll?.bank_sort_code ?? null}
             maxLength={8}
+            error={fieldError('bank_sort_code')}
           />
           <SecretField
             label="Account number"
             name="bank_account_number"
             defaultValue={payroll?.bank_account_number ?? null}
             maxLength={10}
+            error={fieldError('bank_account_number')}
           />
         </FormGrid>
       </FormSection>
@@ -125,12 +124,12 @@ export default function StaffPayrollForm({
       <FormSection title="ID and right to work">
         <FormGrid>
           <div className="sm:col-span-2">
-            <ControlledCheckbox
+            <CheckboxField
               label="ID verified"
               name="id_verified"
               checked={idVerified}
               onChange={setIdVerified}
-              hint={verifiedByHint(idVerifiedByName)}
+              description={verifiedByHint(idVerifiedByName)}
             />
           </div>
           <SelectField
@@ -152,7 +151,7 @@ export default function StaffPayrollForm({
           />
           <div className="hidden sm:block" />
           <div className="sm:col-span-2">
-            <ControlledCheckbox
+            <CheckboxField
               label="Right to work checked"
               name="right_to_work_checked"
               checked={rightToWorkChecked}
@@ -173,12 +172,12 @@ export default function StaffPayrollForm({
       <FormSection title="DBS">
         <FormGrid>
           <div className="sm:col-span-2">
-            <ControlledCheckbox
+            <CheckboxField
               label="DBS verified"
               name="dbs_verified"
               checked={dbsVerified}
               onChange={setDbsVerified}
-              hint={verifiedByHint(dbsVerifiedByName)}
+              description={verifiedByHint(dbsVerifiedByName)}
             />
           </div>
           <SelectField
@@ -197,33 +196,15 @@ export default function StaffPayrollForm({
             defaultValue={payroll?.dbs_reference}
             error={fieldError('dbs_reference')}
           />
-          <div>
-            <label htmlFor="dbs_issue_date" className={formStyles.label}>
-              DBS issue date
-              {dbsVerified && (
-                <span className={formStyles.requiredMark}>*</span>
-              )}
-            </label>
-            <input
-              id="dbs_issue_date"
-              name="dbs_issue_date"
-              type="date"
-              required={dbsVerified}
-              value={dbsIssueDate}
-              onChange={(e) => handleDbsIssueDateChange(e.target.value)}
-              aria-invalid={fieldError('dbs_issue_date') ? true : undefined}
-              aria-describedby={
-                fieldError('dbs_issue_date')
-                  ? 'dbs_issue_date-error'
-                  : undefined
-              }
-              className={`${formStyles.input}${fieldError('dbs_issue_date') ? ` ${formStyles.inputInvalid}` : ''}`}
-            />
-            <FieldError
-              id="dbs_issue_date-error"
-              error={fieldError('dbs_issue_date')}
-            />
-          </div>
+          <TextField
+            label="DBS issue date"
+            name="dbs_issue_date"
+            type="date"
+            required={dbsVerified}
+            value={dbsIssueDate}
+            onChange={handleDbsIssueDateChange}
+            error={fieldError('dbs_issue_date')}
+          />
           <TextField
             label="DBS verified on"
             name="dbs_verified_at"
@@ -232,22 +213,15 @@ export default function StaffPayrollForm({
             defaultValue={payroll?.dbs_verified_at}
             error={fieldError('dbs_verified_at')}
           />
-          <div>
-            <label htmlFor="dbs_renewal_due" className={formStyles.label}>
-              DBS renewal due
-            </label>
-            <input
-              id="dbs_renewal_due"
-              name="dbs_renewal_due"
-              type="date"
-              value={dbsRenewalDue}
-              onChange={(e) => setDbsRenewalDue(e.target.value)}
-              className={formStyles.input}
-            />
-            <p className={formStyles.hint}>
-              Defaults to {DBS_RENEWAL_YEARS} years after the issue date.
-            </p>
-          </div>
+          <TextField
+            label="DBS renewal due"
+            name="dbs_renewal_due"
+            type="date"
+            value={dbsRenewalDue}
+            onChange={setDbsRenewalDue}
+            hint={`Defaults to ${DBS_RENEWAL_YEARS} years after the issue date.`}
+            error={fieldError('dbs_renewal_due')}
+          />
           <CheckboxField
             label="Barred list checked"
             name="dbs_barred_list_checked"
@@ -297,45 +271,6 @@ export default function StaffPayrollForm({
   )
 }
 
-/**
- * The kit's `CheckboxField` is uncontrolled (`defaultChecked` only); several
- * checks here drive a dependent field's `required` state, so they need to
- * stay controlled. Styled to match `CheckboxField` exactly.
- */
-function ControlledCheckbox({
-  label,
-  name,
-  checked,
-  onChange,
-  hint,
-}: {
-  label: string
-  name: string
-  checked: boolean
-  onChange: (checked: boolean) => void
-  hint?: string
-}): React.ReactElement {
-  return (
-    <div className="flex items-start gap-2">
-      <input
-        id={name}
-        name={name}
-        type="checkbox"
-        value="on"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-      />
-      <div>
-        <label htmlFor={name} className={formStyles.label}>
-          {label}
-        </label>
-        {hint && <p className="text-xs text-gray-500">{hint}</p>}
-      </div>
-    </div>
-  )
-}
-
 function CertificateSection({
   title,
   prefix,
@@ -358,7 +293,7 @@ function CertificateSection({
     <FormSection title={title}>
       <FormGrid>
         <div className="sm:col-span-2">
-          <ControlledCheckbox
+          <CheckboxField
             label={`${title} certified`}
             name={`${prefix}_certified`}
             checked={certified}

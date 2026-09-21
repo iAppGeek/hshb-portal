@@ -6,8 +6,8 @@ import {
   FormActions,
   FormGrid,
   FormSection,
+  SelectField,
   TextField,
-  formStyles,
   useServerForm,
 } from '@/components/form'
 import { roleDescriptions } from '@/lib/roleLabels'
@@ -77,27 +77,17 @@ export default function EditStaffForm({ staff }: { staff: StaffData }) {
             defaultValue={staff.email}
             error={fieldError('email')}
           />
-          <div>
-            <label htmlFor="role" className={formStyles.label}>
-              Role<span className={formStyles.requiredMark}>*</span>
-            </label>
-            <select
-              id="role"
-              name="role"
-              required
-              value={selectedRole}
-              onChange={(e) => setSelectedRole(e.target.value as StaffRole)}
-              className={formStyles.input}
-            >
-              <option value="">Select a role…</option>
-              {ROLES.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-            <p className={formStyles.hint}>{roleDescriptions[selectedRole]}</p>
-          </div>
+          <SelectField
+            label="Role"
+            name="role"
+            required
+            value={selectedRole}
+            onChange={(v) => setSelectedRole(v as StaffRole)}
+            placeholder="Select a role…"
+            options={ROLES}
+            hint={roleDescriptions[selectedRole]}
+            error={fieldError('role')}
+          />
           <TextField
             label="Display name"
             name="display_name"

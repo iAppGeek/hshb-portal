@@ -115,6 +115,7 @@ export default function EditGuardianForm({ guardian, linkedStudents }: Props) {
             submitLabel="Save changes"
             isPending={isPending}
             cancelHref="/students"
+            cancelLabel="Back to students"
             error={error ?? undefined}
           />
         </div>
