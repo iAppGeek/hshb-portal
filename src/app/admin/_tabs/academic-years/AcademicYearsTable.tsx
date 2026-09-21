@@ -38,7 +38,8 @@ export default function AcademicYearsTable({
 }: Props): React.ReactElement {
   const [editingId, setEditingId] = useState<string | null>(null)
   // Held here so "Make current" moves the badge (and clears the no-current
-  // banner) from the action's result, without re-fetching the tab.
+  // banner) from the action's result, without re-fetching the tab. Copied
+  // from props once: the tab keys this on the current year to re-sync it.
   const [currentId, setCurrentId] = useState(
     years.find((y) => y.is_current)?.id ?? null,
   )

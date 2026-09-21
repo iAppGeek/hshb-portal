@@ -19,6 +19,7 @@ export default async function AcademicYearsTab(): Promise<React.ReactElement> {
     })),
   )
   const countsById = new Map(counts.map((c) => [c.id, c]))
+  const currentId = years.find((y) => y.is_current)?.id ?? null
   const latest = years[0] ?? null
   const suggested = latest
     ? nextAcademicYear(latest.code)
@@ -27,7 +28,10 @@ export default async function AcademicYearsTab(): Promise<React.ReactElement> {
   return (
     <div className="space-y-6">
       {years.length > 0 && (
+        // Keyed on the saved current year: the table holds it in state, so a
+        // re-render with a different one starts it afresh.
         <AcademicYearsTable
+          key={currentId ?? 'none'}
           years={years.map((y) => ({
             id: y.id,
             code: y.code,

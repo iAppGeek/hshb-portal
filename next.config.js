@@ -3,9 +3,8 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   reactCompiler: true,
-  // The route badge sits bottom-left, over the sidebar's Sign out button.
-  // Compile and runtime errors still show without it.
-  devIndicators: false,
+  // Bottom-left (the default) covers the sidebar's Sign out button.
+  devIndicators: { position: 'bottom-right' },
 }
 
 module.exports = nextConfig

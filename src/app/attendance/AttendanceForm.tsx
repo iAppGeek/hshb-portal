@@ -47,6 +47,8 @@ export default function AttendanceForm({
   header,
 }: Props) {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
+  // `statuses` and `taken` are copied from props once. The attendance page
+  // keys the register on class and date, so a new register remounts this.
   const [statuses, setStatuses] = useState<
     Record<string, AttendanceStatus | null>
   >(() => {
