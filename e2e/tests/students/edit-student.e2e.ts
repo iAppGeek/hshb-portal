@@ -66,4 +66,11 @@ test.describe('Edit student', () => {
       'After',
     )
   })
+
+  test('shows the not-found page for a student that does not exist', async ({
+    page,
+  }) => {
+    await page.goto('/students/00000000-0000-0000-0000-000000000000/edit')
+    await expect(page.getByRole('heading', { name: 'Not found' })).toBeVisible()
+  })
 })

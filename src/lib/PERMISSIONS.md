@@ -50,8 +50,13 @@ Four roles exist: **teacher**, **admin**, **headteacher**, **secretary**.
   the only gate. The public `/register` actions are the only ones allowed to
   pass `public: true`, which skips both checks. `src/security.spec.ts` enforces
   both rules.
-- Pages get the actor from `requireSession()` / `requireRole()` in
-  `src/auth/require.ts` rather than calling `auth()` directly.
+- Pages get the actor from `requireSession()` / `requireRole()` /
+  `requireRouteAccess()` in `src/auth/require.ts` rather than calling `auth()`
+  directly. `requireRouteAccess(pathname)` reuses the route's own permission
+  from `src/lib/routes.ts` — the same list `proxy.ts` and the sidebar read —
+  for pages whose access rule matches the route exactly; pages with a finer
+  rule (e.g. guardians redirecting to `/students` instead of `/dashboard`)
+  keep an explicit `requireRole()`/`redirect()` check.
 
 ## Notes
 
