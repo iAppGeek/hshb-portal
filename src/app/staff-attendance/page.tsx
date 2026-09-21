@@ -115,7 +115,7 @@ export default async function StaffAttendancePage({
 
   return (
     <div className="max-w-5xl print:max-w-none">
-      <style>{`@page { size: A4 portrait; margin: 10mm; } @media print { a[href]::after { content: none !important; } }`}</style>
+      <PrintPageSetup />
 
       {/* Screen toolbar */}
       <div className="print:hidden">
