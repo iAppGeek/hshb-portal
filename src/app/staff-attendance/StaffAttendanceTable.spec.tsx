@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent, act, within } from '@testing-library/react'
 
 vi.mock('./actions', () => ({
   signInAction: vi.fn(),
@@ -395,6 +395,79 @@ describe('StaffAttendanceTable', () => {
       expect(
         screen.getAllByText(/In 09:00 · Out 17:00/).length,
       ).toBeGreaterThan(0)
+    })
+  })
+
+  describe('print sheet', () => {
+    function printSheet(): HTMLElement {
+      return screen
+        .getByText('Staff Sign-In Sheet')
+        .parentElement!.nextElementSibling!.querySelector('table')!
+    }
+
+    it('is only rendered when asked for', () => {
+      const props = {
+        rows: [{ staff: staffA, record: null }],
+        defaultTime: '09:00',
+        date: '2026-03-18',
+        role: 'admin' as const,
+        currentStaffId: 'admin-1',
+      }
+      const { rerender } = render(<StaffAttendanceTable {...props} />)
+      expect(screen.queryByText('Staff Sign-In Sheet')).toBeNull()
+
+      rerender(<StaffAttendanceTable {...props} withPrintSheet />)
+      expect(screen.getByText('Staff Sign-In Sheet')).toBeInTheDocument()
+    })
+
+    it('shows a sign-in as soon as it is saved', async () => {
+      vi.mocked(signInAction).mockResolvedValue({ data: signedInRecord })
+
+      render(
+        <StaffAttendanceTable
+          rows={[{ staff: staffA, record: null }]}
+          defaultTime="09:00"
+          date="2026-03-18"
+          role="admin"
+          currentStaffId="admin-1"
+          withPrintSheet
+        />,
+      )
+      expect(within(printSheet()).queryByText('09:00')).toBeNull()
+
+      await act(async () => {
+        fireEvent.submit(
+          screen.getByRole('button', { name: 'Sign In' }).closest('form')!,
+        )
+      })
+
+      expect(within(printSheet()).getByText('09:00')).toBeInTheDocument()
+    })
+
+    it('keeps the rendered rows when a save fails', async () => {
+      vi.mocked(signOutAction).mockResolvedValue({
+        error: 'Failed to sign out. Please try again.',
+      })
+
+      render(
+        <StaffAttendanceTable
+          rows={[{ staff: staffA, record: signedInRecord }]}
+          defaultTime="17:00"
+          date="2026-03-18"
+          role="admin"
+          currentStaffId="admin-1"
+          withPrintSheet
+        />,
+      )
+
+      await act(async () => {
+        fireEvent.submit(
+          screen.getByRole('button', { name: 'Sign Out' }).closest('form')!,
+        )
+      })
+
+      expect(within(printSheet()).getByText('09:00')).toBeInTheDocument()
+      expect(within(printSheet()).queryByText('17:00')).toBeNull()
     })
   })
 })
