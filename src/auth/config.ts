@@ -4,23 +4,24 @@ import Credentials from 'next-auth/providers/credentials'
 import MicrosoftEntraID from 'next-auth/providers/microsoft-entra-id'
 
 import { getStaffByEmail } from '@/db'
+import { env } from '@/env.server'
 import { StaffRole } from '@/types/next-auth'
 
 const providers: Provider[] = [
   MicrosoftEntraID({
-    clientId: process.env.AZURE_AD_CLIENT_ID!,
-    clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
-    issuer: `https://login.microsoftonline.com/${process.env.AZURE_AD_TENANT_ID}/v2.0`,
+    clientId: env.AZURE_AD_CLIENT_ID,
+    clientSecret: env.AZURE_AD_CLIENT_SECRET,
+    issuer: `https://login.microsoftonline.com/${env.AZURE_AD_TENANT_ID}/v2.0`,
   }),
 ]
 
-if (process.env.E2E_TEST === 'true' && process.env.NODE_ENV !== 'production') {
+if (env.E2E_TEST === 'true' && env.NODE_ENV !== 'production') {
   providers.push(
     Credentials({
       id: 'test-credentials',
       credentials: { email: {}, password: {} },
       async authorize(credentials) {
-        if (credentials?.password !== process.env.E2E_TEST_SECRET) return null
+        if (credentials?.password !== env.E2E_TEST_SECRET) return null
         const staff = await getStaffByEmail(credentials.email as string)
         if (!staff) return null
         return {

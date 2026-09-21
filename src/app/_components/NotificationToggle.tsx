@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { BellIcon, BellSlashIcon } from '@heroicons/react/24/outline'
 
+import { env } from '@/env'
 import {
   urlBase64ToUint8Array,
   saveSubscription,
@@ -13,7 +14,7 @@ import {
 type Status =
   'loading' | 'unsupported' | 'denied' | 'subscribed' | 'unsubscribed'
 
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
+const VAPID_PUBLIC_KEY = env.client.NEXT_PUBLIC_VAPID_PUBLIC_KEY
 
 export default function NotificationToggle() {
   const [status, setStatus] = useState<Status>('loading')

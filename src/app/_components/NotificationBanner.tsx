@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react'
 import { BellIcon, XMarkIcon } from '@heroicons/react/24/outline'
 
+import { env } from '@/env'
 import { urlBase64ToUint8Array, saveSubscription } from '@/lib/push-client'
 
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
+const VAPID_PUBLIC_KEY = env.client.NEXT_PUBLIC_VAPID_PUBLIC_KEY
 const DISMISSED_KEY = 'push-notif-dismissed'
 
 export default function NotificationBanner() {

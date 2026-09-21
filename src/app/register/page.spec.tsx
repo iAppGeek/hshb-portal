@@ -1,9 +1,15 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
 import { getAllClasses } from '@/db'
 
 import RegisterPage, { metadata } from './page'
+
+const mockEnv = vi.hoisted(() => ({
+  client: { NEXT_PUBLIC_TURNSTILE_SITE_KEY: 'test-site-key' as string },
+}))
+
+vi.mock('@/env', () => ({ env: mockEnv }))
 
 vi.mock('@/db', () => ({
   getAllClasses: vi.fn(),
@@ -17,15 +23,11 @@ vi.mock('./RegistrationForm', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
-})
-
-afterEach(() => {
-  delete process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+  mockEnv.client.NEXT_PUBLIC_TURNSTILE_SITE_KEY = 'test-site-key'
 })
 
 describe('RegisterPage', () => {
   it('derives year groups from active classes and renders the form', async () => {
-    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY = 'test-site-key'
     vi.mocked(getAllClasses).mockResolvedValue([
       { year_group: 'Year 2' },
       { year_group: 'Year 1' },
@@ -40,7 +42,7 @@ describe('RegisterPage', () => {
   })
 
   it('shows an unavailable notice when the site key is missing', async () => {
-    delete process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+    mockEnv.client.NEXT_PUBLIC_TURNSTILE_SITE_KEY = ''
     vi.mocked(getAllClasses).mockResolvedValue([])
 
     render(await RegisterPage())

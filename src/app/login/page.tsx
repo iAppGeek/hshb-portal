@@ -3,6 +3,7 @@ import { type Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
 import { auth, signIn } from '@/auth'
+import { env } from '@/env.server'
 import logo from '@/images/logo.png'
 import microsoftIcon from '@/images/icons/microsoft.svg'
 
@@ -60,7 +61,7 @@ export default async function LoginPage({
           This portal is for authorised HSHB staff only.
         </p>
 
-        {process.env.E2E_TEST === 'true' && (
+        {env.E2E_TEST === 'true' && (
           <form
             className="mt-4"
             action={async (formData: FormData) => {

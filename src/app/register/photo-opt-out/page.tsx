@@ -1,5 +1,7 @@
 import { type Metadata } from 'next'
 
+import { env } from '@/env'
+
 import PhotoOptOutForm from './PhotoOptOutForm'
 
 export const metadata: Metadata = {
@@ -10,7 +12,7 @@ export const metadata: Metadata = {
 }
 
 export default function PhotoOptOutPage() {
-  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? null
+  const turnstileSiteKey = env.client.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">

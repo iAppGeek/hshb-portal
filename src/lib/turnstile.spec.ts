@@ -1,14 +1,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
+const mockEnv = vi.hoisted(() => ({
+  TURNSTILE_SECRET_KEY: 'test-secret',
+  TURNSTILE_EXPECTED_HOSTNAME: undefined as string | undefined,
+}))
+
+vi.mock('@/env.server', () => ({ env: mockEnv }))
+
 import { verifyTurnstileToken, omitTurnstileToken } from './turnstile'
 
 describe('verifyTurnstileToken', () => {
   beforeEach(() => {
-    vi.stubEnv('TURNSTILE_SECRET_KEY', 'test-secret')
+    mockEnv.TURNSTILE_SECRET_KEY = 'test-secret'
+    mockEnv.TURNSTILE_EXPECTED_HOSTNAME = undefined
   })
 
   afterEach(() => {
-    vi.unstubAllEnvs()
     vi.restoreAllMocks()
   })
 
@@ -86,7 +93,7 @@ describe('verifyTurnstileToken', () => {
 
   describe('hostname verification', () => {
     it('returns false when TURNSTILE_EXPECTED_HOSTNAME is set and the hostname differs', async () => {
-      vi.stubEnv('TURNSTILE_EXPECTED_HOSTNAME', 'portal.hshb.org.uk')
+      mockEnv.TURNSTILE_EXPECTED_HOSTNAME = 'portal.hshb.org.uk'
       vi.spyOn(global, 'fetch').mockResolvedValue(
         new Response(
           JSON.stringify({ success: true, hostname: 'evil.example.com' }),
@@ -98,7 +105,7 @@ describe('verifyTurnstileToken', () => {
     })
 
     it('returns true when TURNSTILE_EXPECTED_HOSTNAME matches the hostname', async () => {
-      vi.stubEnv('TURNSTILE_EXPECTED_HOSTNAME', 'portal.hshb.org.uk')
+      mockEnv.TURNSTILE_EXPECTED_HOSTNAME = 'portal.hshb.org.uk'
       vi.spyOn(global, 'fetch').mockResolvedValue(
         new Response(
           JSON.stringify({ success: true, hostname: 'portal.hshb.org.uk' }),

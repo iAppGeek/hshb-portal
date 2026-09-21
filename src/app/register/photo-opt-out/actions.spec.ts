@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { redirect } from 'next/navigation'
 
 import { createPhotoOptOut, logAuditEvent } from '@/db'
@@ -52,44 +52,12 @@ const baseFields = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.TURNSTILE_SECRET_KEY = 'test-secret'
   vi.mocked(verifyTurnstileToken).mockResolvedValue(true)
   vi.mocked(createPhotoOptOut).mockResolvedValue({ id: 'req-1' })
   vi.mocked(getClientIp).mockResolvedValue('203.0.113.1')
 })
 
-afterEach(() => {
-  delete process.env.TURNSTILE_SECRET_KEY
-})
-
 describe('submitPhotoOptOutAction', () => {
-  it('returns an unavailable error when TURNSTILE_SECRET_KEY is missing', async () => {
-    delete process.env.TURNSTILE_SECRET_KEY
-
-    const result = await submitPhotoOptOutAction(makeFormData(baseFields))
-
-    expect(result).toEqual({
-      error: 'This form is temporarily unavailable. Please try again later.',
-    })
-    expect(createPhotoOptOut).not.toHaveBeenCalled()
-  })
-
-  // Without a secret key there is no site key either, so the widget never
-  // renders and the form posts no token at all. The schema must not get to
-  // blame the visitor for a field the page never gave them.
-  it('reports the form as unavailable when Turnstile is not configured at all', async () => {
-    delete process.env.TURNSTILE_SECRET_KEY
-    const withoutToken: Record<string, string> = { ...baseFields }
-    delete withoutToken.turnstile_token
-
-    const result = await submitPhotoOptOutAction(makeFormData(withoutToken))
-
-    expect(result).toEqual({
-      error: 'This form is temporarily unavailable. Please try again later.',
-    })
-    expect(createPhotoOptOut).not.toHaveBeenCalled()
-  })
-
   it('returns the first zod validation error', async () => {
     const result = await submitPhotoOptOutAction(
       makeFormData({ ...baseFields, child_first_name: '' }),

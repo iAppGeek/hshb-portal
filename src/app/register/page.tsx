@@ -1,6 +1,7 @@
 import { type Metadata } from 'next'
 
 import { getAllClasses } from '@/db'
+import { env } from '@/env'
 import { distinctYearGroups } from '@/lib/registration'
 
 import RegistrationForm from './RegistrationForm'
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
 }
 
 export default async function RegisterPage() {
-  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? null
+  const turnstileSiteKey = env.client.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
   const classes = await getAllClasses()
   const yearGroups = distinctYearGroups(classes)

@@ -3,11 +3,13 @@ import 'server-only'
 import webpush from 'web-push'
 
 import type { PushSubscriptionRow } from '@/db'
+import { env } from '@/env'
+import { env as serverEnv } from '@/env.server'
 
 webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!,
+  serverEnv.VAPID_SUBJECT,
+  env.client.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+  serverEnv.VAPID_PRIVATE_KEY,
 )
 
 export type AttendancePushPayload = {
