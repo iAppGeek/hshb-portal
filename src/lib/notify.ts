@@ -34,7 +34,9 @@ async function sendToSubscriptions(
         data: { url: n.url },
       }).catch((err: unknown) => {
         if (isStaleSubscription(err)) {
-          return deletePushSubscription(sub.endpoint)
+          return deletePushSubscription(sub.endpoint).catch((e: unknown) =>
+            logError('notify', e),
+          )
         }
         logError('notify', err)
       }),

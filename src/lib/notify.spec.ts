@@ -105,6 +105,22 @@ describe('notifyAdmins', () => {
     },
   )
 
+  it('logs a failed stale-subscription delete without rejecting', async () => {
+    vi.mocked(getAdminSubscriptions).mockResolvedValue([mockSub])
+    vi.mocked(deletePushSubscription).mockRejectedValue(new Error('DB down'))
+    vi.mocked(sendPushNotification).mockRejectedValue(
+      Object.assign(new Error('Gone'), { statusCode: 410 }),
+    )
+
+    notifyAdmins(notification)
+    await expect(runScheduled()).resolves.toBeUndefined()
+
+    expect(consoleError).toHaveBeenCalledWith(
+      '[notify]',
+      expect.objectContaining({ message: 'DB down' }),
+    )
+  })
+
   it('logs other push errors without rejecting', async () => {
     vi.mocked(getAdminSubscriptions).mockResolvedValue([mockSub])
     vi.mocked(sendPushNotification).mockRejectedValue(

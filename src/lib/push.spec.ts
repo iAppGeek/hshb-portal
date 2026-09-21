@@ -44,10 +44,12 @@ describe('sendPushNotification', () => {
       },
       JSON.stringify(mockPayload),
       {
+        // From the environment: vitest.setup.ts only fills these in when CI
+        // hasn't already set them.
         vapidDetails: {
-          subject: 'mailto:test@example.com',
-          publicKey: 'test-vapid-public-key',
-          privateKey: 'test-vapid-private-key',
+          subject: process.env.VAPID_SUBJECT,
+          publicKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+          privateKey: process.env.VAPID_PRIVATE_KEY,
         },
       },
     )
