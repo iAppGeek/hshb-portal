@@ -15,7 +15,6 @@ import { sendPushNotification } from '@/lib/push'
 
 import { saveAttendanceAction } from './actions'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 
 vi.mock('@/db', () => ({

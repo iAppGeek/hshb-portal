@@ -6,7 +6,6 @@ import { updateStaff } from '@/db'
 
 import { updateStaffAction } from './actions'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 
 vi.mock('next/navigation', async (importOriginal) => ({

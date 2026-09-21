@@ -12,7 +12,6 @@ import {
 
 import RegistrationsPage from './page'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/auth', () => ({
   auth: vi.fn(),
 }))

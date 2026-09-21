@@ -7,7 +7,6 @@ import { getAcademicYears, getCurrentAcademicYear } from '@/db'
 
 import FinancePage from './page'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/auth', () => ({ auth: vi.fn() }))
 vi.mock('@/db', () => ({
   getAcademicYears: vi.fn(),

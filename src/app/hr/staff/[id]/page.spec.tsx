@@ -7,7 +7,6 @@ import { getAllStaff, getStaffById, getStaffPayrollByStaffId } from '@/db'
 
 import StaffPayrollPage from './page'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/auth', () => ({ auth: vi.fn() }))
 vi.mock('next/navigation', async (importOriginal) => ({
   ...(await importOriginal<typeof import('next/navigation')>()),

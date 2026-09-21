@@ -8,7 +8,6 @@ import { logAuditEvent } from '@/db'
 
 import { runAction, ActionError } from './action'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('@/db', () => ({ logAuditEvent: vi.fn() }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))

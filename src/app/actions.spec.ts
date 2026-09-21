@@ -5,7 +5,6 @@ import { getActor } from '@/auth/require'
 
 import { revalidateAllCaches } from './actions'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/db', () => ({ logAuditEvent: vi.fn() }))
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('next/cache', () => ({ updateTag: vi.fn() }))

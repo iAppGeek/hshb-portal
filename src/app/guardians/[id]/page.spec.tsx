@@ -7,7 +7,6 @@ import { getGuardianById, getFamilyForGuardian } from '@/db'
 
 import GuardianFamilyPage from './page'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/auth', () => ({
   auth: vi.fn(),
 }))

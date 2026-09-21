@@ -7,7 +7,6 @@ import { createGuardian, createStudent, getGuardianById } from '@/db'
 
 import { createStudentAction } from './actions'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 
 vi.mock('@/db', () => ({

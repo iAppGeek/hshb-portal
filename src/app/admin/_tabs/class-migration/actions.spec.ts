@@ -7,7 +7,6 @@ import { migrateClass, logAuditEvent } from '@/db'
 
 import { migrateClassAction } from './actions'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('next/navigation', async (importOriginal) => ({
   ...(await importOriginal<typeof import('next/navigation')>()),

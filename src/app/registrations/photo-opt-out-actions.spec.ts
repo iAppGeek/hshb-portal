@@ -17,7 +17,6 @@ import {
   deletePhotoOptOutAction,
 } from './photo-opt-out-actions'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('next/navigation', async (importOriginal) => ({
   ...(await importOriginal<typeof import('next/navigation')>()),

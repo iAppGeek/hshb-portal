@@ -7,7 +7,6 @@ import { verifyTurnstileToken } from '@/lib/turnstile'
 
 import { submitRegistrationAction } from './actions'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('@/db', () => ({
   createRegistrationSubmission: vi.fn(),

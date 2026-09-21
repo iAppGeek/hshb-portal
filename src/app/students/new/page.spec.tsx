@@ -7,7 +7,6 @@ import { getAllGuardians } from '@/db'
 
 import AddStudentPage from './page'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/auth', () => ({
   auth: vi.fn(),
 }))

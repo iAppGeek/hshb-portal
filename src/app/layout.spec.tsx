@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { ReactElement } from 'react'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/db', () => ({ logAuditEvent: vi.fn() }))
 vi.mock('@/auth', () => ({
   auth: vi.fn(),

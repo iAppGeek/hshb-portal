@@ -13,7 +13,6 @@ import {
 
 import RegistrationDetailPage from './page'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/auth', () => ({ auth: vi.fn() }))
 
 vi.mock('@/db', () => ({

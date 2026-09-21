@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache'
 import { getActor } from '@/auth/require'
 import { signInStaff, signOutStaff } from '@/db'
 
-vi.mock('server-only', () => ({}))
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('@/db', () => ({
   signInStaff: vi.fn(),

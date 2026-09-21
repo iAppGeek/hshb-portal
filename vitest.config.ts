@@ -26,6 +26,14 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // `server-only` is a marker package whose main entry does nothing but
+      // throw; its exports map only serves the empty build under the
+      // `react-server` condition, which tests do not run with. Resolving it
+      // here saves every spec that touches a server module from mocking it.
+      'server-only': path.resolve(
+        __dirname,
+        './node_modules/server-only/empty.js',
+      ),
     },
   },
 })
