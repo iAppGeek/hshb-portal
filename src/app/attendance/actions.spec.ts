@@ -358,6 +358,78 @@ describe('saveAttendanceAction', () => {
     expect(saveAttendance).toHaveBeenCalled()
   })
 
+  it('returns the rows as written so the form can update in place', async () => {
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      name: null,
+      email: '',
+    } as any)
+    vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
+    const written = [
+      {
+        id: 'att-1',
+        class_id: CLASS_ID,
+        student_id: STUDENT_1,
+        date: '2024-03-08',
+        status: 'present',
+        updated_at: '2024-03-08T09:00:00Z',
+      },
+    ]
+    vi.mocked(saveAttendance).mockResolvedValue(written as any)
+    vi.mocked(getClassById).mockResolvedValue({
+      id: CLASS_ID,
+      name: 'Class A',
+      academic_year_id: YEAR_ID,
+      active: true,
+    } as any)
+    vi.mocked(getAdminSubscriptions).mockResolvedValue([])
+
+    const result = await saveAttendanceAction(
+      makeFormData({
+        classId: CLASS_ID,
+        date: '2024-03-08',
+        studentId: STUDENT_1,
+      }),
+    )
+
+    expect(result).toEqual({
+      data: {
+        classId: CLASS_ID,
+        date: '2024-03-08',
+        isUpdate: false,
+        saved: written,
+      },
+    })
+  })
+
+  it('responds without waiting for the push notifications', async () => {
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      name: null,
+      email: '',
+    } as any)
+    vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
+    vi.mocked(saveAttendance).mockResolvedValue([] as any)
+    vi.mocked(getClassById).mockResolvedValue({
+      id: CLASS_ID,
+      name: 'Class A',
+      academic_year_id: YEAR_ID,
+      active: true,
+    } as any)
+    // Never settles: if the action awaited the push it would never resolve.
+    vi.mocked(getAdminSubscriptions).mockReturnValue(new Promise(() => {}))
+
+    await expect(
+      saveAttendanceAction(
+        makeFormData({
+          classId: CLASS_ID,
+          date: '2024-03-08',
+          studentId: STUDENT_1,
+        }),
+      ),
+    ).resolves.toHaveProperty('data')
+  })
+
   it('allows secretary to save new attendance (no existing records)', async () => {
     vi.mocked(getActor).mockResolvedValue({
       staffId: SECRETARY_ID,

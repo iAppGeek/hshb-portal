@@ -1,11 +1,12 @@
 import type { AttendanceRangeRow, SummaryClass } from '@/lib/attendanceSummary'
-import type { TablesInsert } from '@/types/database'
+import type { Tables, TablesInsert } from '@/types/database'
 
 import { supabase } from './client'
 import { fetchAllPages } from './paging'
 
 export type AttendanceStatus = 'present' | 'absent' | 'late'
 export type AttendanceInsert = TablesInsert<'attendance'>
+export type AttendanceRow = Tables<'attendance'>
 
 export async function getAttendanceByClassAndDate(
   classId: string,
@@ -74,7 +75,9 @@ export async function getAttendanceByDateRange(
     }))
 }
 
-export async function saveAttendance(records: AttendanceInsert[]) {
+export async function saveAttendance(
+  records: AttendanceInsert[],
+): Promise<AttendanceRow[]> {
   const { data, error } = await supabase
     .from('attendance')
     .upsert(records, { onConflict: 'class_id,student_id,date' })
