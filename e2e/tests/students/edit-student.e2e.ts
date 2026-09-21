@@ -9,8 +9,11 @@ test.describe('Edit student', () => {
   let studentId: string
 
   test.beforeEach(async ({}, testInfo) => {
-    const suffix = testInfo.project.name.replace(/[^a-z0-9]/gi, '')
-    lastName = `CacheEdit${suffix}`
+    // Unique per test, not just per project: the tests here run in parallel
+    // and afterEach deletes by last name, so a shared name let the quick
+    // not-found test delete the student the save test was still editing.
+    const suffix = testInfo.testId.replace(/[^a-z0-9]/gi, '')
+    lastName = `EditStudent${suffix}`
 
     const { data: guardian, error: guardianError } = await db
       .from('guardians')
