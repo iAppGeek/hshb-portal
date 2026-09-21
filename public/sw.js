@@ -1,26 +1,57 @@
-const CACHE_NAME = 'hshb-portal-v4'
-
-const PRECACHE_URLS = [
+const STATIC_PRECACHE = [
   '/manifest.json',
   '/offline.html',
   '/icons/portal-icon-192.png',
 ]
 
+/** Set from sw-manifest.json during install/activate. */
+let CACHE_NAME = 'hshb-portal-bootstrap'
+
+async function loadManifest() {
+  const response = await fetch('/sw-manifest.json', { cache: 'no-store' })
+  if (!response.ok) throw new Error(`sw-manifest.json ${response.status}`)
+  return response.json()
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS)),
+    loadManifest()
+      .then((manifest) => {
+        CACHE_NAME = manifest.cacheName
+        return caches
+          .open(CACHE_NAME)
+          .then((cache) =>
+            cache.addAll([...STATIC_PRECACHE, ...(manifest.urls ?? [])]),
+          )
+      })
+      .catch(() =>
+        caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_PRECACHE)),
+      ),
   )
   self.skipWaiting()
 })
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)),
-        ),
+    loadManifest()
+      .then((manifest) => {
+        CACHE_NAME = manifest.cacheName
+        return caches
+          .keys()
+          .then((keys) =>
+            Promise.all(
+              keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)),
+            ),
+          )
+      })
+      .catch(() =>
+        caches
+          .keys()
+          .then((keys) =>
+            Promise.all(
+              keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)),
+            ),
+          ),
       ),
   )
   self.clients.claim()
@@ -44,9 +75,9 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Fonts and CSS only: cache-first (content-hashed, immutable, small set)
-  // JS chunks are already handled by browser HTTP cache (Cache-Control: immutable)
+  // App shell assets: cache-first (content-hashed, immutable)
   if (
+    url.pathname.startsWith('/_next/static/chunks/') ||
     url.pathname.startsWith('/_next/static/media/') ||
     url.pathname.startsWith('/_next/static/css/')
   ) {

@@ -54,3 +54,15 @@ export async function getAdminSubscriptions(): Promise<PushSubscriptionRow[]> {
   if (error) throw error
   return (data ?? []) as unknown as PushSubscriptionRow[]
 }
+
+export async function getSubscriptionsForStaff(
+  staffIds: string[],
+): Promise<PushSubscriptionRow[]> {
+  if (staffIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('push_subscriptions')
+    .select('id, staff_id, endpoint, p256dh, auth, created_at')
+    .in('staff_id', staffIds)
+  if (error) throw error
+  return (data ?? []) as PushSubscriptionRow[]
+}

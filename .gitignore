@@ -37,3 +37,6 @@ ehthumbs.db
 Thumbs.db
 # Local Netlify folder
 .netlify
+
+# Generated at build time for the service worker precache list
+public/sw-manifest.json

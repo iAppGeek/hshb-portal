@@ -7,8 +7,6 @@ import {
   getAttendanceByClassAndDate,
   getClassById,
   getCurrentAcademicYear,
-  getAdminSubscriptions,
-  deletePushSubscription,
   getEnrolmentsForClass,
   saveAttendance,
 } from '@/db'
@@ -17,7 +15,6 @@ import { isClassOpen } from '@/lib/classes'
 import { buildRegisterRoster } from '@/lib/enrolment'
 import { canUpdateAttendance } from '@/lib/permissions'
 import { uuid, isoDate, attendanceStatus, optionalString } from '@/lib/schemas'
-import { sendPushNotification } from '@/lib/push'
 
 const attendanceRecordSchema = z.object({
   studentId: uuid,
@@ -28,42 +25,10 @@ const attendanceRecordSchema = z.object({
 /** The rows as written, so the form updates in place without a re-fetch. */
 export type SavedRegister = {
   classId: string
+  className: string
   date: string
   isUpdate: boolean
   saved: AttendanceRow[]
-}
-
-/**
- * Fire-and-forget: the action returns before any push is sent. Plan 12 moves
- * this out of the action.
- */
-function notifyOthers(
-  className: string,
-  staffId: string,
-  isUpdate: boolean,
-): void {
-  getAdminSubscriptions()
-    .then((subs) => {
-      const others = subs.filter((sub) => sub.staff_id !== staffId)
-      return Promise.allSettled(
-        others.map((sub) =>
-          sendPushNotification(sub, {
-            title: 'Attendance Saved',
-            body: `Attendance for ${className} has been ${isUpdate ? 'updated' : 'saved'}`,
-            data: { url: '/reports' },
-          }).catch((err: unknown) => {
-            if (
-              err instanceof Error &&
-              'statusCode' in err &&
-              (err as { statusCode: number }).statusCode === 410
-            ) {
-              return deletePushSubscription(sub.endpoint)
-            }
-          }),
-        ),
-      )
-    })
-    .catch(() => {})
 }
 
 export async function saveAttendanceAction(
@@ -139,9 +104,7 @@ export async function saveAttendanceAction(
 
       const saved = await saveAttendance(records)
 
-      notifyOthers(cls.name, actor.staffId, isUpdate)
-
-      return { classId, date, isUpdate, saved }
+      return { classId, className: cls.name, date, isUpdate, saved }
     },
     audit: {
       entity: 'attendance',
@@ -149,6 +112,11 @@ export async function saveAttendanceAction(
       entityId: ({ classId }) => classId,
       details: ({ date, saved }) => ({ date, studentCount: saved.length }),
     },
+    notify: ({ className, isUpdate }) => ({
+      title: 'Attendance Saved',
+      body: `Attendance for ${className} has been ${isUpdate ? 'updated' : 'saved'}`,
+      url: '/reports',
+    }),
     fallbackError: 'Failed to save attendance. Please try again.',
   })
 }

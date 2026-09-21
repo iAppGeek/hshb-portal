@@ -395,6 +395,7 @@ describe('saveAttendanceAction', () => {
     expect(result).toEqual({
       data: {
         classId: CLASS_ID,
+        className: 'Class A',
         date: '2024-03-08',
         isUpdate: false,
         saved: written,
