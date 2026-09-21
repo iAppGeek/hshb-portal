@@ -38,6 +38,7 @@ describe('PaymentForm', () => {
         years={years}
         defaultYearId="year-2"
         action={vi.fn()}
+        onAdded={vi.fn()}
       />,
     )
 
@@ -63,6 +64,7 @@ describe('PaymentForm', () => {
         years={years}
         defaultYearId="year-2"
         action={vi.fn()}
+        onAdded={vi.fn()}
       />,
     )
 
@@ -73,14 +75,17 @@ describe('PaymentForm', () => {
     ).toBe('year-1')
   })
 
-  it('submits the payment and clears the form on success', async () => {
-    const action = vi.fn().mockResolvedValue(undefined)
+  it('submits the payment, clears the form and hands back the payment', async () => {
+    const payment = { id: 'pay-1', amount: 75.25, recorder: null }
+    const action = vi.fn().mockResolvedValue({ data: payment })
+    const onAdded = vi.fn()
     render(
       <PaymentForm
         defaultDate="2026-09-13"
         years={years}
         defaultYearId="year-2"
         action={action}
+        onAdded={onAdded}
       />,
     )
 
@@ -94,6 +99,7 @@ describe('PaymentForm', () => {
     expect(fd.get('academic_year_id')).toBe('year-2')
     expect(fd.get('notes')).toBe('')
     expect(field('Payment date').value).toBe('2026-09-13')
+    expect(onAdded).toHaveBeenCalledWith(payment)
   })
 
   it('keeps the entered values and shows an error on failure', async () => {
@@ -104,6 +110,7 @@ describe('PaymentForm', () => {
         years={years}
         defaultYearId="year-2"
         action={action}
+        onAdded={vi.fn()}
       />,
     )
 

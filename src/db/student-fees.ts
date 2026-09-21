@@ -342,27 +342,30 @@ export async function upsertStudentFeeAccount(
   studentId: string,
   yearId: string,
   input: StudentFeeAccountInput,
-): Promise<void> {
-  const { error } = await supabase
+): Promise<StudentFeeAccountRow> {
+  const { data, error } = await supabase
     .from('student_fee_accounts')
     .upsert(
       { ...input, student_id: studentId, academic_year_id: yearId },
       { onConflict: 'student_id,academic_year_id' },
     )
+    .select()
+    .single()
   if (error) throw error
+  return data
 }
 
 export async function addStudentPayment(
   studentId: string,
   input: StudentPaymentInput,
-): Promise<{ id: string }> {
+): Promise<StudentPaymentWithRecorder> {
   const { data, error } = await supabase
     .from('student_payments')
     .insert({ ...input, student_id: studentId })
-    .select('id')
+    .select('*, recorder:staff(first_name, last_name)')
     .single()
   if (error) throw error
-  return data
+  return data as StudentPaymentWithRecorder
 }
 
 /** Scoped to the student so a payment id from another page can't be deleted. */

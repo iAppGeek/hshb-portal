@@ -7,13 +7,15 @@ import type { ActionResult } from '@/lib/action'
 type Props = {
   paymentId: string
   reference: string
-  action: (paymentId: string) => Promise<ActionResult>
+  action: (paymentId: string) => Promise<ActionResult<{ id: string }>>
+  onDeleted: (paymentId: string) => void
 }
 
 export default function DeletePaymentButton({
   paymentId,
   reference,
   action,
+  onDeleted,
 }: Props): React.ReactElement {
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -27,7 +29,9 @@ export default function DeletePaymentButton({
     setError(null)
     startTransition(async () => {
       const result = await action(paymentId)
-      if (result?.error) setError(result.error)
+      if (!result) return
+      if ('error' in result) setError(result.error)
+      else onDeleted(result.data.id)
     })
   }
 

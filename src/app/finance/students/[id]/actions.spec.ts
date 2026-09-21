@@ -93,10 +93,13 @@ describe.each([
 })
 
 describe('saveStudentFeeAccountAction', () => {
-  it('saves the account and logs it', async () => {
+  it('saves the account, logs it and returns the saved row', async () => {
+    const saved = { id: 'acc-1', student_id: 's1', payment_plan: 'termly' }
+    vi.mocked(upsertStudentFeeAccount).mockResolvedValue(saved as never)
+
     expect(
       await saveStudentFeeAccountAction('s1', makeFormData(account)),
-    ).toBeUndefined()
+    ).toEqual({ data: saved })
 
     expect(upsertStudentFeeAccount).toHaveBeenCalledWith('s1', YEAR_ID, {
       payment_plan: 'termly',
@@ -136,10 +139,15 @@ describe('saveStudentFeeAccountAction', () => {
 
 describe('addStudentPaymentAction', () => {
   it('records the payment against the current admin', async () => {
-    vi.mocked(addStudentPayment).mockResolvedValue({ id: 'pay1' })
+    const recorded = {
+      id: 'pay1',
+      amount: 100.5,
+      recorder: { first_name: 'Ada', last_name: 'Admin' },
+    }
+    vi.mocked(addStudentPayment).mockResolvedValue(recorded as never)
 
     expect(await addStudentPaymentAction('s1', makeFormData(payment))).toEqual({
-      data: { id: 'pay1' },
+      data: recorded,
     })
 
     expect(addStudentPayment).toHaveBeenCalledWith('s1', {
@@ -183,7 +191,9 @@ describe('deleteStudentPaymentAction', () => {
   it('deletes the payment and logs it', async () => {
     vi.mocked(deleteStudentPayment).mockResolvedValue(true)
 
-    expect(await deleteStudentPaymentAction('s1', 'pay1')).toBeUndefined()
+    expect(await deleteStudentPaymentAction('s1', 'pay1')).toEqual({
+      data: { id: 'pay1' },
+    })
 
     expect(deleteStudentPayment).toHaveBeenCalledWith('s1', 'pay1')
     expect(logAuditEvent).toHaveBeenCalledWith({

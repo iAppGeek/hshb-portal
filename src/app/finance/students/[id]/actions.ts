@@ -5,16 +5,18 @@ import {
   deleteStudentPayment,
   upsertStudentFeeAccount,
 } from '@/db'
+import type { StudentFeeAccountRow, StudentPaymentWithRecorder } from '@/db'
 import { ActionError, runAction, type ActionResult } from '@/lib/action'
 import { canManageFinance } from '@/lib/permissions'
 import { studentFeeAccountSchema, studentPaymentSchema } from '@/lib/schemas'
 
-// These actions return instead of redirecting so the student page stays open.
+// These actions return the row as written instead of redirecting, so the
+// student page stays open and updates in place.
 
 export async function saveStudentFeeAccountAction(
   studentId: string,
   formData: FormData,
-): Promise<ActionResult> {
+): Promise<ActionResult<StudentFeeAccountRow>> {
   return runAction({
     name: 'finance.student-fees.save',
     permission: canManageFinance,
@@ -34,7 +36,7 @@ export async function saveStudentFeeAccountAction(
 export async function addStudentPaymentAction(
   studentId: string,
   formData: FormData,
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<StudentPaymentWithRecorder>> {
   return runAction({
     name: 'finance.student-fees.add-payment',
     permission: canManageFinance,
@@ -55,7 +57,7 @@ export async function addStudentPaymentAction(
 export async function deleteStudentPaymentAction(
   studentId: string,
   paymentId: string,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ id: string }>> {
   return runAction({
     name: 'finance.student-fees.delete-payment',
     permission: canManageFinance,
@@ -63,6 +65,7 @@ export async function deleteStudentPaymentAction(
     run: async () => {
       const deleted = await deleteStudentPayment(studentId, paymentId)
       if (!deleted) throw new ActionError('That payment no longer exists.')
+      return { id: paymentId }
     },
     audit: {
       entity: 'student_payment',

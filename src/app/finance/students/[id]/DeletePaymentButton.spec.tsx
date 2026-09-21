@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
+import type { ActionResult } from '@/lib/action'
+
 import DeletePaymentButton from './DeletePaymentButton'
 
 afterEach(() => {
@@ -8,10 +10,16 @@ afterEach(() => {
 })
 
 function renderButton(
-  action: (id: string) => Promise<{ error: string } | void>,
+  action: (id: string) => Promise<ActionResult<{ id: string }>>,
+  onDeleted: (id: string) => void = vi.fn(),
 ): void {
   render(
-    <DeletePaymentButton paymentId="pay1" reference="REF-1" action={action} />,
+    <DeletePaymentButton
+      paymentId="pay1"
+      reference="REF-1"
+      action={action}
+      onDeleted={onDeleted}
+    />,
   )
 }
 
@@ -31,16 +39,18 @@ describe('DeletePaymentButton', () => {
     expect(action).not.toHaveBeenCalled()
   })
 
-  it('deletes the payment once confirmed', async () => {
+  it('deletes the payment once confirmed and reports it gone', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
-    const action = vi.fn().mockResolvedValue(undefined)
-    renderButton(action)
+    const action = vi.fn().mockResolvedValue({ data: { id: 'pay1' } })
+    const onDeleted = vi.fn()
+    renderButton(action, onDeleted)
 
     fireEvent.click(
       screen.getByRole('button', { name: 'Delete payment REF-1' }),
     )
 
-    await waitFor(() => expect(action).toHaveBeenCalledWith('pay1'))
+    await waitFor(() => expect(onDeleted).toHaveBeenCalledWith('pay1'))
+    expect(action).toHaveBeenCalledWith('pay1')
     expect(screen.queryByRole('alert')).toBeNull()
   })
 
@@ -55,5 +65,18 @@ describe('DeletePaymentButton', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert').textContent).toBe('Gone'),
     )
+  })
+
+  it('does not report the payment gone when deleting fails', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const onDeleted = vi.fn()
+    renderButton(vi.fn().mockResolvedValue({ error: 'Gone' }), onDeleted)
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Delete payment REF-1' }),
+    )
+
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy())
+    expect(onDeleted).not.toHaveBeenCalled()
   })
 })

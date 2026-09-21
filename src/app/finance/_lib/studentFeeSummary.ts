@@ -1,9 +1,11 @@
 import type {
+  AcademicYearRow,
   FeeClass,
   FeePlanWithClasses,
   PaymentSummary,
   StudentFeeAccountRow,
   StudentFeeListItem,
+  StudentFeeYear,
 } from '@/db'
 import {
   feeStatus,
@@ -15,6 +17,8 @@ import {
   type PaymentPlan,
   type ResolvedFeePlan,
 } from '@/lib/fees'
+
+import { planLabel } from './feePlanClasses'
 
 export type StudentFeeSummary = FeeStatusResult & {
   resolution: ResolvedFeePlan<FeePlanWithClasses>
@@ -106,4 +110,85 @@ export function buildStudentFeeRows(
       priorOwed: priorOwed[s.id] ?? 0,
     }
   })
+}
+
+/** The fee plans the account's override can pick: active ones, plus the
+ * current override even if it has since been deactivated. */
+export function feePlanOptions(
+  plans: FeePlanWithClasses[],
+  account: StudentFeeAccountRow | null,
+): { id: string; label: string }[] {
+  return plans
+    .filter((p) => p.active || p.id === account?.fee_plan_override_id)
+    .map((p) => ({ id: p.id, label: planLabel(p) }))
+}
+
+export type OtherYearRow = {
+  year: AcademicYearRow
+  paid: number
+  total: number | null
+  balance: number | null
+  settled: boolean
+}
+
+/** The detail page's "Other years" strip: every year but the one on screen. */
+export function summariseOtherYears(
+  history: StudentFeeYear[],
+  plansByYear: Record<string, FeePlanWithClasses[]>,
+  currentYearId: string,
+  today: string,
+): OtherYearRow[] {
+  return history
+    .filter((yh) => yh.year.id !== currentYearId)
+    .map((yh) => {
+      const summary = summariseStudentFees(
+        yh,
+        plansByYear[yh.year.id] ?? [],
+        today,
+      )
+      return {
+        year: yh.year,
+        paid: summary.paid,
+        total: summary.total,
+        balance:
+          summary.total === null
+            ? null
+            : Math.max(summary.total - summary.paid, 0),
+        settled: yh.account?.settled ?? false,
+      }
+    })
+}
+
+/**
+ * Adds a payment to its year's history, starting a new entry (newest year
+ * first) when the student had nothing in that year yet — a year with no
+ * class or account, so it needs no plans to summarise.
+ */
+export function addPaymentToHistory(
+  history: StudentFeeYear[],
+  year: AcademicYearRow,
+  payment: PaymentSummary,
+): StudentFeeYear[] {
+  if (history.some((yh) => yh.year.id === year.id)) {
+    return history.map((yh) =>
+      yh.year.id === year.id
+        ? { ...yh, payments: [...yh.payments, payment] }
+        : yh,
+    )
+  }
+  return [
+    ...history,
+    { year, classes: [], account: null, payments: [payment] },
+  ].sort((a, b) => b.year.start_date.localeCompare(a.year.start_date))
+}
+
+/** The order the detail query returns payments in: newest first. */
+export function sortPaymentsNewestFirst<
+  T extends { payment_date: string; created_at: string },
+>(payments: T[]): T[] {
+  return [...payments].sort(
+    (a, b) =>
+      b.payment_date.localeCompare(a.payment_date) ||
+      b.created_at.localeCompare(a.created_at),
+  )
 }

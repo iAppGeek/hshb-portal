@@ -520,11 +520,12 @@ describe('upsertStudentFeeAccount', () => {
     settled_note: null,
   }
 
-  it('upserts on student_id + academic_year_id', async () => {
-    const c = chain({ error: null })
+  it('upserts on student_id + academic_year_id and returns the row', async () => {
+    const row = { id: 'acc1', student_id: 's1', academic_year_id: 'y1' }
+    const c = chain({ data: row, error: null })
     mockFrom.mockReturnValue(c)
 
-    await upsertStudentFeeAccount('s1', 'y1', input)
+    expect(await upsertStudentFeeAccount('s1', 'y1', input)).toEqual(row)
 
     expect(c.upsert).toHaveBeenCalledWith(
       { ...input, student_id: 's1', academic_year_id: 'y1' },
@@ -551,12 +552,20 @@ describe('addStudentPayment', () => {
     recorded_by: 'staff-1',
   }
 
-  it('inserts the payment for the student', async () => {
-    const c = chain({ data: { id: 'pay1' }, error: null })
+  it('inserts the payment for the student and returns it with its recorder', async () => {
+    const row = {
+      id: 'pay1',
+      ...input,
+      recorder: { first_name: 'A', last_name: 'B' },
+    }
+    const c = chain({ data: row, error: null })
     mockFrom.mockReturnValue(c)
 
-    expect(await addStudentPayment('s1', input)).toEqual({ id: 'pay1' })
+    expect(await addStudentPayment('s1', input)).toEqual(row)
     expect(c.insert).toHaveBeenCalledWith({ ...input, student_id: 's1' })
+    expect(c.select).toHaveBeenCalledWith(
+      '*, recorder:staff(first_name, last_name)',
+    )
   })
 
   it('throws on error', async () => {

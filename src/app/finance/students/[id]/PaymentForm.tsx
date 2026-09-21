@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 
+import type { StudentPaymentWithRecorder } from '@/db'
 import {
   academicYearForDate,
   type AcademicYearRange,
@@ -17,7 +18,11 @@ type Props = {
   years: PaymentFormYear[]
   /** Used when the payment date falls outside every known year. */
   defaultYearId: string
-  action: (formData: FormData) => Promise<ActionResult<{ id: string }>>
+  action: (
+    formData: FormData,
+  ) => Promise<ActionResult<StudentPaymentWithRecorder>>
+  /** The payment as recorded, so the page's lists and totals update in place. */
+  onAdded: (payment: StudentPaymentWithRecorder) => void
 }
 
 export default function PaymentForm({
@@ -25,6 +30,7 @@ export default function PaymentForm({
   years,
   defaultYearId,
   action,
+  onAdded,
 }: Props): React.ReactElement {
   const formRef = useRef<HTMLFormElement>(null)
   const [date, setDate] = useState(defaultDate)
@@ -32,17 +38,14 @@ export default function PaymentForm({
     academicYearForDate(years, defaultDate)?.id ?? defaultYearId,
   )
 
-  const { handleSubmit, isPending, error, fieldError } = useServerForm(
-    async (fd) => {
-      const result = await action(fd)
-      if (!result || !('error' in result)) {
-        formRef.current?.reset()
-        setDate(defaultDate)
-        setYearId(academicYearForDate(years, defaultDate)?.id ?? defaultYearId)
-      }
-      return result
+  const { handleSubmit, isPending, error, fieldError } = useServerForm(action, {
+    onSuccess: (payment) => {
+      formRef.current?.reset()
+      setDate(defaultDate)
+      setYearId(academicYearForDate(years, defaultDate)?.id ?? defaultYearId)
+      onAdded(payment)
     },
-  )
+  })
 
   function handleDateChange(value: string): void {
     setDate(value)
