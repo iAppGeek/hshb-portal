@@ -16,7 +16,7 @@ import type { StaffRole } from '@/types/next-auth'
 import PageHeader from '../../_components/PageHeader'
 import { deleteRegistrationAction, rejectRegistrationAction } from '../actions'
 
-import ApproveDialog from './ApproveDialog'
+import RegistrationApproveDialog from './RegistrationApproveDialog'
 
 type ClassOption = { id: string; name: string; year_group: string }
 
@@ -354,7 +354,7 @@ export default function RegistrationReview({
       )}
 
       {approveDialog.isOpen && (
-        <ApproveDialog
+        <RegistrationApproveDialog
           submissionId={submission.id}
           matches={matches}
           studentsForLinking={studentsForLinking}

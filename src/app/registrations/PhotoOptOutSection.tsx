@@ -1,9 +1,12 @@
 'use client'
 
-import { useState } from 'react'
-
 import type { PhotoOptOutRow, StudentMatch } from '@/db'
-import { ConfirmDialog, ReasonDialog, useDialog } from '@/components/dialogs'
+import {
+  ConfirmDialog,
+  MatchStudentDialog,
+  ReasonDialog,
+  useDialog,
+} from '@/components/dialogs'
 import Table from '@/components/grid/Table'
 import TableCard from '@/components/grid/TableCard'
 import Td from '@/components/grid/Td'
@@ -15,8 +18,8 @@ import { tbody, theadStacked } from '@/lib/grid/styles'
 import { canApproveRegistrations } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
-import ApplyOptOutDialog from './ApplyOptOutDialog'
 import {
+  applyPhotoOptOutAction,
   deletePhotoOptOutAction,
   rejectPhotoOptOutAction,
 } from './photo-opt-out-actions'
@@ -40,11 +43,12 @@ export default function PhotoOptOutSection({
   studentsForLinking,
   role,
 }: Props) {
-  const [applyingId, setApplyingId] = useState<string | null>(null)
+  const applyDialog = useDialog<PhotoOptOutRow>()
   const rejectDialog = useDialog<PhotoOptOutRow>()
   const deleteDialog = useDialog<PhotoOptOutRow>()
 
   const isAdmin = canApproveRegistrations(role)
+  const applying = applyDialog.props
   const rejecting = rejectDialog.props
   const deleting = deleteDialog.props
 
@@ -104,7 +108,7 @@ export default function PhotoOptOutSection({
                           <>
                             <button
                               type="button"
-                              onClick={() => setApplyingId(r.id)}
+                              onClick={() => applyDialog.open(r)}
                               className="font-medium text-blue-600 hover:text-blue-800"
                             >
                               Match & apply
@@ -159,12 +163,22 @@ export default function PhotoOptOutSection({
         />
       )}
 
-      {applyingId && (
-        <ApplyOptOutDialog
-          requestId={applyingId}
-          matches={matchesByRequest[applyingId] ?? []}
-          studentsForLinking={studentsForLinking}
-          onClose={() => setApplyingId(null)}
+      {applying && (
+        <MatchStudentDialog
+          title="Match to a student"
+          description="Find the student this opt-out applies to. This will turn off photo & media consent for that student."
+          confirmLabel="Apply opt-out"
+          pendingLabel="Applying…"
+          candidates={matchesByRequest[applying.id] ?? []}
+          students={studentsForLinking}
+          allowNew={false}
+          onConfirm={(choice) =>
+            applyPhotoOptOutAction(
+              applying.id,
+              choice.mode === 'existing' ? choice.studentId : '',
+            )
+          }
+          onClose={applyDialog.close}
         />
       )}
 

@@ -12,7 +12,7 @@ vi.mock('../actions', () => ({
   rejectRegistrationAction: vi.fn(),
 }))
 
-vi.mock('./ApproveDialog', () => ({
+vi.mock('./RegistrationApproveDialog', () => ({
   default: ({ onClose }: { onClose: () => void }) => (
     <div data-testid="approve-dialog">
       <button onClick={onClose}>close-approve</button>

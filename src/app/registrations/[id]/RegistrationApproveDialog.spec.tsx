@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 import { approveRegistrationAction } from '../actions'
 
-import ApproveDialog from './ApproveDialog'
+import RegistrationApproveDialog from './RegistrationApproveDialog'
 
 vi.mock('../actions', () => ({
   approveRegistrationAction: vi.fn(),
@@ -40,10 +40,10 @@ function submitForm() {
   )
 }
 
-describe('ApproveDialog', () => {
+describe('RegistrationApproveDialog', () => {
   it('defaults to create mode', () => {
     render(
-      <ApproveDialog
+      <RegistrationApproveDialog
         submissionId="sub-1"
         matches={[]}
         studentsForLinking={studentsForLinking}
@@ -63,7 +63,7 @@ describe('ApproveDialog', () => {
 
   it('pre-selects the first match when switching to link mode', () => {
     render(
-      <ApproveDialog
+      <RegistrationApproveDialog
         submissionId="sub-1"
         matches={[studentsForLinking[0]]}
         studentsForLinking={studentsForLinking}
@@ -81,7 +81,7 @@ describe('ApproveDialog', () => {
 
   it('filters the student search after 5 characters', () => {
     render(
-      <ApproveDialog
+      <RegistrationApproveDialog
         submissionId="sub-1"
         matches={[]}
         studentsForLinking={studentsForLinking}
@@ -105,7 +105,7 @@ describe('ApproveDialog', () => {
 
   it('disables Approve in link mode until a student is selected', () => {
     render(
-      <ApproveDialog
+      <RegistrationApproveDialog
         submissionId="sub-1"
         matches={[]}
         studentsForLinking={studentsForLinking}
@@ -124,7 +124,7 @@ describe('ApproveDialog', () => {
   it('submits create mode with an empty existing_student_id', async () => {
     vi.mocked(approveRegistrationAction).mockResolvedValue(undefined)
     render(
-      <ApproveDialog
+      <RegistrationApproveDialog
         submissionId="sub-1"
         matches={[]}
         studentsForLinking={studentsForLinking}
@@ -150,7 +150,7 @@ describe('ApproveDialog', () => {
   it('submits link mode with the selected existing_student_id', async () => {
     vi.mocked(approveRegistrationAction).mockResolvedValue(undefined)
     render(
-      <ApproveDialog
+      <RegistrationApproveDialog
         submissionId="sub-1"
         matches={[studentsForLinking[0]]}
         studentsForLinking={studentsForLinking}
@@ -178,7 +178,7 @@ describe('ApproveDialog', () => {
       error: 'Student code "S001" is already in use',
     })
     render(
-      <ApproveDialog
+      <RegistrationApproveDialog
         submissionId="sub-1"
         matches={[]}
         studentsForLinking={studentsForLinking}
@@ -199,7 +199,7 @@ describe('ApproveDialog', () => {
 
   it('shows the reuse guardians checkbox, checked by default', () => {
     render(
-      <ApproveDialog
+      <RegistrationApproveDialog
         submissionId="sub-1"
         matches={[]}
         studentsForLinking={studentsForLinking}
@@ -219,7 +219,7 @@ describe('ApproveDialog', () => {
 
   it('shows a hint when no guardians match', () => {
     render(
-      <ApproveDialog
+      <RegistrationApproveDialog
         submissionId="sub-1"
         matches={[]}
         studentsForLinking={studentsForLinking}
@@ -233,10 +233,31 @@ describe('ApproveDialog', () => {
     ).toBeTruthy()
   })
 
+  it('pre-fills the linked student code in link mode but not in create mode', () => {
+    render(
+      <RegistrationApproveDialog
+        submissionId="sub-1"
+        matches={[studentsForLinking[0]]}
+        studentsForLinking={studentsForLinking}
+        classes={classes}
+        hasGuardianMatches={false}
+        onClose={vi.fn()}
+      />,
+    )
+    const code = (): HTMLInputElement =>
+      screen.getByLabelText('Student code') as HTMLInputElement
+    expect(code().value).toBe('')
+
+    fireEvent.click(
+      screen.getByRole('radio', { name: 'Link to existing student' }),
+    )
+    expect(code().value).toBe('S001')
+  })
+
   it('calls onClose when Cancel is clicked', () => {
     const onClose = vi.fn()
     render(
-      <ApproveDialog
+      <RegistrationApproveDialog
         submissionId="sub-1"
         matches={[]}
         studentsForLinking={studentsForLinking}

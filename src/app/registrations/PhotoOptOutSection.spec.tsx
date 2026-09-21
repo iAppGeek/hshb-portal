@@ -5,16 +5,9 @@ import { deletePhotoOptOutAction } from './photo-opt-out-actions'
 import PhotoOptOutSection from './PhotoOptOutSection'
 
 vi.mock('./photo-opt-out-actions', () => ({
+  applyPhotoOptOutAction: vi.fn(),
   deletePhotoOptOutAction: vi.fn(),
   rejectPhotoOptOutAction: vi.fn(),
-}))
-
-vi.mock('./ApplyOptOutDialog', () => ({
-  default: ({ onClose }: { onClose: () => void }) => (
-    <div data-testid="apply-dialog">
-      <button onClick={onClose}>close-apply</button>
-    </div>
-  ),
 }))
 
 beforeEach(() => {
@@ -120,7 +113,9 @@ describe('PhotoOptOutSection', () => {
       />,
     )
     fireEvent.click(screen.getByRole('button', { name: 'Match & apply' }))
-    expect(screen.getByTestId('apply-dialog')).toBeTruthy()
+    expect(screen.getByTestId('match-student-dialog').textContent).toContain(
+      'Match to a student',
+    )
   })
 
   it('opens the reject dialog', () => {

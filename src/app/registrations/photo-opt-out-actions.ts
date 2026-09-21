@@ -12,8 +12,10 @@ import { applyPhotoOptOutSchema, rejectPhotoOptOutSchema } from '@/lib/schemas'
 
 export async function applyPhotoOptOutAction(
   id: string,
-  formData: FormData,
+  studentId: string,
 ): Promise<ActionResult> {
+  const formData = new FormData()
+  formData.set('student_id', studentId)
   return runAction({
     name: 'registrations.photo-opt-out.apply',
     permission: canApproveRegistrations,

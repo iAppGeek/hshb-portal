@@ -35,14 +35,6 @@ const STUDENT_ID = '00000000-0000-4000-8000-000000000020'
 
 const adminSession = { staffId: STAFF_ID, role: 'admin', name: null, email: '' }
 
-function makeFormData(fields: Record<string, string>): FormData {
-  const fd = new FormData()
-  for (const [key, value] of Object.entries(fields)) {
-    fd.set(key, value)
-  }
-  return fd
-}
-
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(getActor).mockResolvedValue(adminSession as never)
@@ -55,10 +47,7 @@ describe('applyPhotoOptOutAction', () => {
   it('returns error when not authenticated', async () => {
     vi.mocked(getActor).mockResolvedValue(null as never)
 
-    const result = await applyPhotoOptOutAction(
-      REQUEST_ID,
-      makeFormData({ student_id: STUDENT_ID }),
-    )
+    const result = await applyPhotoOptOutAction(REQUEST_ID, STUDENT_ID)
     expect(result).toEqual({ error: 'Not authenticated' })
     expect(applyPhotoOptOut).not.toHaveBeenCalled()
   })
@@ -71,18 +60,12 @@ describe('applyPhotoOptOutAction', () => {
       email: '',
     } as never)
 
-    const result = await applyPhotoOptOutAction(
-      REQUEST_ID,
-      makeFormData({ student_id: STUDENT_ID }),
-    )
+    const result = await applyPhotoOptOutAction(REQUEST_ID, STUDENT_ID)
     expect(result).toEqual({ error: 'Not authorised' })
   })
 
   it('returns a zod error for an invalid student id', async () => {
-    const result = await applyPhotoOptOutAction(
-      REQUEST_ID,
-      makeFormData({ student_id: 'not-a-uuid' }),
-    )
+    const result = await applyPhotoOptOutAction(REQUEST_ID, 'not-a-uuid')
     expect(result?.error).toBeDefined()
     expect(applyPhotoOptOut).not.toHaveBeenCalled()
   })
@@ -93,10 +76,7 @@ describe('applyPhotoOptOutAction', () => {
     )
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    const result = await applyPhotoOptOutAction(
-      REQUEST_ID,
-      makeFormData({ student_id: STUDENT_ID }),
-    )
+    const result = await applyPhotoOptOutAction(REQUEST_ID, STUDENT_ID)
     expect(result).toEqual({
       error: 'Failed to apply the opt-out. Please try again.',
     })
@@ -106,10 +86,7 @@ describe('applyPhotoOptOutAction', () => {
   it('returns an error when there is no signed-in staff member', async () => {
     vi.mocked(getActor).mockResolvedValue(null)
 
-    const result = await applyPhotoOptOutAction(
-      REQUEST_ID,
-      makeFormData({ student_id: STUDENT_ID }),
-    )
+    const result = await applyPhotoOptOutAction(REQUEST_ID, STUDENT_ID)
     expect(result).toEqual({ error: 'Not authenticated' })
     expect(applyPhotoOptOut).not.toHaveBeenCalled()
   })
@@ -118,10 +95,7 @@ describe('applyPhotoOptOutAction', () => {
     vi.mocked(applyPhotoOptOut).mockResolvedValue(STUDENT_ID)
 
     await expect(
-      applyPhotoOptOutAction(
-        REQUEST_ID,
-        makeFormData({ student_id: STUDENT_ID }),
-      ),
+      applyPhotoOptOutAction(REQUEST_ID, STUDENT_ID),
     ).rejects.toThrow('NEXT_REDIRECT')
 
     expect(applyPhotoOptOut).toHaveBeenCalledWith({
