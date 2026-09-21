@@ -1,5 +1,3 @@
-import { unstable_cache, updateTag } from 'next/cache'
-
 import type { Database } from '@/types/database'
 
 import { supabase } from './client'
@@ -31,53 +29,47 @@ export type FeePlanInput = {
 const FEE_PLAN_SELECT =
   '*, academic_year:academic_years(id, code, start_date, end_date)'
 
-const OPTS = { revalidate: 60, tags: ['fee-plans'] }
-
 /** All plans when `yearId` is omitted (e.g. for the override select's
  * "other years" guard, and for computing prior-year balances). */
-export const getFeePlans = unstable_cache(
-  async (yearId?: string): Promise<FeePlanWithClasses[]> => {
-    let query = supabase.from('fee_plans').select(FEE_PLAN_SELECT)
-    if (yearId) query = query.eq('academic_year_id', yearId)
-    const [{ data: plans }, { data: links }] = await Promise.all([
-      query.order('name'),
-      supabase.from('fee_plan_classes').select('fee_plan_id, class_id'),
-    ])
-    const classIdsByPlan = new Map<string, string[]>()
-    for (const link of links ?? []) {
-      const ids = classIdsByPlan.get(link.fee_plan_id) ?? []
-      ids.push(link.class_id)
-      classIdsByPlan.set(link.fee_plan_id, ids)
-    }
-    return ((plans ?? []) as unknown as FeePlanWithClasses[]).map((p) => ({
-      ...p,
-      class_ids: classIdsByPlan.get(p.id) ?? [],
-    }))
-  },
-  ['fee-plans'],
-  OPTS,
-)
+export async function getFeePlans(
+  yearId?: string,
+): Promise<FeePlanWithClasses[]> {
+  let query = supabase.from('fee_plans').select(FEE_PLAN_SELECT)
+  if (yearId) query = query.eq('academic_year_id', yearId)
+  const [{ data: plans }, { data: links }] = await Promise.all([
+    query.order('name'),
+    supabase.from('fee_plan_classes').select('fee_plan_id, class_id'),
+  ])
+  const classIdsByPlan = new Map<string, string[]>()
+  for (const link of links ?? []) {
+    const ids = classIdsByPlan.get(link.fee_plan_id) ?? []
+    ids.push(link.class_id)
+    classIdsByPlan.set(link.fee_plan_id, ids)
+  }
+  return ((plans ?? []) as unknown as FeePlanWithClasses[]).map((p) => ({
+    ...p,
+    class_ids: classIdsByPlan.get(p.id) ?? [],
+  }))
+}
 
-export const getFeePlanById = unstable_cache(
-  async (id: string): Promise<FeePlanWithClasses | null> => {
-    const { data: plan } = await supabase
-      .from('fee_plans')
-      .select(FEE_PLAN_SELECT)
-      .eq('id', id)
-      .maybeSingle()
-    if (!plan) return null
-    const { data: links } = await supabase
-      .from('fee_plan_classes')
-      .select('class_id')
-      .eq('fee_plan_id', id)
-    return {
-      ...(plan as unknown as FeePlanWithClasses),
-      class_ids: (links ?? []).map((l) => l.class_id),
-    }
-  },
-  ['fee-plan-by-id'],
-  OPTS,
-)
+export async function getFeePlanById(
+  id: string,
+): Promise<FeePlanWithClasses | null> {
+  const { data: plan } = await supabase
+    .from('fee_plans')
+    .select(FEE_PLAN_SELECT)
+    .eq('id', id)
+    .maybeSingle()
+  if (!plan) return null
+  const { data: links } = await supabase
+    .from('fee_plan_classes')
+    .select('class_id')
+    .eq('fee_plan_id', id)
+  return {
+    ...(plan as unknown as FeePlanWithClasses),
+    class_ids: (links ?? []).map((l) => l.class_id),
+  }
+}
 
 // The plan and its class links are written in one transaction by the
 // save_fee_plan RPC, so a rejected link never leaves a half-saved plan.
@@ -100,7 +92,6 @@ async function saveFeePlan(
     p_class_ids: classIds,
   } as Database['public']['Functions']['save_fee_plan']['Args'])
   if (error) throw error
-  updateTag('fee-plans')
   return data as string
 }
 

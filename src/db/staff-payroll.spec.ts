@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
-import { updateTag } from 'next/cache'
 
 import {
   getStaffPayrollList,
@@ -8,11 +7,6 @@ import {
 } from './staff-payroll'
 
 const mockFrom = vi.hoisted(() => vi.fn())
-
-vi.mock('next/cache', () => ({
-  unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
-  updateTag: vi.fn(),
-}))
 
 vi.mock('./client', () => ({
   supabase: { from: mockFrom },
@@ -86,7 +80,7 @@ describe('getStaffPayrollByStaffId', () => {
 })
 
 describe('upsertStaffPayroll', () => {
-  it('upserts on staff_id and invalidates the cache', async () => {
+  it('upserts on staff_id', async () => {
     const row = { id: 'p1', staff_id: 's1', payment_funding: 'school' }
     const c = chain({ data: row, error: null })
     mockFrom.mockReturnValue(c)
@@ -100,15 +94,13 @@ describe('upsertStaffPayroll', () => {
       { payment_funding: 'school', staff_id: 's1' },
       { onConflict: 'staff_id' },
     )
-    expect(updateTag).toHaveBeenCalledWith('staff-payroll')
   })
 
-  it('throws and skips invalidation on error', async () => {
+  it('throws on error', async () => {
     mockFrom.mockReturnValue(chain({ data: null, error: new Error('boom') }))
 
     await expect(
       upsertStaffPayroll('s1', { payment_funding: 'kea' }),
     ).rejects.toThrow('boom')
-    expect(updateTag).not.toHaveBeenCalled()
   })
 })

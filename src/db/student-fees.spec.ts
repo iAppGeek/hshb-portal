@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
-import { updateTag } from 'next/cache'
 
 import {
   getStudentFeeList,
@@ -14,11 +13,6 @@ import {
 const mockFrom = vi.hoisted(() => vi.fn())
 const mockGetAcademicYears = vi.hoisted(() => vi.fn())
 const mockGetFeePlans = vi.hoisted(() => vi.fn())
-
-vi.mock('next/cache', () => ({
-  unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
-  updateTag: vi.fn(),
-}))
 
 vi.mock('./client', () => ({
   supabase: { from: mockFrom },
@@ -526,7 +520,7 @@ describe('upsertStudentFeeAccount', () => {
     settled_note: null,
   }
 
-  it('upserts on student_id + academic_year_id and invalidates the cache', async () => {
+  it('upserts on student_id + academic_year_id', async () => {
     const c = chain({ error: null })
     mockFrom.mockReturnValue(c)
 
@@ -536,7 +530,6 @@ describe('upsertStudentFeeAccount', () => {
       { ...input, student_id: 's1', academic_year_id: 'y1' },
       { onConflict: 'student_id,academic_year_id' },
     )
-    expect(updateTag).toHaveBeenCalledWith('student-fees')
   })
 
   it('throws on error', async () => {
@@ -544,7 +537,6 @@ describe('upsertStudentFeeAccount', () => {
     await expect(upsertStudentFeeAccount('s1', 'y1', input)).rejects.toThrow(
       'bad',
     )
-    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 
@@ -565,7 +557,6 @@ describe('addStudentPayment', () => {
 
     expect(await addStudentPayment('s1', input)).toEqual({ id: 'pay1' })
     expect(c.insert).toHaveBeenCalledWith({ ...input, student_id: 's1' })
-    expect(updateTag).toHaveBeenCalledWith('student-fees')
   })
 
   it('throws on error', async () => {
@@ -582,7 +573,6 @@ describe('deleteStudentPayment', () => {
     expect(await deleteStudentPayment('s1', 'pay1')).toBe(true)
     expect(c.eq).toHaveBeenCalledWith('id', 'pay1')
     expect(c.eq).toHaveBeenCalledWith('student_id', 's1')
-    expect(updateTag).toHaveBeenCalledWith('student-fees')
   })
 
   it('returns false when nothing matched', async () => {

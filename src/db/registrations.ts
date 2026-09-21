@@ -1,5 +1,3 @@
-import { unstable_cache, updateTag } from 'next/cache'
-
 import type { Database, Enums, Json, Tables } from '@/types/database'
 
 import { supabase } from './client'
@@ -23,8 +21,6 @@ const SUMMARY_SELECT = `
   primary_contact:registration_submission_contacts(first_name, last_name, phone, email)
 `
 
-const OPTS = { revalidate: 60, tags: ['registrations'] }
-
 type CreateRegistrationInput = {
   submission: Database['public']['Tables']['registration_submissions']['Insert']
   contacts: Omit<
@@ -45,63 +41,52 @@ export async function createRegistrationSubmission({
     p_contacts: contacts as Json,
   })
   if (error) throw error
-  updateTag('registrations')
   return { id: data as string }
 }
 
-export const getRegistrationSubmissions = unstable_cache(
-  async (
-    status: RegistrationStatus | 'all',
-  ): Promise<RegistrationSummary[]> => {
-    let query = supabase
-      .from('registration_submissions')
-      .select(SUMMARY_SELECT)
-      .eq('registration_submission_contacts.contact_role', 'primary')
-      .order('submitted_at', { ascending: false })
-    if (status !== 'all') {
-      query = query.eq('status', status)
-    }
-    const { data } = await query
-    return (data ?? []).map((row) => ({
-      ...row,
-      primary_contact: row.primary_contact?.[0] ?? null,
-    })) as RegistrationSummary[]
-  },
-  ['registration-submissions'],
-  OPTS,
-)
+export async function getRegistrationSubmissions(
+  status: RegistrationStatus | 'all',
+): Promise<RegistrationSummary[]> {
+  let query = supabase
+    .from('registration_submissions')
+    .select(SUMMARY_SELECT)
+    .eq('registration_submission_contacts.contact_role', 'primary')
+    .order('submitted_at', { ascending: false })
+  if (status !== 'all') {
+    query = query.eq('status', status)
+  }
+  const { data } = await query
+  return (data ?? []).map((row) => ({
+    ...row,
+    primary_contact: row.primary_contact?.[0] ?? null,
+  })) as RegistrationSummary[]
+}
 
-export const getPendingRegistrationCount = unstable_cache(
-  async (): Promise<number> => {
-    const { count } = await supabase
-      .from('registration_submissions')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'pending')
-    return count ?? 0
-  },
-  ['pending-registration-count'],
-  OPTS,
-)
+export async function getPendingRegistrationCount(): Promise<number> {
+  const { count } = await supabase
+    .from('registration_submissions')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'pending')
+  return count ?? 0
+}
 
-export const getRegistrationSubmissionById = unstable_cache(
-  async (id: string): Promise<RegistrationFull | null> => {
-    const { data: submission } = await supabase
-      .from('registration_submissions')
-      .select('*')
-      .eq('id', id)
-      .single()
-    if (!submission) return null
+export async function getRegistrationSubmissionById(
+  id: string,
+): Promise<RegistrationFull | null> {
+  const { data: submission } = await supabase
+    .from('registration_submissions')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (!submission) return null
 
-    const { data: contacts } = await supabase
-      .from('registration_submission_contacts')
-      .select('*')
-      .eq('submission_id', id)
+  const { data: contacts } = await supabase
+    .from('registration_submission_contacts')
+    .select('*')
+    .eq('submission_id', id)
 
-    return { ...submission, contacts: contacts ?? [] }
-  },
-  ['registration-submission-by-id'],
-  OPTS,
-)
+  return { ...submission, contacts: contacts ?? [] }
+}
 
 type ApproveRegistrationInput = {
   submissionId: string
@@ -144,9 +129,6 @@ export async function approveRegistration({
     p_reuse_guardians: reuseGuardians,
   } as Database['public']['Functions']['approve_registration']['Args'])
   if (error) throw error
-  updateTag('registrations')
-  updateTag('students')
-  updateTag('classes')
   return data as ApproveRegistrationResult
 }
 
@@ -174,7 +156,6 @@ export async function rejectRegistration({
     .select('id')
   if (error) throw error
   if (!data?.length) throw new Error('Submission not found or already actioned')
-  updateTag('registrations')
 }
 
 export async function deleteRegistrationSubmission(id: string): Promise<void> {
@@ -185,5 +166,4 @@ export async function deleteRegistrationSubmission(id: string): Promise<void> {
     .select('id')
   if (error) throw error
   if (!data?.length) throw new Error('Submission not found')
-  updateTag('registrations')
 }

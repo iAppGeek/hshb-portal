@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { z } from 'zod'
-import { revalidatePath } from 'next/cache'
 import { notFound, redirect } from 'next/navigation'
 
 import { getActor } from '@/auth/require'
@@ -10,7 +9,6 @@ import { runAction, ActionError } from './action'
 
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('@/db', () => ({ logAuditEvent: vi.fn() }))
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 // Only `redirect` is faked, so a test can assert on the path without a real
 // navigation. Everything else stays real — `unstable_rethrow` in particular,
 // because it is what decides whether a framework interrupt escapes runAction.
@@ -23,7 +21,6 @@ vi.mock('next/navigation', async (importOriginal) => ({
 
 const mockGetActor = vi.mocked(getActor)
 const mockAudit = vi.mocked(logAuditEvent)
-const mockRevalidate = vi.mocked(revalidatePath)
 const mockRedirect = vi.mocked(redirect)
 
 const ADMIN = {
@@ -286,19 +283,17 @@ describe('runAction — errors from run', () => {
     expect(consoleError).not.toHaveBeenCalled()
   })
 
-  it('does not audit, revalidate or redirect when run throws', async () => {
+  it('does not audit or redirect when run throws', async () => {
     await runAction({
       name: 'students.save',
       formData: formData(),
       run: vi.fn().mockRejectedValue(new Error('boom')),
       audit: { entity: 'student', action: 'update' },
-      revalidate: ['/students'],
       redirectTo: '/students',
       fallbackError: 'Failed.',
     })
 
     expect(mockAudit).not.toHaveBeenCalled()
-    expect(mockRevalidate).not.toHaveBeenCalled()
     expect(mockRedirect).not.toHaveBeenCalled()
   })
 })
@@ -341,7 +336,7 @@ describe('runAction — framework interrupts from run', () => {
     expect(consoleError).not.toHaveBeenCalled()
   })
 
-  it('does not audit or revalidate when run is interrupted', async () => {
+  it('does not audit when run is interrupted', async () => {
     await expect(
       runAction({
         name: 'students.save',
@@ -350,13 +345,11 @@ describe('runAction — framework interrupts from run', () => {
           notFound()
         },
         audit: { entity: 'student', action: 'update' },
-        revalidate: ['/students'],
         fallbackError: 'Failed.',
       }),
     ).rejects.toThrow()
 
     expect(mockAudit).not.toHaveBeenCalled()
-    expect(mockRevalidate).not.toHaveBeenCalled()
   })
 })
 
@@ -501,25 +494,7 @@ describe('runAction — audit', () => {
   })
 })
 
-// ─── 6. Revalidate ───────────────────────────────────────────────────────────
-
-describe('runAction — revalidate', () => {
-  it('revalidates every listed path after success', async () => {
-    await runAction({
-      name: 'test.action',
-      formData: formData(),
-      run: vi.fn().mockResolvedValue(undefined),
-      revalidate: ['/students', '/dashboard'],
-      fallbackError: 'Failed.',
-    })
-
-    expect(mockRevalidate).toHaveBeenCalledWith('/students')
-    expect(mockRevalidate).toHaveBeenCalledWith('/dashboard')
-    expect(mockRevalidate).toHaveBeenCalledTimes(2)
-  })
-})
-
-// ─── 7. Redirect ─────────────────────────────────────────────────────────────
+// ─── 6. Redirect ─────────────────────────────────────────────────────────────
 
 describe('runAction — redirect', () => {
   it('redirects to a static path after success', async () => {
@@ -548,21 +523,19 @@ describe('runAction — redirect', () => {
     ).rejects.toThrow('NEXT_REDIRECT:/students/student-9')
   })
 
-  it('redirects after the audit entry and the revalidations', async () => {
+  it('redirects after the audit entry', async () => {
     await expect(
       runAction({
         name: 'test.action',
         formData: formData(),
         run: vi.fn().mockResolvedValue(undefined),
         audit: { entity: 'student', action: 'update' },
-        revalidate: ['/students'],
         redirectTo: '/students',
         fallbackError: 'Failed.',
       }),
     ).rejects.toThrow('NEXT_REDIRECT:/students')
 
     expect(mockAudit).toHaveBeenCalledOnce()
-    expect(mockRevalidate).toHaveBeenCalledWith('/students')
   })
 
   it('does not swallow the NEXT_REDIRECT as a run error', async () => {
@@ -580,7 +553,7 @@ describe('runAction — redirect', () => {
   })
 })
 
-// ─── 8. Success with no redirect ─────────────────────────────────────────────
+// ─── 7. Success with no redirect ─────────────────────────────────────────────
 
 describe('runAction — success', () => {
   it('returns undefined when there is nothing to redirect to', async () => {

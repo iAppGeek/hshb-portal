@@ -44,7 +44,6 @@ export async function approveRegistrationAction(
         studentChanges: result.student_changes,
       }),
     },
-    revalidate: ['/registrations', '/dashboard', '/students'],
     redirectTo: (result) => `/students/${result.student_id}/edit`,
     fallbackError: 'Failed to approve registration. Please try again.',
   })
@@ -71,7 +70,6 @@ export async function rejectRegistrationAction(
       entityId: () => id,
       details: (_result, input) => ({ reason: input.reason }),
     },
-    revalidate: ['/registrations', '/dashboard'],
     redirectTo: '/registrations?status=rejected',
     fallbackError: 'Failed to reject registration. Please try again.',
   })
@@ -100,7 +98,6 @@ export async function deleteRegistrationAction(
         status: submission?.status,
       }),
     },
-    revalidate: ['/registrations', '/dashboard'],
     redirectTo: '/registrations?status=rejected',
     fallbackError: 'Failed to delete registration. Please try again.',
   })

@@ -31,7 +31,6 @@ export async function applyPhotoOptOutAction(
       entityId: () => id,
       details: (_result, input) => ({ studentId: input.student_id }),
     },
-    revalidate: ['/registrations', '/dashboard'],
     redirectTo: '/registrations',
     fallbackError: 'Failed to apply the opt-out. Please try again.',
   })
@@ -58,7 +57,6 @@ export async function rejectPhotoOptOutAction(
       entityId: () => id,
       details: (_result, input) => ({ reason: input.reason }),
     },
-    revalidate: ['/registrations', '/dashboard'],
     redirectTo: '/registrations',
     fallbackError: 'Failed to reject the request. Please try again.',
   })
@@ -87,7 +85,6 @@ export async function deletePhotoOptOutAction(
         status: request?.status,
       }),
     },
-    revalidate: ['/registrations', '/dashboard'],
     redirectTo: '/registrations',
     fallbackError: 'Failed to delete the request. Please try again.',
   })

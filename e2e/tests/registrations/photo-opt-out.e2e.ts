@@ -83,8 +83,7 @@ test.describe('Photo consent opt-out — admin review', () => {
       .single()
 
     // Submit through the real public form (not a direct DB insert) so the
-    // request's own updateTag call keeps /registrations' cached list
-    // fresh — a fixture-inserted row wouldn't trigger that invalidation.
+    // test covers the parent-facing flow end to end.
     await page.goto('/register/photo-opt-out')
     await page.getByLabel('First name').fill('E2E')
     await page.getByLabel('Last name').fill(childLastName)
@@ -99,11 +98,8 @@ test.describe('Photo consent opt-out — admin review', () => {
 
     await page.goto('/registrations')
 
-    // Under heavy test parallelism, many workers race to invalidate/recompute
-    // the shared cached list at once, so the section (or a worker's own
-    // just-submitted row within it) can briefly be missing from a fresh
-    // load. Also, in dev mode a click right after reload can occasionally
-    // land before the row has finished hydrating, silently dropping it.
+    // In dev mode a click right after reload can occasionally land before
+    // the row has finished hydrating, silently dropping it.
     // Retry the whole reload-then-click cycle — a fresh reload gives
     // hydration another full attempt — rather than re-clicking the same
     // possibly-stuck DOM node.

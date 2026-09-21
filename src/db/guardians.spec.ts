@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { updateTag } from 'next/cache'
 
 import {
   getGuardianCount,
@@ -25,11 +24,6 @@ const mockRpc = vi.hoisted(() => vi.fn())
 // so their tests need ids shaped like one rather than an arbitrary string.
 const GUARDIAN_1 = '20000000-0000-0000-0000-000000000001'
 const GUARDIAN_2 = '20000000-0000-0000-0000-000000000002'
-
-vi.mock('next/cache', () => ({
-  unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
-  updateTag: vi.fn(),
-}))
 
 vi.mock('./client', () => ({
   supabase: { from: mockFrom, rpc: mockRpc },
@@ -219,7 +213,6 @@ describe('createGuardian', () => {
 
     expect(result).toEqual({ id: 'guardian-1' })
     expect(mockFrom).toHaveBeenCalledWith('guardians')
-    expect(updateTag).toHaveBeenCalledWith('students')
   })
 
   it('sends occupation through to the insert', async () => {
@@ -651,7 +644,6 @@ describe('updateGuardian', () => {
 
     expect(mockFrom).toHaveBeenCalledWith('guardians')
     expect(mockUpdate).toHaveBeenCalled()
-    expect(updateTag).toHaveBeenCalledWith('students')
   })
 
   it('throws when the database returns an error', async () => {
@@ -668,7 +660,6 @@ describe('updateGuardian', () => {
         phone: '07700',
       }),
     ).rejects.toThrow('DB error')
-    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 

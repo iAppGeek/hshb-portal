@@ -15,7 +15,6 @@ import { routes } from '@/lib/routes'
 import type { StaffRole } from '@/types/next-auth'
 
 import '../styles/tailwind.css'
-import { revalidateAllCaches } from './actions'
 import IosSplashLinks from './_components/IosSplashLinks'
 import NotificationBanner from './_components/NotificationBanner'
 import NotificationToggle from './_components/NotificationToggle'
@@ -87,7 +86,6 @@ async function AuthedSidebar() {
       userEmail={session?.user?.email}
       roleLabel={role ? roleLabels[role] : null}
       signOutAction={signOutAction}
-      refreshAction={revalidateAllCaches}
       notificationSlot={
         receivesNotifications(role as StaffRole) ? <NotificationToggle /> : null
       }

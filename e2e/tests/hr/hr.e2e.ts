@@ -42,10 +42,9 @@ test.describe('HR', () => {
 
   test('creates a staff payroll record with masked bank details', async ({
     page,
-    isMobile,
   }) => {
     const row = page.getByTestId(`payroll-row-${staffId}`)
-    await loadWithFreshData(page, isMobile, '/hr', async () => {
+    await loadWithFreshData(page, '/hr', async () => {
       await expect(row).toContainText('No record', { timeout: 3_000 })
     })
 

@@ -85,7 +85,6 @@ export async function migrateClassAction(
         },
       })
     },
-    revalidate: ['/admin'],
     redirectTo: '/admin',
     fallbackError: 'Failed to migrate class. Please try again.',
   })

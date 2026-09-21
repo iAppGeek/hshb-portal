@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { revalidatePath } from 'next/cache'
 
 import { getActor } from '@/auth/require'
 import { signInStaff, signOutStaff } from '@/db'
@@ -10,8 +9,6 @@ vi.mock('@/db', () => ({
   signOutStaff: vi.fn(),
   logAuditEvent: vi.fn(),
 }))
-
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
 import { signInAction, signOutAction } from './actions'
 
@@ -47,7 +44,7 @@ const secretarySession = {
 // ─── signInAction ─────────────────────────────────────────────────────────────
 
 describe('signInAction', () => {
-  it('signs in the authenticated staff member and revalidates', async () => {
+  it('signs in the authenticated staff member', async () => {
     vi.mocked(getActor).mockResolvedValue(teacherSession as any)
     vi.mocked(signInStaff).mockResolvedValue(undefined)
 
@@ -65,7 +62,6 @@ describe('signInAction', () => {
       '2026-03-18',
       '2026-03-18T09:00:00.000Z',
     )
-    expect(revalidatePath).toHaveBeenCalledWith('/staff-attendance')
   })
 
   it('returns error when teacher tries to sign in another staff member', async () => {
@@ -129,7 +125,6 @@ describe('signInAction', () => {
     const result = await signInAction(fd)
 
     expect(result).toEqual({ error: 'Failed to sign in. Please try again.' })
-    expect(revalidatePath).not.toHaveBeenCalled()
   })
 
   it('returns error when required fields are missing', async () => {
@@ -160,7 +155,6 @@ describe('signInAction', () => {
       '2026-03-18',
       '2026-03-18T09:00:00.000Z',
     )
-    expect(revalidatePath).toHaveBeenCalledWith('/staff-attendance')
   })
 
   it('returns error when secretary tries to sign in another staff member', async () => {
@@ -182,7 +176,7 @@ describe('signInAction', () => {
 // ─── signOutAction ────────────────────────────────────────────────────────────
 
 describe('signOutAction', () => {
-  it('signs out the authenticated staff member and revalidates', async () => {
+  it('signs out the authenticated staff member', async () => {
     vi.mocked(getActor).mockResolvedValue(teacherSession as any)
     vi.mocked(signOutStaff).mockResolvedValue(undefined)
 
@@ -200,7 +194,6 @@ describe('signOutAction', () => {
       '2026-03-18',
       '2026-03-18T17:00:00.000Z',
     )
-    expect(revalidatePath).toHaveBeenCalledWith('/staff-attendance')
   })
 
   it('returns error when teacher tries to sign out another staff member', async () => {
@@ -244,7 +237,6 @@ describe('signOutAction', () => {
     const result = await signOutAction(fd)
 
     expect(result).toEqual({ error: 'Failed to sign out. Please try again.' })
-    expect(revalidatePath).not.toHaveBeenCalled()
   })
 
   it('allows secretary to sign themselves out', async () => {
@@ -265,7 +257,6 @@ describe('signOutAction', () => {
       '2026-03-18',
       '2026-03-18T17:00:00.000Z',
     )
-    expect(revalidatePath).toHaveBeenCalledWith('/staff-attendance')
   })
 
   it('returns error when secretary tries to sign out another staff member', async () => {

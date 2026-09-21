@@ -46,7 +46,7 @@ test.describe('Edit student', () => {
   })
 
   test('shows the saved changes without reloading', async ({ page }) => {
-    // Load the edit page first so the student is cached before the save
+    // Load the edit page before the save
     await page.goto(`/students/${studentId}/edit`)
     const firstName = page.locator('input[name="student_first_name"]')
     await expect(firstName).toHaveValue('Before')

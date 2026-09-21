@@ -42,7 +42,6 @@ export async function createIncidentAction(
       action: 'create',
       entityId: (result) => result.id,
     },
-    revalidate: ['/incidents'],
     redirectTo: (result) => `/incidents?tab=${result.type}`,
     fallbackError: 'Failed to create incident. Please try again.',
   })
@@ -71,7 +70,6 @@ export async function updateIncidentAction(
       return { type }
     },
     audit: { entity: 'incident', action: 'update', entityId: () => id },
-    revalidate: ['/incidents'],
     redirectTo: (result) => `/incidents?tab=${result.type}`,
     fallbackError: 'Failed to update incident. Please try again.',
   })

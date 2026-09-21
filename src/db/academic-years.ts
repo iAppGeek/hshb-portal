@@ -1,5 +1,3 @@
-import { unstable_cache, updateTag } from 'next/cache'
-
 import { academicYearForDate } from '@/lib/academicYears'
 import type { Database } from '@/types/database'
 
@@ -14,19 +12,13 @@ export type AcademicYearInput = {
   end_date: string
 }
 
-const OPTS = { revalidate: 60, tags: ['academic-years'] }
-
-export const getAcademicYears = unstable_cache(
-  async (): Promise<AcademicYearRow[]> => {
-    const { data } = await supabase
-      .from('academic_years')
-      .select('*')
-      .order('start_date', { ascending: false })
-    return data ?? []
-  },
-  ['academic-years'],
-  OPTS,
-)
+export async function getAcademicYears(): Promise<AcademicYearRow[]> {
+  const { data } = await supabase
+    .from('academic_years')
+    .select('*')
+    .order('start_date', { ascending: false })
+  return data ?? []
+}
 
 export async function getCurrentAcademicYear(): Promise<AcademicYearRow> {
   const years = await getAcademicYears()
@@ -49,12 +41,6 @@ export async function getAcademicYearForDate(
   return academicYearForDate(years, date)
 }
 
-function invalidateAcademicYearTags(): void {
-  updateTag('academic-years')
-  updateTag('classes')
-  updateTag('student-fees')
-}
-
 export async function createAcademicYear(
   input: AcademicYearInput,
 ): Promise<{ id: string }> {
@@ -64,7 +50,6 @@ export async function createAcademicYear(
     .select('id')
     .single()
   if (error) throw error
-  invalidateAcademicYearTags()
   return data
 }
 
@@ -77,7 +62,6 @@ export async function updateAcademicYear(
     .update(input)
     .eq('id', id)
   if (error) throw error
-  invalidateAcademicYearTags()
 }
 
 export async function setCurrentAcademicYear(id: string): Promise<void> {
@@ -85,5 +69,4 @@ export async function setCurrentAcademicYear(id: string): Promise<void> {
     p_id: id,
   })
   if (error) throw error
-  invalidateAcademicYearTags()
 }

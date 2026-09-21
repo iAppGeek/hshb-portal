@@ -68,7 +68,7 @@ test.describe('Students — sorting', () => {
   }) => {
     test.skip(isMobile, 'desktop-only: exercises the clickable column header')
 
-    await loadWithFreshData(page, isMobile, '/students', async () => {
+    await loadWithFreshData(page, '/students', async () => {
       // Stacked mode's mobile summary title duplicates the desktop name
       // cell, so this text appears twice — see `orderOf` below.
       await expect(
@@ -102,7 +102,7 @@ test.describe('Students — sorting', () => {
   }) => {
     test.skip(!isMobile, 'mobile-only: exercises the "Sort by" select')
 
-    await loadWithFreshData(page, isMobile, '/students', async () => {
+    await loadWithFreshData(page, '/students', async () => {
       await expect(
         page
           .getByText(`${alphaLastName}, Ann`)

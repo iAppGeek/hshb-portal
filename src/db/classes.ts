@@ -1,5 +1,3 @@
-import { unstable_cache, updateTag } from 'next/cache'
-
 import type { EnrolmentRangeRow, SummaryClass } from '@/lib/attendanceSummary'
 import type { EnrolmentRow } from '@/lib/enrolment'
 import type { Database } from '@/types/database'
@@ -11,8 +9,6 @@ import { fetchAllPages } from './paging'
 
 const CLASS_SELECT =
   '*, teacher:staff(id, first_name, last_name, display_name, email), academic_year:academic_years(id, code, start_date, end_date)'
-
-const OPTS = { revalidate: 60, tags: ['classes'] }
 
 type AcademicYearEmbed = {
   id: string
@@ -29,159 +25,136 @@ function withYearCode<T extends { academic_year: AcademicYearEmbed }>(
   return { ...rest, academic_year: academic_year?.code ?? null }
 }
 
-const getAllClassesForYear = unstable_cache(
-  async (yearId: string) => {
-    const { data } = await supabase
-      .from('classes')
-      .select(CLASS_SELECT)
-      .eq('active', true)
-      .eq('academic_year_id', yearId)
-      .order('year_group')
-    return (data ?? []).map(withYearCode)
-  },
-  ['all-classes'],
-  OPTS,
-)
+async function getAllClassesForYear(yearId: string) {
+  const { data } = await supabase
+    .from('classes')
+    .select(CLASS_SELECT)
+    .eq('active', true)
+    .eq('academic_year_id', yearId)
+    .order('year_group')
+  return (data ?? []).map(withYearCode)
+}
 
 export async function getAllClasses() {
   const current = await getCurrentAcademicYear()
   return getAllClassesForYear(current.id)
 }
 
-export const getClassesByAcademicYear = unstable_cache(
-  async (yearId: string) => {
-    const { data } = await supabase
-      .from('classes')
-      .select(CLASS_SELECT)
-      .eq('academic_year_id', yearId)
-      .order('year_group')
-    return (data ?? []).map(withYearCode)
-  },
-  ['classes-by-academic-year'],
-  OPTS,
-)
+export async function getClassesByAcademicYear(yearId: string) {
+  const { data } = await supabase
+    .from('classes')
+    .select(CLASS_SELECT)
+    .eq('academic_year_id', yearId)
+    .order('year_group')
+  return (data ?? []).map(withYearCode)
+}
 
-export const getClassById = unstable_cache(
-  async (id: string) => {
-    // Member details let the class form show a leaver still on the class,
-    // who isn't in the selectable (active) student list.
-    const { data } = await withCurrentClasses(
-      supabase
-        .from('classes')
-        .select(
-          `${CLASS_SELECT}, student_classes(student_id, student:students(id, first_name, last_name, student_code, active, leaving_reason))`,
-        )
-        .eq('id', id),
-    ).single()
-    return data ? withYearCode(data) : data
-  },
-  ['class-by-id'],
-  OPTS,
-)
-
-const getClassesByTeacherForYear = unstable_cache(
-  async (teacherId: string, yearId: string) => {
-    const { data } = await supabase
+export async function getClassById(id: string) {
+  // Member details let the class form show a leaver still on the class,
+  // who isn't in the selectable (active) student list.
+  const { data } = await withCurrentClasses(
+    supabase
       .from('classes')
-      .select(CLASS_SELECT)
-      .eq('teacher_id', teacherId)
-      .eq('active', true)
-      .eq('academic_year_id', yearId)
-      .order('year_group')
-    return (data ?? []).map(withYearCode)
-  },
-  ['classes-by-teacher'],
-  OPTS,
-)
+      .select(
+        `${CLASS_SELECT}, student_classes(student_id, student:students(id, first_name, last_name, student_code, active, leaving_reason))`,
+      )
+      .eq('id', id),
+  ).single()
+  return data ? withYearCode(data) : data
+}
+
+async function getClassesByTeacherForYear(teacherId: string, yearId: string) {
+  const { data } = await supabase
+    .from('classes')
+    .select(CLASS_SELECT)
+    .eq('teacher_id', teacherId)
+    .eq('active', true)
+    .eq('academic_year_id', yearId)
+    .order('year_group')
+  return (data ?? []).map(withYearCode)
+}
 
 export async function getClassesByTeacher(teacherId: string) {
   const current = await getCurrentAcademicYear()
   return getClassesByTeacherForYear(teacherId, current.id)
 }
 
-export const getClassWithStudents = unstable_cache(
-  async (id: string) => {
-    const query = supabase
-      .from('classes')
-      .select(
-        `*, teacher:staff(first_name, last_name, display_name, email),
-      academic_year:academic_years(id, code, start_date, end_date),
-      student_classes(
-        student:students(
-          id, student_code, first_name, last_name, allergies,
-          primary_guardian:guardians!students_primary_guardian_id_fkey(first_name, last_name, phone, email),
-          secondary_guardian:guardians!students_secondary_guardian_id_fkey(first_name, last_name, phone, email)
-        )
-      ),
-      enrolment_history:student_classes(
-        id, start_date, end_date,
-        student:students(id, first_name, last_name)
-      )`,
+export async function getClassWithStudents(id: string) {
+  const query = supabase
+    .from('classes')
+    .select(
+      `*, teacher:staff(first_name, last_name, display_name, email),
+    academic_year:academic_years(id, code, start_date, end_date),
+    student_classes(
+      student:students(
+        id, student_code, first_name, last_name, allergies,
+        primary_guardian:guardians!students_primary_guardian_id_fkey(first_name, last_name, phone, email),
+        secondary_guardian:guardians!students_secondary_guardian_id_fkey(first_name, last_name, phone, email)
       )
-      .eq('id', id)
-    // Only the roster embed is filtered; enrolment_history keeps every stay.
-    const { data } = await withCurrentClasses(query).single()
-    return data ? withYearCode(data) : data
-  },
-  ['class-with-students'],
-  { revalidate: 60, tags: ['classes', 'students'] },
-)
-
-export const getEnrolmentsForClass = unstable_cache(
-  async (classId: string): Promise<EnrolmentRow[]> => {
-    const { data, error } = await supabase
-      .from('student_classes')
-      .select('class_id, student_id, start_date, end_date')
-      .eq('class_id', classId)
-    if (error) throw error
-    return data ?? []
-  },
-  ['enrolments-for-class'],
-  { revalidate: 60, tags: ['classes', 'students'] },
-)
-
-export const getEnrolmentsInRange = unstable_cache(
-  async (start: string, end: string): Promise<EnrolmentRangeRow[]> => {
-    const rows = await fetchAllPages<{
-      class_id: string
-      student_id: string
-      start_date: string
-      end_date: string | null
-      class: {
-        id: string
-        name: string
-        active: boolean
-        academic_year: { code: string } | null
-      } | null
-    }>((from, to) =>
-      supabase
-        .from('student_classes')
-        .select(
-          'class_id, student_id, start_date, end_date, class:classes!inner(id, name, active, academic_year:academic_years(code))',
-        )
-        .lte('start_date', end)
-        .or(`end_date.is.null,end_date.gt.${start}`)
-        .order('id')
-        .range(from, to),
+    ),
+    enrolment_history:student_classes(
+      id, start_date, end_date,
+      student:students(id, first_name, last_name)
+    )`,
     )
-    return rows
-      .filter((r) => r.class)
-      .map((r) => ({
-        class_id: r.class_id,
-        student_id: r.student_id,
-        start_date: r.start_date,
-        end_date: r.end_date,
-        class: {
-          id: r.class!.id,
-          name: r.class!.name,
-          active: r.class!.active,
-          yearCode: r.class!.academic_year?.code ?? null,
-        } satisfies SummaryClass,
-      }))
-  },
-  ['enrolments-in-range'],
-  { revalidate: 60, tags: ['classes', 'students'] },
-)
+    .eq('id', id)
+  // Only the roster embed is filtered; enrolment_history keeps every stay.
+  const { data } = await withCurrentClasses(query).single()
+  return data ? withYearCode(data) : data
+}
+
+export async function getEnrolmentsForClass(
+  classId: string,
+): Promise<EnrolmentRow[]> {
+  const { data, error } = await supabase
+    .from('student_classes')
+    .select('class_id, student_id, start_date, end_date')
+    .eq('class_id', classId)
+  if (error) throw error
+  return data ?? []
+}
+
+export async function getEnrolmentsInRange(
+  start: string,
+  end: string,
+): Promise<EnrolmentRangeRow[]> {
+  const rows = await fetchAllPages<{
+    class_id: string
+    student_id: string
+    start_date: string
+    end_date: string | null
+    class: {
+      id: string
+      name: string
+      active: boolean
+      academic_year: { code: string } | null
+    } | null
+  }>((from, to) =>
+    supabase
+      .from('student_classes')
+      .select(
+        'class_id, student_id, start_date, end_date, class:classes!inner(id, name, active, academic_year:academic_years(code))',
+      )
+      .lte('start_date', end)
+      .or(`end_date.is.null,end_date.gt.${start}`)
+      .order('id')
+      .range(from, to),
+  )
+  return rows
+    .filter((r) => r.class)
+    .map((r) => ({
+      class_id: r.class_id,
+      student_id: r.student_id,
+      start_date: r.start_date,
+      end_date: r.end_date,
+      class: {
+        id: r.class!.id,
+        name: r.class!.name,
+        active: r.class!.active,
+        yearCode: r.class!.academic_year?.code ?? null,
+      } satisfies SummaryClass,
+    }))
+}
 
 type ClassInsert = {
   name: string
@@ -199,7 +172,6 @@ export async function createClass(data: ClassInsert) {
     .select()
     .single()
   if (error) throw error
-  updateTag('classes')
   return cls
 }
 
@@ -211,8 +183,6 @@ export async function updateClass(
 ) {
   const { error } = await supabase.from('classes').update(data).eq('id', id)
   if (error) throw error
-  updateTag('classes')
-  updateTag('students')
 }
 
 export type MigrationAction =
@@ -250,8 +220,6 @@ export async function migrateClass(input: {
     p_teacher_id: input.newClass?.teacher_id,
   } as Database['public']['Functions']['migrate_class']['Args'])
   if (error) throw error
-  updateTag('classes')
-  updateTag('students')
   return data as unknown as MigrateClassResult
 }
 
@@ -262,6 +230,4 @@ export async function setClassStudents(classId: string, studentIds: string[]) {
     p_ids: studentIds,
   } as unknown as Database['public']['Functions']['set_enrolments']['Args'])
   if (error) throw error
-  updateTag('classes')
-  updateTag('students')
 }

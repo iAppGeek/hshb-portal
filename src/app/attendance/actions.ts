@@ -137,7 +137,6 @@ export async function saveAttendanceAction(
       entityId: ({ classId }) => classId,
       details: ({ date, count }) => ({ date, studentCount: count }),
     },
-    revalidate: ['/attendance'],
     fallbackError: 'Failed to save attendance. Please try again.',
   })
 }

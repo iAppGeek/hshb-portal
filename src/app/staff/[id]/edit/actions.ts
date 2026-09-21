@@ -16,7 +16,6 @@ export async function updateStaffAction(
     formData,
     run: (input) => updateStaff(id, input),
     audit: { entity: 'staff', action: 'update', entityId: () => id },
-    revalidate: ['/staff'],
     redirectTo: '/staff',
     fallbackError: 'Failed to update staff member. Please try again.',
   })

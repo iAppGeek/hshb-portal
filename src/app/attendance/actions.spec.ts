@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { revalidatePath } from 'next/cache'
 
 import { getActor } from '@/auth/require'
 import {
@@ -30,10 +29,6 @@ vi.mock('@/db', () => ({
 
 vi.mock('@/lib/push', () => ({
   sendPushNotification: vi.fn(),
-}))
-
-vi.mock('next/cache', () => ({
-  revalidatePath: vi.fn(),
 }))
 
 const CLASS_ID = '00000000-0000-4000-8000-000000000001'
@@ -129,7 +124,6 @@ describe('saveAttendanceAction', () => {
         recorded_by: STAFF_ID,
       }),
     ])
-    expect(revalidatePath).toHaveBeenCalledWith('/attendance')
   })
 
   it('defaults missing status to absent', async () => {
@@ -337,7 +331,7 @@ describe('saveAttendanceAction', () => {
     await expect(saveAttendanceAction(fd)).resolves.toBeUndefined()
   })
 
-  it('still calls revalidatePath even when push dispatch is involved', async () => {
+  it('saves the register when push dispatch is involved', async () => {
     vi.mocked(getActor).mockResolvedValue({
       staffId: STAFF_ID,
       name: null,
@@ -360,8 +354,8 @@ describe('saveAttendanceAction', () => {
       studentId: STUDENT_1,
     })
 
-    await saveAttendanceAction(fd)
-    expect(revalidatePath).toHaveBeenCalledWith('/attendance')
+    await expect(saveAttendanceAction(fd)).resolves.toBeUndefined()
+    expect(saveAttendance).toHaveBeenCalled()
   })
 
   it('allows secretary to save new attendance (no existing records)', async () => {
@@ -398,7 +392,6 @@ describe('saveAttendanceAction', () => {
         recorded_by: SECRETARY_ID,
       }),
     ])
-    expect(revalidatePath).toHaveBeenCalledWith('/attendance')
   })
 
   it('blocks secretary from updating existing attendance records', async () => {
@@ -426,7 +419,6 @@ describe('saveAttendanceAction', () => {
         'You do not have permission to update existing attendance records.',
     })
     expect(saveAttendance).not.toHaveBeenCalled()
-    expect(revalidatePath).not.toHaveBeenCalled()
   })
 
   it('rejects a class that does not exist', async () => {
@@ -477,7 +469,6 @@ describe('saveAttendanceAction', () => {
         "This register can't be changed. The class has been completed or is not in the current academic year.",
     })
     expect(saveAttendance).not.toHaveBeenCalled()
-    expect(revalidatePath).not.toHaveBeenCalled()
   })
 
   it('rejects saving a register for an inactive (completed) current-year class', async () => {

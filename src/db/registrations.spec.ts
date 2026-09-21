@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { updateTag } from 'next/cache'
 
 import {
   createRegistrationSubmission,
@@ -13,11 +12,6 @@ import {
 
 const mockFrom = vi.hoisted(() => vi.fn())
 const mockRpc = vi.hoisted(() => vi.fn())
-
-vi.mock('next/cache', () => ({
-  unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
-  updateTag: vi.fn(),
-}))
 
 vi.mock('./client', () => ({
   supabase: { from: mockFrom, rpc: mockRpc },
@@ -43,17 +37,6 @@ describe('createRegistrationSubmission', () => {
     })
   })
 
-  it('revalidates the registrations tag', async () => {
-    mockRpc.mockResolvedValue({ data: 'sub-1', error: null })
-
-    await createRegistrationSubmission({
-      submission: { child_first_name: 'Seed' } as never,
-      contacts: [],
-    })
-
-    expect(updateTag).toHaveBeenCalledWith('registrations')
-  })
-
   it('throws the rpc error', async () => {
     mockRpc.mockResolvedValue({ data: null, error: new Error('rpc failed') })
 
@@ -63,7 +46,6 @@ describe('createRegistrationSubmission', () => {
         contacts: [],
       }),
     ).rejects.toThrow('rpc failed')
-    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 
@@ -163,7 +145,7 @@ describe('getRegistrationSubmissionById', () => {
 })
 
 describe('approveRegistration', () => {
-  it('passes rpc args through, revalidates, and returns the change record unchanged', async () => {
+  it('passes rpc args through, and returns the change record unchanged', async () => {
     const rpcResult = {
       student_id: 'student-1',
       linked_existing: false,
@@ -198,9 +180,6 @@ describe('approveRegistration', () => {
       p_existing_student_id: undefined,
       p_reuse_guardians: true,
     })
-    expect(updateTag).toHaveBeenCalledWith('registrations')
-    expect(updateTag).toHaveBeenCalledWith('students')
-    expect(updateTag).toHaveBeenCalledWith('classes')
   })
 
   it('throws the rpc error', async () => {
@@ -235,7 +214,6 @@ describe('rejectRegistration', () => {
       staffId: 'staff-1',
       reason: 'Duplicate',
     })
-    expect(updateTag).toHaveBeenCalledWith('registrations')
   })
 
   it('throws when already actioned (no row returned)', async () => {
@@ -270,7 +248,6 @@ describe('deleteRegistrationSubmission', () => {
     })
 
     await deleteRegistrationSubmission('sub-1')
-    expect(updateTag).toHaveBeenCalledWith('registrations')
   })
 
   it('throws when no row is deleted (missing)', async () => {

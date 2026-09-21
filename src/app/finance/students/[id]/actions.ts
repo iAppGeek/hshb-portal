@@ -9,12 +9,7 @@ import { ActionError, runAction, type ActionResult } from '@/lib/action'
 import { canManageFinance } from '@/lib/permissions'
 import { studentFeeAccountSchema, studentPaymentSchema } from '@/lib/schemas'
 
-// These actions return instead of redirecting so the student page stays open
-// and refreshes in place.
-
-function studentPaths(studentId: string): string[] {
-  return ['/finance', `/finance/students/${studentId}`]
-}
+// These actions return instead of redirecting so the student page stays open.
 
 export async function saveStudentFeeAccountAction(
   studentId: string,
@@ -32,7 +27,6 @@ export async function saveStudentFeeAccountAction(
       action: 'update',
       entityId: () => studentId,
     },
-    revalidate: studentPaths(studentId),
     fallbackError: 'Failed to save the fee account. Please try again.',
   })
 }
@@ -54,7 +48,6 @@ export async function addStudentPaymentAction(
       entityId: (payment) => payment.id,
       details: (_payment, input) => ({ student_id: studentId, ...input }),
     },
-    revalidate: studentPaths(studentId),
     fallbackError: 'Failed to record the payment. Please try again.',
   })
 }
@@ -77,7 +70,6 @@ export async function deleteStudentPaymentAction(
       entityId: () => paymentId,
       details: () => ({ student_id: studentId }),
     },
-    revalidate: studentPaths(studentId),
     fallbackError: 'Failed to delete the payment. Please try again.',
   })
 }

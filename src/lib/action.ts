@@ -1,6 +1,5 @@
 import 'server-only'
 
-import { revalidatePath } from 'next/cache'
 import { redirect, unstable_rethrow } from 'next/navigation'
 import { z } from 'zod'
 
@@ -71,8 +70,6 @@ type BaseRunActionOptions<TInput, TResult, TActor extends Actor | null> = {
   run: (input: TInput, ctx: ActionContext<TActor>) => Promise<TResult>
   /** Written after `run` resolves. `details` defaults to `input` (redacted). */
   audit?: AuditOptions<TInput, TResult>
-  /** Paths passed to revalidatePath after success. Removed in plan 03. */
-  revalidate?: string[]
   /** Static path or derived from the result. Executed outside try/catch. */
   redirectTo?: string | ((result: TResult) => string)
   /** Message when the thrown error has no friendly mapping. */
@@ -194,10 +191,6 @@ export async function runAction<TInput = undefined, TResult = void>(
           ? redactChanges(record, null, redact)
           : record,
     })
-  }
-
-  if (opts.revalidate) {
-    for (const path of opts.revalidate) revalidatePath(path)
   }
 
   if (opts.redirectTo) {

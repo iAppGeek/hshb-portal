@@ -42,7 +42,6 @@ export async function updateClassAction(
       await setClassStudents(id, student_ids)
     },
     audit: { entity: 'class', action: 'update', entityId: () => id },
-    revalidate: ['/classes'],
     redirectTo: '/classes',
     fallbackError: 'Failed to update class. Please try again.',
   })

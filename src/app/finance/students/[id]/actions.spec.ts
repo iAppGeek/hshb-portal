@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { revalidatePath } from 'next/cache'
 
 import { getActor } from '@/auth/require'
 import {
@@ -16,7 +15,6 @@ import {
 } from './actions'
 
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/db', () => ({
   upsertStudentFeeAccount: vi.fn(),
   addStudentPayment: vi.fn(),
@@ -95,7 +93,7 @@ describe.each([
 })
 
 describe('saveStudentFeeAccountAction', () => {
-  it('saves the account, logs it and revalidates both pages', async () => {
+  it('saves the account and logs it', async () => {
     expect(
       await saveStudentFeeAccountAction('s1', makeFormData(account)),
     ).toBeUndefined()
@@ -117,8 +115,6 @@ describe('saveStudentFeeAccountAction', () => {
         entityId: 's1',
       }),
     )
-    expect(revalidatePath).toHaveBeenCalledWith('/finance')
-    expect(revalidatePath).toHaveBeenCalledWith('/finance/students/s1')
   })
 
   it('returns validation errors', async () => {
@@ -163,7 +159,6 @@ describe('addStudentPaymentAction', () => {
         details: expect.objectContaining({ student_id: 's1', amount: 100.5 }),
       }),
     )
-    expect(revalidatePath).toHaveBeenCalledWith('/finance/students/s1')
   })
 
   it('returns validation errors', async () => {
@@ -198,7 +193,6 @@ describe('deleteStudentPaymentAction', () => {
       entityId: 'pay1',
       details: { student_id: 's1' },
     })
-    expect(revalidatePath).toHaveBeenCalledWith('/finance/students/s1')
   })
 
   it('reports a payment that no longer exists', async () => {

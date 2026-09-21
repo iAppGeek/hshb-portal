@@ -173,7 +173,6 @@ export async function updateStudentAction(
       entityId: () => id,
       details: (result) => result.details,
     },
-    revalidate: ['/students'],
     redirectTo: '/students',
     fallbackError: 'Failed to save student. Please try again.',
   })
@@ -195,7 +194,6 @@ export async function markStudentAsLeaverAction(
       entityId: () => studentId,
       details: (_result, input) => ({ leaving_reason: input.reason }),
     },
-    revalidate: ['/students'],
     redirectTo: '/students',
     fallbackError: 'Failed to mark student as a leaver. Please try again.',
   })

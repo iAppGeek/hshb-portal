@@ -16,7 +16,6 @@ export async function updateGuardianAction(
     formData,
     run: (input) => updateGuardian(id, input),
     audit: { entity: 'guardian', action: 'update', entityId: () => id },
-    revalidate: ['/students', `/guardians/${id}/edit`],
     redirectTo: `/guardians/${id}/edit`,
     fallbackError: 'Failed to save guardian. Please try again.',
   })

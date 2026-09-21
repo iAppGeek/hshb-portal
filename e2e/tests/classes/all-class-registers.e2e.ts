@@ -68,11 +68,8 @@ test.describe('All class registers', () => {
     await expect(page).toHaveURL(/\/classes\/print/)
   })
 
-  test('lists a register section for the seeded class', async ({
-    page,
-    isMobile,
-  }) => {
-    await loadWithFreshData(page, isMobile, '/classes/print', async () => {
+  test('lists a register section for the seeded class', async ({ page }) => {
+    await loadWithFreshData(page, '/classes/print', async () => {
       await expect(
         page.getByRole('heading', { name: `${className} — Class Register` }),
       ).toBeVisible()

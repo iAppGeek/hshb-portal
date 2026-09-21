@@ -1,5 +1,3 @@
-import type { Page } from '@playwright/test'
-
 import { test, expect } from '../../fixtures/index'
 import { loadWithFreshData } from '../../fixtures/loadWithFreshData'
 import {
@@ -12,8 +10,7 @@ import {
 // Pin to admin by default — most of this file exercises admin-only pages.
 // One block below overrides storageState to the seed teacher.
 test.use({ storageState: 'e2e/.auth/admin.json' })
-// gotoFresh's retry loop budgets up to 45s per call, and some tests call it
-// more than once.
+// Several tests walk through multiple pages and fixture set-ups.
 test.describe.configure({ timeout: 120_000 })
 
 // Europe/London, not UTC: the app resolves "today" in the school's
@@ -176,26 +173,8 @@ async function cleanupTeachers(teacherIds: string[]): Promise<void> {
   await db.from('staff').delete().in('id', ids)
 }
 
-// Fixture rows inserted directly bypass the app's cache invalidation, so a
-// page that reads a cached *list* query (getClassesByAcademicYear,
-// getAllClasses, getStudentsForList, getAcademicYears...) can miss them until
-// refreshed. `ready` asserts the fixture is actually visible before
-// proceeding, retrying the whole load if a parallel test repopulates the
-// cache in between.
-async function gotoFresh(
-  page: Page,
-  isMobile: boolean,
-  path: string,
-  ready: () => Promise<void>,
-): Promise<void> {
-  await loadWithFreshData(page, isMobile, path, ready)
-}
-
 test.describe('Enrolment history — registers, leavers, migration', () => {
-  test('past register survives a move', async ({
-    page,
-    isMobile,
-  }, testInfo) => {
+  test('past register survives a move', async ({ page }, testInfo) => {
     const suffix = testInfo.testId.replace(/[^a-z0-9]/gi, '')
     const teacherId = await createTeacher(
       `Move${suffix}`,
@@ -216,9 +195,8 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
 
     try {
       // Take a register for class A on a past date.
-      await gotoFresh(
+      await loadWithFreshData(
         page,
-        isMobile,
         `/attendance?classId=${classAId}&date=${PAST_DATE}`,
         async () => {
           await expect(
@@ -238,16 +216,11 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
       })
 
       // Move the student from A to B via the student edit form.
-      await gotoFresh(
-        page,
-        isMobile,
-        `/students/${studentId}/edit`,
-        async () => {
-          await expect(
-            page.locator(`input[name="class_ids"][value="${classAId}"]`),
-          ).toBeVisible({ timeout: 3_000 })
-        },
-      )
+      await loadWithFreshData(page, `/students/${studentId}/edit`, async () => {
+        await expect(
+          page.locator(`input[name="class_ids"][value="${classAId}"]`),
+        ).toBeVisible({ timeout: 3_000 })
+      })
       await page
         .locator(`input[name="class_ids"][value="${classAId}"]`)
         .uncheck()
@@ -275,7 +248,6 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
 
   test('A→B→A moves and concurrent (dual) marks', async ({
     page,
-    isMobile,
   }, testInfo) => {
     const suffix = testInfo.testId.replace(/[^a-z0-9]/gi, '')
     const teacherId = await createTeacher(
@@ -303,9 +275,8 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
 
     try {
       // Only enrolled in A on 2026-09-02 — A's past register lists them.
-      await gotoFresh(
+      await loadWithFreshData(
         page,
-        isMobile,
         `/attendance?classId=${classAId}&date=2026-09-02`,
         async () => {
           await expect(
@@ -359,7 +330,6 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
 
   test('class edit keeps members hidden by the search and a leaver still on the class', async ({
     page,
-    isMobile,
   }, testInfo) => {
     const suffix = testInfo.testId.replace(/[^a-z0-9]/gi, '')
     const teacherId = await createTeacher(
@@ -383,7 +353,7 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
       .eq('id', leaverId)
 
     try {
-      await gotoFresh(page, isMobile, `/classes/${classId}/edit`, async () => {
+      await loadWithFreshData(page, `/classes/${classId}/edit`, async () => {
         await expect(
           page.locator(`input[name="student_ids"][value="${joinerId}"]`),
         ).toBeVisible({ timeout: 3_000 })
@@ -425,7 +395,6 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
 
   test('a late joiner appears unmarked on an already-taken register', async ({
     page,
-    isMobile,
   }, testInfo) => {
     const suffix = testInfo.testId.replace(/[^a-z0-9]/gi, '')
     const teacherId = await createTeacher(
@@ -443,9 +412,8 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
 
     try {
       // Take today's register with just the existing student.
-      await gotoFresh(
+      await loadWithFreshData(
         page,
-        isMobile,
         `/attendance?classId=${classId}&date=${TODAY}`,
         async () => {
           await expect(
@@ -465,7 +433,7 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
       })
 
       // Enrol the new student via the class edit form.
-      await gotoFresh(page, isMobile, `/classes/${classId}/edit`, async () => {
+      await loadWithFreshData(page, `/classes/${classId}/edit`, async () => {
         await expect(
           page.locator(`input[name="student_ids"][value="${joinerStudentId}"]`),
         ).toBeVisible({ timeout: 3_000 })
@@ -496,7 +464,6 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
 
   test('leaver: gone from today, kept on past registers, hidden from the list, visible in finance', async ({
     page,
-    isMobile,
   }, testInfo) => {
     const suffix = testInfo.testId.replace(/[^a-z0-9]/gi, '')
     const teacherId = await createTeacher(
@@ -520,9 +487,8 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
       await expect(page).toHaveURL('/students')
 
       // Gone from today's register.
-      await gotoFresh(
+      await loadWithFreshData(
         page,
-        isMobile,
         `/attendance?classId=${classId}&date=${TODAY}`,
         async () => {
           await expect(
@@ -577,7 +543,6 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
 
   test('migration with a new class: per-student actions applied, source completed', async ({
     page,
-    isMobile,
   }, testInfo) => {
     const suffix = testInfo.testId.replace(/[^a-z0-9]/gi, '')
     const { data: nextYear, error: nextYearError } = await db
@@ -611,10 +576,12 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
     const newClassName = `E2EMigrateTarget${suffix}`
 
     try {
-      await gotoFresh(
+      // Pin this test's own year: the form defaults to the earliest future
+      // year, which can be another parallel project's year, deleted by its
+      // cleanup before this submit.
+      await loadWithFreshData(
         page,
-        isMobile,
-        `/admin?tab=class-migration&sourceClassId=${sourceClassId}`,
+        `/admin?tab=class-migration&sourceClassId=${sourceClassId}&targetYearId=${nextYear.id}`,
         async () => {
           await expect(
             page.locator(`select[name="action_${moverId}"]`),
@@ -743,7 +710,6 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
 
   test('migration without a new class: completes the class with no-class/leaver actions only', async ({
     page,
-    isMobile,
   }, testInfo) => {
     const suffix = testInfo.testId.replace(/[^a-z0-9]/gi, '')
     const teacherId = await createTeacher(
@@ -761,9 +727,8 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
     await enrol(leaverId, sourceClassId, PAST_DATE)
 
     try {
-      await gotoFresh(
+      await loadWithFreshData(
         page,
-        isMobile,
         `/admin?tab=class-migration&sourceClassId=${sourceClassId}`,
         async () => {
           await expect(
@@ -815,7 +780,6 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
 
   test('a returning leaver approved into a class they previously left reactivates and reopens', async ({
     page,
-    isMobile,
   }, testInfo) => {
     const suffix = testInfo.testId.replace(/[^a-z0-9]/gi, '')
     let childLastName = ''
@@ -858,9 +822,8 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
         contact_email: `e2e.${suffix}.return@example.com`,
       })
 
-      await gotoFresh(
+      await loadWithFreshData(
         page,
-        isMobile,
         `/registrations/${submissionId}`,
         async () => {
           await page
@@ -903,7 +866,6 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
 
   test('fees after a mid-year move show the new class plan, not a conflict', async ({
     page,
-    isMobile,
   }, testInfo) => {
     const suffix = testInfo.testId.replace(/[^a-z0-9]/gi, '')
     const teacherId = await createTeacher(
@@ -956,16 +918,11 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
 
     try {
       // Move the student from A to B via the real edit flow.
-      await gotoFresh(
-        page,
-        isMobile,
-        `/students/${studentId}/edit`,
-        async () => {
-          await expect(
-            page.locator(`input[name="class_ids"][value="${classBId}"]`),
-          ).toBeVisible({ timeout: 3_000 })
-        },
-      )
+      await loadWithFreshData(page, `/students/${studentId}/edit`, async () => {
+        await expect(
+          page.locator(`input[name="class_ids"][value="${classBId}"]`),
+        ).toBeVisible({ timeout: 3_000 })
+      })
       await page
         .locator(`input[name="class_ids"][value="${classAId}"]`)
         .uncheck()
@@ -992,7 +949,6 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
 
   test("migrating last year's class after the new year is current starts students with the current year", async ({
     page,
-    isMobile,
   }, testInfo) => {
     const suffix = testInfo.testId.replace(/[^a-z0-9]/gi, '')
     const teacherId = await createTeacher(
@@ -1012,9 +968,8 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
     let newClassId = ''
 
     try {
-      await gotoFresh(
+      await loadWithFreshData(
         page,
-        isMobile,
         `/admin?tab=class-migration&sourceClassId=${sourceClassId}`,
         async () => {
           await expect(

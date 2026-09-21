@@ -61,7 +61,6 @@ export async function createLessonPlanAction(
       action: 'create',
       entityId: (plan) => plan.id,
     },
-    revalidate: ['/lesson-plans'],
     redirectTo: '/lesson-plans',
     fallbackError: 'Failed to create lesson plan. Please try again.',
   })
@@ -93,7 +92,6 @@ export async function updateLessonPlanAction(
       }).catch(rethrowDuplicate)
     },
     audit: { entity: 'lesson_plan', action: 'update', entityId: () => id },
-    revalidate: ['/lesson-plans'],
     redirectTo: '/lesson-plans',
     fallbackError: 'Failed to update lesson plan. Please try again.',
   })

@@ -8,7 +8,6 @@ import {
   Bars3Icon,
   XMarkIcon,
   ArrowRightStartOnRectangleIcon,
-  ArrowPathIcon,
   HomeIcon,
   UsersIcon,
   UserGroupIcon,
@@ -57,7 +56,6 @@ type Props = {
   userEmail: string | null | undefined
   roleLabel: string | null
   signOutAction: () => Promise<void>
-  refreshAction: () => Promise<void>
   notificationSlot?: React.ReactNode
 }
 
@@ -67,7 +65,6 @@ export default function PortalSidebar({
   userEmail,
   roleLabel,
   signOutAction,
-  refreshAction,
   notificationSlot,
 }: Props) {
   const [open, setOpen] = useState(false)
@@ -139,16 +136,6 @@ export default function PortalSidebar({
         </div>
       )}
       <div className="mt-3 flex items-center gap-4">
-        <form action={refreshAction}>
-          <button
-            type="submit"
-            className="flex items-center gap-2 text-xs text-gray-400 transition hover:text-white"
-            title="Refresh data — clears the cache and reloads the latest data from the database"
-          >
-            <ArrowPathIcon className="h-4 w-4" />
-            Refresh data
-          </button>
-        </form>
         <form action={signOutAction}>
           <button
             type="submit"

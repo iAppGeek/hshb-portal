@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { updateTag } from 'next/cache'
 
 import {
   getStaffByEmail,
@@ -15,11 +14,6 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 const mockFrom = vi.hoisted(() => vi.fn())
-
-vi.mock('next/cache', () => ({
-  unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
-  updateTag: vi.fn(),
-}))
 
 vi.mock('./client', () => ({
   supabase: { from: mockFrom },
@@ -218,7 +212,6 @@ describe('createStaff', () => {
     const result = await createStaff(input)
     expect(result).toEqual(created)
     expect(mockFrom).toHaveBeenCalledWith('staff')
-    expect(updateTag).toHaveBeenCalledWith('staff')
   })
 
   it('throws when supabase returns an error', async () => {
@@ -241,7 +234,6 @@ describe('createStaff', () => {
         role: 'teacher',
       }),
     ).rejects.toThrow('DB error')
-    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 
@@ -262,8 +254,6 @@ describe('updateStaff', () => {
 
     expect(mockFrom).toHaveBeenCalledWith('staff')
     expect(mockEq).toHaveBeenCalledWith('id', 'staff-1')
-    expect(updateTag).toHaveBeenCalledWith('staff')
-    expect(updateTag).toHaveBeenCalledWith('classes')
   })
 
   it('throws when supabase returns an error', async () => {
@@ -282,7 +272,6 @@ describe('updateStaff', () => {
         role: 'teacher',
       }),
     ).rejects.toThrow('DB error')
-    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 

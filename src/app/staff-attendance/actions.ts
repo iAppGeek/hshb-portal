@@ -37,7 +37,6 @@ export async function signInAction(formData: FormData): Promise<ActionResult> {
       entityId: (_result, input) => input.staffId,
       details: (_result, input) => ({ date: input.date, time: input.time }),
     },
-    revalidate: ['/staff-attendance'],
     fallbackError: 'Failed to sign in. Please try again.',
   })
 }
@@ -57,7 +56,6 @@ export async function signOutAction(formData: FormData): Promise<ActionResult> {
       entityId: (_result, input) => input.staffId,
       details: (_result, input) => ({ date: input.date, time: input.time }),
     },
-    revalidate: ['/staff-attendance'],
     fallbackError: 'Failed to sign out. Please try again.',
   })
 }

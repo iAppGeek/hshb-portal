@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { getActor } from '@/auth/require'
@@ -21,7 +20,6 @@ vi.mock('next/navigation', async (importOriginal) => ({
     throw new Error(`NEXT_REDIRECT:${url}`)
   }),
 }))
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/db', () => ({
   createFeePlan: vi.fn(),
   updateFeePlan: vi.fn(),
@@ -129,7 +127,6 @@ describe('createFeePlanAction', () => {
         entityId: 'p1',
       }),
     )
-    expect(revalidatePath).toHaveBeenCalledWith('/finance')
   })
 })
 

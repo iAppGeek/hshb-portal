@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
-import { updateTag } from 'next/cache'
 
 import {
   getFeePlans,
@@ -10,11 +9,6 @@ import {
 
 const mockFrom = vi.hoisted(() => vi.fn())
 const mockRpc = vi.hoisted(() => vi.fn())
-
-vi.mock('next/cache', () => ({
-  unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
-  updateTag: vi.fn(),
-}))
 
 vi.mock('./client', () => ({
   supabase: { from: mockFrom, rpc: mockRpc },
@@ -143,13 +137,11 @@ describe('createFeePlan', () => {
       p_class_ids: ['c1'],
     })
     expect(mockFrom).not.toHaveBeenCalled()
-    expect(updateTag).toHaveBeenCalledWith('fee-plans')
   })
 
-  it('throws and skips invalidation when the RPC fails', async () => {
+  it('throws when the RPC fails', async () => {
     mockRpc.mockResolvedValue({ data: null, error: new Error('dup') })
     await expect(createFeePlan(input, [])).rejects.toThrow('dup')
-    expect(updateTag).not.toHaveBeenCalled()
   })
 })
 
@@ -164,7 +156,6 @@ describe('updateFeePlan', () => {
       ...rpcArgs,
       p_class_ids: [],
     })
-    expect(updateTag).toHaveBeenCalledWith('fee-plans')
   })
 
   it('throws when the RPC fails', async () => {
@@ -176,6 +167,5 @@ describe('updateFeePlan', () => {
       code: 'P0001',
       message: 'Fee plan not found.',
     })
-    expect(updateTag).not.toHaveBeenCalled()
   })
 })

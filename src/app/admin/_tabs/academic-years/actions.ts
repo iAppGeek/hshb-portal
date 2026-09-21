@@ -23,7 +23,6 @@ export async function createAcademicYearAction(
       action: 'create',
       entityId: (year) => year.id,
     },
-    revalidate: ['/admin'],
     redirectTo: '/admin?tab=academic-years',
     fallbackError: 'Failed to create academic year. Please try again.',
   })
@@ -40,7 +39,6 @@ export async function updateAcademicYearAction(
     formData,
     run: (input) => updateAcademicYear(id, input),
     audit: { entity: 'academic_year', action: 'update', entityId: () => id },
-    revalidate: ['/admin'],
     redirectTo: '/admin?tab=academic-years',
     fallbackError: 'Failed to update academic year. Please try again.',
   })
@@ -61,7 +59,6 @@ export async function setCurrentAcademicYearAction(
       entityId: () => id,
       details: () => ({ previous: previousId, current: id }),
     },
-    revalidate: ['/admin', '/classes', '/attendance', '/finance'],
     fallbackError: 'Failed to set the current academic year. Please try again.',
   })
 }

@@ -1,13 +1,9 @@
-import { unstable_cache, updateTag } from 'next/cache'
-
 import type { Database, Enums, Tables } from '@/types/database'
 
 import { supabase } from './client'
 
 export type PhotoOptOutStatus = Enums<'photo_opt_out_status'>
 export type PhotoOptOutRow = Tables<'photo_consent_opt_outs'>
-
-const OPTS = { revalidate: 60, tags: ['photo-opt-outs'] }
 
 export async function createPhotoOptOut(
   input: Database['public']['Tables']['photo_consent_opt_outs']['Insert'],
@@ -18,50 +14,41 @@ export async function createPhotoOptOut(
     .select('id')
     .single()
   if (error) throw error
-  updateTag('photo-opt-outs')
   return { id: data.id }
 }
 
-export const getPhotoOptOuts = unstable_cache(
-  async (status: PhotoOptOutStatus | 'all'): Promise<PhotoOptOutRow[]> => {
-    let query = supabase
-      .from('photo_consent_opt_outs')
-      .select('*')
-      .order('submitted_at', { ascending: false })
-    if (status !== 'all') {
-      query = query.eq('status', status)
-    }
-    const { data } = await query
-    return data ?? []
-  },
-  ['photo-opt-outs'],
-  OPTS,
-)
+export async function getPhotoOptOuts(
+  status: PhotoOptOutStatus | 'all',
+): Promise<PhotoOptOutRow[]> {
+  let query = supabase
+    .from('photo_consent_opt_outs')
+    .select('*')
+    .order('submitted_at', { ascending: false })
+  if (status !== 'all') {
+    query = query.eq('status', status)
+  }
+  const { data } = await query
+  return data ?? []
+}
 
-export const getPendingPhotoOptOutCount = unstable_cache(
-  async (): Promise<number> => {
-    const { count } = await supabase
-      .from('photo_consent_opt_outs')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'pending')
-    return count ?? 0
-  },
-  ['pending-photo-opt-out-count'],
-  OPTS,
-)
+export async function getPendingPhotoOptOutCount(): Promise<number> {
+  const { count } = await supabase
+    .from('photo_consent_opt_outs')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'pending')
+  return count ?? 0
+}
 
-export const getPhotoOptOutById = unstable_cache(
-  async (id: string): Promise<PhotoOptOutRow | null> => {
-    const { data } = await supabase
-      .from('photo_consent_opt_outs')
-      .select('*')
-      .eq('id', id)
-      .single()
-    return data
-  },
-  ['photo-opt-out-by-id'],
-  OPTS,
-)
+export async function getPhotoOptOutById(
+  id: string,
+): Promise<PhotoOptOutRow | null> {
+  const { data } = await supabase
+    .from('photo_consent_opt_outs')
+    .select('*')
+    .eq('id', id)
+    .single()
+  return data
+}
 
 type ApplyPhotoOptOutInput = {
   requestId: string
@@ -80,8 +67,6 @@ export async function applyPhotoOptOut({
     p_student_id: studentId,
   })
   if (error) throw error
-  updateTag('photo-opt-outs')
-  updateTag('students')
   return data as string
 }
 
@@ -109,7 +94,6 @@ export async function rejectPhotoOptOut({
     .select('id')
   if (error) throw error
   if (!data?.length) throw new Error('Request not found or already actioned')
-  updateTag('photo-opt-outs')
 }
 
 export async function deletePhotoOptOut(id: string): Promise<void> {
@@ -120,5 +104,4 @@ export async function deletePhotoOptOut(id: string): Promise<void> {
     .select('id')
   if (error) throw error
   if (!data?.length) throw new Error('Request not found')
-  updateTag('photo-opt-outs')
 }
