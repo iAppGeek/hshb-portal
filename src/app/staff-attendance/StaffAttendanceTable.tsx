@@ -1,5 +1,7 @@
 'use client'
 
+import { useOptimistic, useState } from 'react'
+
 import type { StaffAttendanceRow } from '@/db'
 import Table from '@/components/grid/Table'
 import TableCard from '@/components/grid/TableCard'
@@ -7,7 +9,7 @@ import Th from '@/components/grid/Th'
 import Tooltip from '@/components/Tooltip'
 import Tr from '@/components/grid/Tr'
 import { useServerForm } from '@/components/form'
-import { formatTimeInSchoolTz } from '@/lib/datetime'
+import { formatTimeInSchoolTz, schoolTzToUtcIso } from '@/lib/datetime'
 import { tbody, theadStacked } from '@/lib/grid/styles'
 import { canManageStaffAttendance } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
@@ -45,9 +47,30 @@ function StatusBadge({ record }: { record: StaffAttendanceRow | null }) {
   )
 }
 
+/** What the row will look like once the save lands, from the submitted form. */
+function predictRecord(
+  current: StaffAttendanceRow | null,
+  formData: FormData,
+  signingIn: boolean,
+): StaffAttendanceRow | null {
+  const staffId = String(formData.get('staffId'))
+  const date = String(formData.get('date'))
+  const at = schoolTzToUtcIso(date, String(formData.get('time')))
+  if (!signingIn) return current && { ...current, signed_out_at: at }
+  return {
+    id: current?.id ?? `pending-${staffId}`,
+    staff_id: staffId,
+    date,
+    signed_in_at: at,
+    signed_out_at: null,
+    created_at: current?.created_at ?? null,
+    updated_at: current?.updated_at ?? null,
+  }
+}
+
 function StaffRowInteractive({
   staff,
-  record,
+  record: initialRecord,
   defaultTime,
   date,
   role,
@@ -60,15 +83,34 @@ function StaffRowInteractive({
   role: StaffRole
   currentStaffId: string
 }) {
+  // `saved` is the row as last written; `record` shows a tap straight away and
+  // falls back to `saved` by itself if the save fails.
+  const [saved, setSaved] = useState(initialRecord)
+  const [record, setOptimisticRecord] = useOptimistic(saved)
   const isSignedIn = !!record && !record.signed_out_at
   const name = staff.display_name ?? `${staff.first_name} ${staff.last_name}`
   const canManageOthers = canManageStaffAttendance(role)
   const isSelf = staff.id === currentStaffId
   const disabled = !canManageOthers && !isSelf
 
-  const signIn = useServerForm(signInAction)
-  const signOut = useServerForm(signOutAction)
-  const { handleSubmit, isPending, error } = isSignedIn ? signOut : signIn
+  const signIn = useServerForm(
+    async (fd: FormData) => {
+      setOptimisticRecord(predictRecord(saved, fd, true))
+      return signInAction(fd)
+    },
+    { onSuccess: setSaved },
+  )
+  const signOut = useServerForm(
+    async (fd: FormData) => {
+      setOptimisticRecord(predictRecord(saved, fd, false))
+      return signOutAction(fd)
+    },
+    { onSuccess: setSaved },
+  )
+  const { handleSubmit, error } = isSignedIn ? signOut : signIn
+  // The optimistic row flips which form shows mid-save, so either pending
+  // save keeps the row's controls disabled.
+  const isPending = signIn.isPending || signOut.isPending
 
   const actionForm = disabled ? (
     <Tooltip text="You can only sign yourself in/out">

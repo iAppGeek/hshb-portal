@@ -2,6 +2,7 @@
 
 import type { Actor } from '@/auth/require'
 import { signInStaff, signOutStaff } from '@/db'
+import type { StaffAttendanceRow } from '@/db'
 import {
   ActionError,
   NOT_AUTHORISED,
@@ -22,14 +23,17 @@ function assertMayRecord(actor: Actor, targetStaffId: string): void {
     throw new ActionError(NOT_AUTHORISED)
 }
 
-export async function signInAction(formData: FormData): Promise<ActionResult> {
+/** Both return the row as written so the table updates it in place. */
+export async function signInAction(
+  formData: FormData,
+): Promise<ActionResult<StaffAttendanceRow>> {
   return runAction({
     name: 'staff-attendance.sign-in',
     schema: staffAttendanceSchema,
     formData,
     run: async ({ staffId, date, time }, { actor }) => {
       assertMayRecord(actor, staffId)
-      await signInStaff(staffId, date, schoolTzToUtcIso(date, time))
+      return signInStaff(staffId, date, schoolTzToUtcIso(date, time))
     },
     audit: {
       entity: 'staff_attendance',
@@ -41,14 +45,17 @@ export async function signInAction(formData: FormData): Promise<ActionResult> {
   })
 }
 
-export async function signOutAction(formData: FormData): Promise<ActionResult> {
+/** Null when there was no sign-in to close. */
+export async function signOutAction(
+  formData: FormData,
+): Promise<ActionResult<StaffAttendanceRow | null>> {
   return runAction({
     name: 'staff-attendance.sign-out',
     schema: staffAttendanceSchema,
     formData,
     run: async ({ staffId, date, time }, { actor }) => {
       assertMayRecord(actor, staffId)
-      await signOutStaff(staffId, date, schoolTzToUtcIso(date, time))
+      return signOutStaff(staffId, date, schoolTzToUtcIso(date, time))
     },
     audit: {
       entity: 'staff_attendance',

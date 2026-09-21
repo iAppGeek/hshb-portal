@@ -32,7 +32,7 @@ const mockRow = {
 // ─── getStaffAttendanceForToday ────────────────────────────────────────────────
 
 describe('getStaffAttendanceForToday', () => {
-  it('returns the attendance record when found', async () => {
+  it('returns the attendance mockRow when found', async () => {
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
@@ -50,7 +50,7 @@ describe('getStaffAttendanceForToday', () => {
     expect(mockFrom).toHaveBeenCalledWith('staff_attendance')
   })
 
-  it('returns null when no record exists', async () => {
+  it('returns null when no mockRow exists', async () => {
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
@@ -189,12 +189,20 @@ describe('getStaffAttendanceByDateRange', () => {
 // ─── signInStaff ──────────────────────────────────────────────────────────────
 
 describe('signInStaff', () => {
-  it('upserts a sign-in record with correct fields', async () => {
-    const upsertMock = vi.fn().mockResolvedValue({ error: null })
+  it('upserts a sign-in mockRow with correct fields and returns it', async () => {
+    const single = vi.fn().mockResolvedValue({ data: mockRow, error: null })
+    const upsertMock = vi
+      .fn()
+      .mockReturnValue({ select: vi.fn().mockReturnValue({ single }) })
     mockFrom.mockReturnValue({ upsert: upsertMock })
 
-    await signInStaff('staff-1', '2026-03-18', '2026-03-18T09:00:00Z')
+    const result = await signInStaff(
+      'staff-1',
+      '2026-03-18',
+      '2026-03-18T09:00:00Z',
+    )
 
+    expect(result).toEqual(mockRow)
     expect(mockFrom).toHaveBeenCalledWith('staff_attendance')
     expect(upsertMock).toHaveBeenCalledWith(
       {
@@ -209,9 +217,14 @@ describe('signInStaff', () => {
 
   it('throws on database error', async () => {
     mockFrom.mockReturnValue({
-      upsert: vi
-        .fn()
-        .mockResolvedValue({ error: { message: 'Upsert failed' } }),
+      upsert: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: null,
+            error: { message: 'Upsert failed' },
+          }),
+        }),
+      }),
     })
 
     await expect(
@@ -223,14 +236,25 @@ describe('signInStaff', () => {
 // ─── signOutStaff ─────────────────────────────────────────────────────────────
 
 describe('signOutStaff', () => {
-  it('updates signed_out_at for the correct staff member and date', async () => {
-    const eqDateMock = vi.fn().mockResolvedValue({ error: null })
+  it('updates signed_out_at for the correct staff member and date and returns the row', async () => {
+    const signedOut = { ...mockRow, signed_out_at: '2026-03-18T17:00:00Z' }
+    const maybeSingle = vi
+      .fn()
+      .mockResolvedValue({ data: signedOut, error: null })
+    const eqDateMock = vi
+      .fn()
+      .mockReturnValue({ select: vi.fn().mockReturnValue({ maybeSingle }) })
     const eqStaffMock = vi.fn().mockReturnValue({ eq: eqDateMock })
     const updateMock = vi.fn().mockReturnValue({ eq: eqStaffMock })
     mockFrom.mockReturnValue({ update: updateMock })
 
-    await signOutStaff('staff-1', '2026-03-18', '2026-03-18T17:00:00Z')
+    const result = await signOutStaff(
+      'staff-1',
+      '2026-03-18',
+      '2026-03-18T17:00:00Z',
+    )
 
+    expect(result).toEqual(signedOut)
     expect(mockFrom).toHaveBeenCalledWith('staff_attendance')
     expect(updateMock).toHaveBeenCalledWith({
       signed_out_at: '2026-03-18T17:00:00Z',
@@ -243,9 +267,14 @@ describe('signOutStaff', () => {
     mockFrom.mockReturnValue({
       update: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          eq: vi
-            .fn()
-            .mockResolvedValue({ error: { message: 'Update failed' } }),
+          eq: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: null,
+                error: { message: 'Update failed' },
+              }),
+            }),
+          }),
         }),
       }),
     })
@@ -259,7 +288,7 @@ describe('signOutStaff', () => {
 // ─── getStaffAttendedCount ───────────────────────────────────────────────────
 
 describe('getStaffAttendedCount', () => {
-  it('counts every staff record for the date, signed out or not', async () => {
+  it('counts every staff mockRow for the date, signed out or not', async () => {
     const eq = vi.fn().mockResolvedValue({ count: 4, error: null })
     mockFrom.mockReturnValue({ select: vi.fn().mockReturnValue({ eq }) })
 
