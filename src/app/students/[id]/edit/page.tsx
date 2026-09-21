@@ -8,8 +8,9 @@ import { formatCalendarDate } from '@/lib/datetime'
 import { canEditStudents } from '@/lib/permissions'
 
 import PageHeader, { RequiredFieldsNote } from '../../../_components/PageHeader'
+import { saveStudentAction } from '../../actions'
+import StudentForm, { type ClassOption } from '../../StudentForm'
 
-import EditStudentForm from './EditStudentForm'
 import LeaverSection from './LeaverSection'
 
 export const metadata: Metadata = { title: 'Edit Student' }
@@ -72,15 +73,13 @@ export default async function EditStudentPage({
         </div>
       )}
 
-      <EditStudentForm
-        student={student}
+      <StudentForm
+        initial={student}
         guardians={guardians}
-        classes={
-          student.active
-            ? (classes as { id: string; name: string; year_group: string }[])
-            : undefined
-        }
+        classes={classes as ClassOption[]}
         enrolledClassIds={enrolledClassIds}
+        action={saveStudentAction.bind(null, id)}
+        submitLabel="Save changes"
       />
 
       {student.active && canEditStudents(role) && (

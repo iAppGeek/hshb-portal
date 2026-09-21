@@ -20,9 +20,13 @@ vi.mock('next/navigation', async (importOriginal) => ({
   redirect: vi.fn(),
 }))
 
-vi.mock('./AddStudentForm', () => ({
-  default: () => <div data-testid="add-student-form" />,
+vi.mock('../StudentForm', () => ({
+  default: ({ submitLabel }: { submitLabel: string }) => (
+    <div data-testid="student-form">{submitLabel}</div>
+  ),
 }))
+
+vi.mock('../actions', () => ({ saveStudentAction: vi.fn() }))
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -39,14 +43,14 @@ describe('AddStudentPage', () => {
     expect(screen.getByText('Add Student')).toBeTruthy()
   })
 
-  it('renders the AddStudentForm for admin', async () => {
+  it('renders the StudentForm for admin', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
     vi.mocked(getAllGuardians).mockResolvedValue([])
 
     render(await AddStudentPage())
-    expect(screen.getByTestId('add-student-form')).toBeTruthy()
+    expect(screen.getByTestId('student-form').textContent).toBe('Save student')
   })
 
   it('redirects teacher to students list', async () => {

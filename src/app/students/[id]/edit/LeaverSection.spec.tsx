@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
-vi.mock('./actions', () => ({
+vi.mock('../../actions', () => ({
   markStudentAsLeaverAction: vi.fn(),
 }))
 
-import { markStudentAsLeaverAction } from './actions'
+import { markStudentAsLeaverAction } from '../../actions'
+
 import LeaverSection from './LeaverSection'
 
 beforeEach(() => {

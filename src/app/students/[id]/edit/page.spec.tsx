@@ -22,19 +22,20 @@ vi.mock('next/navigation', async (importOriginal) => ({
   redirect: vi.fn(),
 }))
 
-vi.mock('./EditStudentForm', () => ({
+// The form shows classes only for an active student (see StudentForm.spec).
+vi.mock('../../StudentForm', () => ({
   default: ({
-    student,
-    classes,
+    initial,
   }: {
-    student: { first_name: string; last_name: string }
-    classes?: unknown[]
+    initial: { first_name: string; last_name: string; active: boolean }
   }) => (
-    <div data-testid="edit-student-form" data-has-classes={Boolean(classes)}>
-      {student.last_name}, {student.first_name}
+    <div data-testid="student-form" data-active={String(initial.active)}>
+      {initial.last_name}, {initial.first_name}
     </div>
   ),
 }))
+
+vi.mock('../../actions', () => ({ saveStudentAction: vi.fn() }))
 
 vi.mock('./LeaverSection', () => ({
   default: ({ studentId }: { studentId: string }) => (
@@ -91,7 +92,7 @@ describe('EditStudentPage', () => {
     render(
       await EditStudentPage({ params: Promise.resolve({ id: 'student-1' }) }),
     )
-    expect(screen.getByTestId('edit-student-form')).toBeTruthy()
+    expect(screen.getByTestId('student-form')).toBeTruthy()
     expect(screen.getByRole('heading', { name: /Edit Student/ })).toBeTruthy()
   })
 
@@ -149,12 +150,12 @@ describe('EditStudentPage', () => {
       await EditStudentPage({ params: Promise.resolve({ id: 'student-1' }) }),
     )
     expect(screen.getByTestId('leaver-section')).toBeTruthy()
-    expect(
-      screen.getByTestId('edit-student-form').getAttribute('data-has-classes'),
-    ).toBe('true')
+    expect(screen.getByTestId('student-form').getAttribute('data-active')).toBe(
+      'true',
+    )
   })
 
-  it('shows a leaver panel and hides class checkboxes for an inactive student', async () => {
+  it('shows a leaver panel and passes an inactive student to the form', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
@@ -173,9 +174,9 @@ describe('EditStudentPage', () => {
     expect(screen.getByText('Graduated')).toBeTruthy()
     expect(screen.getByText(/Left on/)).toBeTruthy()
     expect(screen.queryByTestId('leaver-section')).toBeNull()
-    expect(
-      screen.getByTestId('edit-student-form').getAttribute('data-has-classes'),
-    ).toBe('false')
+    expect(screen.getByTestId('student-form').getAttribute('data-active')).toBe(
+      'false',
+    )
   })
 
   it('shows "Left" with no date when there is no enrolment history', async () => {

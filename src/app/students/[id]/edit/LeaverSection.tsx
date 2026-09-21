@@ -3,7 +3,7 @@
 import { useServerForm } from '@/components/form'
 import { LEAVING_REASONS, LEAVING_REASON_LABELS } from '@/lib/schemas'
 
-import { markStudentAsLeaverAction } from './actions'
+import { markStudentAsLeaverAction } from '../../actions'
 
 export default function LeaverSection({ studentId }: { studentId: string }) {
   const { handleSubmit, isPending, error } = useServerForm((fd) =>

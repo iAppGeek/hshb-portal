@@ -11,7 +11,7 @@ vi.mock('next/link', () => ({
   }) => <a href={href}>{children}</a>,
 }))
 
-import GuardianSelector from './GuardianSelector'
+import GuardianPicker from './GuardianPicker'
 
 const guardians = [
   {
@@ -33,11 +33,11 @@ const guardians = [
 const noErrors = (): undefined => undefined
 
 function renderSelector(
-  props: Partial<React.ComponentProps<typeof GuardianSelector>> = {},
+  props: Partial<React.ComponentProps<typeof GuardianPicker>> = {},
 ): HTMLFormElement {
   const { container } = render(
     <form>
-      <GuardianSelector
+      <GuardianPicker
         prefix="primary"
         guardians={guardians}
         fieldError={noErrors}
@@ -50,7 +50,7 @@ function renderSelector(
   return form
 }
 
-describe('GuardianSelector', () => {
+describe('GuardianPicker', () => {
   it('starts in "Add new" mode with prefixed guardian fields', () => {
     const form = renderSelector({ showAddress: true, requireEmail: true })
 
@@ -112,6 +112,24 @@ describe('GuardianSelector', () => {
     expect(screen.getByRole('link', { name: 'Edit guardian' })).toBeVisible()
   })
 
+  it('matches every search word and says when nothing matches', () => {
+    renderSelector()
+    fireEvent.click(screen.getByRole('radio', { name: 'Select existing' }))
+    expect(
+      screen.getByText('Type at least 5 characters · top 10 results shown'),
+    ).toBeVisible()
+
+    const search = screen.getByLabelText('Search guardians')
+    fireEvent.change(search, { target: { value: 'maria smith' } })
+    expect(screen.getByRole('option', { name: /Smith, Maria/ })).toBeVisible()
+    expect(screen.queryByRole('option', { name: /Jones, George/ })).toBeNull()
+
+    fireEvent.change(search, { target: { value: 'zzzzz' } })
+    expect(
+      screen.getByRole('option', { name: 'No matches found' }),
+    ).toBeTruthy()
+  })
+
   it('keeps the current guardian listed when it is not in the search results', () => {
     renderSelector({ defaultId: 'guardian-2' })
     fireEvent.change(screen.getByLabelText('Search guardians'), {
@@ -132,7 +150,7 @@ describe('GuardianSelector', () => {
       })[name]
 
     const { unmount } = render(
-      <GuardianSelector
+      <GuardianPicker
         prefix="primary"
         guardians={guardians}
         defaultId="guardian-1"
@@ -147,7 +165,7 @@ describe('GuardianSelector', () => {
     unmount()
 
     render(
-      <GuardianSelector
+      <GuardianPicker
         prefix="primary"
         guardians={guardians}
         fieldError={fieldError}
