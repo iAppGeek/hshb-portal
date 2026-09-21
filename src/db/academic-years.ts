@@ -1,3 +1,5 @@
+import { cache } from 'react'
+
 import { academicYearForDate } from '@/lib/academicYears'
 import type { Database } from '@/types/database'
 
@@ -12,13 +14,17 @@ export type AcademicYearInput = {
   end_date: string
 }
 
-export async function getAcademicYears(): Promise<AcademicYearRow[]> {
+/**
+ * Deduplicated within one request (React `cache`), not across requests: the
+ * other lookups below all go through it, and a page often calls several.
+ */
+export const getAcademicYears = cache(async (): Promise<AcademicYearRow[]> => {
   const { data } = await supabase
     .from('academic_years')
     .select('*')
     .order('start_date', { ascending: false })
   return data ?? []
-}
+})
 
 export async function getCurrentAcademicYear(): Promise<AcademicYearRow> {
   const years = await getAcademicYears()
