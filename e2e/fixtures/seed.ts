@@ -130,6 +130,25 @@ export async function deleteRegistrationSubmissionsByChildLastName(
     .eq('child_last_name', lastName)
 }
 
+// Inserts a pending photo opt-out request directly, for review tests that do
+// not need to go through the public form (the apply test does).
+export async function createPhotoOptOut(
+  childLastName: string,
+): Promise<{ id: string }> {
+  const { data, error } = await db
+    .from('photo_consent_opt_outs')
+    .insert({
+      child_first_name: 'E2E',
+      child_last_name: childLastName,
+      date_of_birth: '2016-03-10',
+      declaration_name: 'E2E Parent',
+    })
+    .select('id')
+    .single()
+  if (error) throw error
+  return data
+}
+
 export async function deletePhotoOptOutsByChildLastName(
   lastName: string,
 ): Promise<void> {

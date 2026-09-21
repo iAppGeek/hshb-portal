@@ -41,10 +41,9 @@ import {
   registrationParentContactSchema,
   registrationSubmissionSchema,
   approveRegistrationSchema,
-  rejectRegistrationSchema,
+  rejectReasonSchema,
   photoOptOutSchema,
   applyPhotoOptOutSchema,
-  rejectPhotoOptOutSchema,
   extractFormFields,
   extractGuardianFields,
   extractRegistrationContact,
@@ -1291,10 +1290,11 @@ describe('approveRegistrationSchema', () => {
   })
 })
 
-describe('rejectRegistrationSchema', () => {
-  it('requires a reason', () => {
-    expect(() => rejectRegistrationSchema.parse({ reason: '' })).toThrow()
-    expect(rejectRegistrationSchema.parse({ reason: 'Duplicate' }).reason).toBe(
+describe('rejectReasonSchema', () => {
+  it('requires a non-blank reason and trims it', () => {
+    expect(() => rejectReasonSchema.parse({ reason: '' })).toThrow()
+    expect(() => rejectReasonSchema.parse({ reason: '   ' })).toThrow()
+    expect(rejectReasonSchema.parse({ reason: ' Duplicate ' }).reason).toBe(
       'Duplicate',
     )
   })
@@ -1373,15 +1373,6 @@ describe('applyPhotoOptOutSchema', () => {
       applyPhotoOptOutSchema.parse({ student_id: 'not-a-uuid' }),
     ).toThrow()
     expect(() => applyPhotoOptOutSchema.parse({ student_id: '' })).toThrow()
-  })
-})
-
-describe('rejectPhotoOptOutSchema', () => {
-  it('requires a reason', () => {
-    expect(() => rejectPhotoOptOutSchema.parse({ reason: '' })).toThrow()
-    expect(
-      rejectPhotoOptOutSchema.parse({ reason: 'Cannot match child' }).reason,
-    ).toBe('Cannot match child')
   })
 })
 

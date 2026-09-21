@@ -17,7 +17,7 @@ import {
   applyPhotoOptOutAction,
   deletePhotoOptOutAction,
   rejectPhotoOptOutAction,
-} from '../../photo-opt-out-actions'
+} from '../../actions'
 import ReviewActionButton from '../../ReviewActionButton'
 import { workflowItems } from '../../workflowItems'
 

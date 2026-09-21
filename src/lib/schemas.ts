@@ -419,7 +419,8 @@ export const approveRegistrationSchema = z.object({
   reuse_guardians: checkbox,
 })
 
-export const rejectRegistrationSchema = z.object({ reason: requiredString })
+/** Rejecting a registration or a photo opt-out request. */
+export const rejectReasonSchema = z.object({ reason: requiredString })
 
 // ─── Photo consent opt-out ────────────────────────────────────────────────────
 
@@ -435,8 +436,6 @@ export const photoOptOutSchema = z.object({
 export const applyPhotoOptOutSchema = z.object({
   student_id: uuid,
 })
-
-export const rejectPhotoOptOutSchema = z.object({ reason: requiredString })
 
 // ─── Finance ─────────────────────────────────────────────────────────────────
 // Enum values mirror the CHECK constraints in the finance_payments migration.

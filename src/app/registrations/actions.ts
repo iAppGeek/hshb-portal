@@ -5,13 +5,29 @@ import {
   rejectRegistration,
   deleteRegistrationSubmission,
   getRegistrationSubmissionById,
+  applyPhotoOptOut,
+  rejectPhotoOptOut,
+  deletePhotoOptOut,
+  getPhotoOptOutById,
 } from '@/db'
 import { runAction, type ActionResult } from '@/lib/action'
 import { canApproveRegistrations } from '@/lib/permissions'
 import {
+  applyPhotoOptOutSchema,
   approveRegistrationSchema,
-  rejectRegistrationSchema,
+  rejectReasonSchema,
 } from '@/lib/schemas'
+
+const OPT_OUTS_PATH = '/registrations?tab=photo-opt-outs'
+
+/** The dialogs pass plain values; runAction parses them from FormData. */
+function formDataOf(fields: Record<string, string>): FormData {
+  const formData = new FormData()
+  for (const [key, value] of Object.entries(fields)) formData.set(key, value)
+  return formData
+}
+
+// ─── Registrations ───────────────────────────────────────────────────────────
 
 export async function approveRegistrationAction(
   id: string,
@@ -53,13 +69,11 @@ export async function rejectRegistrationAction(
   id: string,
   reason: string,
 ): Promise<ActionResult> {
-  const formData = new FormData()
-  formData.set('reason', reason)
   return runAction({
     name: 'registrations.reject',
     permission: canApproveRegistrations,
-    schema: rejectRegistrationSchema,
-    formData,
+    schema: rejectReasonSchema,
+    formData: formDataOf({ reason }),
     run: (input, { actor }) =>
       rejectRegistration({
         submissionId: id,
@@ -102,5 +116,87 @@ export async function deleteRegistrationAction(
     },
     redirectTo: '/registrations?status=rejected',
     fallbackError: 'Failed to delete registration. Please try again.',
+  })
+}
+
+// ─── Photo consent opt-outs ──────────────────────────────────────────────────
+
+export async function applyPhotoOptOutAction(
+  id: string,
+  studentId: string,
+): Promise<ActionResult> {
+  return runAction({
+    name: 'registrations.photo-opt-out.apply',
+    permission: canApproveRegistrations,
+    schema: applyPhotoOptOutSchema,
+    formData: formDataOf({ student_id: studentId }),
+    run: (input, { actor }) =>
+      applyPhotoOptOut({
+        requestId: id,
+        staffId: actor.staffId,
+        studentId: input.student_id,
+      }),
+    audit: {
+      entity: 'photo_consent_opt_out',
+      action: 'photo_opt_out_applied',
+      entityId: () => id,
+      details: (_result, input) => ({ studentId: input.student_id }),
+    },
+    redirectTo: OPT_OUTS_PATH,
+    fallbackError: 'Failed to apply the opt-out. Please try again.',
+  })
+}
+
+export async function rejectPhotoOptOutAction(
+  id: string,
+  reason: string,
+): Promise<ActionResult> {
+  return runAction({
+    name: 'registrations.photo-opt-out.reject',
+    permission: canApproveRegistrations,
+    schema: rejectReasonSchema,
+    formData: formDataOf({ reason }),
+    run: (input, { actor }) =>
+      rejectPhotoOptOut({
+        requestId: id,
+        staffId: actor.staffId,
+        reason: input.reason,
+      }),
+    audit: {
+      entity: 'photo_consent_opt_out',
+      action: 'photo_opt_out_rejected',
+      entityId: () => id,
+      details: (_result, input) => ({ reason: input.reason }),
+    },
+    redirectTo: OPT_OUTS_PATH,
+    fallbackError: 'Failed to reject the request. Please try again.',
+  })
+}
+
+export async function deletePhotoOptOutAction(
+  id: string,
+): Promise<ActionResult> {
+  return runAction({
+    name: 'registrations.photo-opt-out.delete',
+    permission: canApproveRegistrations,
+    formData: new FormData(),
+    run: async () => {
+      const request = await getPhotoOptOutById(id)
+      await deletePhotoOptOut(id)
+      return request
+    },
+    audit: {
+      entity: 'photo_consent_opt_out',
+      action: 'photo_opt_out_deleted',
+      entityId: () => id,
+      details: (request) => ({
+        childName: request
+          ? `${request.child_first_name} ${request.child_last_name}`
+          : undefined,
+        status: request?.status,
+      }),
+    },
+    redirectTo: OPT_OUTS_PATH,
+    fallbackError: 'Failed to delete the request. Please try again.',
   })
 }

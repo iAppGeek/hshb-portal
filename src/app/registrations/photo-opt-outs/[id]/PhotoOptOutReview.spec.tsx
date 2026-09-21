@@ -7,11 +7,11 @@ import {
   applyPhotoOptOutAction,
   deletePhotoOptOutAction,
   rejectPhotoOptOutAction,
-} from '../../photo-opt-out-actions'
+} from '../../actions'
 
 import PhotoOptOutReview from './PhotoOptOutReview'
 
-vi.mock('../../photo-opt-out-actions', () => ({
+vi.mock('../../actions', () => ({
   applyPhotoOptOutAction: vi.fn(),
   deletePhotoOptOutAction: vi.fn(),
   rejectPhotoOptOutAction: vi.fn(),
