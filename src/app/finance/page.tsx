@@ -2,13 +2,13 @@ import { type ReactNode } from 'react'
 import { type Metadata } from 'next'
 
 import { requireRouteAccess } from '@/auth/require'
+import TabBar, { type Tab } from '@/components/TabBar'
 import { getAcademicYears, getCurrentAcademicYear } from '@/db'
 import { resolveYearId } from '@/lib/academicYears'
 
 import PageHeader from '../_components/PageHeader'
 import YearSelector from '../_components/YearSelector'
 
-import FinanceTabBar from './_components/FinanceTabBar'
 import FeePlansTab from './_tabs/fee-plans/FeePlansTab'
 import StudentFeesTab from './_tabs/students/StudentFeesTab'
 
@@ -30,6 +30,19 @@ export default async function FinancePage({
   ])
   const yearId = resolveYearId(years, year, currentYear.id)
 
+  const TABS: Tab[] = [
+    {
+      key: 'students',
+      label: 'Students',
+      href: `/finance?tab=students&year=${yearId}`,
+    },
+    {
+      key: 'fee-plans',
+      label: 'Fee Plans',
+      href: `/finance?tab=fee-plans&year=${yearId}`,
+    },
+  ]
+
   return (
     <div>
       <PageHeader
@@ -45,7 +58,7 @@ export default async function FinancePage({
         }
       />
 
-      <FinanceTabBar currentTab={tab} yearId={yearId} />
+      <TabBar tabs={TABS} current={tab} ariaLabel="Finance" />
 
       {tab === 'students' && <StudentFeesTab yearId={yearId} />}
       {tab === 'fee-plans' && <FeePlansTab yearId={yearId} />}

@@ -7,10 +7,10 @@ vi.mock('next/navigation', async (importOriginal) => ({
   ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn(),
 }))
-vi.mock('./_components/AdminTabBar', () => ({
-  default: vi.fn(({ currentTab }) => (
+vi.mock('@/components/TabBar', () => ({
+  default: vi.fn(({ current }) => (
     <div data-testid="tab-bar">
-      <span data-testid="current-tab">{currentTab}</span>
+      <span data-testid="current-tab">{current}</span>
     </div>
   )),
 }))

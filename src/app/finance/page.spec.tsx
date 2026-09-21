@@ -31,12 +31,21 @@ vi.mock('../_components/YearSelector', () => ({
     </div>
   ),
 }))
-vi.mock('./_components/FinanceTabBar', () => ({
-  default: ({ currentTab, yearId }: { currentTab: string; yearId: string }) => (
-    <div data-testid="tab-bar">
-      {currentTab}:{yearId}
-    </div>
-  ),
+vi.mock('@/components/TabBar', () => ({
+  default: ({
+    tabs,
+    current,
+  }: {
+    tabs: { href: string }[]
+    current: string
+  }) => {
+    const year = new URL(tabs[0]!.href, 'http://x').searchParams.get('year')
+    return (
+      <div data-testid="tab-bar">
+        {current}:{year}
+      </div>
+    )
+  },
 }))
 vi.mock('./_tabs/students/StudentFeesTab', () => ({
   default: ({ yearId }: { yearId: string }) => (

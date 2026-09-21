@@ -1,6 +1,7 @@
 import { type Metadata } from 'next'
 
 import { requireRouteAccess } from '@/auth/require'
+import TabBar, { type Tab } from '@/components/TabBar'
 import { logError } from '@/lib/log'
 import {
   getRegistrationSubmissions,
@@ -16,11 +17,25 @@ import EmptyState from '../_components/EmptyState'
 import PageHeader from '../_components/PageHeader'
 
 import PhotoOptOutSection from './PhotoOptOutSection'
-import RegistrationTabs from './RegistrationTabs'
 import RegistrationsTable from './RegistrationsTable'
 import ShareLinksBar from './ShareLinksBar'
 
 export const metadata: Metadata = { title: 'Registrations' }
+
+const TABS: Tab[] = [
+  { key: 'pending', label: 'To-do', href: '/registrations?status=pending' },
+  {
+    key: 'actioned',
+    label: 'Actioned',
+    href: '/registrations?status=actioned',
+  },
+  {
+    key: 'rejected',
+    label: 'Rejected',
+    href: '/registrations?status=rejected',
+  },
+  { key: 'all', label: 'All', href: '/registrations?status=all' },
+]
 
 export default async function RegistrationsPage({
   searchParams,
@@ -71,7 +86,7 @@ export default async function RegistrationsPage({
         role={role}
       />
 
-      <RegistrationTabs currentStatus={status} />
+      <TabBar tabs={TABS} current={status} ariaLabel="Registrations" />
 
       {registrations.length === 0 ? (
         <EmptyState message="No registrations found." />
