@@ -37,3 +37,6 @@ ehthumbs.db
 Thumbs.db
 # Local Netlify folder
 .netlify
+
+# Generated from scripts/sw.template.js by scripts/build-sw.mjs
+public/sw.js

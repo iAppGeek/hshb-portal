@@ -1,11 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockSendNotification = vi.hoisted(() => vi.fn())
-const mockSetVapidDetails = vi.hoisted(() => vi.fn())
 
 vi.mock('web-push', () => ({
   default: {
-    setVapidDetails: mockSetVapidDetails,
     sendNotification: mockSendNotification,
   },
 }))
@@ -45,6 +43,15 @@ describe('sendPushNotification', () => {
         keys: { p256dh: mockSubscription.p256dh, auth: mockSubscription.auth },
       },
       JSON.stringify(mockPayload),
+      {
+        // From the environment: vitest.setup.ts only fills these in when CI
+        // hasn't already set them.
+        vapidDetails: {
+          subject: process.env.VAPID_SUBJECT,
+          publicKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+          privateKey: process.env.VAPID_PRIVATE_KEY,
+        },
+      },
     )
   })
 

@@ -12,6 +12,7 @@ import type { StaffRole } from '@/types/next-auth'
 import { redactChanges } from './audit-redaction'
 import { getUserFriendlyDbError } from './db-error'
 import { logError } from './log'
+import { notifyAdmins, type Notification } from './notify'
 import { extractFormFields } from './schemas'
 
 /**
@@ -75,6 +76,15 @@ type BaseRunActionOptions<TInput, TResult, TActor extends Actor | null> = {
   run: (input: TInput, ctx: ActionContext<TActor>) => Promise<TResult>
   /** Written after `run` resolves. `details` defaults to `input` (redacted). */
   audit?: AuditOptions<TInput, TResult>
+  /**
+   * Evaluated after audit; the notification goes to admins other than the
+   * actor once the response has been sent. Returning `undefined` sends nothing.
+   */
+  notify?: (
+    result: TResult,
+    input: TInput,
+    ctx: ActionContext<TActor>,
+  ) => Notification | undefined
   /** Static path or derived from the result. Executed outside try/catch. */
   redirectTo?: string | ((result: TResult) => string)
   /** Message when the thrown error has no friendly mapping. */
@@ -208,6 +218,27 @@ export async function runAction<TInput = undefined, TResult = void>(
           ? redactChanges(record, null, redact)
           : record,
     })
+  }
+
+  if (opts.notify) {
+    const notify = opts.notify as (
+      result: TResult,
+      input: TInput,
+      ctx: ActionContext<Actor | null>,
+    ) => Notification | undefined
+    // The save has already committed, so a faulty callback is logged rather
+    // than reported to the form as a failure.
+    try {
+      const notification = notify(result, input, {
+        actor,
+        formData: opts.formData,
+      })
+      if (notification) {
+        notifyAdmins(notification, { excludeStaffId: actor?.staffId })
+      }
+    } catch (err) {
+      logError(opts.name, err)
+    }
   }
 
   // Only a call with nowhere to redirect to hands its result back.

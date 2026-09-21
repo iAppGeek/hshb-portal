@@ -6,9 +6,11 @@ import { getActor } from '@/auth/require'
 import { logAuditEvent } from '@/db'
 
 import { runAction, ActionError } from './action'
+import { notifyAdmins } from './notify'
 
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('@/db', () => ({ logAuditEvent: vi.fn() }))
+vi.mock('./notify', () => ({ notifyAdmins: vi.fn() }))
 // Only `redirect` is faked, so a test can assert on the path without a real
 // navigation. Everything else stays real — `unstable_rethrow` in particular,
 // because it is what decides whether a framework interrupt escapes runAction.
@@ -22,6 +24,7 @@ vi.mock('next/navigation', async (importOriginal) => ({
 const mockGetActor = vi.mocked(getActor)
 const mockAudit = vi.mocked(logAuditEvent)
 const mockRedirect = vi.mocked(redirect)
+const mockNotifyAdmins = vi.mocked(notifyAdmins)
 
 const ADMIN = {
   staffId: 'staff-1',
@@ -491,6 +494,104 @@ describe('runAction — audit', () => {
     })
 
     expect(mockAudit).not.toHaveBeenCalled()
+  })
+})
+
+// ─── 5b. Notify ──────────────────────────────────────────────────────────────
+
+describe('runAction — notify', () => {
+  const notification = {
+    title: 'Saved',
+    body: 'Done',
+    url: '/reports' as const,
+  }
+
+  it('sends the notification to admins excluding the actor', async () => {
+    await runAction({
+      name: 'test.action',
+      formData: formData(),
+      run: vi.fn().mockResolvedValue({ id: 'x' }),
+      notify: () => notification,
+      fallbackError: 'Failed.',
+    })
+
+    expect(mockNotifyAdmins).toHaveBeenCalledWith(notification, {
+      excludeStaffId: 'staff-1',
+    })
+  })
+
+  it('does not notify when the callback returns undefined', async () => {
+    await runAction({
+      name: 'test.action',
+      formData: formData(),
+      run: vi.fn().mockResolvedValue(undefined),
+      notify: () => undefined,
+      fallbackError: 'Failed.',
+    })
+
+    expect(mockNotifyAdmins).not.toHaveBeenCalled()
+  })
+
+  it('logs a throwing callback and still returns the saved result', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const result = await runAction({
+      name: 'test.action',
+      formData: formData(),
+      run: vi.fn().mockResolvedValue({ id: 'x' }),
+      notify: () => {
+        throw new Error('bad callback')
+      },
+      fallbackError: 'Failed.',
+    })
+
+    expect(result).toEqual({ data: { id: 'x' } })
+    expect(mockNotifyAdmins).not.toHaveBeenCalled()
+    expect(consoleError).toHaveBeenCalledWith(
+      '[test.action]',
+      expect.objectContaining({ message: 'bad callback' }),
+    )
+    consoleError.mockRestore()
+  })
+
+  it('notifies after audit and before redirect', async () => {
+    const order: string[] = []
+    mockAudit.mockImplementation(() => {
+      order.push('audit')
+    })
+    mockNotifyAdmins.mockImplementation(() => {
+      order.push('notify')
+    })
+    mockRedirect.mockImplementation((path: string) => {
+      order.push('redirect')
+      throw new Error(`NEXT_REDIRECT:${path}`)
+    })
+
+    await expect(
+      runAction({
+        name: 'test.action',
+        formData: formData(),
+        run: vi.fn().mockResolvedValue(undefined),
+        audit: { entity: 'student', action: 'update' },
+        notify: () => notification,
+        redirectTo: '/students',
+        fallbackError: 'Failed.',
+      }),
+    ).rejects.toThrow('NEXT_REDIRECT:/students')
+
+    expect(order).toEqual(['audit', 'notify', 'redirect'])
+  })
+
+  it('does not notify when run throws', async () => {
+    await runAction({
+      name: 'test.action',
+      formData: formData(),
+      run: vi.fn().mockRejectedValue(new Error('boom')),
+      notify: () => notification,
+      fallbackError: 'Failed.',
+    })
+
+    expect(mockNotifyAdmins).not.toHaveBeenCalled()
   })
 })
 

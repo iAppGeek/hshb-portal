@@ -99,9 +99,10 @@ export default defineConfig({
     // In CI the env vars are already in the environment (from e2e.yml job env).
     // Locally they come from .env.e2e via dotenv-cli.
     // Turbopack is disabled in CI due to a Node.js streams incompatibility.
+    // public/sw.js is generated, so write the dev worker first.
     command: process.env.CI
-      ? 'next dev'
-      : 'dotenv -e .env.e2e -- next dev --turbopack',
+      ? 'node scripts/build-sw.mjs --dev && next dev'
+      : 'node scripts/build-sw.mjs --dev && dotenv -e .env.e2e -- next dev --turbopack',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,

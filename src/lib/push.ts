@@ -6,12 +6,6 @@ import type { PushSubscriptionRow } from '@/db'
 import { env } from '@/env'
 import { env as serverEnv } from '@/env.server'
 
-webpush.setVapidDetails(
-  serverEnv.VAPID_SUBJECT,
-  env.client.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-  serverEnv.VAPID_PRIVATE_KEY,
-)
-
 export type AttendancePushPayload = {
   title: string
   body: string
@@ -28,5 +22,14 @@ export async function sendPushNotification(
       keys: { p256dh: subscription.p256dh, auth: subscription.auth },
     },
     JSON.stringify(payload),
+    // Passed per send rather than via setVapidDetails, which validates the
+    // keys when this module is imported.
+    {
+      vapidDetails: {
+        subject: serverEnv.VAPID_SUBJECT,
+        publicKey: env.client.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+        privateKey: serverEnv.VAPID_PRIVATE_KEY,
+      },
+    },
   )
 }
