@@ -16,17 +16,19 @@ vi.mock('@/db', () => ({
   getStaffById: vi.fn(),
 }))
 
-vi.mock('./EditStaffForm', () => ({
+vi.mock('../../StaffForm', () => ({
   default: ({
-    staff,
+    initial,
   }: {
-    staff: { first_name: string; last_name: string }
+    initial: { first_name: string; last_name: string }
   }) => (
     <div>
-      EditStaffForm:{staff.last_name},{staff.first_name}
+      StaffForm:{initial.last_name},{initial.first_name}
     </div>
   ),
 }))
+
+vi.mock('../../actions', () => ({ saveStaffAction: vi.fn() }))
 
 import { auth } from '@/auth'
 import { getStaffById } from '@/db'
@@ -93,12 +95,12 @@ describe('EditStaffPage', () => {
     expect(screen.getByText('Edit Staff: Smith, Alice')).toBeTruthy()
   })
 
-  it('renders EditStaffForm for admin', async () => {
+  it('renders StaffForm for admin', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
 
     render(await EditStaffPage({ params }))
-    expect(screen.getByText('EditStaffForm:Smith,Alice')).toBeTruthy()
+    expect(screen.getByText('StaffForm:Smith,Alice')).toBeTruthy()
   })
 })

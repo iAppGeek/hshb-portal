@@ -254,7 +254,7 @@ export const staffAttendanceSchema = z.object({
   time: isoTime,
 })
 
-export const createStaffSchema = z.object({
+export const staffSchema = z.object({
   title: shortText,
   first_name: requiredString,
   last_name: requiredString,
@@ -264,8 +264,6 @@ export const createStaffSchema = z.object({
   contact_number: optionalUkPhone,
   personal_email: optionalEmail,
 })
-
-export const updateStaffSchema = createStaffSchema
 
 const guardianNewBase = z.object({
   mode: z.literal('new'),

@@ -12,9 +12,13 @@ vi.mock('next/navigation', async (importOriginal) => ({
   }),
 }))
 
-vi.mock('./AddStaffForm', () => ({
-  default: () => <div>AddStaffForm</div>,
+vi.mock('../StaffForm', () => ({
+  default: ({ submitLabel }: { submitLabel: string }) => (
+    <div>StaffForm {submitLabel}</div>
+  ),
 }))
+
+vi.mock('../actions', () => ({ saveStaffAction: vi.fn() }))
 
 import { auth } from '@/auth'
 
@@ -58,12 +62,12 @@ describe('AddStaffPage', () => {
     expect(screen.getByText('Add Staff Member')).toBeTruthy()
   })
 
-  it('renders the AddStaffForm for admin users', async () => {
+  it('renders the StaffForm for admin users', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
 
     render(await AddStaffPage())
-    expect(screen.getByText('AddStaffForm')).toBeTruthy()
+    expect(screen.getByText('StaffForm Add Staff Member')).toBeTruthy()
   })
 })

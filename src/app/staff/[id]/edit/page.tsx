@@ -6,8 +6,8 @@ import { getStaffById } from '@/db'
 import { canEditStaff } from '@/lib/permissions'
 
 import PageHeader, { RequiredFieldsNote } from '../../../_components/PageHeader'
-
-import EditStaffForm from './EditStaffForm'
+import { saveStaffAction } from '../../actions'
+import StaffForm from '../../StaffForm'
 
 export const metadata: Metadata = { title: 'Edit Staff Member' }
 
@@ -39,7 +39,11 @@ export default async function EditStaffPage({
         backLabel="Staff"
       />
 
-      <EditStaffForm staff={staff} />
+      <StaffForm
+        initial={staff}
+        action={saveStaffAction.bind(null, staff.id)}
+        submitLabel="Save changes"
+      />
     </div>
   )
 }
