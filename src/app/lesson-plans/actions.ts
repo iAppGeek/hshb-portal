@@ -33,43 +33,43 @@ async function assertOwnClass(
   if (!classes.some((c) => c.id === classId)) throw new ActionError(message)
 }
 
-export async function createLessonPlanAction(
+export async function saveLessonPlanAction(
+  id: string | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  return runAction({
-    name: 'lesson-plans.create',
-    permission: canCreateLessonPlans,
-    schema: createLessonPlanSchema,
-    formData,
-    run: async ({ class_id, lesson_date, description }, { actor }) => {
-      if (isTeacher(actor.role)) {
-        await assertOwnClass(
-          actor.staffId,
+  // A plan's class is fixed once created, so creating parses `class_id` and
+  // editing does not: the two schemas differ, hence two runAction calls.
+  if (id === null) {
+    return runAction({
+      name: 'lesson-plans.create',
+      permission: canCreateLessonPlans,
+      schema: createLessonPlanSchema,
+      formData,
+      run: async ({ class_id, lesson_date, description }, { actor }) => {
+        if (isTeacher(actor.role)) {
+          await assertOwnClass(
+            actor.staffId,
+            class_id,
+            'You can only create lesson plans for your own class.',
+          )
+        }
+        return createLessonPlan({
           class_id,
-          'You can only create lesson plans for your own class.',
-        )
-      }
-      return createLessonPlan({
-        class_id,
-        lesson_date,
-        description,
-        created_by: actor.staffId,
-      }).catch(rethrowDuplicate)
-    },
-    audit: {
-      entity: 'lesson_plan',
-      action: 'create',
-      entityId: (plan) => plan.id,
-    },
-    redirectTo: '/lesson-plans',
-    fallbackError: 'Failed to create lesson plan. Please try again.',
-  })
-}
+          lesson_date,
+          description,
+          created_by: actor.staffId,
+        }).catch(rethrowDuplicate)
+      },
+      audit: {
+        entity: 'lesson_plan',
+        action: 'create',
+        entityId: (plan) => plan.id,
+      },
+      redirectTo: '/lesson-plans',
+      fallbackError: 'Failed to create lesson plan. Please try again.',
+    })
+  }
 
-export async function updateLessonPlanAction(
-  id: string,
-  formData: FormData,
-): Promise<ActionResult> {
   return runAction({
     name: 'lesson-plans.update',
     permission: canEditLessonPlans,

@@ -6,8 +6,8 @@ import { getLessonPlanById, getClassesByTeacher } from '@/db'
 import { canEditLessonPlans, isTeacher } from '@/lib/permissions'
 
 import PageHeader, { RequiredFieldsNote } from '../../../_components/PageHeader'
-
-import EditLessonPlanForm from './EditLessonPlanForm'
+import { saveLessonPlanAction } from '../../actions'
+import LessonPlanForm from '../../LessonPlanForm'
 
 export const metadata: Metadata = { title: 'Edit Lesson Plan' }
 
@@ -39,7 +39,12 @@ export default async function EditLessonPlanPage({
         backHref="/lesson-plans"
         backLabel="Lesson Plans"
       />
-      <EditLessonPlanForm plan={plan} />
+      <LessonPlanForm
+        initial={plan}
+        classes={[]}
+        action={saveLessonPlanAction.bind(null, plan.id)}
+        submitLabel="Save changes"
+      />
     </div>
   )
 }

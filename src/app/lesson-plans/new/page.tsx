@@ -6,8 +6,8 @@ import { getAllClasses, getClassesByTeacher } from '@/db'
 import { isTeacher, canCreateLessonPlans } from '@/lib/permissions'
 
 import PageHeader, { RequiredFieldsNote } from '../../_components/PageHeader'
-
-import AddLessonPlanForm from './AddLessonPlanForm'
+import { saveLessonPlanAction } from '../actions'
+import LessonPlanForm from '../LessonPlanForm'
 
 export const metadata: Metadata = { title: 'Add Lesson Plan' }
 
@@ -29,7 +29,11 @@ export default async function AddLessonPlanPage() {
         backHref="/lesson-plans"
         backLabel="Lesson Plans"
       />
-      <AddLessonPlanForm classes={classes} />
+      <LessonPlanForm
+        classes={classes}
+        action={saveLessonPlanAction.bind(null, null)}
+        submitLabel="Add Lesson Plan"
+      />
     </div>
   )
 }

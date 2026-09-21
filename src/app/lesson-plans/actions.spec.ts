@@ -9,7 +9,7 @@ import {
   getClassesByTeacher,
 } from '@/db'
 
-import { createLessonPlanAction, updateLessonPlanAction } from './actions'
+import { saveLessonPlanAction } from './actions'
 
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('next/navigation', async (importOriginal) => ({
@@ -67,13 +67,16 @@ const baseUpdateFields: Record<string, string> = {
   description: 'Fractions introduction — updated',
 }
 
-// ─── createLessonPlanAction ─────────────────────────────────────────────────
+// ─── saveLessonPlanAction: create ───────────────────────────────────────────
 
-describe('createLessonPlanAction', () => {
+describe('saveLessonPlanAction (create)', () => {
   it('returns error when not authenticated', async () => {
     vi.mocked(getActor).mockResolvedValue(null as any)
 
-    const result = await createLessonPlanAction(makeFormData(baseCreateFields))
+    const result = await saveLessonPlanAction(
+      null,
+      makeFormData(baseCreateFields),
+    )
     expect(result).toEqual({ error: 'Not authenticated' })
     expect(createLessonPlan).not.toHaveBeenCalled()
   })
@@ -81,14 +84,17 @@ describe('createLessonPlanAction', () => {
   it('returns error when not authorised', async () => {
     vi.mocked(getActor).mockResolvedValue(secretarySession as any)
 
-    const result = await createLessonPlanAction(makeFormData(baseCreateFields))
+    const result = await saveLessonPlanAction(
+      null,
+      makeFormData(baseCreateFields),
+    )
     expect(result).toEqual({ error: 'Not authorised' })
     expect(createLessonPlan).not.toHaveBeenCalled()
   })
 
   it('returns error when validation fails', async () => {
     const fields = { ...baseCreateFields, description: '' }
-    const result = await createLessonPlanAction(makeFormData(fields))
+    const result = await saveLessonPlanAction(null, makeFormData(fields))
 
     expect(result).toMatchObject({ error: expect.any(String) })
     expect(createLessonPlan).not.toHaveBeenCalled()
@@ -101,7 +107,7 @@ describe('createLessonPlanAction', () => {
     })
 
     await expect(
-      createLessonPlanAction(makeFormData(baseCreateFields)),
+      saveLessonPlanAction(null, makeFormData(baseCreateFields)),
     ).rejects.toThrow('NEXT_REDIRECT')
 
     expect(createLessonPlan).toHaveBeenCalledWith(
@@ -121,7 +127,10 @@ describe('createLessonPlanAction', () => {
       { id: OTHER_CLASS },
     ] as any)
 
-    const result = await createLessonPlanAction(makeFormData(baseCreateFields))
+    const result = await saveLessonPlanAction(
+      null,
+      makeFormData(baseCreateFields),
+    )
 
     expect(result).toEqual({
       error: 'You can only create lesson plans for your own class.',
@@ -138,7 +147,7 @@ describe('createLessonPlanAction', () => {
     })
 
     await expect(
-      createLessonPlanAction(makeFormData(baseCreateFields)),
+      saveLessonPlanAction(null, makeFormData(baseCreateFields)),
     ).rejects.toThrow('NEXT_REDIRECT')
 
     expect(createLessonPlan).toHaveBeenCalled()
@@ -149,7 +158,10 @@ describe('createLessonPlanAction', () => {
       Object.assign(new Error('unique'), { code: '23505' }),
     )
 
-    const result = await createLessonPlanAction(makeFormData(baseCreateFields))
+    const result = await saveLessonPlanAction(
+      null,
+      makeFormData(baseCreateFields),
+    )
     expect(result).toEqual({
       error: 'A lesson plan already exists for this class on this date.',
     })
@@ -158,7 +170,10 @@ describe('createLessonPlanAction', () => {
   it('returns generic error when creation fails', async () => {
     vi.mocked(createLessonPlan).mockRejectedValue(new Error('DB error'))
 
-    const result = await createLessonPlanAction(makeFormData(baseCreateFields))
+    const result = await saveLessonPlanAction(
+      null,
+      makeFormData(baseCreateFields),
+    )
     expect(result).toEqual({
       error: 'Failed to create lesson plan. Please try again.',
     })
@@ -166,13 +181,13 @@ describe('createLessonPlanAction', () => {
   })
 })
 
-// ─── updateLessonPlanAction ─────────────────────────────────────────────────
+// ─── saveLessonPlanAction: update ───────────────────────────────────────────
 
-describe('updateLessonPlanAction', () => {
+describe('saveLessonPlanAction (update)', () => {
   it('returns error when not authenticated', async () => {
     vi.mocked(getActor).mockResolvedValue(null as any)
 
-    const result = await updateLessonPlanAction(
+    const result = await saveLessonPlanAction(
       PLAN_ID,
       makeFormData(baseUpdateFields),
     )
@@ -183,7 +198,7 @@ describe('updateLessonPlanAction', () => {
   it('returns error when not authorised', async () => {
     vi.mocked(getActor).mockResolvedValue(secretarySession as any)
 
-    const result = await updateLessonPlanAction(
+    const result = await saveLessonPlanAction(
       PLAN_ID,
       makeFormData(baseUpdateFields),
     )
@@ -198,7 +213,7 @@ describe('updateLessonPlanAction', () => {
     })
 
     await expect(
-      updateLessonPlanAction(PLAN_ID, makeFormData(baseUpdateFields)),
+      saveLessonPlanAction(PLAN_ID, makeFormData(baseUpdateFields)),
     ).rejects.toThrow('NEXT_REDIRECT')
 
     expect(updateLessonPlan).toHaveBeenCalledWith(PLAN_ID, {
@@ -219,7 +234,7 @@ describe('updateLessonPlanAction', () => {
       { id: OTHER_CLASS },
     ] as any)
 
-    const result = await updateLessonPlanAction(
+    const result = await saveLessonPlanAction(
       PLAN_ID,
       makeFormData(baseUpdateFields),
     )
@@ -234,7 +249,7 @@ describe('updateLessonPlanAction', () => {
     vi.mocked(getActor).mockResolvedValue(teacherSession as any)
     vi.mocked(getLessonPlanById).mockResolvedValue(null)
 
-    const result = await updateLessonPlanAction(
+    const result = await saveLessonPlanAction(
       PLAN_ID,
       makeFormData(baseUpdateFields),
     )
@@ -245,7 +260,7 @@ describe('updateLessonPlanAction', () => {
 
   it('returns error when validation fails', async () => {
     const fields = { ...baseUpdateFields, description: '' }
-    const result = await updateLessonPlanAction(PLAN_ID, makeFormData(fields))
+    const result = await saveLessonPlanAction(PLAN_ID, makeFormData(fields))
 
     expect(result).toMatchObject({ error: expect.any(String) })
     expect(updateLessonPlan).not.toHaveBeenCalled()
@@ -256,7 +271,7 @@ describe('updateLessonPlanAction', () => {
       Object.assign(new Error('unique'), { code: '23505' }),
     )
 
-    const result = await updateLessonPlanAction(
+    const result = await saveLessonPlanAction(
       PLAN_ID,
       makeFormData(baseUpdateFields),
     )
@@ -268,7 +283,7 @@ describe('updateLessonPlanAction', () => {
   it('returns generic error when update fails', async () => {
     vi.mocked(updateLessonPlan).mockRejectedValue(new Error('DB error'))
 
-    const result = await updateLessonPlanAction(
+    const result = await saveLessonPlanAction(
       PLAN_ID,
       makeFormData(baseUpdateFields),
     )
