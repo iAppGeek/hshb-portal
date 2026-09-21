@@ -5,7 +5,8 @@ vi.mock('@/auth', () => ({
   auth: vi.fn(),
 }))
 
-vi.mock('next/navigation', () => ({
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn().mockImplementation((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`)
   }),
@@ -50,7 +51,9 @@ const defaultSearchParams = Promise.resolve({})
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+  vi.mocked(auth).mockResolvedValue({
+    user: { role: 'admin', staffId: 'staff-1' },
+  } as any)
   // Day mode defaults
   vi.mocked(getAllStaff).mockResolvedValue([])
   vi.mocked(getStaffAttendedCount).mockResolvedValue(0)
@@ -69,16 +72,18 @@ beforeEach(() => {
 describe('ReportsPage', () => {
   // ── Auth tests ──────────────────────────────────────────────────────────
 
-  it('redirects to dashboard when not authenticated', async () => {
+  it('redirects to the login page when not authenticated', async () => {
     vi.mocked(auth).mockResolvedValue(null as any)
 
     await expect(
       ReportsPage({ searchParams: defaultSearchParams }),
-    ).rejects.toThrow('NEXT_REDIRECT:/dashboard')
+    ).rejects.toThrow('NEXT_REDIRECT:/login')
   })
 
   it('redirects to dashboard when role is teacher', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'teacher' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'teacher', staffId: 'staff-1' },
+    } as any)
 
     await expect(
       ReportsPage({ searchParams: defaultSearchParams }),
@@ -87,7 +92,7 @@ describe('ReportsPage', () => {
 
   it('does not redirect secretary (can access reports)', async () => {
     vi.mocked(auth).mockResolvedValue({
-      user: { role: 'secretary' },
+      user: { role: 'secretary', staffId: 'staff-1' },
     } as any)
 
     render(await ReportsPage({ searchParams: defaultSearchParams }))

@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { type Metadata } from 'next'
 
-import { auth } from '@/auth'
+import { requireSession } from '@/auth/require'
 import {
   getAcademicYears,
   getAllClasses,
@@ -13,7 +13,6 @@ import { resolveYearId } from '@/lib/academicYears'
 import { isClassOpen } from '@/lib/classes'
 import { todayInSchoolTz } from '@/lib/datetime'
 import { isAdmin, isTeacher } from '@/lib/permissions'
-import type { StaffRole } from '@/types/next-auth'
 
 import YearSelector from '../_components/YearSelector'
 
@@ -62,9 +61,9 @@ export default async function AttendancePage({
 }: {
   searchParams: Promise<{ classId?: string; date?: string; year?: string }>
 }) {
-  const session = await auth()
-  const role = session?.user?.role as StaffRole
-  const staffId = session?.user?.staffId ?? ''
+  const actor = await requireSession()
+  const role = actor.role
+  const staffId = actor.staffId
   const { classId: qClassId, date: qDate, year: qYear } = await searchParams
 
   const today = todayInSchoolTz()

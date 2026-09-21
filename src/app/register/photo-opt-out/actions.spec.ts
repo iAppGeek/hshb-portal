@@ -7,6 +7,7 @@ import { verifyTurnstileToken } from '@/lib/turnstile'
 
 import { submitPhotoOptOutAction } from './actions'
 
+vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('@/db', () => ({
   createPhotoOptOut: vi.fn(),
   logAuditEvent: vi.fn(),
@@ -27,7 +28,8 @@ vi.mock('@/lib/request-ip', () => ({
   getClientIp: vi.fn(),
 }))
 
-vi.mock('next/navigation', () => ({
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn(),
 }))
 
@@ -65,6 +67,22 @@ describe('submitPhotoOptOutAction', () => {
     delete process.env.TURNSTILE_SECRET_KEY
 
     const result = await submitPhotoOptOutAction(makeFormData(baseFields))
+
+    expect(result).toEqual({
+      error: 'This form is temporarily unavailable. Please try again later.',
+    })
+    expect(createPhotoOptOut).not.toHaveBeenCalled()
+  })
+
+  // Without a secret key there is no site key either, so the widget never
+  // renders and the form posts no token at all. The schema must not get to
+  // blame the visitor for a field the page never gave them.
+  it('reports the form as unavailable when Turnstile is not configured at all', async () => {
+    delete process.env.TURNSTILE_SECRET_KEY
+    const withoutToken: Record<string, string> = { ...baseFields }
+    delete withoutToken.turnstile_token
+
+    const result = await submitPhotoOptOutAction(makeFormData(withoutToken))
 
     expect(result).toEqual({
       error: 'This form is temporarily unavailable. Please try again later.',
@@ -113,8 +131,11 @@ describe('submitPhotoOptOutAction', () => {
     expect(createPhotoOptOut).toHaveBeenCalledWith(
       expect.not.objectContaining({ turnstile_token: expect.anything() }),
     )
+    // `details` is deliberately empty: the submission itself must not be
+    // copied into the audit log.
     expect(logAuditEvent).toHaveBeenCalledWith({
       staffId: null,
+      details: {},
       action: 'photo_opt_out_submitted',
       entity: 'photo_consent_opt_out',
       entityId: 'req-1',

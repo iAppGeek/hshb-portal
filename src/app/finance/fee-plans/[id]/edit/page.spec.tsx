@@ -12,7 +12,8 @@ import {
 import EditFeePlanPage from './page'
 
 vi.mock('@/auth', () => ({ auth: vi.fn() }))
-vi.mock('next/navigation', () => ({
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`)
   }),
@@ -49,7 +50,9 @@ const currentYear = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as never)
+  vi.mocked(auth).mockResolvedValue({
+    user: { role: 'admin', staffId: 'staff-1' },
+  } as never)
   vi.mocked(getAcademicYears).mockResolvedValue([currentYear] as never)
   vi.mocked(getClassesByAcademicYear).mockResolvedValue([])
   vi.mocked(getFeePlanById).mockResolvedValue({
@@ -76,7 +79,9 @@ beforeEach(() => {
 
 describe('EditFeePlanPage', () => {
   it('redirects non-admins to the dashboard', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'secretary' } } as never)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'secretary', staffId: 'staff-1' },
+    } as never)
     await expect(EditFeePlanPage({ params })).rejects.toThrow(
       'NEXT_REDIRECT:/dashboard',
     )

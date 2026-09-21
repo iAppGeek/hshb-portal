@@ -1,12 +1,10 @@
 import { type ReactNode } from 'react'
 import { type Metadata } from 'next'
-import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireRole } from '@/auth/require'
 import { getAcademicYears, getCurrentAcademicYear } from '@/db'
 import { resolveYearId } from '@/lib/academicYears'
 import { canManageFinance } from '@/lib/permissions'
-import type { StaffRole } from '@/types/next-auth'
 
 import YearSelector from '../_components/YearSelector'
 
@@ -23,12 +21,7 @@ export default async function FinancePage({
 }: {
   searchParams: Promise<{ tab?: string; year?: string }>
 }): Promise<ReactNode> {
-  const session = await auth()
-  const role = session?.user?.role as StaffRole | undefined
-
-  if (!role || !canManageFinance(role)) {
-    redirect('/dashboard')
-  }
+  await requireRole(canManageFinance)
 
   const { tab = DEFAULT_TAB, year } = await searchParams
   const [years, currentYear] = await Promise.all([

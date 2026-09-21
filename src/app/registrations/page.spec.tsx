@@ -23,7 +23,8 @@ vi.mock('@/db', () => ({
   findStudentMatches: vi.fn(),
 }))
 
-vi.mock('next/navigation', () => ({
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn(),
 }))
 
@@ -71,7 +72,7 @@ describe('RegistrationsPage', () => {
     expect(redirect).toHaveBeenCalledWith('/dashboard')
   })
 
-  it('redirects unauthenticated users to dashboard', async () => {
+  it('redirects unauthenticated users to the login page', async () => {
     vi.mocked(auth).mockResolvedValue(null as never)
     vi.mocked(redirect).mockImplementation(() => {
       throw new Error('NEXT_REDIRECT')
@@ -80,7 +81,7 @@ describe('RegistrationsPage', () => {
     await expect(
       RegistrationsPage({ searchParams: Promise.resolve({}) }),
     ).rejects.toThrow('NEXT_REDIRECT')
-    expect(redirect).toHaveBeenCalledWith('/dashboard')
+    expect(redirect).toHaveBeenCalledWith('/login')
   })
 
   it('defaults to the pending status for admin and shows the share links bar', async () => {

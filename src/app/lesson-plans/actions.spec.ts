@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { getActor } from '@/auth/require'
 import {
   createLessonPlan,
   updateLessonPlan,
@@ -12,8 +12,11 @@ import {
 
 import { createLessonPlanAction, updateLessonPlanAction } from './actions'
 
-vi.mock('@/auth', () => ({ auth: vi.fn() }))
-vi.mock('next/navigation', () => ({ redirect: vi.fn() }))
+vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
+  redirect: vi.fn(),
+}))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/db', () => ({
   createLessonPlan: vi.fn(),
@@ -28,13 +31,23 @@ const CLASS_ID = '00000000-0000-4000-8000-000000000010'
 const PLAN_ID = '00000000-0000-4000-8000-000000000020'
 const OTHER_CLASS = '00000000-0000-4000-8000-000000000030'
 
-const adminSession = { user: { staffId: STAFF_ID, role: 'admin' } }
-const teacherSession = { user: { staffId: STAFF_ID, role: 'teacher' } }
-const secretarySession = { user: { staffId: STAFF_ID, role: 'secretary' } }
+const adminSession = { staffId: STAFF_ID, role: 'admin', name: null, email: '' }
+const teacherSession = {
+  staffId: STAFF_ID,
+  role: 'teacher',
+  name: null,
+  email: '',
+}
+const secretarySession = {
+  staffId: STAFF_ID,
+  role: 'secretary',
+  name: null,
+  email: '',
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(auth).mockResolvedValue(adminSession as any)
+  vi.mocked(getActor).mockResolvedValue(adminSession as any)
 })
 
 function makeFormData(fields: Record<string, string>): FormData {
@@ -60,18 +73,18 @@ const baseUpdateFields: Record<string, string> = {
 
 describe('createLessonPlanAction', () => {
   it('returns error when not authenticated', async () => {
-    vi.mocked(auth).mockResolvedValue(null as any)
+    vi.mocked(getActor).mockResolvedValue(null as any)
 
     const result = await createLessonPlanAction(makeFormData(baseCreateFields))
-    expect(result).toEqual({ error: 'Unauthorised' })
+    expect(result).toEqual({ error: 'Not authenticated' })
     expect(createLessonPlan).not.toHaveBeenCalled()
   })
 
   it('returns error when not authorised', async () => {
-    vi.mocked(auth).mockResolvedValue(secretarySession as any)
+    vi.mocked(getActor).mockResolvedValue(secretarySession as any)
 
     const result = await createLessonPlanAction(makeFormData(baseCreateFields))
-    expect(result).toEqual({ error: 'Unauthorised' })
+    expect(result).toEqual({ error: 'Not authorised' })
     expect(createLessonPlan).not.toHaveBeenCalled()
   })
 
@@ -79,7 +92,7 @@ describe('createLessonPlanAction', () => {
     const fields = { ...baseCreateFields, description: '' }
     const result = await createLessonPlanAction(makeFormData(fields))
 
-    expect(result).toEqual({ error: expect.any(String) })
+    expect(result).toMatchObject({ error: expect.any(String) })
     expect(createLessonPlan).not.toHaveBeenCalled()
   })
 
@@ -106,7 +119,7 @@ describe('createLessonPlanAction', () => {
   })
 
   it('restricts teacher to their own classes', async () => {
-    vi.mocked(auth).mockResolvedValue(teacherSession as any)
+    vi.mocked(getActor).mockResolvedValue(teacherSession as any)
     vi.mocked(getClassesByTeacher).mockResolvedValue([
       { id: OTHER_CLASS },
     ] as any)
@@ -120,7 +133,7 @@ describe('createLessonPlanAction', () => {
   })
 
   it('allows teacher to create for their own class', async () => {
-    vi.mocked(auth).mockResolvedValue(teacherSession as any)
+    vi.mocked(getActor).mockResolvedValue(teacherSession as any)
     vi.mocked(getClassesByTeacher).mockResolvedValue([{ id: CLASS_ID }] as any)
     vi.mocked(createLessonPlan).mockResolvedValue({ id: PLAN_ID } as any)
     vi.mocked(redirect).mockImplementation(() => {
@@ -160,24 +173,24 @@ describe('createLessonPlanAction', () => {
 
 describe('updateLessonPlanAction', () => {
   it('returns error when not authenticated', async () => {
-    vi.mocked(auth).mockResolvedValue(null as any)
+    vi.mocked(getActor).mockResolvedValue(null as any)
 
     const result = await updateLessonPlanAction(
       PLAN_ID,
       makeFormData(baseUpdateFields),
     )
-    expect(result).toEqual({ error: 'Unauthorised' })
+    expect(result).toEqual({ error: 'Not authenticated' })
     expect(updateLessonPlan).not.toHaveBeenCalled()
   })
 
   it('returns error when not authorised', async () => {
-    vi.mocked(auth).mockResolvedValue(secretarySession as any)
+    vi.mocked(getActor).mockResolvedValue(secretarySession as any)
 
     const result = await updateLessonPlanAction(
       PLAN_ID,
       makeFormData(baseUpdateFields),
     )
-    expect(result).toEqual({ error: 'Unauthorised' })
+    expect(result).toEqual({ error: 'Not authorised' })
     expect(updateLessonPlan).not.toHaveBeenCalled()
   })
 
@@ -201,7 +214,7 @@ describe('updateLessonPlanAction', () => {
   })
 
   it('restricts teacher to their own classes', async () => {
-    vi.mocked(auth).mockResolvedValue(teacherSession as any)
+    vi.mocked(getActor).mockResolvedValue(teacherSession as any)
     vi.mocked(getLessonPlanById).mockResolvedValue({
       id: PLAN_ID,
       class_id: CLASS_ID,
@@ -222,7 +235,7 @@ describe('updateLessonPlanAction', () => {
   })
 
   it('returns error when lesson plan not found for teacher', async () => {
-    vi.mocked(auth).mockResolvedValue(teacherSession as any)
+    vi.mocked(getActor).mockResolvedValue(teacherSession as any)
     vi.mocked(getLessonPlanById).mockResolvedValue(null)
 
     const result = await updateLessonPlanAction(
@@ -238,7 +251,7 @@ describe('updateLessonPlanAction', () => {
     const fields = { ...baseUpdateFields, description: '' }
     const result = await updateLessonPlanAction(PLAN_ID, makeFormData(fields))
 
-    expect(result).toEqual({ error: expect.any(String) })
+    expect(result).toMatchObject({ error: expect.any(String) })
     expect(updateLessonPlan).not.toHaveBeenCalled()
   })
 

@@ -2,13 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { getActor } from '@/auth/require'
 import { migrateClass, logAuditEvent } from '@/db'
 
 import { migrateClassAction } from './actions'
 
-vi.mock('@/auth', () => ({ auth: vi.fn() }))
-vi.mock('next/navigation', () => ({ redirect: vi.fn() }))
+vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
+  redirect: vi.fn(),
+}))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/db', () => ({
   migrateClass: vi.fn(),
@@ -23,11 +26,11 @@ const YEAR_ID = '00000000-0000-4000-8000-000000000030'
 const STUDENT_1 = '00000000-0000-4000-8000-000000000040'
 const STUDENT_2 = '00000000-0000-4000-8000-000000000050'
 
-const adminSession = { user: { staffId: STAFF_ID, role: 'admin' } }
+const adminSession = { staffId: STAFF_ID, role: 'admin', name: null, email: '' }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(auth).mockResolvedValue(adminSession as any)
+  vi.mocked(getActor).mockResolvedValue(adminSession as any)
 })
 
 function makeFormData(fields: Record<string, string>): FormData {
@@ -59,7 +62,7 @@ const withoutNewClassFields = {
 
 describe('migrateClassAction', () => {
   it('returns error when not authenticated', async () => {
-    vi.mocked(auth).mockResolvedValue(null as any)
+    vi.mocked(getActor).mockResolvedValue(null as any)
 
     const result = await migrateClassAction(makeFormData(withNewClassFields))
     expect(result).toEqual({ error: 'Not authenticated' })
@@ -67,8 +70,11 @@ describe('migrateClassAction', () => {
   })
 
   it('returns error when role is teacher', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: STAFF_ID, role: 'teacher' },
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      role: 'teacher',
+      name: null,
+      email: '',
     } as any)
 
     const result = await migrateClassAction(makeFormData(withNewClassFields))

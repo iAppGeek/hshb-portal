@@ -2,7 +2,7 @@ import type { Json } from '@/types/database'
 
 import { supabase } from './client'
 
-type AuditAction =
+export type AuditAction =
   | 'create'
   | 'update'
   | 'delete'
@@ -17,7 +17,7 @@ type AuditAction =
   | 'photo_opt_out_rejected'
   | 'photo_opt_out_deleted'
 
-type AuditEntry = {
+export type AuditEntry = {
   staffId: string | null
   action: AuditAction
   entity: string

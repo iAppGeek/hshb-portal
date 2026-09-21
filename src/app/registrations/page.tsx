@@ -1,7 +1,7 @@
 import { type Metadata } from 'next'
-import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireRole } from '@/auth/require'
+import { logError } from '@/lib/log'
 import {
   getRegistrationSubmissions,
   getPhotoOptOuts,
@@ -14,7 +14,6 @@ import {
   canApproveRegistrations,
 } from '@/lib/permissions'
 import { registrationStatusFilter } from '@/lib/schemas'
-import type { StaffRole } from '@/types/next-auth'
 
 import EmptyState from '../_components/EmptyState'
 import PageHeader from '../_components/PageHeader'
@@ -31,12 +30,7 @@ export default async function RegistrationsPage({
 }: {
   searchParams: Promise<{ status?: string }>
 }) {
-  const session = await auth()
-  const role = session?.user?.role as StaffRole | undefined
-
-  if (!role || !canReviewRegistrations(role)) {
-    redirect('/dashboard')
-  }
+  const { role } = await requireRole(canReviewRegistrations)
 
   const params = await searchParams
   const status = registrationStatusFilter.parse(params.status)
@@ -58,7 +52,7 @@ export default async function RegistrationsPage({
           lastName: r.child_last_name,
           dateOfBirth: r.date_of_birth,
         }).catch((err: unknown) => {
-          console.error('[RegistrationsPage] findStudentMatches failed:', err)
+          logError('registrations.findStudentMatches', err)
           return [] as StudentMatch[]
         }),
       ),

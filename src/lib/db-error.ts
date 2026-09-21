@@ -21,12 +21,6 @@ function extractColumnFromDetail(details: string): string | null {
 export function getUserFriendlyDbError(err: unknown, fallback: string): string {
   if (!isSupabaseError(err)) return fallback
 
-  console.error('[DB Error]', {
-    code: err.code,
-    message: err.message,
-    details: err.details,
-  })
-
   switch (err.code) {
     case '23505': {
       const column = err.details ? extractColumnFromDetail(err.details) : null

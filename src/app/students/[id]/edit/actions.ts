@@ -1,10 +1,7 @@
 'use server'
 
-import { redirect } from 'next/navigation'
-import { revalidatePath } from 'next/cache'
 import type { z } from 'zod'
 
-import { auth } from '@/auth'
 import {
   createGuardian,
   getGuardianById,
@@ -12,9 +9,8 @@ import {
   updateStudent,
   updateStudentClasses,
   markStudentAsLeaver,
-  logAuditEvent,
 } from '@/db'
-import { getUserFriendlyDbError } from '@/lib/db-error'
+import { ActionError, runAction, type ActionResult } from '@/lib/action'
 import { canEditStudents } from '@/lib/permissions'
 import {
   updateStudentSchema,
@@ -23,9 +19,7 @@ import {
   leaverSchema,
   extractFormFields,
   extractGuardianFields,
-  type ActionResult,
 } from '@/lib/schemas'
-import type { StaffRole } from '@/types/next-auth'
 
 async function resolveGuardian(
   guardian: z.infer<typeof guardianSchema>,
@@ -47,174 +41,148 @@ async function resolveGuardian(
   return created.id
 }
 
+/**
+ * Guardians live in four prefixed blocks of the same form, so they are parsed
+ * here rather than through `runAction`'s single `schema`.
+ */
+async function resolveGuardianSlot(
+  formData: FormData,
+  prefix: string,
+  schema: typeof guardianSchema | typeof guardianSchemaWithOccupation,
+): Promise<string> {
+  const parsed = schema.safeParse(extractGuardianFields(formData, prefix))
+  if (!parsed.success) throw new ActionError(parsed.error.issues[0].message)
+  return resolveGuardian(parsed.data)
+}
+
 export async function updateStudentAction(
   id: string,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session) return { error: 'Not authenticated' }
-  const role = session.user.role as StaffRole
-  if (!canEditStudents(role)) return { error: 'Not authorised' }
-  const staffId = session.user.staffId ?? null
+  return runAction({
+    name: 'students.update',
+    permission: canEditStudents,
+    formData,
+    run: async (_input, { formData }) => {
+      const parsed = updateStudentSchema.safeParse(
+        extractFormFields(formData, ['class_ids']),
+      )
+      if (!parsed.success) throw new ActionError(parsed.error.issues[0].message)
+      const d = parsed.data
 
-  const raw = extractFormFields(formData, ['class_ids'])
-  const parsed = updateStudentSchema.safeParse(raw)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
+      const primaryGuardianId = await resolveGuardianSlot(
+        formData,
+        'primary',
+        guardianSchemaWithOccupation,
+      )
 
-  const primaryRaw = extractGuardianFields(formData, 'primary')
-  const primaryParsed = guardianSchemaWithOccupation.safeParse(primaryRaw)
-  if (!primaryParsed.success)
-    return { error: primaryParsed.error.issues[0].message }
+      const secondaryGuardianId = d.has_secondary
+        ? await resolveGuardianSlot(
+            formData,
+            'secondary',
+            guardianSchemaWithOccupation,
+          )
+        : null
 
-  try {
-    const primaryGuardianId = await resolveGuardian(primaryParsed.data)
+      const contact1Id = d.has_contact1
+        ? await resolveGuardianSlot(formData, 'contact1', guardianSchema)
+        : null
 
-    let secondaryGuardianId: string | null = null
-    if (parsed.data.has_secondary) {
-      const secondaryRaw = extractGuardianFields(formData, 'secondary')
-      const secondaryParsed =
-        guardianSchemaWithOccupation.safeParse(secondaryRaw)
-      if (!secondaryParsed.success)
-        return { error: secondaryParsed.error.issues[0].message }
-      secondaryGuardianId = await resolveGuardian(secondaryParsed.data)
-    }
+      const contact2Id = d.has_contact2
+        ? await resolveGuardianSlot(formData, 'contact2', guardianSchema)
+        : null
 
-    let contact1Id: string | null = null
-    if (parsed.data.has_contact1) {
-      const contact1Raw = extractGuardianFields(formData, 'contact1')
-      const contact1Parsed = guardianSchema.safeParse(contact1Raw)
-      if (!contact1Parsed.success)
-        return { error: contact1Parsed.error.issues[0].message }
-      contact1Id = await resolveGuardian(contact1Parsed.data)
-    }
+      const addressGuardianId =
+        d.address_guardian_id === 'primary' ? primaryGuardianId : null
 
-    let contact2Id: string | null = null
-    if (parsed.data.has_contact2) {
-      const contact2Raw = extractGuardianFields(formData, 'contact2')
-      const contact2Parsed = guardianSchema.safeParse(contact2Raw)
-      if (!contact2Parsed.success)
-        return { error: contact2Parsed.error.issues[0].message }
-      contact2Id = await resolveGuardian(contact2Parsed.data)
-    }
-
-    const d = parsed.data
-
-    let addressGuardianId: string | null = null
-    if (d.address_guardian_id === 'primary') {
-      addressGuardianId = primaryGuardianId
-    }
-
-    if (addressGuardianId) {
-      const guardian = await getGuardianById(addressGuardianId)
-      if (!guardian?.address_line_1 || !guardian?.city || !guardian?.postcode) {
-        return {
-          error:
+      if (addressGuardianId) {
+        const guardian = await getGuardianById(addressGuardianId)
+        if (!guardian?.address_line_1 || !guardian?.city || !guardian?.postcode)
+          throw new ActionError(
             'The selected guardian does not have an address. Add their address first.',
-        }
-      }
-    } else if (
-      !d.student_address_line_1 ||
-      !d.student_city ||
-      !d.student_postcode
-    ) {
-      return {
-        error:
+          )
+      } else if (
+        !d.student_address_line_1 ||
+        !d.student_city ||
+        !d.student_postcode
+      ) {
+        throw new ActionError(
           'Enter an address or select a guardian whose address the student shares',
+        )
       }
-    }
 
-    await updateStudent(id, {
-      first_name: d.student_first_name,
-      last_name: d.student_last_name,
-      student_code: d.student_code,
-      date_of_birth: d.student_date_of_birth,
-      english_school_name: d.student_english_school_name,
-      address_guardian_id: addressGuardianId,
-      address_line_1: addressGuardianId ? null : d.student_address_line_1,
-      address_line_2: addressGuardianId ? null : d.student_address_line_2,
-      city: addressGuardianId ? null : d.student_city,
-      postcode: addressGuardianId ? null : d.student_postcode,
-      allergies: d.student_allergies,
-      medical_details: d.student_medical_details,
-      notes: d.student_notes,
-      primary_guardian_id: primaryGuardianId,
-      primary_guardian_relationship: d.primary_relationship,
-      secondary_guardian_id: secondaryGuardianId,
-      secondary_guardian_relationship: secondaryGuardianId
-        ? (d.secondary_relationship ?? null)
-        : null,
-      additional_contact_1_id: contact1Id,
-      additional_contact_1_relationship: contact1Id
-        ? (d.contact1_relationship ?? null)
-        : null,
-      additional_contact_2_id: contact2Id,
-      additional_contact_2_relationship: contact2Id
-        ? (d.contact2_relationship ?? null)
-        : null,
-      consent_privacy_notice: d.consent_privacy_notice,
-      consent_emergency_first_aid: d.consent_emergency_first_aid,
-      consent_photo_media: d.consent_photo_media,
-      consent_home_school: d.consent_home_school,
-      consent_comms_email_sms: d.consent_comms_email_sms,
-    })
+      await updateStudent(id, {
+        first_name: d.student_first_name,
+        last_name: d.student_last_name,
+        student_code: d.student_code,
+        date_of_birth: d.student_date_of_birth,
+        english_school_name: d.student_english_school_name,
+        address_guardian_id: addressGuardianId,
+        address_line_1: addressGuardianId ? null : d.student_address_line_1,
+        address_line_2: addressGuardianId ? null : d.student_address_line_2,
+        city: addressGuardianId ? null : d.student_city,
+        postcode: addressGuardianId ? null : d.student_postcode,
+        allergies: d.student_allergies,
+        medical_details: d.student_medical_details,
+        notes: d.student_notes,
+        primary_guardian_id: primaryGuardianId,
+        primary_guardian_relationship: d.primary_relationship,
+        secondary_guardian_id: secondaryGuardianId,
+        secondary_guardian_relationship: secondaryGuardianId
+          ? (d.secondary_relationship ?? null)
+          : null,
+        additional_contact_1_id: contact1Id,
+        additional_contact_1_relationship: contact1Id
+          ? (d.contact1_relationship ?? null)
+          : null,
+        additional_contact_2_id: contact2Id,
+        additional_contact_2_relationship: contact2Id
+          ? (d.contact2_relationship ?? null)
+          : null,
+        consent_privacy_notice: d.consent_privacy_notice,
+        consent_emergency_first_aid: d.consent_emergency_first_aid,
+        consent_photo_media: d.consent_photo_media,
+        consent_home_school: d.consent_home_school,
+        consent_comms_email_sms: d.consent_comms_email_sms,
+      })
 
-    const student = await getStudentById(id)
-    if (student?.active) {
-      await updateStudentClasses(id, d.class_ids)
-    }
-    logAuditEvent({
-      staffId,
-      action: 'update',
+      const student = await getStudentById(id)
+      if (student?.active) {
+        await updateStudentClasses(id, d.class_ids)
+      }
+
+      return { details: d as Record<string, unknown> }
+    },
+    audit: {
       entity: 'student',
-      entityId: id,
-      details: parsed.data as Record<string, unknown>,
-    })
-    revalidatePath('/students')
-  } catch (err) {
-    console.error('[updateStudentAction] error:', err)
-    return {
-      error: getUserFriendlyDbError(
-        err,
-        'Failed to save student. Please try again.',
-      ),
-    }
-  }
-
-  redirect('/students')
+      action: 'update',
+      entityId: () => id,
+      details: (result) => result.details,
+    },
+    revalidate: ['/students'],
+    redirectTo: '/students',
+    fallbackError: 'Failed to save student. Please try again.',
+  })
 }
 
 export async function markStudentAsLeaverAction(
   studentId: string,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session) return { error: 'Not authenticated' }
-  const role = session.user.role as StaffRole
-  if (!canEditStudents(role)) return { error: 'Not authorised' }
-  const staffId = session.user.staffId ?? null
-
-  const parsed = leaverSchema.safeParse(extractFormFields(formData))
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
-  try {
-    await markStudentAsLeaver(studentId, parsed.data.reason)
-    logAuditEvent({
-      staffId,
-      action: 'update',
+  return runAction({
+    name: 'students.mark-leaver',
+    permission: canEditStudents,
+    schema: leaverSchema,
+    formData,
+    run: ({ reason }) => markStudentAsLeaver(studentId, reason),
+    audit: {
       entity: 'student',
-      entityId: studentId,
-      details: { leaving_reason: parsed.data.reason },
-    })
-    revalidatePath('/students')
-  } catch (err) {
-    console.error('[markStudentAsLeaverAction] error:', err)
-    return {
-      error: getUserFriendlyDbError(
-        err,
-        'Failed to mark student as a leaver. Please try again.',
-      ),
-    }
-  }
-
-  redirect('/students')
+      action: 'update',
+      entityId: () => studentId,
+      details: (_result, input) => ({ leaving_reason: input.reason }),
+    },
+    revalidate: ['/students'],
+    redirectTo: '/students',
+    fallbackError: 'Failed to mark student as a leaver. Please try again.',
+  })
 }

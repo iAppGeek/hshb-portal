@@ -1,10 +1,9 @@
 import { type Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireSession } from '@/auth/require'
 import { getLessonPlanById, getClassesByTeacher } from '@/db'
 import { canEditLessonPlans, isTeacher } from '@/lib/permissions'
-import type { StaffRole } from '@/types/next-auth'
 
 import EditLessonPlanForm from './EditLessonPlanForm'
 
@@ -15,10 +14,8 @@ export default async function EditLessonPlanPage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  const session = await auth()
-  if (!session) redirect('/login')
-
-  const role = session.user.role as StaffRole
+  const actor = await requireSession()
+  const role = actor.role
   if (!canEditLessonPlans(role)) redirect('/lesson-plans')
 
   const { id } = await params
@@ -26,7 +23,7 @@ export default async function EditLessonPlanPage({
   if (!plan) redirect('/lesson-plans')
 
   if (isTeacher(role)) {
-    const classes = await getClassesByTeacher(session.user.staffId!)
+    const classes = await getClassesByTeacher(actor.staffId)
     if (!classes.some((c) => c.id === plan.class_id)) {
       redirect('/lesson-plans')
     }

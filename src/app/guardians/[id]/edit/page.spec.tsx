@@ -16,7 +16,8 @@ vi.mock('@/db', () => ({
   getStudentsByGuardian: vi.fn(),
 }))
 
-vi.mock('next/navigation', () => ({
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn(),
 }))
 
@@ -52,7 +53,9 @@ const mockGuardian = {
 
 describe('EditGuardianPage', () => {
   it('renders the edit form for admin', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getGuardianById).mockResolvedValue(mockGuardian as any)
     vi.mocked(getStudentsByGuardian).mockResolvedValue([])
 
@@ -63,7 +66,9 @@ describe('EditGuardianPage', () => {
   })
 
   it('redirects teacher to students list', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'teacher' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'teacher', staffId: 'staff-1' },
+    } as any)
     vi.mocked(redirect).mockImplementation(() => {
       throw new Error('NEXT_REDIRECT')
     })
@@ -75,7 +80,9 @@ describe('EditGuardianPage', () => {
   })
 
   it('redirects headteacher to students list', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'headteacher' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'headteacher', staffId: 'staff-1' },
+    } as any)
     vi.mocked(redirect).mockImplementation(() => {
       throw new Error('NEXT_REDIRECT')
     })
@@ -87,7 +94,9 @@ describe('EditGuardianPage', () => {
   })
 
   it('redirects secretary to students list', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'secretary' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'secretary', staffId: 'staff-1' },
+    } as any)
     vi.mocked(redirect).mockImplementation(() => {
       throw new Error('NEXT_REDIRECT')
     })
@@ -99,7 +108,9 @@ describe('EditGuardianPage', () => {
   })
 
   it('redirects to students list when guardian not found', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getGuardianById).mockResolvedValue(null)
     vi.mocked(getStudentsByGuardian).mockResolvedValue([])
     vi.mocked(redirect).mockImplementation(() => {

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { ReactElement } from 'react'
 
+vi.mock('@/db', () => ({ logAuditEvent: vi.fn() }))
 vi.mock('@/auth', () => ({
   auth: vi.fn(),
   signOut: vi.fn(),
@@ -28,7 +29,12 @@ beforeEach(() => {
 describe('RootLayout', () => {
   it('renders the sidebar chrome around children when a session exists', async () => {
     vi.mocked(auth).mockResolvedValue({
-      user: { name: 'Alice', email: 'alice@test.com', role: 'admin' },
+      user: {
+        name: 'Alice',
+        email: 'alice@test.com',
+        role: 'admin',
+        staffId: 'staff-1',
+      },
     } as never)
 
     const marker = <span data-testid="marker">Page</span>

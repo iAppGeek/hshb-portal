@@ -5,7 +5,8 @@ vi.mock('@/auth', () => ({
   auth: vi.fn(),
 }))
 
-vi.mock('next/navigation', () => ({
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn().mockImplementation((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`)
   }),
@@ -53,7 +54,9 @@ const params = Promise.resolve({ id: 'staff-1' })
 
 describe('EditStaffPage', () => {
   it('redirects to /staff for non-admin roles', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'teacher' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'teacher', staffId: 'staff-1' },
+    } as any)
 
     await expect(EditStaffPage({ params })).rejects.toThrow(
       'NEXT_REDIRECT:/staff',
@@ -61,7 +64,9 @@ describe('EditStaffPage', () => {
   })
 
   it('redirects to /staff for secretary role', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'secretary' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'secretary', staffId: 'staff-1' },
+    } as any)
 
     await expect(EditStaffPage({ params })).rejects.toThrow(
       'NEXT_REDIRECT:/staff',
@@ -69,7 +74,9 @@ describe('EditStaffPage', () => {
   })
 
   it('redirects to /staff when staff not found', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getStaffById).mockResolvedValue(null as any)
 
     await expect(EditStaffPage({ params })).rejects.toThrow(
@@ -78,14 +85,18 @@ describe('EditStaffPage', () => {
   })
 
   it('renders heading with staff name for admin', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
 
     render(await EditStaffPage({ params }))
     expect(screen.getByText('Edit Staff: Smith, Alice')).toBeTruthy()
   })
 
   it('renders EditStaffForm for admin', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
 
     render(await EditStaffPage({ params }))
     expect(screen.getByText('EditStaffForm:Smith,Alice')).toBeTruthy()

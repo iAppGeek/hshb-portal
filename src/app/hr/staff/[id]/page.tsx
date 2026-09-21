@@ -2,10 +2,9 @@ import { type Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireRole } from '@/auth/require'
 import { getAllStaff, getStaffById, getStaffPayrollByStaffId } from '@/db'
 import { canManageHr } from '@/lib/permissions'
-import type { StaffRole } from '@/types/next-auth'
 
 import StaffPayrollForm from './StaffPayrollForm'
 import { saveStaffPayrollAction } from './actions'
@@ -17,12 +16,7 @@ export default async function StaffPayrollPage({
 }: {
   params: Promise<{ id: string }>
 }): Promise<React.ReactElement> {
-  const session = await auth()
-  const role = session?.user?.role as StaffRole | undefined
-
-  if (!role || !canManageHr(role)) {
-    redirect('/dashboard')
-  }
+  await requireRole(canManageHr)
 
   const { id } = await params
   const [staff, payroll, allStaff] = await Promise.all([

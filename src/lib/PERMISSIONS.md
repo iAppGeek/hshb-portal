@@ -44,9 +44,14 @@ Four roles exist: **teacher**, **admin**, **headteacher**, **secretary**.
 | Shows on sign-in sheet | Yes     | -     | Yes         | Yes       |
 | Is teaching staff      | Yes     | -     | Yes         | -         |
 
-- Every server action must call `await auth()` itself. The proxy allowlist for
-  `/register` means middleware cannot be relied on as the only gate.
-  `src/security.spec.ts` enforces this.
+- Every server action goes through `runAction()` in `src/lib/action.ts`, which
+  resolves the actor and applies the `permission` check before `run` is called.
+  The proxy allowlist for `/register` means middleware cannot be relied on as
+  the only gate. The public `/register` actions are the only ones allowed to
+  pass `public: true`, which skips both checks. `src/security.spec.ts` enforces
+  both rules.
+- Pages get the actor from `requireSession()` / `requireRole()` in
+  `src/auth/require.ts` rather than calling `auth()` directly.
 
 ## Notes
 

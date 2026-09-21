@@ -1,117 +1,75 @@
 'use server'
 
-import { redirect } from 'next/navigation'
-import { revalidatePath } from 'next/cache'
-
-import { auth } from '@/auth'
 import {
   createFeePlan,
   getClassesByAcademicYear,
   getFeePlanById,
   getFeePlans,
-  logAuditEvent,
   updateFeePlan,
 } from '@/db'
-import { getUserFriendlyDbError } from '@/lib/db-error'
+import { ActionError, runAction, type ActionResult } from '@/lib/action'
 import { canManageFinance } from '@/lib/permissions'
-import {
-  extractFormFields,
-  feePlanSchema,
-  type ActionResult,
-} from '@/lib/schemas'
-import type { StaffRole } from '@/types/next-auth'
+import { feePlanSchema } from '@/lib/schemas'
 
 import { validateFeePlan } from '../_lib/feePlanClasses'
 
 export async function createFeePlanAction(
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session) return { error: 'Not authenticated' }
-  const role = session.user.role as StaffRole
-  if (!canManageFinance(role)) return { error: 'Not authorised' }
-  const staffId = session.user.staffId ?? null
+  return runAction({
+    name: 'finance.fee-plans.create',
+    permission: canManageFinance,
+    schema: feePlanSchema,
+    arrayFields: ['class_ids'],
+    formData,
+    run: async (parsed) => {
+      const { class_ids, ...input } = parsed
+      const [classes, plans] = await Promise.all([
+        getClassesByAcademicYear(input.academic_year_id),
+        getFeePlans(input.academic_year_id),
+      ])
+      const invalid = validateFeePlan(parsed, classes, plans, null)
+      if (invalid) throw new ActionError(invalid)
 
-  const parsed = feePlanSchema.safeParse(
-    extractFormFields(formData, ['class_ids']),
-  )
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-  const { class_ids, ...input } = parsed.data
-
-  try {
-    const [classes, plans] = await Promise.all([
-      getClassesByAcademicYear(input.academic_year_id),
-      getFeePlans(input.academic_year_id),
-    ])
-    const invalid = validateFeePlan(parsed.data, classes, plans, null)
-    if (invalid) return { error: invalid }
-
-    const plan = await createFeePlan(input, class_ids)
-    logAuditEvent({
-      staffId,
-      action: 'create',
+      return createFeePlan(input, class_ids)
+    },
+    audit: {
       entity: 'fee_plan',
-      entityId: plan.id,
-      details: parsed.data,
-    })
-    revalidatePath('/finance')
-  } catch (err) {
-    console.error('[createFeePlanAction] error:', err)
-    return {
-      error: getUserFriendlyDbError(
-        err,
-        'Failed to create the fee plan. Please try again.',
-      ),
-    }
-  }
-
-  redirect('/finance?tab=fee-plans')
+      action: 'create',
+      entityId: (plan) => plan.id,
+    },
+    revalidate: ['/finance'],
+    redirectTo: '/finance?tab=fee-plans',
+    fallbackError: 'Failed to create the fee plan. Please try again.',
+  })
 }
 
 export async function updateFeePlanAction(
   id: string,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session) return { error: 'Not authenticated' }
-  const role = session.user.role as StaffRole
-  if (!canManageFinance(role)) return { error: 'Not authorised' }
-  const staffId = session.user.staffId ?? null
+  return runAction({
+    name: 'finance.fee-plans.update',
+    permission: canManageFinance,
+    schema: feePlanSchema,
+    arrayFields: ['class_ids'],
+    formData,
+    run: async (parsed) => {
+      const { class_ids, ...input } = parsed
+      const [existing, classes, plans] = await Promise.all([
+        getFeePlanById(id),
+        getClassesByAcademicYear(input.academic_year_id),
+        getFeePlans(input.academic_year_id),
+      ])
+      if (!existing) throw new ActionError('Fee plan not found.')
+      const invalid = validateFeePlan(parsed, classes, plans, id)
+      if (invalid) throw new ActionError(invalid)
 
-  const parsed = feePlanSchema.safeParse(
-    extractFormFields(formData, ['class_ids']),
-  )
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-  const { class_ids, ...input } = parsed.data
-
-  try {
-    const [existing, classes, plans] = await Promise.all([
-      getFeePlanById(id),
-      getClassesByAcademicYear(input.academic_year_id),
-      getFeePlans(input.academic_year_id),
-    ])
-    if (!existing) return { error: 'Fee plan not found.' }
-    const invalid = validateFeePlan(parsed.data, classes, plans, id)
-    if (invalid) return { error: invalid }
-
-    await updateFeePlan(id, input, class_ids)
-    logAuditEvent({
-      staffId,
-      action: 'update',
-      entity: 'fee_plan',
-      entityId: id,
-      details: parsed.data,
-    })
-    revalidatePath('/finance')
-  } catch (err) {
-    console.error('[updateFeePlanAction] error:', err)
-    return {
-      error: getUserFriendlyDbError(
-        err,
-        'Failed to update the fee plan. Please try again.',
-      ),
-    }
-  }
-
-  redirect('/finance?tab=fee-plans')
+      await updateFeePlan(id, input, class_ids)
+    },
+    audit: { entity: 'fee_plan', action: 'update', entityId: () => id },
+    revalidate: ['/finance'],
+    redirectTo: '/finance?tab=fee-plans',
+    fallbackError: 'Failed to update the fee plan. Please try again.',
+  })
 }

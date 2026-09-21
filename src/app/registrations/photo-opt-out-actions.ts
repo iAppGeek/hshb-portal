@@ -1,148 +1,94 @@
 'use server'
 
-import { redirect } from 'next/navigation'
-import { revalidatePath } from 'next/cache'
-
-import { auth } from '@/auth'
 import {
   applyPhotoOptOut,
   rejectPhotoOptOut,
   deletePhotoOptOut,
   getPhotoOptOutById,
-  logAuditEvent,
 } from '@/db'
-import { getUserFriendlyDbError } from '@/lib/db-error'
+import { runAction, type ActionResult } from '@/lib/action'
 import { canApproveRegistrations } from '@/lib/permissions'
-import {
-  applyPhotoOptOutSchema,
-  rejectPhotoOptOutSchema,
-  extractFormFields,
-  type ActionResult,
-} from '@/lib/schemas'
-import type { StaffRole } from '@/types/next-auth'
+import { applyPhotoOptOutSchema, rejectPhotoOptOutSchema } from '@/lib/schemas'
 
 export async function applyPhotoOptOutAction(
   id: string,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session) return { error: 'Not authenticated' }
-  const role = session.user.role as StaffRole
-  if (!canApproveRegistrations(role)) return { error: 'Not authorised' }
-  const staffId = session.user.staffId
-  if (!staffId) return { error: 'Your account is not linked to a staff record' }
-
-  const parsed = applyPhotoOptOutSchema.safeParse(extractFormFields(formData))
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
-  try {
-    await applyPhotoOptOut({
-      requestId: id,
-      staffId,
-      studentId: parsed.data.student_id,
-    })
-
-    logAuditEvent({
-      staffId,
-      action: 'photo_opt_out_applied',
+  return runAction({
+    name: 'registrations.photo-opt-out.apply',
+    permission: canApproveRegistrations,
+    schema: applyPhotoOptOutSchema,
+    formData,
+    run: (input, { actor }) =>
+      applyPhotoOptOut({
+        requestId: id,
+        staffId: actor.staffId,
+        studentId: input.student_id,
+      }),
+    audit: {
       entity: 'photo_consent_opt_out',
-      entityId: id,
-      details: { studentId: parsed.data.student_id },
-    })
-    revalidatePath('/registrations')
-    revalidatePath('/dashboard')
-  } catch (err) {
-    console.error('[applyPhotoOptOutAction] error:', err)
-    return {
-      error: getUserFriendlyDbError(
-        err,
-        'Failed to apply the opt-out. Please try again.',
-      ),
-    }
-  }
-
-  redirect('/registrations')
+      action: 'photo_opt_out_applied',
+      entityId: () => id,
+      details: (_result, input) => ({ studentId: input.student_id }),
+    },
+    revalidate: ['/registrations', '/dashboard'],
+    redirectTo: '/registrations',
+    fallbackError: 'Failed to apply the opt-out. Please try again.',
+  })
 }
 
 export async function rejectPhotoOptOutAction(
   id: string,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session) return { error: 'Not authenticated' }
-  const role = session.user.role as StaffRole
-  if (!canApproveRegistrations(role)) return { error: 'Not authorised' }
-  const staffId = session.user.staffId
-  if (!staffId) return { error: 'Your account is not linked to a staff record' }
-
-  const parsed = rejectPhotoOptOutSchema.safeParse(extractFormFields(formData))
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
-  try {
-    await rejectPhotoOptOut({
-      requestId: id,
-      staffId,
-      reason: parsed.data.reason,
-    })
-
-    logAuditEvent({
-      staffId,
-      action: 'photo_opt_out_rejected',
+  return runAction({
+    name: 'registrations.photo-opt-out.reject',
+    permission: canApproveRegistrations,
+    schema: rejectPhotoOptOutSchema,
+    formData,
+    run: (input, { actor }) =>
+      rejectPhotoOptOut({
+        requestId: id,
+        staffId: actor.staffId,
+        reason: input.reason,
+      }),
+    audit: {
       entity: 'photo_consent_opt_out',
-      entityId: id,
-      details: { reason: parsed.data.reason },
-    })
-    revalidatePath('/registrations')
-    revalidatePath('/dashboard')
-  } catch (err) {
-    console.error('[rejectPhotoOptOutAction] error:', err)
-    return {
-      error: getUserFriendlyDbError(
-        err,
-        'Failed to reject the request. Please try again.',
-      ),
-    }
-  }
-
-  redirect('/registrations')
+      action: 'photo_opt_out_rejected',
+      entityId: () => id,
+      details: (_result, input) => ({ reason: input.reason }),
+    },
+    revalidate: ['/registrations', '/dashboard'],
+    redirectTo: '/registrations',
+    fallbackError: 'Failed to reject the request. Please try again.',
+  })
 }
 
 export async function deletePhotoOptOutAction(
   id: string,
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session) return { error: 'Not authenticated' }
-  const role = session.user.role as StaffRole
-  if (!canApproveRegistrations(role)) return { error: 'Not authorised' }
-  const staffId = session.user.staffId ?? null
-
-  try {
-    const request = await getPhotoOptOutById(id)
-    await deletePhotoOptOut(id)
-
-    logAuditEvent({
-      staffId,
-      action: 'photo_opt_out_deleted',
+  return runAction({
+    name: 'registrations.photo-opt-out.delete',
+    permission: canApproveRegistrations,
+    formData: new FormData(),
+    run: async () => {
+      const request = await getPhotoOptOutById(id)
+      await deletePhotoOptOut(id)
+      return request
+    },
+    audit: {
       entity: 'photo_consent_opt_out',
-      entityId: id,
-      details: {
+      action: 'photo_opt_out_deleted',
+      entityId: () => id,
+      details: (request) => ({
         childName: request
           ? `${request.child_first_name} ${request.child_last_name}`
           : undefined,
         status: request?.status,
-      },
-    })
-    revalidatePath('/registrations')
-    revalidatePath('/dashboard')
-  } catch (err) {
-    console.error('[deletePhotoOptOutAction] error:', err)
-    return {
-      error: getUserFriendlyDbError(
-        err,
-        'Failed to delete the request. Please try again.',
-      ),
-    }
-  }
-
-  redirect('/registrations')
+      }),
+    },
+    revalidate: ['/registrations', '/dashboard'],
+    redirectTo: '/registrations',
+    fallbackError: 'Failed to delete the request. Please try again.',
+  })
 }

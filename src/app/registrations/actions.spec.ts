@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { getActor } from '@/auth/require'
 import {
   approveRegistration,
   rejectRegistration,
@@ -17,8 +17,11 @@ import {
   deleteRegistrationAction,
 } from './actions'
 
-vi.mock('@/auth', () => ({ auth: vi.fn() }))
-vi.mock('next/navigation', () => ({ redirect: vi.fn() }))
+vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
+  redirect: vi.fn(),
+}))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/db', () => ({
   approveRegistration: vi.fn(),
@@ -33,7 +36,7 @@ const SUBMISSION_ID = '00000000-0000-4000-8000-000000000010'
 const STUDENT_ID = '00000000-0000-4000-8000-000000000020'
 const CLASS_ID = '00000000-0000-4000-8000-000000000030'
 
-const adminSession = { user: { staffId: STAFF_ID, role: 'admin' } }
+const adminSession = { staffId: STAFF_ID, role: 'admin', name: null, email: '' }
 
 function makeFormData(fields: Record<string, string>): FormData {
   const fd = new FormData()
@@ -45,7 +48,7 @@ function makeFormData(fields: Record<string, string>): FormData {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(auth).mockResolvedValue(adminSession as never)
+  vi.mocked(getActor).mockResolvedValue(adminSession as never)
   vi.mocked(redirect).mockImplementation(() => {
     throw new Error('NEXT_REDIRECT')
   })
@@ -60,7 +63,7 @@ describe('approveRegistrationAction', () => {
   }
 
   it('returns error when not authenticated', async () => {
-    vi.mocked(auth).mockResolvedValue(null as never)
+    vi.mocked(getActor).mockResolvedValue(null as never)
 
     const result = await approveRegistrationAction(
       SUBMISSION_ID,
@@ -71,8 +74,11 @@ describe('approveRegistrationAction', () => {
   })
 
   it('returns error when role is headteacher', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: STAFF_ID, role: 'headteacher' },
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      role: 'headteacher',
+      name: null,
+      email: '',
     } as never)
 
     const result = await approveRegistrationAction(
@@ -84,8 +90,11 @@ describe('approveRegistrationAction', () => {
   })
 
   it('returns error when role is secretary', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: STAFF_ID, role: 'secretary' },
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      role: 'secretary',
+      name: null,
+      email: '',
     } as never)
 
     const result = await approveRegistrationAction(
@@ -234,18 +243,14 @@ describe('approveRegistrationAction', () => {
     )
   })
 
-  it('returns an error when the session has no staff record', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: undefined, role: 'admin' },
-    } as never)
+  it('returns an error when there is no signed-in staff member', async () => {
+    vi.mocked(getActor).mockResolvedValue(null)
 
     const result = await approveRegistrationAction(
       SUBMISSION_ID,
       makeFormData(validFields),
     )
-    expect(result).toEqual({
-      error: 'Your account is not linked to a staff record',
-    })
+    expect(result).toEqual({ error: 'Not authenticated' })
     expect(approveRegistration).not.toHaveBeenCalled()
   })
 
@@ -275,8 +280,11 @@ describe('approveRegistrationAction', () => {
 
 describe('rejectRegistrationAction', () => {
   it('returns error when not authorised', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: STAFF_ID, role: 'secretary' },
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      role: 'secretary',
+      name: null,
+      email: '',
     } as never)
 
     const result = await rejectRegistrationAction(
@@ -296,18 +304,14 @@ describe('rejectRegistrationAction', () => {
     expect(rejectRegistration).not.toHaveBeenCalled()
   })
 
-  it('returns an error when the session has no staff record', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: undefined, role: 'admin' },
-    } as never)
+  it('returns an error when there is no signed-in staff member', async () => {
+    vi.mocked(getActor).mockResolvedValue(null)
 
     const result = await rejectRegistrationAction(
       SUBMISSION_ID,
       makeFormData({ reason: 'Duplicate' }),
     )
-    expect(result).toEqual({
-      error: 'Your account is not linked to a staff record',
-    })
+    expect(result).toEqual({ error: 'Not authenticated' })
     expect(rejectRegistration).not.toHaveBeenCalled()
   })
 
@@ -351,8 +355,11 @@ describe('rejectRegistrationAction', () => {
 
 describe('deleteRegistrationAction', () => {
   it('returns error when not authorised', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: STAFF_ID, role: 'teacher' },
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      role: 'teacher',
+      name: null,
+      email: '',
     } as never)
 
     const result = await deleteRegistrationAction(SUBMISSION_ID)

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { getActor } from '@/auth/require'
 import {
   createGuardian,
   getGuardianById,
@@ -14,8 +14,11 @@ import {
 
 import { updateStudentAction, markStudentAsLeaverAction } from './actions'
 
-vi.mock('@/auth', () => ({ auth: vi.fn() }))
-vi.mock('next/navigation', () => ({ redirect: vi.fn() }))
+vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
+  redirect: vi.fn(),
+}))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/db', () => ({
   createGuardian: vi.fn(),
@@ -33,11 +36,16 @@ const NEW_GUARDIAN = '00000000-0000-4000-8000-000000000020'
 const CLASS_1 = '00000000-0000-4000-8000-000000000030'
 const CLASS_2 = '00000000-0000-4000-8000-000000000040'
 
-const adminSession = { user: { staffId: 'admin-1', role: 'admin' } }
+const adminSession = {
+  staffId: 'admin-1',
+  role: 'admin',
+  name: null,
+  email: '',
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(auth).mockResolvedValue(adminSession as any)
+  vi.mocked(getActor).mockResolvedValue(adminSession as any)
   vi.mocked(getStudentById).mockResolvedValue({ active: true } as any)
 })
 
@@ -77,7 +85,7 @@ const baseFields: Record<string, string> = {
 
 describe('updateStudentAction', () => {
   it('returns error when not authenticated', async () => {
-    vi.mocked(auth).mockResolvedValue(null as any)
+    vi.mocked(getActor).mockResolvedValue(null as any)
 
     const result = await updateStudentAction(
       STUDENT_ID,
@@ -88,8 +96,11 @@ describe('updateStudentAction', () => {
   })
 
   it('returns error when not authorised', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: 'teacher-1', role: 'teacher' },
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: 'teacher-1',
+      role: 'teacher',
+      name: null,
+      email: '',
     } as any)
 
     const result = await updateStudentAction(
@@ -325,11 +336,11 @@ describe('updateStudentAction', () => {
 
 describe('markStudentAsLeaverAction', () => {
   beforeEach(() => {
-    vi.mocked(auth).mockResolvedValue(adminSession as any)
+    vi.mocked(getActor).mockResolvedValue(adminSession as any)
   })
 
   it('returns error when not authenticated', async () => {
-    vi.mocked(auth).mockResolvedValue(null as any)
+    vi.mocked(getActor).mockResolvedValue(null as any)
 
     const result = await markStudentAsLeaverAction(
       STUDENT_ID,
@@ -340,8 +351,11 @@ describe('markStudentAsLeaverAction', () => {
   })
 
   it('returns error when not authorised', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: 'teacher-1', role: 'teacher' },
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: 'teacher-1',
+      role: 'teacher',
+      name: null,
+      email: '',
     } as any)
 
     const result = await markStudentAsLeaverAction(
@@ -357,7 +371,7 @@ describe('markStudentAsLeaverAction', () => {
       STUDENT_ID,
       makeFormData({ reason: 'expelled' }),
     )
-    expect(result).toEqual({ error: expect.any(String) })
+    expect(result).toMatchObject({ error: expect.any(String) })
     expect(markStudentAsLeaver).not.toHaveBeenCalled()
   })
 

@@ -16,7 +16,12 @@ test.use({ storageState: 'e2e/.auth/admin.json' })
 // more than once.
 test.describe.configure({ timeout: 120_000 })
 
-const TODAY = new Date().toISOString().split('T')[0]
+// Europe/London, not UTC: the app resolves "today" in the school's
+// timezone, so between 23:00 and midnight UTC a UTC-derived date points at
+// yesterday and turns today's register into a past one.
+const TODAY = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Europe/London',
+}).format(new Date())
 const PAST_DATE = '2026-09-01'
 
 // A far-future year, unique per test suffix, keeps parallel projects from

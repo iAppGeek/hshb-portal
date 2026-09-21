@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { getActor } from '@/auth/require'
 import {
   createAcademicYear,
   updateAcademicYear,
@@ -16,8 +16,11 @@ import {
   setCurrentAcademicYearAction,
 } from './actions'
 
-vi.mock('@/auth', () => ({ auth: vi.fn() }))
-vi.mock('next/navigation', () => ({ redirect: vi.fn() }))
+vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
+  redirect: vi.fn(),
+}))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/db', () => ({
   createAcademicYear: vi.fn(),
@@ -29,11 +32,11 @@ vi.mock('@/db', () => ({
 const STAFF_ID = '00000000-0000-4000-8000-000000000001'
 const YEAR_ID = '00000000-0000-4000-8000-000000000010'
 
-const adminSession = { user: { staffId: STAFF_ID, role: 'admin' } }
+const adminSession = { staffId: STAFF_ID, role: 'admin', name: null, email: '' }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(auth).mockResolvedValue(adminSession as any)
+  vi.mocked(getActor).mockResolvedValue(adminSession as any)
 })
 
 function makeFormData(fields: Record<string, string>): FormData {
@@ -50,7 +53,7 @@ describe('createAcademicYearAction', () => {
   }
 
   it('returns error when not authenticated', async () => {
-    vi.mocked(auth).mockResolvedValue(null as any)
+    vi.mocked(getActor).mockResolvedValue(null as any)
 
     const result = await createAcademicYearAction(makeFormData(fields))
     expect(result).toEqual({ error: 'Not authenticated' })
@@ -58,8 +61,11 @@ describe('createAcademicYearAction', () => {
   })
 
   it('returns error when not authorised', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: STAFF_ID, role: 'teacher' },
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      role: 'teacher',
+      name: null,
+      email: '',
     } as any)
 
     const result = await createAcademicYearAction(makeFormData(fields))
@@ -117,8 +123,11 @@ describe('updateAcademicYearAction', () => {
   const fields = { start_date: '2025-09-01', end_date: '2026-08-31' }
 
   it('returns error when not authorised', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: STAFF_ID, role: 'teacher' },
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      role: 'teacher',
+      name: null,
+      email: '',
     } as any)
 
     const result = await updateAcademicYearAction(YEAR_ID, makeFormData(fields))
@@ -162,8 +171,11 @@ describe('setCurrentAcademicYearAction', () => {
   const PREVIOUS_ID = '00000000-0000-4000-8000-000000000020'
 
   it('returns error when not authorised', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: STAFF_ID, role: 'teacher' },
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      role: 'teacher',
+      name: null,
+      email: '',
     } as any)
 
     const result = await setCurrentAcademicYearAction(YEAR_ID, PREVIOUS_ID)

@@ -1,8 +1,7 @@
 import { type Metadata } from 'next'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireRole } from '@/auth/require'
 import {
   getAcademicYears,
   getClassesByAcademicYear,
@@ -10,7 +9,6 @@ import {
   getFeePlans,
 } from '@/db'
 import { canManageFinance } from '@/lib/permissions'
-import type { StaffRole } from '@/types/next-auth'
 
 import { takenClassLabels, toClassOptions } from '../../_lib/feePlanClasses'
 import FeePlanForm from '../FeePlanForm'
@@ -23,12 +21,7 @@ export default async function NewFeePlanPage({
 }: {
   searchParams: Promise<{ year?: string }>
 }): Promise<React.ReactElement> {
-  const session = await auth()
-  const role = session?.user?.role as StaffRole | undefined
-
-  if (!role || !canManageFinance(role)) {
-    redirect('/dashboard')
-  }
+  await requireRole(canManageFinance)
 
   const { year } = await searchParams
   const [years, currentYear] = await Promise.all([

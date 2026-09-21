@@ -7,6 +7,7 @@ import { verifyTurnstileToken } from '@/lib/turnstile'
 
 import { submitRegistrationAction } from './actions'
 
+vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('@/db', () => ({
   createRegistrationSubmission: vi.fn(),
   logAuditEvent: vi.fn(),
@@ -27,7 +28,8 @@ vi.mock('@/lib/request-ip', () => ({
   getClientIp: vi.fn(),
 }))
 
-vi.mock('next/navigation', () => ({
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn(),
 }))
 

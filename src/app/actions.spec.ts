@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { updateTag } from 'next/cache'
 
-import { auth } from '@/auth'
+import { getActor } from '@/auth/require'
 
 import { revalidateAllCaches } from './actions'
 
-vi.mock('@/auth', () => ({ auth: vi.fn() }))
+vi.mock('@/db', () => ({ logAuditEvent: vi.fn() }))
+vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('next/cache', () => ({ updateTag: vi.fn() }))
 
 beforeEach(() => {
@@ -14,7 +15,7 @@ beforeEach(() => {
 
 describe('revalidateAllCaches', () => {
   it('does nothing without a session', async () => {
-    vi.mocked(auth).mockResolvedValue(null as never)
+    vi.mocked(getActor).mockResolvedValue(null as never)
 
     await revalidateAllCaches()
 
@@ -22,8 +23,11 @@ describe('revalidateAllCaches', () => {
   })
 
   it('revalidates every cached data set when a session exists', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: 'staff-1', role: 'admin' },
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: 'staff-1',
+      role: 'admin',
+      name: null,
+      email: '',
     } as never)
 
     await revalidateAllCaches()

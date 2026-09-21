@@ -1,129 +1,100 @@
 'use server'
 
-import { redirect } from 'next/navigation'
-import { revalidatePath } from 'next/cache'
-
-import { auth } from '@/auth'
 import {
   createLessonPlan,
   updateLessonPlan,
   getLessonPlanById,
   getClassesByTeacher,
-  logAuditEvent,
 } from '@/db'
+import { ActionError, runAction, type ActionResult } from '@/lib/action'
 import {
   canCreateLessonPlans,
   canEditLessonPlans,
   isTeacher,
 } from '@/lib/permissions'
-import {
-  createLessonPlanSchema,
-  updateLessonPlanSchema,
-  extractFormFields,
-  type ActionResult,
-} from '@/lib/schemas'
-import type { StaffRole } from '@/types/next-auth'
+import { createLessonPlanSchema, updateLessonPlanSchema } from '@/lib/schemas'
+
+const DUPLICATE =
+  'A lesson plan already exists for this class on this date.' as const
+
+/** The unique index on (class_id, lesson_date) has a message of its own. */
+function rethrowDuplicate(err: unknown): never {
+  if ((err as { code?: string })?.code === '23505')
+    throw new ActionError(DUPLICATE)
+  throw err
+}
+
+async function assertOwnClass(
+  staffId: string,
+  classId: string,
+  message: string,
+): Promise<void> {
+  const classes = await getClassesByTeacher(staffId)
+  if (!classes.some((c) => c.id === classId)) throw new ActionError(message)
+}
 
 export async function createLessonPlanAction(
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session) return { error: 'Unauthorised' }
-
-  const role = session.user.role as StaffRole
-  if (!canCreateLessonPlans(role)) return { error: 'Unauthorised' }
-
-  const raw = extractFormFields(formData)
-  const parsed = createLessonPlanSchema.safeParse(raw)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
-  const { class_id, lesson_date, description } = parsed.data
-  const created_by = session.user.staffId!
-
-  if (isTeacher(role)) {
-    const classes = await getClassesByTeacher(created_by)
-    if (!classes.some((c) => c.id === class_id)) {
-      return { error: 'You can only create lesson plans for your own class.' }
-    }
-  }
-
-  try {
-    const plan = await createLessonPlan({
-      class_id,
-      lesson_date,
-      description,
-      created_by,
-    })
-    logAuditEvent({
-      staffId: created_by,
-      action: 'create',
-      entity: 'lesson_plan',
-      entityId: plan.id,
-      details: parsed.data as Record<string, unknown>,
-    })
-    revalidatePath('/lesson-plans')
-  } catch (err: unknown) {
-    const code = (err as { code?: string })?.code
-    if (code === '23505') {
-      return {
-        error: 'A lesson plan already exists for this class on this date.',
+  return runAction({
+    name: 'lesson-plans.create',
+    permission: canCreateLessonPlans,
+    schema: createLessonPlanSchema,
+    formData,
+    run: async ({ class_id, lesson_date, description }, { actor }) => {
+      if (isTeacher(actor.role)) {
+        await assertOwnClass(
+          actor.staffId,
+          class_id,
+          'You can only create lesson plans for your own class.',
+        )
       }
-    }
-    console.error('[createLessonPlanAction] error:', err)
-    return { error: 'Failed to create lesson plan. Please try again.' }
-  }
-
-  redirect('/lesson-plans')
+      return createLessonPlan({
+        class_id,
+        lesson_date,
+        description,
+        created_by: actor.staffId,
+      }).catch(rethrowDuplicate)
+    },
+    audit: {
+      entity: 'lesson_plan',
+      action: 'create',
+      entityId: (plan) => plan.id,
+    },
+    revalidate: ['/lesson-plans'],
+    redirectTo: '/lesson-plans',
+    fallbackError: 'Failed to create lesson plan. Please try again.',
+  })
 }
 
 export async function updateLessonPlanAction(
   id: string,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session) return { error: 'Unauthorised' }
-
-  const role = session.user.role as StaffRole
-  if (!canEditLessonPlans(role)) return { error: 'Unauthorised' }
-
-  const staffId = session.user.staffId!
-
-  if (isTeacher(role)) {
-    const plan = await getLessonPlanById(id)
-    if (!plan) return { error: 'Lesson plan not found.' }
-    const classes = await getClassesByTeacher(staffId)
-    if (!classes.some((c) => c.id === plan.class_id)) {
-      return { error: 'You can only edit lesson plans for your own class.' }
-    }
-  }
-
-  const raw = extractFormFields(formData)
-  const parsed = updateLessonPlanSchema.safeParse(raw)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
-  const { lesson_date, description } = parsed.data
-  const updated_by = staffId
-
-  try {
-    await updateLessonPlan(id, { lesson_date, description, updated_by })
-    logAuditEvent({
-      staffId: updated_by,
-      action: 'update',
-      entity: 'lesson_plan',
-      entityId: id,
-      details: parsed.data as Record<string, unknown>,
-    })
-    revalidatePath('/lesson-plans')
-  } catch (err: unknown) {
-    const code = (err as { code?: string })?.code
-    if (code === '23505') {
-      return {
-        error: 'A lesson plan already exists for this class on this date.',
+  return runAction({
+    name: 'lesson-plans.update',
+    permission: canEditLessonPlans,
+    schema: updateLessonPlanSchema,
+    formData,
+    run: async ({ lesson_date, description }, { actor }) => {
+      if (isTeacher(actor.role)) {
+        const plan = await getLessonPlanById(id)
+        if (!plan) throw new ActionError('Lesson plan not found.')
+        await assertOwnClass(
+          actor.staffId,
+          plan.class_id,
+          'You can only edit lesson plans for your own class.',
+        )
       }
-    }
-    console.error('[updateLessonPlanAction] error:', err)
-    return { error: 'Failed to update lesson plan. Please try again.' }
-  }
-
-  redirect('/lesson-plans')
+      await updateLessonPlan(id, {
+        lesson_date,
+        description,
+        updated_by: actor.staffId,
+      }).catch(rethrowDuplicate)
+    },
+    audit: { entity: 'lesson_plan', action: 'update', entityId: () => id },
+    revalidate: ['/lesson-plans'],
+    redirectTo: '/lesson-plans',
+    fallbackError: 'Failed to update lesson plan. Please try again.',
+  })
 }

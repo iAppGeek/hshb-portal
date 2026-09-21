@@ -689,7 +689,8 @@ export const studentPaymentSchema = z.object({
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-export type ActionResult = { error: string } | void
+/** @deprecated Import from '@/lib/action'. Re-exported for one release. */
+export type { ActionResult } from './action'
 
 export function extractFormFields(
   formData: FormData,

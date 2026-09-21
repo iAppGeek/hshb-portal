@@ -16,7 +16,8 @@ vi.mock('@/db', () => ({
   getFamilyForGuardian: vi.fn(),
 }))
 
-vi.mock('next/navigation', () => ({
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn(),
 }))
 
@@ -42,7 +43,9 @@ const emptyFamily = { children: [], coGuardians: [] }
 
 describe('GuardianFamilyPage', () => {
   it('renders the guardian name for admin', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getGuardianById).mockResolvedValue(mockGuardian as any)
     vi.mocked(getFamilyForGuardian).mockResolvedValue(emptyFamily as any)
 
@@ -55,7 +58,9 @@ describe('GuardianFamilyPage', () => {
   })
 
   it('lists children with their relationship and slot', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getGuardianById).mockResolvedValue(mockGuardian as any)
     vi.mocked(getFamilyForGuardian).mockResolvedValue({
       children: [
@@ -98,7 +103,9 @@ describe('GuardianFamilyPage', () => {
   })
 
   it('badges a leaver child', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getGuardianById).mockResolvedValue(mockGuardian as any)
     vi.mocked(getFamilyForGuardian).mockResolvedValue({
       children: [
@@ -126,7 +133,9 @@ describe('GuardianFamilyPage', () => {
   })
 
   it('lists co-guardians with the child they connect through', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getGuardianById).mockResolvedValue(mockGuardian as any)
     vi.mocked(getFamilyForGuardian).mockResolvedValue({
       children: [
@@ -167,7 +176,9 @@ describe('GuardianFamilyPage', () => {
   })
 
   it('does not render "Also linked" when there are no co-guardians', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getGuardianById).mockResolvedValue(mockGuardian as any)
     vi.mocked(getFamilyForGuardian).mockResolvedValue(emptyFamily as any)
 
@@ -180,7 +191,9 @@ describe('GuardianFamilyPage', () => {
   })
 
   it('renders an email-this-family link when there are emails', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getGuardianById).mockResolvedValue(mockGuardian as any)
     vi.mocked(getFamilyForGuardian).mockResolvedValue(emptyFamily as any)
 
@@ -195,7 +208,9 @@ describe('GuardianFamilyPage', () => {
   })
 
   it('omits the email-this-family link when the guardian has no email', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getGuardianById).mockResolvedValue({
       ...mockGuardian,
       email: null,
@@ -213,7 +228,9 @@ describe('GuardianFamilyPage', () => {
   it.each(['teacher', 'headteacher', 'secretary'] as const)(
     'redirects %s to students list',
     async (role) => {
-      vi.mocked(auth).mockResolvedValue({ user: { role } } as any)
+      vi.mocked(auth).mockResolvedValue({
+        user: { role, staffId: 'staff-1' },
+      } as any)
       vi.mocked(redirect).mockImplementation(() => {
         throw new Error('NEXT_REDIRECT')
       })
@@ -226,7 +243,9 @@ describe('GuardianFamilyPage', () => {
   )
 
   it('redirects to the guardians list when the guardian is not found', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { role: 'admin' } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
     vi.mocked(getGuardianById).mockResolvedValue(null)
     vi.mocked(getFamilyForGuardian).mockResolvedValue(emptyFamily as any)
     vi.mocked(redirect).mockImplementation(() => {

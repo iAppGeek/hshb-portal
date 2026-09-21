@@ -2,7 +2,7 @@ import { type Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireRole } from '@/auth/require'
 import {
   getAcademicYears,
   getClassesByAcademicYear,
@@ -10,7 +10,6 @@ import {
   getFeePlans,
 } from '@/db'
 import { canManageFinance } from '@/lib/permissions'
-import type { StaffRole } from '@/types/next-auth'
 
 import { takenClassLabels, toClassOptions } from '../../../_lib/feePlanClasses'
 import FeePlanForm from '../../FeePlanForm'
@@ -23,12 +22,7 @@ export default async function EditFeePlanPage({
 }: {
   params: Promise<{ id: string }>
 }): Promise<React.ReactElement> {
-  const session = await auth()
-  const role = session?.user?.role as StaffRole | undefined
-
-  if (!role || !canManageFinance(role)) {
-    redirect('/dashboard')
-  }
+  await requireRole(canManageFinance)
 
   const { id } = await params
   const [plan, years, plans] = await Promise.all([

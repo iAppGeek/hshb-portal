@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { revalidatePath } from 'next/cache'
 
-import { auth } from '@/auth'
+import { getActor } from '@/auth/require'
 import {
   addStudentPayment,
   deleteStudentPayment,
@@ -15,7 +15,7 @@ import {
   saveStudentFeeAccountAction,
 } from './actions'
 
-vi.mock('@/auth', () => ({ auth: vi.fn() }))
+vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/db', () => ({
   upsertStudentFeeAccount: vi.fn(),
@@ -53,8 +53,11 @@ const payment = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(auth).mockResolvedValue({
-    user: { role: 'admin', staffId: 'admin-1' },
+  vi.mocked(getActor).mockResolvedValue({
+    role: 'admin',
+    staffId: 'admin-1',
+    name: null,
+    email: '',
   } as never)
 })
 
@@ -73,13 +76,16 @@ describe.each([
   ],
 ])('%s access', (_name, run) => {
   it('rejects unauthenticated users', async () => {
-    vi.mocked(auth).mockResolvedValue(null as never)
+    vi.mocked(getActor).mockResolvedValue(null as never)
     expect(await run()).toEqual({ error: 'Not authenticated' })
   })
 
   it('rejects non-admins', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { role: 'headteacher', staffId: 'h1' },
+    vi.mocked(getActor).mockResolvedValue({
+      role: 'headteacher',
+      staffId: 'h1',
+      name: null,
+      email: '',
     } as never)
     expect(await run()).toEqual({ error: 'Not authorised' })
     expect(upsertStudentFeeAccount).not.toHaveBeenCalled()
@@ -121,7 +127,7 @@ describe('saveStudentFeeAccountAction', () => {
         's1',
         makeFormData({ ...account, payment_plan: 'custom' }),
       ),
-    ).toEqual({ error: 'Enter the agreed total for a custom plan' })
+    ).toMatchObject({ error: 'Enter the agreed total for a custom plan' })
   })
 
   it('returns a friendly error when saving fails', async () => {
@@ -166,7 +172,7 @@ describe('addStudentPaymentAction', () => {
         's1',
         makeFormData({ ...payment, reference: '' }),
       ),
-    ).toEqual({ error: 'Required' })
+    ).toMatchObject({ error: 'Required' })
     expect(addStudentPayment).not.toHaveBeenCalled()
   })
 

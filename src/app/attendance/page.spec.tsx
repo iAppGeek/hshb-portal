@@ -40,6 +40,7 @@ vi.mock('./AttendanceRegister', () => ({
 }))
 
 import { auth } from '@/auth'
+import { todayInSchoolTz } from '@/lib/datetime'
 import {
   getAcademicYears,
   getAllClasses,
@@ -258,7 +259,9 @@ describe('AttendancePage', () => {
 
   it('defaults to today when no date is provided', async () => {
     mockUser('admin')
-    const today = new Date().toISOString().split('T')[0]
+    // Europe/London, not UTC: between 23:00 and midnight UTC the two differ
+    // and the page would be compared against yesterday.
+    const today = todayInSchoolTz()
 
     render(await AttendancePage(params({ classId: 'class-1' })))
 

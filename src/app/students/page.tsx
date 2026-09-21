@@ -1,11 +1,10 @@
 import { type Metadata } from 'next'
 import Link from 'next/link'
 
-import { auth } from '@/auth'
+import { requireSession } from '@/auth/require'
 import { getAllStudents, getStudentsByTeacher } from '@/db'
 import Tooltip from '@/components/Tooltip'
 import { isTeacher, canSeeAllData, canCreateStudents } from '@/lib/permissions'
-import type { StaffRole } from '@/types/next-auth'
 
 import EmptyState from '../_components/EmptyState'
 import PageHeader from '../_components/PageHeader'
@@ -19,9 +18,9 @@ export default async function StudentsPage({
 }: {
   searchParams: Promise<{ leavers?: string }>
 }) {
-  const session = await auth()
-  const role = session?.user?.role as StaffRole
-  const staffId = session?.user?.staffId
+  const actor = await requireSession()
+  const role = actor.role
+  const staffId = actor.staffId
   const { leavers } = await searchParams
   const showLeavers = leavers === '1'
   const teacherOnly = isTeacher(role)

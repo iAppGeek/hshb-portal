@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { revalidatePath } from 'next/cache'
 
-import { auth } from '@/auth'
+import { getActor } from '@/auth/require'
 import {
   saveAttendance,
   getAttendanceByClassAndDate,
@@ -15,9 +15,7 @@ import { sendPushNotification } from '@/lib/push'
 
 import { saveAttendanceAction } from './actions'
 
-vi.mock('@/auth', () => ({
-  auth: vi.fn(),
-}))
+vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 
 vi.mock('@/db', () => ({
   saveAttendance: vi.fn(),
@@ -94,7 +92,11 @@ const mockSub = {
 
 describe('saveAttendanceAction', () => {
   it('saves attendance records with the current staff id', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { staffId: STAFF_ID } } as any)
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      name: null,
+      email: '',
+    } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
     vi.mocked(saveAttendance).mockResolvedValue([] as any)
     vi.mocked(getClassById).mockResolvedValue({
@@ -131,7 +133,11 @@ describe('saveAttendanceAction', () => {
   })
 
   it('defaults missing status to absent', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { staffId: STAFF_ID } } as any)
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      name: null,
+      email: '',
+    } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
     vi.mocked(saveAttendance).mockResolvedValue([] as any)
     vi.mocked(getAdminSubscriptions).mockResolvedValue([])
@@ -155,17 +161,8 @@ describe('saveAttendanceAction', () => {
     ])
   })
 
-  it('uses null recorded_by when session has no staffId', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: {} } as any)
-    vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
-    vi.mocked(saveAttendance).mockResolvedValue([] as any)
-    vi.mocked(getAdminSubscriptions).mockResolvedValue([])
-    vi.mocked(getClassById).mockResolvedValue({
-      id: CLASS_ID,
-      name: 'Class A',
-      academic_year_id: YEAR_ID,
-      active: true,
-    } as any)
+  it('returns an error when nobody is signed in', async () => {
+    vi.mocked(getActor).mockResolvedValue(null)
 
     const fd = makeFormData({
       classId: CLASS_ID,
@@ -174,15 +171,18 @@ describe('saveAttendanceAction', () => {
       [`status_${STUDENT_1}`]: 'late',
     })
 
-    await saveAttendanceAction(fd)
+    const result = await saveAttendanceAction(fd)
 
-    expect(saveAttendance).toHaveBeenCalledWith([
-      expect.objectContaining({ recorded_by: null }),
-    ])
+    expect(result).toEqual({ error: 'Not authenticated' })
+    expect(saveAttendance).not.toHaveBeenCalled()
   })
 
   it('dispatches push notifications to admin subscriptions after save', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { staffId: STAFF_ID } } as any)
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      name: null,
+      email: '',
+    } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
     vi.mocked(saveAttendance).mockResolvedValue([] as any)
     vi.mocked(getClassById).mockResolvedValue({
@@ -215,7 +215,11 @@ describe('saveAttendanceAction', () => {
 
   it('excludes the submitting staff member from notifications', async () => {
     const submitterSub = { ...mockSub, staff_id: STAFF_ID }
-    vi.mocked(auth).mockResolvedValue({ user: { staffId: STAFF_ID } } as any)
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      name: null,
+      email: '',
+    } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
     vi.mocked(saveAttendance).mockResolvedValue([] as any)
     vi.mocked(getClassById).mockResolvedValue({
@@ -240,8 +244,11 @@ describe('saveAttendanceAction', () => {
   })
 
   it('sends "updated" in body when attendance already exists', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: STAFF_ID, role: 'teacher' },
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      role: 'teacher',
+      name: null,
+      email: '',
     } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([
       { id: 'att-1' },
@@ -272,7 +279,11 @@ describe('saveAttendanceAction', () => {
   })
 
   it('auto-deletes stale subscription on 410 push error', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { staffId: STAFF_ID } } as any)
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      name: null,
+      email: '',
+    } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
     vi.mocked(saveAttendance).mockResolvedValue([] as any)
     vi.mocked(getClassById).mockResolvedValue({
@@ -299,7 +310,11 @@ describe('saveAttendanceAction', () => {
   })
 
   it('swallows non-410 push errors without throwing', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { staffId: STAFF_ID } } as any)
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      name: null,
+      email: '',
+    } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
     vi.mocked(saveAttendance).mockResolvedValue([] as any)
     vi.mocked(getClassById).mockResolvedValue({
@@ -323,7 +338,11 @@ describe('saveAttendanceAction', () => {
   })
 
   it('still calls revalidatePath even when push dispatch is involved', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { staffId: STAFF_ID } } as any)
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      name: null,
+      email: '',
+    } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
     vi.mocked(saveAttendance).mockResolvedValue([] as any)
     vi.mocked(getClassById).mockResolvedValue({
@@ -346,8 +365,11 @@ describe('saveAttendanceAction', () => {
   })
 
   it('allows secretary to save new attendance (no existing records)', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: SECRETARY_ID, role: 'secretary' },
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: SECRETARY_ID,
+      role: 'secretary',
+      name: null,
+      email: '',
     } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
     vi.mocked(saveAttendance).mockResolvedValue([] as any)
@@ -380,8 +402,11 @@ describe('saveAttendanceAction', () => {
   })
 
   it('blocks secretary from updating existing attendance records', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: SECRETARY_ID, role: 'secretary' },
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: SECRETARY_ID,
+      role: 'secretary',
+      name: null,
+      email: '',
     } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([
       { id: 'att-1' },
@@ -405,7 +430,11 @@ describe('saveAttendanceAction', () => {
   })
 
   it('rejects a class that does not exist', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { staffId: STAFF_ID } } as any)
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      name: null,
+      email: '',
+    } as any)
     vi.mocked(getClassById).mockResolvedValue(null as any)
 
     const result = await saveAttendanceAction(
@@ -421,8 +450,11 @@ describe('saveAttendanceAction', () => {
   })
 
   it('rejects saving a register for a class outside the current academic year', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: ADMIN_ID, role: 'admin' },
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: ADMIN_ID,
+      role: 'admin',
+      name: null,
+      email: '',
     } as any)
     vi.mocked(getClassById).mockResolvedValue({
       id: CLASS_ID,
@@ -449,8 +481,11 @@ describe('saveAttendanceAction', () => {
   })
 
   it('rejects saving a register for an inactive (completed) current-year class', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: ADMIN_ID, role: 'admin' },
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: ADMIN_ID,
+      role: 'admin',
+      name: null,
+      email: '',
     } as any)
     vi.mocked(getClassById).mockResolvedValue({
       id: CLASS_ID,
@@ -476,7 +511,11 @@ describe('saveAttendanceAction', () => {
   })
 
   it('rejects a student who was not in this class on this date', async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { staffId: STAFF_ID } } as any)
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      name: null,
+      email: '',
+    } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
     vi.mocked(getEnrolmentsForClass).mockResolvedValue([
       {
@@ -503,8 +542,11 @@ describe('saveAttendanceAction', () => {
   })
 
   it('accepts a leaver with a mark on a date they were enrolled', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { staffId: STAFF_ID, role: 'teacher' },
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      role: 'teacher',
+      name: null,
+      email: '',
     } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([
       { id: 'att-1', student_id: STUDENT_1 } as any,

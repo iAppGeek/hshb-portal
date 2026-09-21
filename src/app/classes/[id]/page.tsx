@@ -2,14 +2,13 @@ import { type Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireSession } from '@/auth/require'
 import BulkEmailDropdown from '@/clientComponents/BulkEmailDropdown'
 import PrintPageSetup from '@/components/grid/PrintPageSetup'
 import { getClassWithStudents } from '@/db'
 import { compareByName } from '@/lib/grid/sort'
 import { guardianEmailsForMailto, mailtoWithBcc } from '@/lib/mailto'
 import { isTeacher } from '@/lib/permissions'
-import type { StaffRole } from '@/types/next-auth'
 
 import PrintButton from '../PrintButton'
 
@@ -34,16 +33,14 @@ export default async function ClassRegisterPage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  const session = await auth()
-  if (!session) redirect('/login')
-
-  const role = session.user?.role as StaffRole
+  const actor = await requireSession()
+  const role = actor.role
   const { id } = await params
 
   const cls = await getClassWithStudents(id)
   if (!cls) redirect('/classes')
 
-  if (isTeacher(role) && cls.teacher_id !== session.user.staffId) {
+  if (isTeacher(role) && cls.teacher_id !== actor.staffId) {
     redirect('/classes')
   }
 

@@ -1,7 +1,6 @@
 import { type Metadata } from 'next'
-import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireRole } from '@/auth/require'
 import {
   formatCalendarDate,
   formatTimeInSchoolTz,
@@ -38,11 +37,7 @@ export default async function ReportsPage({
     to?: string
   }>
 }) {
-  const session = await auth()
-  const role = session?.user?.role as StaffRole | undefined
-  if (!session || !role || !canAccessReports(role)) {
-    redirect('/dashboard')
-  }
+  await requireRole(canAccessReports)
 
   const today = todayInSchoolTz()
   const params = await searchParams

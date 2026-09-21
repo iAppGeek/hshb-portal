@@ -1,22 +1,18 @@
 import { type Metadata } from 'next'
-import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireSession } from '@/auth/require'
 import { getIncidents, getStudentIdsByTeacher } from '@/db'
 import type { IncidentRow } from '@/db'
 import { isTeacher, canEditIncidents } from '@/lib/permissions'
-import type { StaffRole } from '@/types/next-auth'
 
 import IncidentsClient from './IncidentsClient'
 
 export const metadata: Metadata = { title: 'Incidents' }
 
 export default async function IncidentsPage() {
-  const session = await auth()
-  if (!session) redirect('/login')
-
-  const role = session.user.role as StaffRole
-  const staffId = session.user.staffId!
+  const actor = await requireSession()
+  const role = actor.role
+  const staffId = actor.staffId
   const teacherOnly = isTeacher(role)
   const canEdit = canEditIncidents(role)
 

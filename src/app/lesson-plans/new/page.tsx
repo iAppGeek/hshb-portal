@@ -1,23 +1,20 @@
 import { type Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireSession } from '@/auth/require'
 import { getAllClasses, getClassesByTeacher } from '@/db'
 import { isTeacher, canCreateLessonPlans } from '@/lib/permissions'
-import type { StaffRole } from '@/types/next-auth'
 
 import AddLessonPlanForm from './AddLessonPlanForm'
 
 export const metadata: Metadata = { title: 'Add Lesson Plan' }
 
 export default async function AddLessonPlanPage() {
-  const session = await auth()
-  if (!session) redirect('/login')
-
-  const role = session.user.role as StaffRole
+  const actor = await requireSession()
+  const role = actor.role
   if (!canCreateLessonPlans(role)) redirect('/lesson-plans')
 
-  const staffId = session.user.staffId!
+  const staffId = actor.staffId
   const classes = isTeacher(role)
     ? await getClassesByTeacher(staffId)
     : await getAllClasses()

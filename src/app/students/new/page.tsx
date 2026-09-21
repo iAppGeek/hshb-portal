@@ -1,18 +1,17 @@
 import { type Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireSession } from '@/auth/require'
 import { getAllGuardians } from '@/db'
 import { canCreateStudents } from '@/lib/permissions'
-import type { StaffRole } from '@/types/next-auth'
 
 import AddStudentForm from './AddStudentForm'
 
 export const metadata: Metadata = { title: 'Add Student' }
 
 export default async function AddStudentPage() {
-  const session = await auth()
-  const role = session?.user?.role as StaffRole
+  const actor = await requireSession()
+  const role = actor.role
 
   if (!canCreateStudents(role)) {
     redirect('/students')

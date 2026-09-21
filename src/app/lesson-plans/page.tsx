@@ -1,7 +1,6 @@
 import { type Metadata } from 'next'
-import { redirect } from 'next/navigation'
 
-import { auth } from '@/auth'
+import { requireSession } from '@/auth/require'
 import { getLessonPlans, getClassesByTeacher } from '@/db'
 import type { LessonPlanRow } from '@/db'
 import {
@@ -9,18 +8,15 @@ import {
   canCreateLessonPlans,
   canEditLessonPlans,
 } from '@/lib/permissions'
-import type { StaffRole } from '@/types/next-auth'
 
 import LessonPlansClient from './LessonPlansClient'
 
 export const metadata: Metadata = { title: 'Lesson Plans' }
 
 export default async function LessonPlansPage() {
-  const session = await auth()
-  if (!session) redirect('/login')
-
-  const role = session.user.role as StaffRole
-  const staffId = session.user.staffId!
+  const actor = await requireSession()
+  const role = actor.role
+  const staffId = actor.staffId
   const teacherOnly = isTeacher(role)
   const canCreate = canCreateLessonPlans(role)
   const canEdit = canEditLessonPlans(role)
