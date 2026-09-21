@@ -1,59 +1,35 @@
+// CACHE_NAME, BUILD_PRECACHE and IS_DEV are prepended by scripts/build-sw.mjs,
+// which writes the result to public/sw.js. The cache name is a hash of the
+// build's chunk names, so every release changes this file's bytes — that is
+// what makes the browser install the new worker.
+
 const STATIC_PRECACHE = [
   '/manifest.json',
   '/offline.html',
   '/icons/portal-icon-192.png',
 ]
 
-/** Set from sw-manifest.json during install/activate. */
-let CACHE_NAME = 'hshb-portal-bootstrap'
-
-async function loadManifest() {
-  const response = await fetch('/sw-manifest.json', { cache: 'no-store' })
-  if (!response.ok) throw new Error(`sw-manifest.json ${response.status}`)
-  return response.json()
-}
-
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    loadManifest()
-      .then((manifest) => {
-        CACHE_NAME = manifest.cacheName
-        return caches
-          .open(CACHE_NAME)
-          .then((cache) =>
-            cache.addAll([...STATIC_PRECACHE, ...(manifest.urls ?? [])]),
-          )
-      })
-      .catch(() =>
-        caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_PRECACHE)),
-      ),
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => cache.addAll([...STATIC_PRECACHE, ...BUILD_PRECACHE])),
   )
   self.skipWaiting()
 })
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    loadManifest()
-      .then((manifest) => {
-        CACHE_NAME = manifest.cacheName
-        return caches
-          .keys()
-          .then((keys) =>
-            Promise.all(
-              keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)),
-            ),
-          )
-      })
-      .catch(() =>
-        caches
-          .keys()
-          .then((keys) =>
-            Promise.all(
-              keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)),
-            ),
-          ),
-      ),
+// Keeps the newest previous cache: a tab opened before this deploy may still
+// lazy-load chunks from the old build, which the server no longer has.
+async function purgeOldCaches() {
+  const others = (await caches.keys()).filter((k) => k !== CACHE_NAME)
+  const previous = others.at(-1)
+  await Promise.all(
+    others.filter((k) => k !== previous).map((k) => caches.delete(k)),
   )
+}
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(purgeOldCaches())
   self.clients.claim()
 })
 
@@ -75,21 +51,25 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // App shell assets: cache-first (content-hashed, immutable)
+  // Build assets: cache-first (content-hashed, immutable). Dev chunks are not
+  // hashed, so caching them would serve stale code.
   if (
-    url.pathname.startsWith('/_next/static/chunks/') ||
-    url.pathname.startsWith('/_next/static/media/') ||
-    url.pathname.startsWith('/_next/static/css/')
+    !IS_DEV &&
+    (url.pathname.startsWith('/_next/static/chunks/') ||
+      url.pathname.startsWith('/_next/static/media/') ||
+      url.pathname.startsWith('/_next/static/css/'))
   ) {
     event.respondWith(
       caches.match(event.request).then(
         (cached) =>
           cached ||
           fetch(event.request).then((response) => {
-            const clone = response.clone()
-            caches
-              .open(CACHE_NAME)
-              .then((cache) => cache.put(event.request, clone))
+            if (response.ok) {
+              const clone = response.clone()
+              caches
+                .open(CACHE_NAME)
+                .then((cache) => cache.put(event.request, clone))
+            }
             return response
           }),
       ),

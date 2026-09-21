@@ -125,7 +125,6 @@ export {
   deletePushSubscription,
   pushSubscriptionExists,
   getAdminSubscriptions,
-  getSubscriptionsForStaff,
 } from './push-subscriptions'
 export type {
   SavePushSubscriptionInput,

@@ -119,8 +119,11 @@ supabase/
   schema.sql       # Generated schema snapshot (regenerate after migrations)
   migrations/      # Applied to local + production
   seed.sql         # Deterministic test data
+scripts/
+  sw.template.js   # PWA service worker source
+  build-sw.mjs     # Writes public/sw.js (run by `npm run dev` and `npm run build`)
 public/
-  sw.js            # PWA service worker
+  sw.js            # Generated, git-ignored — edit scripts/sw.template.js
 ```
 
 ## Authentication

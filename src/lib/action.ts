@@ -12,7 +12,7 @@ import type { StaffRole } from '@/types/next-auth'
 import { redactChanges } from './audit-redaction'
 import { getUserFriendlyDbError } from './db-error'
 import { logError } from './log'
-import { notifyAdmins, notifyStaff, type Notification } from './notify'
+import { notifyAdmins, type Notification } from './notify'
 import { extractFormFields } from './schemas'
 
 /**
@@ -65,13 +65,6 @@ type AuditOptions<TInput, TResult> = {
   redact?: string[]
 }
 
-type NotifyTarget =
-  | Notification
-  | {
-      to: 'admins' | string[]
-      notification: Notification
-    }
-
 type BaseRunActionOptions<TInput, TResult, TActor extends Actor | null> = {
   /** Used in logs, e.g. 'students.save'. */
   name: string
@@ -84,14 +77,14 @@ type BaseRunActionOptions<TInput, TResult, TActor extends Actor | null> = {
   /** Written after `run` resolves. `details` defaults to `input` (redacted). */
   audit?: AuditOptions<TInput, TResult>
   /**
-   * Evaluated after audit. Returning `undefined` sends nothing. A bare
-   * `Notification` goes to admins excluding the actor.
+   * Evaluated after audit; the notification goes to admins other than the
+   * actor once the response has been sent. Returning `undefined` sends nothing.
    */
   notify?: (
     result: TResult,
     input: TInput,
     ctx: ActionContext<TActor>,
-  ) => NotifyTarget | undefined
+  ) => Notification | undefined
   /** Static path or derived from the result. Executed outside try/catch. */
   redirectTo?: string | ((result: TResult) => string)
   /** Message when the thrown error has no friendly mapping. */
@@ -232,23 +225,19 @@ export async function runAction<TInput = undefined, TResult = void>(
       result: TResult,
       input: TInput,
       ctx: ActionContext<Actor | null>,
-    ) => NotifyTarget | undefined
-    const target = notify(result, input, {
-      actor,
-      formData: opts.formData,
-    })
-    if (target) {
-      if ('to' in target) {
-        if (target.to === 'admins') {
-          notifyAdmins(target.notification, {
-            excludeStaffId: actor?.staffId,
-          })
-        } else {
-          notifyStaff(target.to, target.notification)
-        }
-      } else {
-        notifyAdmins(target, { excludeStaffId: actor?.staffId })
+    ) => Notification | undefined
+    // The save has already committed, so a faulty callback is logged rather
+    // than reported to the form as a failure.
+    try {
+      const notification = notify(result, input, {
+        actor,
+        formData: opts.formData,
+      })
+      if (notification) {
+        notifyAdmins(notification, { excludeStaffId: actor?.staffId })
       }
+    } catch (err) {
+      logError(opts.name, err)
     }
   }
 

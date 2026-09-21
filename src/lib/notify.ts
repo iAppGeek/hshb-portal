@@ -1,12 +1,14 @@
 import 'server-only'
 
+import { after } from 'next/server'
+
 import {
   deletePushSubscription,
   getAdminSubscriptions,
-  getSubscriptionsForStaff,
   type PushSubscriptionRow,
 } from '@/db'
 import { logError } from '@/lib/log'
+import { sendPushNotification } from '@/lib/push'
 
 export type Notification = {
   title: string
@@ -15,19 +17,15 @@ export type Notification = {
 }
 
 function isStaleSubscription(err: unknown): boolean {
-  return (
-    err instanceof Error &&
-    'statusCode' in err &&
-    ((err as { statusCode: number }).statusCode === 410 ||
-      (err as { statusCode: number }).statusCode === 404)
-  )
+  if (typeof err !== 'object' || err === null) return false
+  const code = (err as { statusCode?: unknown }).statusCode
+  return code === 410 || code === 404
 }
 
 async function sendToSubscriptions(
   subs: PushSubscriptionRow[],
   n: Notification,
 ): Promise<void> {
-  const { sendPushNotification } = await import('@/lib/push')
   await Promise.allSettled(
     subs.map((sub) =>
       sendPushNotification(sub, {
@@ -44,29 +42,29 @@ async function sendToSubscriptions(
   )
 }
 
-function fireAndForget(promise: Promise<void>): void {
-  promise.catch((err) => logError('notify', err))
+async function sendToAdmins(
+  n: Notification,
+  excludeStaffId: string | undefined,
+): Promise<void> {
+  try {
+    const subs = await getAdminSubscriptions()
+    const recipients = excludeStaffId
+      ? subs.filter((sub) => sub.staff_id !== excludeStaffId)
+      : subs
+    await sendToSubscriptions(recipients, n)
+  } catch (err) {
+    logError('notify', err)
+  }
 }
 
-/** Fire-and-forget: never awaited by the caller, never throws. Removes 410/404 subscriptions. */
+/**
+ * Sends once the response has gone, via `after()` so the platform keeps the
+ * function alive until the pushes finish. Never throws; removes 410/404
+ * subscriptions.
+ */
 export function notifyAdmins(
   n: Notification,
   opts?: { excludeStaffId?: string },
 ): void {
-  fireAndForget(
-    getAdminSubscriptions().then((subs) => {
-      const recipients = opts?.excludeStaffId
-        ? subs.filter((sub) => sub.staff_id !== opts.excludeStaffId)
-        : subs
-      return sendToSubscriptions(recipients, n)
-    }),
-  )
-}
-
-export function notifyStaff(staffIds: string[], n: Notification): void {
-  fireAndForget(
-    getSubscriptionsForStaff(staffIds).then((subs) =>
-      sendToSubscriptions(subs, n),
-    ),
-  )
+  after(() => sendToAdmins(n, opts?.excludeStaffId))
 }

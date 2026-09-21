@@ -6,14 +6,11 @@ import { getActor } from '@/auth/require'
 import { logAuditEvent } from '@/db'
 
 import { runAction, ActionError } from './action'
-import { notifyAdmins, notifyStaff } from './notify'
+import { notifyAdmins } from './notify'
 
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('@/db', () => ({ logAuditEvent: vi.fn() }))
-vi.mock('./notify', () => ({
-  notifyAdmins: vi.fn(),
-  notifyStaff: vi.fn(),
-}))
+vi.mock('./notify', () => ({ notifyAdmins: vi.fn() }))
 // Only `redirect` is faked, so a test can assert on the path without a real
 // navigation. Everything else stays real — `unstable_rethrow` in particular,
 // because it is what decides whether a framework interrupt escapes runAction.
@@ -28,7 +25,6 @@ const mockGetActor = vi.mocked(getActor)
 const mockAudit = vi.mocked(logAuditEvent)
 const mockRedirect = vi.mocked(redirect)
 const mockNotifyAdmins = vi.mocked(notifyAdmins)
-const mockNotifyStaff = vi.mocked(notifyStaff)
 
 const ADMIN = {
   staffId: 'staff-1',
@@ -510,7 +506,7 @@ describe('runAction — notify', () => {
     url: '/reports' as const,
   }
 
-  it('sends a bare notification to admins excluding the actor', async () => {
+  it('sends the notification to admins excluding the actor', async () => {
     await runAction({
       name: 'test.action',
       formData: formData(),
@@ -534,37 +530,28 @@ describe('runAction — notify', () => {
     })
 
     expect(mockNotifyAdmins).not.toHaveBeenCalled()
-    expect(mockNotifyStaff).not.toHaveBeenCalled()
   })
 
-  it('targets specific staff when to is a string array', async () => {
-    await runAction({
+  it('logs a throwing callback and still returns the saved result', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const result = await runAction({
       name: 'test.action',
       formData: formData(),
-      run: vi.fn().mockResolvedValue(undefined),
-      notify: () => ({ to: ['staff-2', 'staff-3'], notification }),
+      run: vi.fn().mockResolvedValue({ id: 'x' }),
+      notify: () => {
+        throw new Error('bad callback')
+      },
       fallbackError: 'Failed.',
     })
 
-    expect(mockNotifyStaff).toHaveBeenCalledWith(
-      ['staff-2', 'staff-3'],
-      notification,
-    )
+    expect(result).toEqual({ data: { id: 'x' } })
     expect(mockNotifyAdmins).not.toHaveBeenCalled()
-  })
-
-  it('targets admins when to is admins', async () => {
-    await runAction({
-      name: 'test.action',
-      formData: formData(),
-      run: vi.fn().mockResolvedValue(undefined),
-      notify: () => ({ to: 'admins', notification }),
-      fallbackError: 'Failed.',
-    })
-
-    expect(mockNotifyAdmins).toHaveBeenCalledWith(notification, {
-      excludeStaffId: 'staff-1',
-    })
+    expect(consoleError).toHaveBeenCalledWith(
+      '[test.action]',
+      expect.objectContaining({ message: 'bad callback' }),
+    )
+    consoleError.mockRestore()
   })
 
   it('notifies after audit and before redirect', async () => {

@@ -1,11 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockSendNotification = vi.hoisted(() => vi.fn())
-const mockSetVapidDetails = vi.hoisted(() => vi.fn())
 
 vi.mock('web-push', () => ({
   default: {
-    setVapidDetails: mockSetVapidDetails,
     sendNotification: mockSendNotification,
   },
 }))
@@ -45,6 +43,13 @@ describe('sendPushNotification', () => {
         keys: { p256dh: mockSubscription.p256dh, auth: mockSubscription.auth },
       },
       JSON.stringify(mockPayload),
+      {
+        vapidDetails: {
+          subject: 'mailto:test@example.com',
+          publicKey: 'test-vapid-public-key',
+          privateKey: 'test-vapid-private-key',
+        },
+      },
     )
   })
 

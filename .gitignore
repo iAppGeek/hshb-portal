@@ -38,5 +38,5 @@ Thumbs.db
 # Local Netlify folder
 .netlify
 
-# Generated at build time for the service worker precache list
-public/sw-manifest.json
+# Generated from scripts/sw.template.js by scripts/build-sw.mjs
+public/sw.js

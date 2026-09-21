@@ -31,6 +31,14 @@ vi.mock('@/lib/push', () => ({
   sendPushNotification: vi.fn(),
 }))
 
+// `after()` needs a request scope; start the work straight away but don't
+// await it, so the action still returns before the pushes settle.
+vi.mock('next/server', () => ({
+  after: (cb: () => Promise<unknown>) => {
+    void cb()
+  },
+}))
+
 const CLASS_ID = '00000000-0000-4000-8000-000000000001'
 const STUDENT_1 = '00000000-0000-4000-8000-000000000010'
 const STUDENT_2 = '00000000-0000-4000-8000-000000000020'
