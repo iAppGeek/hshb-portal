@@ -323,17 +323,37 @@ describe('StudentFeesPage', () => {
         payments: [{ amount: 200, payment_date: '2024-10-01' }],
       },
     ] as never)
-    vi.mocked(getFeePlans).mockImplementation(async (yearId?: string) =>
-      yearId === previousYear.id
-        ? [makePlan({ academic_year: previousYear, class_ids: [] })]
-        : [makePlan({})],
-    )
+    vi.mocked(getFeePlans).mockResolvedValue([
+      makePlan({}),
+      makePlan({ id: 'p0', academic_year: previousYear, class_ids: [] }),
+    ])
 
     render(await StudentFeesPage(noSearchParams()))
 
     expect(screen.getByText('Other years')).toBeTruthy()
     expect(screen.getByText('2024-25')).toBeTruthy()
     expect(screen.getByText('Settled')).toBeTruthy()
+  })
+
+  it("reads every year's plans once and only offers the selected year's", async () => {
+    const previousYear = {
+      id: 'year-0',
+      code: '2024-25',
+      start_date: '2024-09-01',
+      end_date: '2025-08-31',
+    }
+    vi.mocked(getFeePlans).mockResolvedValue([
+      makePlan({}),
+      makePlan({ id: 'p0', name: 'Old', academic_year: previousYear }),
+    ])
+
+    render(await StudentFeesPage(noSearchParams()))
+
+    expect(getFeePlans).toHaveBeenCalledTimes(1)
+    expect(getFeePlans).toHaveBeenCalledWith()
+    expect(screen.getByTestId('account-form').textContent).toBe(
+      'Standard (2025-26)',
+    )
   })
 
   it('falls back to the current year for an unknown year', async () => {

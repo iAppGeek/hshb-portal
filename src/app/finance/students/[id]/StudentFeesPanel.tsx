@@ -96,7 +96,8 @@ type Props = {
 /**
  * Holds the account and payments the page was rendered with and applies each
  * save's result to them, so every figure below updates without re-fetching
- * the page.
+ * the page. They are copied from props once, so the page keys this on the
+ * year: a `?year=` change doesn't remount it.
  */
 export default function StudentFeesPanel({
   studentId,

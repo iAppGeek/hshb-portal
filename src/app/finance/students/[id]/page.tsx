@@ -9,6 +9,7 @@ import {
   getStudentFeeDetail,
   getStudentFeeYears,
 } from '@/db'
+import type { FeePlanWithClasses } from '@/db'
 import { resolveYearId } from '@/lib/academicYears'
 import { todayInSchoolTz } from '@/lib/datetime'
 import LeaverBadge from '@/components/LeaverBadge'
@@ -42,9 +43,11 @@ export default async function StudentFeesPage({
   ])
   const yearId = resolveYearId(years, year, currentYear.id)
 
-  const [detail, plans, yearsHistory] = await Promise.all([
+  // Every year's plans in one read: the panel summarises the student's other
+  // years as well as the one on screen.
+  const [detail, allPlans, yearsHistory] = await Promise.all([
     getStudentFeeDetail(id, yearId),
-    getFeePlans(yearId),
+    getFeePlans(),
     getStudentFeeYears(id),
   ])
 
@@ -55,15 +58,13 @@ export default async function StudentFeesPage({
   const today = todayInSchoolTz()
   const { student, account, payments, classes } = detail
 
-  // Each other year's plans, so the panel can summarise those years too.
-  const otherYearIds = yearsHistory
-    .map((yh) => yh.year.id)
-    .filter((id) => id !== yearId)
-  const plansByYear = Object.fromEntries(
-    await Promise.all(
-      otherYearIds.map(async (id) => [id, await getFeePlans(id)] as const),
-    ),
-  )
+  const plansByYear: Record<string, FeePlanWithClasses[]> = {}
+  for (const plan of allPlans) {
+    const yearPlans = plansByYear[plan.academic_year.id] ?? []
+    yearPlans.push(plan)
+    plansByYear[plan.academic_year.id] = yearPlans
+  }
+  const plans = plansByYear[yearId] ?? []
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -90,7 +91,10 @@ export default async function StudentFeesPage({
         }
       />
 
+      {/* Keyed on the year: the panel copies the account and payments into
+          state, and ?year= changes don't remount the page. */}
       <StudentFeesPanel
+        key={yearId}
         studentId={student.id}
         yearId={yearId}
         today={today}

@@ -162,6 +162,41 @@ test.describe('Finance', () => {
     await expect(paymentRow).toHaveCount(0)
     await expect(page.getByTestId('paid-to-date')).toHaveText('£0.00')
   })
+
+  test("switching year shows that year's payments, not the last one's", async ({
+    page,
+  }) => {
+    const reference = `E2E-${suffix}`
+    const { error } = await db.from('student_payments').insert({
+      student_id: studentId,
+      academic_year_id: academicYearId,
+      amount: 100,
+      payment_date: academicYearForSuffix(suffix).start_date,
+      reference,
+      method: 'cash',
+    })
+    if (error) throw error
+
+    const paymentRow = page.getByRole('row', { name: new RegExp(reference) })
+    await page.goto(`/finance/students/${studentId}?year=${academicYearId}`)
+    await expect(paymentRow).toContainText('£100.00')
+
+    // A client-side ?year= change: the page isn't remounted.
+    await page
+      .getByRole('combobox', { name: 'Academic year' })
+      .selectOption(SEED_IDS.academicYears.previous)
+    await expect(page).toHaveURL(
+      new RegExp(`year=${SEED_IDS.academicYears.previous}`),
+    )
+    await expect(page.getByText('No payments recorded.')).toBeVisible()
+    await expect(paymentRow).toHaveCount(0)
+    await expect(page.getByTestId('paid-to-date')).toHaveText('£0.00')
+
+    await page
+      .getByRole('combobox', { name: 'Academic year' })
+      .selectOption(academicYearId)
+    await expect(paymentRow).toContainText('£100.00')
+  })
 })
 
 // Baseline for the shared-grids migration (plans/shared-grids.md §6): covers
