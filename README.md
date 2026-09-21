@@ -103,7 +103,7 @@ npm run fix:all
 src/
   app/             # Next.js App Router pages, layouts, API routes, server actions
   app/register/    # Public parent registration form (no auth) — see plans/parent-registration-form.md
-  app/registrations/ # Admin inbox — review/approve/reject registration submissions
+  app/registrations/ # Admin inbox — review registration submissions and photo opt-outs
   auth/            # NextAuth v5 config + helpers
   clientComponents/# Shared client components (have 'use client')
   components/      # Shared server components
@@ -125,6 +125,12 @@ scripts/
 public/
   sw.js            # Generated, git-ignored — edit scripts/sw.template.js
 ```
+
+## Registrations review
+
+`/registrations` is the inbox for the two public parent forms. Its tabs are the registration statuses (To-do, Actioned, Rejected, All) plus **Photo opt-outs**, which lists `/register/photo-opt-out` requests filtered by `?status=` (pending by default). Both kinds of submission follow the same shape: list → review page (`/registrations/[id]`, `/registrations/photo-opt-outs/[id]`) → action dialog.
+
+The dialogs are shared, from `src/components/dialogs`: `ReasonDialog` rejects either kind, `ConfirmDialog` deletes either kind, and `MatchStudentDialog` applies an opt-out to an existing student. Registration approval uses `RegistrationApproveDialog`, which adds class and guardian choices to the same student picker (`StudentMatchList`). All six server actions live in `src/app/registrations/actions.ts`. Any reviewer can open the pages; only admins can act.
 
 ## Authentication
 
