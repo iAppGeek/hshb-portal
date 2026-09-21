@@ -13,7 +13,11 @@ const SECRET_VARS = [
   'TURNSTILE_SECRET_KEY',
 ]
 
-const SERVER_ONLY_IMPORTS = ["from '@/db'", "from '@/auth'"]
+const SERVER_ONLY_IMPORTS = [
+  "from '@/db'",
+  "from '@/auth'",
+  "from '@/env.server'",
+]
 
 function stripTypeImports(content: string): string {
   return content
@@ -53,7 +57,7 @@ describe('Secret environment variables', () => {
 })
 
 describe('Client components', () => {
-  it('do not import server-only modules (@/db, @/auth)', () => {
+  it('do not import server-only modules (@/db, @/auth, @/env.server)', () => {
     for (const file of clientFiles) {
       const content = stripTypeImports(readFileSync(file, 'utf-8'))
       for (const imp of SERVER_ONLY_IMPORTS) {
