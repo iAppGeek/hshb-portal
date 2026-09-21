@@ -106,7 +106,7 @@ describe('applyPhotoOptOutAction', () => {
     expect(logAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'photo_opt_out_applied' }),
     )
-    expect(redirect).toHaveBeenCalledWith('/registrations')
+    expect(redirect).toHaveBeenCalledWith('/registrations?tab=photo-opt-outs')
   })
 })
 
@@ -147,7 +147,7 @@ describe('rejectPhotoOptOutAction', () => {
     expect(logAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'photo_opt_out_rejected' }),
     )
-    expect(redirect).toHaveBeenCalledWith('/registrations')
+    expect(redirect).toHaveBeenCalledWith('/registrations?tab=photo-opt-outs')
   })
 })
 
@@ -184,6 +184,6 @@ describe('deletePhotoOptOutAction', () => {
         details: { childName: 'Alice Student', status: 'actioned' },
       }),
     )
-    expect(redirect).toHaveBeenCalledWith('/registrations')
+    expect(redirect).toHaveBeenCalledWith('/registrations?tab=photo-opt-outs')
   })
 })

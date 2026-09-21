@@ -1,12 +1,9 @@
 'use client'
 
-import Link from 'next/link'
-
 import type { RegistrationFull, ContactRole, StudentMatch } from '@/db'
 import type { GuardianMatch } from '@/db'
 import DefinitionList from '@/components/DefinitionList'
 import { ConfirmDialog, ReasonDialog, useDialog } from '@/components/dialogs'
-import Tooltip from '@/components/Tooltip'
 import { formatDateInSchoolTz, formatDateTimeInSchoolTz } from '@/lib/datetime'
 import { personName } from '@/lib/format'
 import { guardianReuseDiff, type FieldDiff } from '@/lib/guardianDiff'
@@ -15,6 +12,8 @@ import type { StaffRole } from '@/types/next-auth'
 
 import PageHeader from '../../_components/PageHeader'
 import { deleteRegistrationAction, rejectRegistrationAction } from '../actions'
+import ReviewActionButton from '../ReviewActionButton'
+import { workflowItems } from '../workflowItems'
 
 import RegistrationApproveDialog from './RegistrationApproveDialog'
 
@@ -28,6 +27,8 @@ type Props = {
   classes: ClassOption[]
   guardianMatchesByContact: Record<string, GuardianMatch[]>
 }
+
+const ADMIN_ONLY = 'Only admins can approve registrations'
 
 const CONTACT_LABELS: Record<ContactRole, string> = {
   primary: 'Primary parent/carer',
@@ -67,45 +68,10 @@ export default function RegistrationReview({
 
   const isAdmin = canApproveRegistrations(role)
   const canAct = isAdmin && submission.status === 'pending'
-  const canDelete = isAdmin
 
   const contactsByRole = new Map(
     submission.contacts.map((c) => [c.contact_role, c]),
   )
-
-  const workflowItems = [
-    {
-      label: 'Submitted',
-      value: formatDateTimeInSchoolTz(submission.submitted_at),
-    },
-    { label: 'Status', value: submission.status },
-    ...(submission.actioned_at
-      ? [
-          {
-            label: 'Actioned',
-            value: formatDateTimeInSchoolTz(submission.actioned_at),
-          },
-        ]
-      : []),
-    ...(submission.student_id
-      ? [
-          {
-            label: 'Student',
-            value: (
-              <Link
-                href={`/students/${submission.student_id}/edit`}
-                className="text-blue-600 hover:text-blue-800"
-              >
-                View student
-              </Link>
-            ),
-          },
-        ]
-      : []),
-    ...(submission.rejected_reason
-      ? [{ label: 'Rejected reason', value: submission.rejected_reason }]
-      : []),
-  ]
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -285,7 +251,7 @@ export default function RegistrationReview({
         page.
       </p>
 
-      <DefinitionList title="Workflow" items={workflowItems} />
+      <DefinitionList title="Workflow" items={workflowItems(submission)} />
 
       {isAdmin && submission.status === 'pending' && (
         <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
@@ -314,24 +280,27 @@ export default function RegistrationReview({
       )}
 
       <div className="flex flex-wrap items-center gap-3">
-        <ActionButton
+        <ReviewActionButton
           label="Approve & save student"
-          canAct={canAct}
-          role={role}
+          allowed={canAct}
+          showDisabled={!isAdmin}
+          disabledReason={ADMIN_ONLY}
           onClick={() => approveDialog.open()}
           className="bg-blue-600 text-white hover:bg-blue-700"
         />
-        <ActionButton
+        <ReviewActionButton
           label="Reject"
-          canAct={canAct}
-          role={role}
+          allowed={canAct}
+          showDisabled={!isAdmin}
+          disabledReason={ADMIN_ONLY}
           onClick={() => rejectDialog.open()}
           className="bg-white text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50"
         />
-        <ActionButton
+        <ReviewActionButton
           label="Delete"
-          canAct={canDelete}
-          role={role}
+          allowed={isAdmin}
+          showDisabled={!isAdmin}
+          disabledReason={ADMIN_ONLY}
           onClick={() => deleteDialog.open()}
           className="bg-white text-red-600 ring-1 ring-gray-300 hover:bg-red-50"
         />
@@ -379,44 +348,6 @@ export default function RegistrationReview({
       )}
     </div>
   )
-}
-
-function ActionButton({
-  label,
-  canAct,
-  role,
-  onClick,
-  className,
-}: {
-  label: string
-  canAct: boolean
-  role: StaffRole
-  onClick: () => void
-  className: string
-}) {
-  if (canAct) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className={`rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition ${className}`}
-      >
-        {label}
-      </button>
-    )
-  }
-
-  if (!canApproveRegistrations(role)) {
-    return (
-      <Tooltip text="Only admins can approve registrations">
-        <span className="cursor-not-allowed rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-400">
-          {label}
-        </span>
-      </Tooltip>
-    )
-  }
-
-  return null
 }
 
 /**

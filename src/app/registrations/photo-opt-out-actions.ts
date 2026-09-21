@@ -33,7 +33,7 @@ export async function applyPhotoOptOutAction(
       entityId: () => id,
       details: (_result, input) => ({ studentId: input.student_id }),
     },
-    redirectTo: '/registrations',
+    redirectTo: '/registrations?tab=photo-opt-outs',
     fallbackError: 'Failed to apply the opt-out. Please try again.',
   })
 }
@@ -61,7 +61,7 @@ export async function rejectPhotoOptOutAction(
       entityId: () => id,
       details: (_result, input) => ({ reason: input.reason }),
     },
-    redirectTo: '/registrations',
+    redirectTo: '/registrations?tab=photo-opt-outs',
     fallbackError: 'Failed to reject the request. Please try again.',
   })
 }
@@ -89,7 +89,7 @@ export async function deletePhotoOptOutAction(
         status: request?.status,
       }),
     },
-    redirectTo: '/registrations',
+    redirectTo: '/registrations?tab=photo-opt-outs',
     fallbackError: 'Failed to delete the request. Please try again.',
   })
 }
