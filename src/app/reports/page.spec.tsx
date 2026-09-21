@@ -45,7 +45,7 @@ import {
   getIncidentCountsByDateRange,
 } from '@/db'
 
-import ReportsPage from './page'
+import ReportsPage, { PeriodReportSection } from './page'
 
 const defaultSearchParams = Promise.resolve({})
 
@@ -135,17 +135,34 @@ describe('ReportsPage', () => {
   })
 
   // ── Month mode ──────────────────────────────────────────────────────────
+  // PeriodReport's data now loads in the async PeriodReportSection, streamed
+  // behind a Suspense boundary — RTL's render() can't resolve that on the
+  // client, so (like DashboardStats) we call it directly here and cover the
+  // page-level mode switch (day vs. period) via the returned element tree.
+
+  it('picks PeriodReportSection (not DayReport) in month mode', async () => {
+    const searchParams = Promise.resolve({ mode: 'month', month: '2024-03' })
+    const page = (await ReportsPage({ searchParams })) as any
+    const suspense = page.props.children[1]
+    expect(suspense.props.children.type).toBe(PeriodReportSection)
+  })
 
   it('renders PeriodReport in month mode', async () => {
-    const searchParams = Promise.resolve({ mode: 'month', month: '2024-03' })
-    render(await ReportsPage({ searchParams }))
+    render(
+      await PeriodReportSection({
+        startDate: '2024-03-01',
+        endDate: '2024-03-31',
+      }),
+    )
     expect(screen.getByTestId('period-report')).toBeTruthy()
-    expect(screen.queryByTestId('day-report')).toBeNull()
   })
 
   it('calls range DB functions with first/last day of month', async () => {
-    const searchParams = Promise.resolve({ mode: 'month', month: '2024-03' })
-    render(await ReportsPage({ searchParams }))
+    await PeriodReportSection({
+      startDate: '2024-03-01',
+      endDate: '2024-03-31',
+    })
+
     expect(getStaffAttendanceByDateRange).toHaveBeenCalledWith(
       '2024-03-01',
       '2024-03-31',
@@ -162,24 +179,32 @@ describe('ReportsPage', () => {
 
   // ── Range mode ──────────────────────────────────────────────────────────
 
-  it('renders PeriodReport in range mode', async () => {
+  it('picks PeriodReportSection (not DayReport) in range mode', async () => {
     const searchParams = Promise.resolve({
       mode: 'range',
       from: '2024-03-01',
       to: '2024-03-15',
     })
-    render(await ReportsPage({ searchParams }))
+    const page = (await ReportsPage({ searchParams })) as any
+    const suspense = page.props.children[1]
+    expect(suspense.props.children.type).toBe(PeriodReportSection)
+  })
+
+  it('renders PeriodReport in range mode', async () => {
+    render(
+      await PeriodReportSection({
+        startDate: '2024-03-01',
+        endDate: '2024-03-15',
+      }),
+    )
     expect(screen.getByTestId('period-report')).toBeTruthy()
-    expect(screen.queryByTestId('day-report')).toBeNull()
   })
 
   it('calls range DB functions with from/to params', async () => {
-    const searchParams = Promise.resolve({
-      mode: 'range',
-      from: '2024-03-01',
-      to: '2024-03-15',
+    await PeriodReportSection({
+      startDate: '2024-03-01',
+      endDate: '2024-03-15',
     })
-    render(await ReportsPage({ searchParams }))
     expect(getStaffAttendanceByDateRange).toHaveBeenCalledWith(
       '2024-03-01',
       '2024-03-15',

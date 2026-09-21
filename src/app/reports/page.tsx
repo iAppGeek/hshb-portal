@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { type Metadata } from 'next'
 
 import { requireRouteAccess } from '@/auth/require'
@@ -25,6 +26,7 @@ import type { ReportMode } from './_components/ReportsModeSelector'
 import DayReport from './_components/DayReport'
 import PeriodReport from './_components/PeriodReport'
 import type { StaffDaysWorkedRow } from './_components/PeriodReport'
+import PeriodReportSkeleton from './_components/PeriodReportSkeleton'
 
 export const metadata: Metadata = { title: 'Reports' }
 
@@ -191,6 +193,27 @@ export default async function ReportsPage({
   const startDate = mode === 'month' ? monthStart : rangeFrom
   const endDate = mode === 'month' ? monthEnd : rangeTo
 
+  return (
+    <>
+      <PageHeader
+        title="Reports & Analytics"
+        subtitle={subtitle}
+        action={headerAction}
+      />
+      <Suspense fallback={<PeriodReportSkeleton />}>
+        <PeriodReportSection startDate={startDate} endDate={endDate} />
+      </Suspense>
+    </>
+  )
+}
+
+export async function PeriodReportSection({
+  startDate,
+  endDate,
+}: {
+  startDate: string
+  endDate: string
+}) {
   const [
     staffAttendanceRows,
     attendanceRows,
@@ -276,19 +299,12 @@ export default async function ReportsPage({
   }))
 
   return (
-    <>
-      <PageHeader
-        title="Reports & Analytics"
-        subtitle={subtitle}
-        action={headerAction}
-      />
-      <PeriodReport
-        staffDaysWorked={staffDaysWorked}
-        totalSchoolDays={totalSchoolDays}
-        schoolDayDates={schoolDayDates}
-        classSummary={classSummary}
-        incidentCounts={incidentCounts}
-      />
-    </>
+    <PeriodReport
+      staffDaysWorked={staffDaysWorked}
+      totalSchoolDays={totalSchoolDays}
+      schoolDayDates={schoolDayDates}
+      classSummary={classSummary}
+      incidentCounts={incidentCounts}
+    />
   )
 }
