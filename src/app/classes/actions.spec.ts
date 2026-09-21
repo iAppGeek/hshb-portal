@@ -3,13 +3,14 @@ import { redirect } from 'next/navigation'
 
 import { getActor } from '@/auth/require'
 import {
+  createClass,
   updateClass,
   setClassStudents,
   getClassById,
   getCurrentAcademicYear,
 } from '@/db'
 
-import { updateClassAction } from './actions'
+import { saveClassAction } from './actions'
 
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('next/navigation', async (importOriginal) => ({
@@ -17,6 +18,7 @@ vi.mock('next/navigation', async (importOriginal) => ({
   redirect: vi.fn(),
 }))
 vi.mock('@/db', () => ({
+  createClass: vi.fn(),
   updateClass: vi.fn(),
   setClassStudents: vi.fn(),
   getClassById: vi.fn(),
@@ -69,11 +71,124 @@ const baseFields = {
   teacher_id: STAFF_ID,
 }
 
-describe('updateClassAction', () => {
+describe('saveClassAction (create)', () => {
   it('returns error when not authenticated', async () => {
     vi.mocked(getActor).mockResolvedValue(null as any)
 
-    const result = await updateClassAction(CLASS_ID, makeFormData(baseFields))
+    const result = await saveClassAction(null, makeFormData(baseFields))
+    expect(result).toEqual({ error: 'Not authenticated' })
+    expect(createClass).not.toHaveBeenCalled()
+  })
+
+  it('returns error when not authorised', async () => {
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      role: 'teacher',
+      name: null,
+      email: '',
+    } as any)
+
+    const result = await saveClassAction(null, makeFormData(baseFields))
+    expect(result).toEqual({ error: 'Not authorised' })
+    expect(createClass).not.toHaveBeenCalled()
+  })
+
+  it('creates class, sets students, and redirects', async () => {
+    vi.mocked(createClass).mockResolvedValue({ id: CLASS_ID } as any)
+    vi.mocked(setClassStudents).mockResolvedValue(undefined)
+    vi.mocked(redirect).mockImplementation(() => {
+      throw new Error('NEXT_REDIRECT')
+    })
+
+    await expect(
+      saveClassAction(null, makeFormData(baseFields)),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(createClass).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Year 1A',
+        year_group: '1',
+        room_number: 'R1',
+        academic_year_id: YEAR_ID,
+        teacher_id: STAFF_ID,
+      }),
+    )
+    expect(setClassStudents).toHaveBeenCalledWith(CLASS_ID, [])
+    expect(redirect).toHaveBeenCalledWith('/classes')
+  })
+
+  it('passes selected student ids to setClassStudents', async () => {
+    vi.mocked(createClass).mockResolvedValue({ id: CLASS_ID } as any)
+    vi.mocked(setClassStudents).mockResolvedValue(undefined)
+    vi.mocked(redirect).mockImplementation(() => {
+      throw new Error('NEXT_REDIRECT')
+    })
+
+    const fields = {
+      ...baseFields,
+      student_ids: [STUDENT_1, STUDENT_2],
+    }
+
+    await expect(saveClassAction(null, makeFormData(fields))).rejects.toThrow(
+      'NEXT_REDIRECT',
+    )
+
+    expect(setClassStudents).toHaveBeenCalledWith(CLASS_ID, [
+      STUDENT_1,
+      STUDENT_2,
+    ])
+  })
+
+  it('converts an empty room number to null', async () => {
+    vi.mocked(createClass).mockResolvedValue({ id: CLASS_ID } as any)
+    vi.mocked(setClassStudents).mockResolvedValue(undefined)
+    vi.mocked(redirect).mockImplementation(() => {
+      throw new Error('NEXT_REDIRECT')
+    })
+
+    const fields = {
+      name: 'Year 2B',
+      year_group: '2',
+      room_number: '',
+      academic_year_id: YEAR_ID,
+      teacher_id: STAFF_ID,
+    }
+
+    await expect(saveClassAction(null, makeFormData(fields))).rejects.toThrow(
+      'NEXT_REDIRECT',
+    )
+
+    expect(createClass).toHaveBeenCalledWith(
+      expect.objectContaining({
+        room_number: null,
+      }),
+    )
+  })
+
+  it('rejects a missing academic year', async () => {
+    const { academic_year_id: _omitted, ...fields } = baseFields
+
+    const result = await saveClassAction(null, makeFormData(fields))
+    expect(result).toHaveProperty('error')
+    expect(createClass).not.toHaveBeenCalled()
+  })
+
+  it('returns error when createClass throws', async () => {
+    vi.mocked(createClass).mockRejectedValue(new Error('DB error'))
+
+    const result = await saveClassAction(null, makeFormData(baseFields))
+    expect(result).toEqual({
+      error: 'Failed to create class. Please try again.',
+    })
+    expect(redirect).not.toHaveBeenCalled()
+  })
+})
+
+describe('saveClassAction (update)', () => {
+  it('returns error when not authenticated', async () => {
+    vi.mocked(getActor).mockResolvedValue(null as any)
+
+    const result = await saveClassAction(CLASS_ID, makeFormData(baseFields))
     expect(result).toEqual({ error: 'Not authenticated' })
     expect(updateClass).not.toHaveBeenCalled()
   })
@@ -86,7 +201,7 @@ describe('updateClassAction', () => {
       email: '',
     } as any)
 
-    const result = await updateClassAction(CLASS_ID, makeFormData(baseFields))
+    const result = await saveClassAction(CLASS_ID, makeFormData(baseFields))
     expect(result).toEqual({ error: 'Not authorised' })
     expect(updateClass).not.toHaveBeenCalled()
   })
@@ -99,7 +214,7 @@ describe('updateClassAction', () => {
     })
 
     await expect(
-      updateClassAction(CLASS_ID, makeFormData(baseFields)),
+      saveClassAction(CLASS_ID, makeFormData(baseFields)),
     ).rejects.toThrow('NEXT_REDIRECT')
 
     expect(updateClass).toHaveBeenCalledWith(
@@ -131,7 +246,7 @@ describe('updateClassAction', () => {
   ])('refuses to edit %s', async (_label, cls) => {
     vi.mocked(getClassById).mockResolvedValue({ id: CLASS_ID, ...cls } as any)
 
-    const result = await updateClassAction(CLASS_ID, makeFormData(baseFields))
+    const result = await saveClassAction(CLASS_ID, makeFormData(baseFields))
     expect(result).toEqual({
       error: 'Only active classes in the current academic year can be edited.',
     })
@@ -152,7 +267,7 @@ describe('updateClassAction', () => {
     }
 
     await expect(
-      updateClassAction(CLASS_ID, makeFormData(fields)),
+      saveClassAction(CLASS_ID, makeFormData(fields)),
     ).rejects.toThrow('NEXT_REDIRECT')
 
     expect(setClassStudents).toHaveBeenCalledWith(CLASS_ID, [
@@ -164,7 +279,7 @@ describe('updateClassAction', () => {
   it('returns error when updateClass throws', async () => {
     vi.mocked(updateClass).mockRejectedValue(new Error('DB error'))
 
-    const result = await updateClassAction(CLASS_ID, makeFormData(baseFields))
+    const result = await saveClassAction(CLASS_ID, makeFormData(baseFields))
     expect(result).toEqual({
       error: 'Failed to update class. Please try again.',
     })

@@ -24,7 +24,7 @@ vi.mock('@/db', () => ({
   getFeePlanById: vi.fn(),
   getFeePlans: vi.fn(),
 }))
-vi.mock('../../actions', () => ({ updateFeePlanAction: vi.fn() }))
+vi.mock('../../actions', () => ({ saveFeePlanAction: vi.fn() }))
 vi.mock('../../FeePlanForm', () => ({
   default: (props: {
     plan: { id: string }

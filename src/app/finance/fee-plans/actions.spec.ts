@@ -11,7 +11,7 @@ import {
   updateFeePlan,
 } from '@/db'
 
-import { createFeePlanAction, updateFeePlanAction } from './actions'
+import { saveFeePlanAction } from './actions'
 
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('next/navigation', async (importOriginal) => ({
@@ -73,8 +73,8 @@ beforeEach(() => {
 })
 
 describe.each([
-  ['createFeePlanAction', () => createFeePlanAction(makeFormData())],
-  ['updateFeePlanAction', () => updateFeePlanAction('p1', makeFormData())],
+  ['saveFeePlanAction (create)', () => saveFeePlanAction(null, makeFormData())],
+  ['saveFeePlanAction (update)', () => saveFeePlanAction('p1', makeFormData())],
 ])('%s access and validation', (_name, run) => {
   it('rejects unauthenticated users', async () => {
     vi.mocked(getActor).mockResolvedValue(null as never)
@@ -97,22 +97,24 @@ describe.each([
   })
 })
 
-describe('createFeePlanAction', () => {
+describe('saveFeePlanAction (create)', () => {
   it('returns schema errors', async () => {
     const fd = makeFormData()
     fd.set('academic_year_id', 'not-a-uuid')
-    expect(await createFeePlanAction(fd)).toHaveProperty('error')
+    expect(await saveFeePlanAction(null, fd)).toHaveProperty('error')
   })
 
   it('rejects a class that is not in the requested year', async () => {
-    expect(await createFeePlanAction(makeFormData([OTHER_CLASS_ID]))).toEqual({
+    expect(
+      await saveFeePlanAction(null, makeFormData([OTHER_CLASS_ID])),
+    ).toEqual({
       error: 'One of the selected classes no longer exists.',
     })
     expect(createFeePlan).not.toHaveBeenCalled()
   })
 
   it('creates the plan with its classes, logs it and redirects', async () => {
-    await expect(createFeePlanAction(makeFormData())).rejects.toThrow(
+    await expect(saveFeePlanAction(null, makeFormData())).rejects.toThrow(
       'NEXT_REDIRECT:/finance?tab=fee-plans',
     )
 
@@ -130,10 +132,10 @@ describe('createFeePlanAction', () => {
   })
 })
 
-describe('updateFeePlanAction', () => {
+describe('saveFeePlanAction (update)', () => {
   it('returns an error when the plan does not exist', async () => {
     vi.mocked(getFeePlanById).mockResolvedValue(null)
-    expect(await updateFeePlanAction('p1', makeFormData())).toEqual({
+    expect(await saveFeePlanAction('p1', makeFormData())).toEqual({
       error: 'Fee plan not found.',
     })
     expect(updateFeePlan).not.toHaveBeenCalled()
@@ -148,13 +150,13 @@ describe('updateFeePlanAction', () => {
         class_ids: [CLASS_ID],
       },
     ] as never)
-    expect(await updateFeePlanAction('p1', makeFormData())).toEqual({
+    expect(await saveFeePlanAction('p1', makeFormData())).toEqual({
       error: 'Alpha is already on the Sibling (2025-26) fee plan.',
     })
   })
 
   it('updates the plan, logs it and redirects', async () => {
-    await expect(updateFeePlanAction('p1', makeFormData([]))).rejects.toThrow(
+    await expect(saveFeePlanAction('p1', makeFormData([]))).rejects.toThrow(
       'NEXT_REDIRECT:/finance?tab=fee-plans',
     )
 

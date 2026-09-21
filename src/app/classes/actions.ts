@@ -1,20 +1,48 @@
 'use server'
 
 import {
-  updateClass,
-  setClassStudents,
+  createClass,
   getClassById,
   getCurrentAcademicYear,
+  setClassStudents,
+  updateClass,
 } from '@/db'
 import { ActionError, runAction, type ActionResult } from '@/lib/action'
 import { isClassOpen } from '@/lib/classes'
-import { canEditClasses } from '@/lib/permissions'
-import { updateClassSchema } from '@/lib/schemas'
+import { canCreateClasses, canEditClasses } from '@/lib/permissions'
+import { createClassSchema, updateClassSchema } from '@/lib/schemas'
 
-export async function updateClassAction(
-  id: string,
+export async function saveClassAction(
+  id: string | null,
   formData: FormData,
 ): Promise<ActionResult> {
+  // A class's academic year is fixed once created, so creating parses
+  // `academic_year_id` and editing does not: the two schemas differ, hence
+  // two runAction calls.
+  if (id === null) {
+    return runAction({
+      name: 'classes.create',
+      permission: canCreateClasses,
+      schema: createClassSchema,
+      arrayFields: ['student_ids'],
+      formData,
+      run: async ({ student_ids, ...classData }) => {
+        const cls = await createClass({
+          name: classData.name,
+          year_group: classData.year_group,
+          room_number: classData.room_number,
+          academic_year_id: classData.academic_year_id,
+          teacher_id: classData.teacher_id,
+        })
+        await setClassStudents(cls.id, student_ids)
+        return cls
+      },
+      audit: { entity: 'class', action: 'create', entityId: (cls) => cls.id },
+      redirectTo: '/classes',
+      fallbackError: 'Failed to create class. Please try again.',
+    })
+  }
+
   return runAction({
     name: 'classes.update',
     permission: canEditClasses,

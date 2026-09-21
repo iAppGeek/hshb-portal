@@ -11,7 +11,7 @@ import {
 import PageHeader, { RequiredFieldsNote } from '../../../_components/PageHeader'
 import { takenClassLabels, toClassOptions } from '../../_lib/feePlanClasses'
 import FeePlanForm from '../FeePlanForm'
-import { createFeePlanAction } from '../actions'
+import { saveFeePlanAction } from '../actions'
 
 export const metadata: Metadata = { title: 'Add Fee Plan' }
 
@@ -50,7 +50,7 @@ export default async function NewFeePlanPage({
         years={years}
         defaultAcademicYearId={defaultAcademicYearId}
         takenBy={takenClassLabels(plans, null)}
-        action={createFeePlanAction}
+        action={saveFeePlanAction.bind(null, null)}
         submitLabel="Add fee plan"
       />
     </div>
