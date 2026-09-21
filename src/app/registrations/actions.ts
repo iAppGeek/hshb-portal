@@ -51,8 +51,10 @@ export async function approveRegistrationAction(
 
 export async function rejectRegistrationAction(
   id: string,
-  formData: FormData,
+  reason: string,
 ): Promise<ActionResult> {
+  const formData = new FormData()
+  formData.set('reason', reason)
   return runAction({
     name: 'registrations.reject',
     permission: canApproveRegistrations,

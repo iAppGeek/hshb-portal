@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 
 import type { PhotoOptOutRow, StudentMatch } from '@/db'
+import { ConfirmDialog, ReasonDialog, useDialog } from '@/components/dialogs'
 import Table from '@/components/grid/Table'
 import TableCard from '@/components/grid/TableCard'
 import Td from '@/components/grid/Td'
@@ -15,8 +16,10 @@ import { canApproveRegistrations } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
 import ApplyOptOutDialog from './ApplyOptOutDialog'
-import RejectOptOutDialog from './RejectOptOutDialog'
-import { deletePhotoOptOutAction } from './photo-opt-out-actions'
+import {
+  deletePhotoOptOutAction,
+  rejectPhotoOptOutAction,
+} from './photo-opt-out-actions'
 
 const STATUS_BADGE: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -38,21 +41,12 @@ export default function PhotoOptOutSection({
   role,
 }: Props) {
   const [applyingId, setApplyingId] = useState<string | null>(null)
-  const [rejectingId, setRejectingId] = useState<string | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+  const rejectDialog = useDialog<PhotoOptOutRow>()
+  const deleteDialog = useDialog<PhotoOptOutRow>()
 
   const isAdmin = canApproveRegistrations(role)
-
-  function handleDelete(id: string) {
-    setError(null)
-    startTransition(async () => {
-      const result = await deletePhotoOptOutAction(id)
-      if (result?.error) setError(result.error)
-      else setDeletingId(null)
-    })
-  }
+  const rejecting = rejectDialog.props
+  const deleting = deleteDialog.props
 
   if (requests.length === 0) return null
 
@@ -117,7 +111,7 @@ export default function PhotoOptOutSection({
                             </button>
                             <button
                               type="button"
-                              onClick={() => setRejectingId(r.id)}
+                              onClick={() => rejectDialog.open(r)}
                               className="font-medium text-gray-600 hover:text-gray-900"
                             >
                               Reject
@@ -127,7 +121,7 @@ export default function PhotoOptOutSection({
                         {isAdmin && (
                           <button
                             type="button"
-                            onClick={() => setDeletingId(r.id)}
+                            onClick={() => deleteDialog.open(r)}
                             className="font-medium text-red-600 hover:text-red-800"
                           >
                             Delete
@@ -148,33 +142,21 @@ export default function PhotoOptOutSection({
           </tbody>
         </Table>
       </TableCard>
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
-      {deletingId && (
-        <div className="mt-3 rounded-lg bg-red-50 p-4">
-          <p className="mb-3 text-sm text-red-800">
-            {requests.find((r) => r.id === deletingId)?.status === 'actioned'
+      {deleting && (
+        <ConfirmDialog
+          title="Delete opt-out request"
+          body={
+            deleting.status === 'actioned'
               ? "Delete this opt-out request permanently? The student's consent flag is not affected. This cannot be undone."
-              : 'Delete this opt-out request permanently? This cannot be undone.'}
-          </p>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={() => handleDelete(deletingId)}
-              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-            >
-              {isPending ? 'Deleting…' : 'Confirm delete'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setDeletingId(null)}
-              className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+              : 'Delete this opt-out request permanently? This cannot be undone.'
+          }
+          confirmLabel="Confirm delete"
+          pendingLabel="Deleting…"
+          variant="danger"
+          onConfirm={() => deletePhotoOptOutAction(deleting.id)}
+          onClose={deleteDialog.close}
+        />
       )}
 
       {applyingId && (
@@ -186,10 +168,13 @@ export default function PhotoOptOutSection({
         />
       )}
 
-      {rejectingId && (
-        <RejectOptOutDialog
-          requestId={rejectingId}
-          onClose={() => setRejectingId(null)}
+      {rejecting && (
+        <ReasonDialog
+          title="Reject opt-out request"
+          confirmLabel="Reject"
+          pendingLabel="Rejecting…"
+          onConfirm={(reason) => rejectPhotoOptOutAction(rejecting.id, reason)}
+          onClose={rejectDialog.close}
         />
       )}
     </div>

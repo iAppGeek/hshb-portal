@@ -38,8 +38,10 @@ export async function applyPhotoOptOutAction(
 
 export async function rejectPhotoOptOutAction(
   id: string,
-  formData: FormData,
+  reason: string,
 ): Promise<ActionResult> {
+  const formData = new FormData()
+  formData.set('reason', reason)
   return runAction({
     name: 'registrations.photo-opt-out.reject',
     permission: canApproveRegistrations,

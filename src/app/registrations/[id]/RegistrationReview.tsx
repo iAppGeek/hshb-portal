@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useTransition } from 'react'
 import Link from 'next/link'
 
 import type { RegistrationFull, ContactRole, StudentMatch } from '@/db'
 import type { GuardianMatch } from '@/db'
 import DefinitionList from '@/components/DefinitionList'
+import { ConfirmDialog, ReasonDialog, useDialog } from '@/components/dialogs'
 import Tooltip from '@/components/Tooltip'
 import { formatDateInSchoolTz, formatDateTimeInSchoolTz } from '@/lib/datetime'
 import { personName } from '@/lib/format'
@@ -14,10 +14,9 @@ import { canApproveRegistrations } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
 import PageHeader from '../../_components/PageHeader'
-import { deleteRegistrationAction } from '../actions'
+import { deleteRegistrationAction, rejectRegistrationAction } from '../actions'
 
 import ApproveDialog from './ApproveDialog'
-import RejectDialog from './RejectDialog'
 
 type ClassOption = { id: string; name: string; year_group: string }
 
@@ -62,23 +61,13 @@ export default function RegistrationReview({
   classes,
   guardianMatchesByContact,
 }: Props) {
-  const [showApprove, setShowApprove] = useState(false)
-  const [showReject, setShowReject] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+  const approveDialog = useDialog()
+  const rejectDialog = useDialog()
+  const deleteDialog = useDialog()
 
   const isAdmin = canApproveRegistrations(role)
   const canAct = isAdmin && submission.status === 'pending'
   const canDelete = isAdmin
-
-  function handleDelete() {
-    setError(null)
-    startTransition(async () => {
-      const result = await deleteRegistrationAction(submission.id)
-      if (result?.error) setError(result.error)
-    })
-  }
 
   const contactsByRole = new Map(
     submission.contacts.map((c) => [c.contact_role, c]),
@@ -329,54 +318,42 @@ export default function RegistrationReview({
           label="Approve & save student"
           canAct={canAct}
           role={role}
-          onClick={() => setShowApprove(true)}
+          onClick={() => approveDialog.open()}
           className="bg-blue-600 text-white hover:bg-blue-700"
         />
         <ActionButton
           label="Reject"
           canAct={canAct}
           role={role}
-          onClick={() => setShowReject(true)}
+          onClick={() => rejectDialog.open()}
           className="bg-white text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50"
         />
         <ActionButton
           label="Delete"
           canAct={canDelete}
           role={role}
-          onClick={() => setConfirmDelete(true)}
+          onClick={() => deleteDialog.open()}
           className="bg-white text-red-600 ring-1 ring-gray-300 hover:bg-red-50"
         />
-        {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
 
-      {confirmDelete && (
-        <div className="rounded-lg bg-red-50 p-4">
-          <p className="mb-3 text-sm text-red-800">
-            {submission.status === 'actioned'
+      {deleteDialog.isOpen && (
+        <ConfirmDialog
+          title="Delete registration"
+          body={
+            submission.status === 'actioned'
               ? 'Delete this registration record permanently? The student and guardian records created from it are not affected. This cannot be undone.'
-              : 'Delete this registration permanently? This cannot be undone.'}
-          </p>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={handleDelete}
-              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-            >
-              {isPending ? 'Deleting…' : 'Confirm delete'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmDelete(false)}
-              className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+              : 'Delete this registration permanently? This cannot be undone.'
+          }
+          confirmLabel="Confirm delete"
+          pendingLabel="Deleting…"
+          variant="danger"
+          onConfirm={() => deleteRegistrationAction(submission.id)}
+          onClose={deleteDialog.close}
+        />
       )}
 
-      {showApprove && (
+      {approveDialog.isOpen && (
         <ApproveDialog
           submissionId={submission.id}
           matches={matches}
@@ -385,14 +362,19 @@ export default function RegistrationReview({
           hasGuardianMatches={Object.values(guardianMatchesByContact).some(
             (m) => m.length > 0,
           )}
-          onClose={() => setShowApprove(false)}
+          onClose={approveDialog.close}
         />
       )}
 
-      {showReject && (
-        <RejectDialog
-          submissionId={submission.id}
-          onClose={() => setShowReject(false)}
+      {rejectDialog.isOpen && (
+        <ReasonDialog
+          title="Reject registration"
+          confirmLabel="Reject"
+          pendingLabel="Rejecting…"
+          onConfirm={(reason) =>
+            rejectRegistrationAction(submission.id, reason)
+          }
+          onClose={rejectDialog.close}
         />
       )}
     </div>

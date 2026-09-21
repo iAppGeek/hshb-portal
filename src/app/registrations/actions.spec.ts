@@ -282,19 +282,13 @@ describe('rejectRegistrationAction', () => {
       email: '',
     } as never)
 
-    const result = await rejectRegistrationAction(
-      SUBMISSION_ID,
-      makeFormData({ reason: 'Duplicate' }),
-    )
+    const result = await rejectRegistrationAction(SUBMISSION_ID, 'Duplicate')
     expect(result).toEqual({ error: 'Not authorised' })
     expect(rejectRegistration).not.toHaveBeenCalled()
   })
 
   it('returns a zod error when reason is missing', async () => {
-    const result = await rejectRegistrationAction(
-      SUBMISSION_ID,
-      makeFormData({ reason: '' }),
-    )
+    const result = await rejectRegistrationAction(SUBMISSION_ID, '')
     expect(result?.error).toBeDefined()
     expect(rejectRegistration).not.toHaveBeenCalled()
   })
@@ -302,10 +296,7 @@ describe('rejectRegistrationAction', () => {
   it('returns an error when there is no signed-in staff member', async () => {
     vi.mocked(getActor).mockResolvedValue(null)
 
-    const result = await rejectRegistrationAction(
-      SUBMISSION_ID,
-      makeFormData({ reason: 'Duplicate' }),
-    )
+    const result = await rejectRegistrationAction(SUBMISSION_ID, 'Duplicate')
     expect(result).toEqual({ error: 'Not authenticated' })
     expect(rejectRegistration).not.toHaveBeenCalled()
   })
@@ -316,10 +307,7 @@ describe('rejectRegistrationAction', () => {
     )
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    const result = await rejectRegistrationAction(
-      SUBMISSION_ID,
-      makeFormData({ reason: 'Duplicate' }),
-    )
+    const result = await rejectRegistrationAction(SUBMISSION_ID, 'Duplicate')
     expect(result).toEqual({
       error: 'Failed to reject registration. Please try again.',
     })
@@ -330,10 +318,7 @@ describe('rejectRegistrationAction', () => {
     vi.mocked(rejectRegistration).mockResolvedValue(undefined)
 
     await expect(
-      rejectRegistrationAction(
-        SUBMISSION_ID,
-        makeFormData({ reason: 'Duplicate' }),
-      ),
+      rejectRegistrationAction(SUBMISSION_ID, 'Duplicate'),
     ).rejects.toThrow('NEXT_REDIRECT')
 
     expect(rejectRegistration).toHaveBeenCalledWith({

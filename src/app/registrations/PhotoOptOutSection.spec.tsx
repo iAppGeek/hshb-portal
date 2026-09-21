@@ -6,20 +6,13 @@ import PhotoOptOutSection from './PhotoOptOutSection'
 
 vi.mock('./photo-opt-out-actions', () => ({
   deletePhotoOptOutAction: vi.fn(),
+  rejectPhotoOptOutAction: vi.fn(),
 }))
 
 vi.mock('./ApplyOptOutDialog', () => ({
   default: ({ onClose }: { onClose: () => void }) => (
     <div data-testid="apply-dialog">
       <button onClick={onClose}>close-apply</button>
-    </div>
-  ),
-}))
-
-vi.mock('./RejectOptOutDialog', () => ({
-  default: ({ onClose }: { onClose: () => void }) => (
-    <div data-testid="reject-dialog">
-      <button onClick={onClose}>close-reject</button>
     </div>
   ),
 }))
@@ -140,7 +133,9 @@ describe('PhotoOptOutSection', () => {
       />,
     )
     fireEvent.click(screen.getByRole('button', { name: 'Reject' }))
-    expect(screen.getByTestId('reject-dialog')).toBeTruthy()
+    expect(screen.getByTestId('reason-dialog').textContent).toContain(
+      'Reject opt-out request',
+    )
   })
 
   it('confirms and calls deletePhotoOptOutAction', async () => {
@@ -155,9 +150,9 @@ describe('PhotoOptOutSection', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
-    expect(
-      screen.getByText(/Delete this opt-out request permanently/),
-    ).toBeTruthy()
+    expect(screen.getByTestId('confirm-dialog').textContent).toMatch(
+      /Delete this opt-out request permanently/,
+    )
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete' }))
     await waitFor(() => {

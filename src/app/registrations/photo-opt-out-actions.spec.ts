@@ -145,10 +145,7 @@ describe('rejectPhotoOptOutAction', () => {
       email: '',
     } as never)
 
-    const result = await rejectPhotoOptOutAction(
-      REQUEST_ID,
-      makeFormData({ reason: 'Cannot match' }),
-    )
+    const result = await rejectPhotoOptOutAction(REQUEST_ID, 'Cannot match')
     expect(result).toEqual({ error: 'Not authorised' })
     expect(rejectPhotoOptOut).not.toHaveBeenCalled()
   })
@@ -156,10 +153,7 @@ describe('rejectPhotoOptOutAction', () => {
   it('returns an error when there is no signed-in staff member', async () => {
     vi.mocked(getActor).mockResolvedValue(null)
 
-    const result = await rejectPhotoOptOutAction(
-      REQUEST_ID,
-      makeFormData({ reason: 'Cannot match' }),
-    )
+    const result = await rejectPhotoOptOutAction(REQUEST_ID, 'Cannot match')
     expect(result).toEqual({ error: 'Not authenticated' })
     expect(rejectPhotoOptOut).not.toHaveBeenCalled()
   })
@@ -168,10 +162,7 @@ describe('rejectPhotoOptOutAction', () => {
     vi.mocked(rejectPhotoOptOut).mockResolvedValue(undefined)
 
     await expect(
-      rejectPhotoOptOutAction(
-        REQUEST_ID,
-        makeFormData({ reason: 'Cannot match' }),
-      ),
+      rejectPhotoOptOutAction(REQUEST_ID, 'Cannot match'),
     ).rejects.toThrow('NEXT_REDIRECT')
 
     expect(rejectPhotoOptOut).toHaveBeenCalledWith({
