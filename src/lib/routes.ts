@@ -109,6 +109,9 @@ export const routes: readonly AppRoute[] = [
 
 export const publicPaths: readonly string[] = ['/register']
 
+/** Where signed-in users without a staff role are sent. */
+export const noAccessPath = '/no-access'
+
 /** Longest-prefix match: '/finance/students/x' → the '/finance' route. */
 export function routeForPath(pathname: string): AppRoute | undefined {
   let match: AppRoute | undefined

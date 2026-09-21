@@ -160,7 +160,7 @@ export default async function RootLayout({
       <body
         className={clsx('flex min-h-full flex-col', 'bg-white text-slate-900')}
       >
-        {session ? (
+        {session?.user?.role ? (
           <div className="flex min-h-screen bg-gray-100 print:min-h-0">
             <PwaRegistrar />
             <Suspense fallback={<SidebarLoadingSkeleton />}>

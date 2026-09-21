@@ -61,7 +61,7 @@ export default async function LoginPage({
           This portal is for authorised HSHB staff only.
         </p>
 
-        {env.E2E_TEST === 'true' && (
+        {env.E2E_TEST && (
           <form
             className="mt-4"
             action={async (formData: FormData) => {

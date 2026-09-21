@@ -75,6 +75,35 @@ describe('middleware', () => {
     )
   })
 
+  it('sends a signed-in user with no role to /no-access', () => {
+    middleware(...makeReq('/dashboard', { user: {} }))
+    expect(mockRedirect).toHaveBeenCalledWith(
+      new URL('/no-access', 'http://localhost:3000'),
+    )
+  })
+
+  it('lets a signed-in user with no role stay on /no-access (no loop)', () => {
+    middleware(...makeReq('/no-access', { user: {} }))
+    expect(mockRedirect).not.toHaveBeenCalled()
+  })
+
+  it('redirects unauthenticated user away from /no-access to login', () => {
+    middleware(...makeReq('/no-access'))
+    expect(mockRedirect).toHaveBeenCalledWith(
+      new URL('/login', 'http://localhost:3000'),
+    )
+  })
+
+  it.each(ALL_ROLES)(
+    'redirects %s away from /no-access to dashboard',
+    (role) => {
+      middleware(...makeReq('/no-access', { user: { role } }))
+      expect(mockRedirect).toHaveBeenCalledWith(
+        new URL('/dashboard', 'http://localhost:3000'),
+      )
+    },
+  )
+
   for (const route of routes.filter((r) => r.permission)) {
     const allowedRoles = ALL_ROLES.filter((role) => route.permission!(role))
     const deniedRoles = ALL_ROLES.filter((role) => !route.permission!(role))

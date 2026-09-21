@@ -15,7 +15,7 @@ const providers: Provider[] = [
   }),
 ]
 
-if (env.E2E_TEST === 'true' && env.NODE_ENV !== 'production') {
+if (env.E2E_TEST && env.NODE_ENV !== 'production') {
   providers.push(
     Credentials({
       id: 'test-credentials',

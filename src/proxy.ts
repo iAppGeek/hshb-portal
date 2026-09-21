@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { canAccessPath, publicPaths } from '@/lib/routes'
+import { canAccessPath, noAccessPath, publicPaths } from '@/lib/routes'
 import type { StaffRole } from '@/types/next-auth'
 
 export const proxy = auth((req) => {
@@ -24,7 +24,14 @@ export const proxy = auth((req) => {
 
   if (isLoggedIn) {
     const role = req.auth?.user?.role as StaffRole | undefined
-    if (!role || !canAccessPath(pathname, role)) {
+    const isNoAccessPage = pathname === noAccessPath
+    // A session without a role (no matching staff record) can't use any page;
+    // sending it to /dashboard would loop, so it gets a dead-end page instead.
+    if (!role) {
+      if (isNoAccessPage) return
+      return NextResponse.redirect(new URL(noAccessPath, req.url))
+    }
+    if (isNoAccessPage || !canAccessPath(pathname, role)) {
       return NextResponse.redirect(new URL('/dashboard', req.url))
     }
   }
