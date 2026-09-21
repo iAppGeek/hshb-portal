@@ -1,15 +1,14 @@
 import { type Metadata } from 'next'
-import Link from 'next/link'
 
-import { requireRole } from '@/auth/require'
+import { requireRouteAccess } from '@/auth/require'
 import {
   getAcademicYears,
   getClassesByAcademicYear,
   getCurrentAcademicYear,
   getFeePlans,
 } from '@/db'
-import { canManageFinance } from '@/lib/permissions'
 
+import PageHeader, { RequiredFieldsNote } from '../../../_components/PageHeader'
 import { takenClassLabels, toClassOptions } from '../../_lib/feePlanClasses'
 import FeePlanForm from '../FeePlanForm'
 import { createFeePlanAction } from '../actions'
@@ -21,7 +20,7 @@ export default async function NewFeePlanPage({
 }: {
   searchParams: Promise<{ year?: string }>
 }): Promise<React.ReactElement> {
-  await requireRole(canManageFinance)
+  await requireRouteAccess('/finance')
 
   const { year } = await searchParams
   const [years, currentYear] = await Promise.all([
@@ -38,19 +37,12 @@ export default async function NewFeePlanPage({
 
   return (
     <div className="max-w-3xl">
-      <div className="mb-6">
-        <Link
-          href="/finance?tab=fee-plans"
-          className="text-sm font-medium text-blue-600 hover:text-blue-800"
-        >
-          ← Fee plans
-        </Link>
-        <h1 className="mt-2 text-2xl font-bold text-gray-900">Add Fee Plan</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Fields marked with <span className="text-red-500">*</span> are
-          required.
-        </p>
-      </div>
+      <PageHeader
+        title="Add Fee Plan"
+        subtitle={RequiredFieldsNote}
+        backHref="/finance?tab=fee-plans"
+        backLabel="Fee plans"
+      />
 
       <FeePlanForm
         plan={null}

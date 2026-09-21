@@ -87,10 +87,10 @@ describe('EditFeePlanPage', () => {
     )
   })
 
-  it('redirects to the fee plans tab when the plan is missing', async () => {
+  it('shows not found when the plan is missing', async () => {
     vi.mocked(getFeePlanById).mockResolvedValue(null)
     await expect(EditFeePlanPage({ params })).rejects.toThrow(
-      'NEXT_REDIRECT:/finance?tab=fee-plans',
+      'NEXT_HTTP_ERROR_FALLBACK;404',
     )
   })
 

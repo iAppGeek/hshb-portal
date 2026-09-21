@@ -42,19 +42,22 @@ const ROUTE_RULES: RouteRule[] = [
     redirectTo: '/dashboard',
   },
   {
+    // The proxy now gates every route with a `permission` in src/lib/routes.ts
+    // (prefix-based), so a disallowed role never reaches the page's own
+    // (still-present, finer-grained) redirect('/students') fallback.
     route: '/guardians',
     allowedRoles: ['admin'],
-    redirectTo: '/students',
+    redirectTo: '/dashboard',
   },
   {
     route: `/guardians/${GUARDIAN_ID}`,
     allowedRoles: ['admin'],
-    redirectTo: '/students',
+    redirectTo: '/dashboard',
   },
   {
     route: `/guardians/${GUARDIAN_ID}/edit`,
     allowedRoles: ['admin'],
-    redirectTo: '/students',
+    redirectTo: '/dashboard',
   },
   {
     route: '/finance',

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { redirect } from 'next/navigation'
 
 import { createRegistrationSubmission, logAuditEvent } from '@/db'
@@ -76,28 +76,12 @@ const baseFields = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.TURNSTILE_SECRET_KEY = 'test-secret'
   vi.mocked(verifyTurnstileToken).mockResolvedValue(true)
   vi.mocked(createRegistrationSubmission).mockResolvedValue({ id: 'sub-1' })
   vi.mocked(getClientIp).mockResolvedValue('203.0.113.1')
 })
 
-afterEach(() => {
-  delete process.env.TURNSTILE_SECRET_KEY
-})
-
 describe('submitRegistrationAction', () => {
-  it('returns an unavailable error when TURNSTILE_SECRET_KEY is missing', async () => {
-    delete process.env.TURNSTILE_SECRET_KEY
-
-    const result = await submitRegistrationAction(makeFormData(baseFields))
-
-    expect(result).toEqual({
-      error: 'Registration is temporarily unavailable. Please try again later.',
-    })
-    expect(createRegistrationSubmission).not.toHaveBeenCalled()
-  })
-
   it('returns the first zod validation error', async () => {
     const result = await submitRegistrationAction(
       makeFormData({ ...baseFields, child_first_name: '' }),

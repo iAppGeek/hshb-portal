@@ -4,35 +4,14 @@ import { type Metadata, type Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import { GoogleAnalytics } from '@next/third-parties/google'
 import clsx from 'clsx'
-import {
-  HomeIcon,
-  UsersIcon,
-  UserGroupIcon,
-  UserCircleIcon,
-  AcademicCapIcon,
-  ClipboardDocumentCheckIcon,
-  ChartBarIcon,
-  ExclamationTriangleIcon,
-  ClockIcon,
-  DocumentTextIcon,
-  ArrowPathRoundedSquareIcon,
-  InboxIcon,
-  BanknotesIcon,
-  IdentificationIcon,
-} from '@heroicons/react/24/outline'
 
 import { auth, signOut } from '@/auth'
+import { env } from '@/env'
+import { env as serverEnv } from '@/env.server'
 import logo from '@/images/logo.png'
-import {
-  canAccessAdminTasks,
-  canAccessReports,
-  canManageFinance,
-  canManageHr,
-  canReviewRegistrations,
-  canViewGuardians,
-  receivesNotifications,
-} from '@/lib/permissions'
+import { receivesNotifications } from '@/lib/permissions'
 import { roleLabels } from '@/lib/roleLabels'
+import { routes } from '@/lib/routes'
 import type { StaffRole } from '@/types/next-auth'
 
 import '../styles/tailwind.css'
@@ -49,7 +28,7 @@ const inter = Inter({
   variable: '--font-inter',
 })
 
-const siteUrl = process.env.AUTH_URL ?? 'https://portal.hshb.org.uk'
+const siteUrl = serverEnv.AUTH_URL ?? 'https://portal.hshb.org.uk'
 const siteTitle = 'Hellenic School of High Barnet'
 const siteDescription =
   'HSHB staff portal — class management, attendance, and reporting.'
@@ -86,75 +65,15 @@ export const metadata: Metadata = {
   formatDetection: { telephone: true, email: true, address: true },
 }
 
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard', Icon: HomeIcon },
-  {
-    href: '/reports',
-    label: 'Reports',
-    Icon: ChartBarIcon,
-    filter: canAccessReports,
-  },
-  { href: '/staff', label: 'Staff', Icon: UserGroupIcon },
-  { href: '/students', label: 'Students', Icon: UsersIcon },
-  {
-    href: '/guardians',
-    label: 'Guardians',
-    Icon: UserCircleIcon,
-    filter: canViewGuardians,
-  },
-  { href: '/classes', label: 'Classes', Icon: AcademicCapIcon },
-  {
-    href: '/attendance',
-    label: 'Attendance',
-    Icon: ClipboardDocumentCheckIcon,
-  },
-  {
-    href: '/lesson-plans',
-    label: 'Lesson Plans',
-    Icon: DocumentTextIcon,
-  },
-  {
-    href: '/staff-attendance',
-    label: 'Staff Sign-In',
-    Icon: ClockIcon,
-  },
-  {
-    href: '/incidents',
-    label: 'Incidents',
-    Icon: ExclamationTriangleIcon,
-  },
-  {
-    href: '/registrations',
-    label: 'Registrations',
-    Icon: InboxIcon,
-    filter: canReviewRegistrations,
-  },
-  {
-    href: '/hr',
-    label: 'HR',
-    Icon: IdentificationIcon,
-    filter: canManageHr,
-  },
-  {
-    href: '/finance',
-    label: 'Finance',
-    Icon: BanknotesIcon,
-    filter: canManageFinance,
-  },
-  {
-    href: '/admin',
-    label: 'Admin Tasks',
-    Icon: ArrowPathRoundedSquareIcon,
-    filter: canAccessAdminTasks,
-  },
-]
-
 async function AuthedSidebar() {
   const session = await auth()
   const role = session?.user?.role
-  const visibleNav = navItems
-    .filter((item) => !item.filter || item.filter(role as StaffRole))
-    .map(({ href, label }) => ({ href, label }))
+  const visibleNav = routes
+    .filter(
+      (item) =>
+        item.nav && (!item.permission || item.permission(role as StaffRole)),
+    )
+    .map(({ href, label, icon }) => ({ href, label, icon }))
 
   const signOutAction = async () => {
     'use server'
@@ -183,15 +102,17 @@ async function AuthedNotificationBanner() {
 }
 
 function SidebarLoadingSkeleton() {
-  const allNavItems = navItems.map(({ href, label, Icon }) => (
-    <div
-      key={href}
-      className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-300"
-    >
-      <Icon className="h-5 w-5 shrink-0" />
-      {label}
-    </div>
-  ))
+  const allNavItems = routes
+    .filter((item) => item.nav)
+    .map(({ href, label }) => (
+      <div
+        key={href}
+        className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-300"
+      >
+        <div className="h-5 w-5 shrink-0 rounded bg-gray-700" />
+        {label}
+      </div>
+    ))
 
   return (
     <>
@@ -239,7 +160,7 @@ export default async function RootLayout({
       <body
         className={clsx('flex min-h-full flex-col', 'bg-white text-slate-900')}
       >
-        {session ? (
+        {session?.user?.role ? (
           <div className="flex min-h-screen bg-gray-100 print:min-h-0">
             <PwaRegistrar />
             <Suspense fallback={<SidebarLoadingSkeleton />}>
@@ -255,9 +176,10 @@ export default async function RootLayout({
         ) : (
           children
         )}
-        {process.env.NODE_ENV === 'production' && (
-          <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID!} />
-        )}
+        {serverEnv.NODE_ENV === 'production' &&
+          env.client.NEXT_PUBLIC_GA_ID && (
+            <GoogleAnalytics gaId={env.client.NEXT_PUBLIC_GA_ID} />
+          )}
       </body>
     </html>
   )

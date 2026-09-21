@@ -1,13 +1,14 @@
+import { Suspense } from 'react'
 import { type Metadata } from 'next'
 
-import { requireRole } from '@/auth/require'
+import { requireRouteAccess } from '@/auth/require'
 import {
   formatCalendarDate,
   formatTimeInSchoolTz,
   todayInSchoolTz,
 } from '@/lib/datetime'
 import { summariseAttendance } from '@/lib/attendanceSummary'
-import { canAccessReports, isTeachingStaff } from '@/lib/permissions'
+import { isTeachingStaff } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 import {
   getAllStaff,
@@ -18,11 +19,14 @@ import {
   getIncidentCountsByDateRange,
 } from '@/db'
 
+import PageHeader from '../_components/PageHeader'
+
 import ReportsModeSelector from './_components/ReportsModeSelector'
 import type { ReportMode } from './_components/ReportsModeSelector'
 import DayReport from './_components/DayReport'
 import PeriodReport from './_components/PeriodReport'
 import type { StaffDaysWorkedRow } from './_components/PeriodReport'
+import PeriodReportSkeleton from './_components/PeriodReportSkeleton'
 
 export const metadata: Metadata = { title: 'Reports' }
 
@@ -37,7 +41,7 @@ export default async function ReportsPage({
     to?: string
   }>
 }) {
-  await requireRole(canAccessReports)
+  await requireRouteAccess('/reports')
 
   const today = todayInSchoolTz()
   const params = await searchParams
@@ -104,6 +108,19 @@ export default async function ReportsPage({
     subtitle = `${fmtShort(rangeFrom)} – ${fmtShort(rangeTo)}`
   }
 
+  const headerAction = (
+    <div className="flex items-center gap-2 print:hidden">
+      {badgeLabel && (
+        <span
+          className={`rounded-full px-2 py-0.5 text-xs font-medium text-white ${badgeColor}`}
+        >
+          {badgeLabel}
+        </span>
+      )}
+      <ReportsModeSelector {...selectorProps} />
+    </div>
+  )
+
   // ── Day mode ───────────────────────────────────────────────────────────────
   if (mode === 'day') {
     const [staff, staffAttendedCount, attendanceRows, enrolments] =
@@ -163,10 +180,9 @@ export default async function ReportsPage({
     return (
       <>
         <PageHeader
+          title="Reports & Analytics"
           subtitle={subtitle}
-          badgeLabel={badgeLabel}
-          badgeColor={badgeColor}
-          selector={<ReportsModeSelector {...selectorProps} />}
+          action={headerAction}
         />
         <DayReport stats={stats} enrolmentByClass={enrolmentByClass} />
       </>
@@ -177,6 +193,27 @@ export default async function ReportsPage({
   const startDate = mode === 'month' ? monthStart : rangeFrom
   const endDate = mode === 'month' ? monthEnd : rangeTo
 
+  return (
+    <>
+      <PageHeader
+        title="Reports & Analytics"
+        subtitle={subtitle}
+        action={headerAction}
+      />
+      <Suspense fallback={<PeriodReportSkeleton />}>
+        <PeriodReportSection startDate={startDate} endDate={endDate} />
+      </Suspense>
+    </>
+  )
+}
+
+export async function PeriodReportSection({
+  startDate,
+  endDate,
+}: {
+  startDate: string
+  endDate: string
+}) {
   const [
     staffAttendanceRows,
     attendanceRows,
@@ -262,55 +299,12 @@ export default async function ReportsPage({
   }))
 
   return (
-    <>
-      <PageHeader
-        subtitle={subtitle}
-        badgeLabel={badgeLabel}
-        badgeColor={badgeColor}
-        selector={<ReportsModeSelector {...selectorProps} />}
-      />
-      <PeriodReport
-        staffDaysWorked={staffDaysWorked}
-        totalSchoolDays={totalSchoolDays}
-        schoolDayDates={schoolDayDates}
-        classSummary={classSummary}
-        incidentCounts={incidentCounts}
-      />
-    </>
-  )
-}
-
-// ── Shared header ────────────────────────────────────────────────────────────
-
-function PageHeader({
-  subtitle,
-  badgeLabel,
-  badgeColor,
-  selector,
-}: {
-  subtitle: string
-  badgeLabel: string | null
-  badgeColor: string
-  selector: React.ReactNode
-}) {
-  return (
-    <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          Reports &amp; Analytics
-        </h1>
-        <div className="mt-1 flex items-center gap-2">
-          <p className="text-sm text-gray-500">{subtitle}</p>
-          {badgeLabel && (
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium text-white print:hidden ${badgeColor}`}
-            >
-              {badgeLabel}
-            </span>
-          )}
-        </div>
-      </div>
-      <div className="print:hidden">{selector}</div>
-    </div>
+    <PeriodReport
+      staffDaysWorked={staffDaysWorked}
+      totalSchoolDays={totalSchoolDays}
+      schoolDayDates={schoolDayDates}
+      classSummary={classSummary}
+      incidentCounts={incidentCounts}
+    />
   )
 }

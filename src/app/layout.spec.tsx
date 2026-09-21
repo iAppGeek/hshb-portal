@@ -56,6 +56,22 @@ describe('RootLayout', () => {
     expect(main.props.children[1]).toBe(marker)
   })
 
+  it('renders bare children with no chrome when the session has no role', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { name: 'Alice', email: 'alice@test.com' },
+    } as never)
+
+    const marker = <span data-testid="marker">Page</span>
+    const html = (await RootLayout({ children: marker })) as ReactElement<{
+      children: ReactElement[]
+    }>
+    const body = html.props.children[1] as ReactElement<{
+      children: [ReactElement, ...unknown[]]
+    }>
+
+    expect(body.props.children[0]).toBe(marker)
+  })
+
   it('renders bare children with no chrome when there is no session', async () => {
     vi.mocked(auth).mockResolvedValue(null as never)
 

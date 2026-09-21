@@ -1,246 +1,31 @@
+import { Suspense } from 'react'
 import { type Metadata } from 'next'
-import Link from 'next/link'
-import {
-  UsersIcon,
-  CalendarDaysIcon,
-  ExclamationTriangleIcon,
-  AcademicCapIcon,
-  InboxIcon,
-} from '@heroicons/react/24/outline'
 
 import { requireSession } from '@/auth/require'
-import {
-  getStudentCount,
-  getStudentsByTeacher,
-  getAllClasses,
-  getClassesByTeacher,
-  getTeachers,
-  getIncidentCount,
-  getLessonPlanCountByDate,
-  getAttendanceByDateRange,
-  getEnrolmentsInRange,
-  getPendingRegistrationCount,
-} from '@/db'
-import { summariseAttendance, type DateTotals } from '@/lib/attendanceSummary'
 import { todayInSchoolTz } from '@/lib/datetime'
-import { isTeacher, canReviewRegistrations } from '@/lib/permissions'
 import { roleLabels } from '@/lib/roleLabels'
 
-export const metadata: Metadata = { title: 'Dashboard' }
+import PageHeader from '../_components/PageHeader'
 
-const pct = (n: number, total: number) =>
-  total > 0 ? `${Math.round((n / total) * 100)}%` : '—'
+import DashboardStats, { StatCardsSkeleton } from './DashboardStats'
+
+export const metadata: Metadata = { title: 'Dashboard' }
 
 export default async function DashboardPage() {
   const actor = await requireSession()
   const role = actor.role
-  const staffId = actor.staffId
-  const teacherOnly = isTeacher(role)
   const today = todayInSchoolTz()
-
-  const emptyTotals: DateTotals = {
-    distinctPresent: 0,
-    distinctEnrolled: 0,
-    distinctLate: 0,
-    classesTaken: 0,
-  }
-
-  const [
-    studentCount,
-    classes,
-    teachers,
-    incidentCount,
-    lessonPlanCount,
-    attendanceRows,
-    enrolments,
-    pendingRegistrationCount,
-  ] = await Promise.all([
-    teacherOnly
-      ? getStudentsByTeacher(staffId!).then((s) => s.length)
-      : getStudentCount(),
-    teacherOnly ? getClassesByTeacher(staffId!) : getAllClasses(),
-    teacherOnly ? Promise.resolve([] as { id: string }[]) : getTeachers(),
-    teacherOnly ? Promise.resolve(null) : getIncidentCount(),
-    teacherOnly ? Promise.resolve(null) : getLessonPlanCountByDate(today),
-    teacherOnly ? Promise.resolve([]) : getAttendanceByDateRange(today, today),
-    teacherOnly ? Promise.resolve([]) : getEnrolmentsInRange(today, today),
-    canReviewRegistrations(role)
-      ? getPendingRegistrationCount()
-      : Promise.resolve(null),
-  ])
-
-  const totals = teacherOnly
-    ? emptyTotals
-    : (summariseAttendance(attendanceRows, enrolments, [today]).byDate[today] ??
-      emptyTotals)
-  const presentToday = totals.distinctPresent
-  const enrolledToday = totals.distinctEnrolled
-  const registersSubmitted = totals.classesTaken
 
   return (
     <>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Welcome back, {actor.name?.split(' ')[0]}
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">{roleLabels[role]}</p>
-      </div>
+      <PageHeader
+        title={`Welcome back, ${actor.name?.split(' ')[0]}`}
+        subtitle={roleLabels[role]}
+      />
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-5">
-        {/* Row 1: Students */}
-        {!teacherOnly && (
-          <Link
-            href="/attendance"
-            className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:p-6"
-          >
-            <p className="text-sm text-gray-500">Students attendance today</p>
-            <p className="mt-1 flex items-center gap-2">
-              <span className="text-3xl font-bold text-gray-900">
-                {presentToday}/{enrolledToday}
-              </span>
-              <span className="text-sm font-medium text-gray-500">
-                {pct(presentToday, enrolledToday)}
-              </span>
-            </p>
-          </Link>
-        )}
-
-        <Link
-          href="/students"
-          className="group flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
-        >
-          <div className="rounded-lg bg-blue-50 p-3 transition group-hover:bg-blue-100">
-            <UsersIcon className="h-6 w-6 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-500">
-              {teacherOnly ? 'My Students' : 'Total Students'}
-            </p>
-            <p className="mt-0.5 text-2xl font-bold text-gray-900">
-              {studentCount}
-            </p>
-          </div>
-        </Link>
-
-        {/* Row 2: Classes */}
-        {!teacherOnly && (
-          <Link
-            href="/attendance"
-            className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:p-6"
-          >
-            <p className="text-sm text-gray-500">Attendance submitted today</p>
-            <p className="mt-1 flex items-center gap-2">
-              <span className="text-3xl font-bold text-gray-900">
-                {registersSubmitted}/{classes.length}
-              </span>
-              <span className="text-sm font-medium text-gray-500">
-                {pct(registersSubmitted, classes.length)}
-              </span>
-            </p>
-          </Link>
-        )}
-
-        <Link
-          href="/classes"
-          className="group flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
-        >
-          <div className="rounded-lg bg-blue-50 p-3 transition group-hover:bg-blue-100">
-            <CalendarDaysIcon className="h-6 w-6 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-500">
-              {teacherOnly ? 'My Classes' : 'Total Classes'}
-            </p>
-            <p className="mt-0.5 text-2xl font-bold text-gray-900">
-              {classes.length}
-            </p>
-          </div>
-        </Link>
-
-        {/* Row 3: Teachers */}
-        {!teacherOnly && (
-          <Link
-            href="/staff"
-            className="group flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
-          >
-            <div className="rounded-lg bg-blue-50 p-3 transition group-hover:bg-blue-100">
-              <AcademicCapIcon className="h-6 w-6 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">
-                Total Teachers
-              </p>
-              <p className="mt-0.5 text-2xl font-bold text-gray-900">
-                {teachers.length}
-              </p>
-            </div>
-          </Link>
-        )}
-
-        {/* Row 4: Lesson Plans / Incidents */}
-        {!teacherOnly && (
-          <>
-            <Link
-              href="/lesson-plans"
-              className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:p-6"
-            >
-              <p className="flex items-center gap-1 text-sm text-gray-500">
-                Lessons planned today
-                <span
-                  title="Number of lesson plans submitted today as a percentage of total active classes"
-                  className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-gray-100 text-xs text-gray-400"
-                >
-                  ?
-                </span>
-              </p>
-              <p className="mt-1 flex items-center gap-2">
-                <span className="text-3xl font-bold text-gray-900">
-                  {lessonPlanCount}/{classes.length}
-                </span>
-                <span className="text-sm font-medium text-gray-500">
-                  {pct(lessonPlanCount ?? 0, classes.length)}
-                </span>
-              </p>
-            </Link>
-
-            <Link
-              href="/incidents"
-              className="group flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
-            >
-              <div className="rounded-lg bg-blue-50 p-3 transition group-hover:bg-blue-100">
-                <ExclamationTriangleIcon className="h-6 w-6 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">
-                  Total Incidents
-                </p>
-                <p className="mt-0.5 text-2xl font-bold text-gray-900">
-                  {incidentCount}
-                </p>
-              </div>
-            </Link>
-          </>
-        )}
-
-        {pendingRegistrationCount !== null && (
-          <Link
-            href="/registrations"
-            className="group flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
-          >
-            <div className="rounded-lg bg-blue-50 p-3 transition group-hover:bg-blue-100">
-              <InboxIcon className="h-6 w-6 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">
-                Pending registrations
-              </p>
-              <p className="mt-0.5 text-2xl font-bold text-gray-900">
-                {pendingRegistrationCount}
-              </p>
-            </div>
-          </Link>
-        )}
-      </div>
+      <Suspense fallback={<StatCardsSkeleton />}>
+        <DashboardStats role={role} staffId={actor.staffId} today={today} />
+      </Suspense>
     </>
   )
 }

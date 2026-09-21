@@ -29,7 +29,7 @@ npm install
 
 ### Environment variables
 
-Copy `.env.local.example` to `.env.local` and fill in the values. The example file lists every variable with a comment explaining where to get it. The non-obvious ones:
+Copy `.env.local.example` to `.env.local` and fill in the values. The example file lists every variable with a comment explaining where to get it. `src/env.ts` (client) and `src/env.server.ts` (server, `import 'server-only'`) are the source of truth: every variable is parsed through a Zod schema at module load, so a missing or malformed value fails fast instead of surfacing as an unexplained `undefined` at runtime. The non-obvious ones:
 
 - **`AUTH_SECRET`** — generate with `openssl rand -base64 32`
 - **`AZURE_AD_*`** — Microsoft Entra ID app registration (Azure portal → App registrations → HSHB Portal)

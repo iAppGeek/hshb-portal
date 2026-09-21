@@ -2,6 +2,7 @@ import 'server-only'
 
 import { redirect } from 'next/navigation'
 
+import { canAccessPath } from '@/lib/routes'
 import type { StaffRole } from '@/types/next-auth'
 
 import { auth } from './index'
@@ -44,4 +45,9 @@ export async function requireRole(
   const actor = await requireSession()
   if (!check(actor.role)) redirect('/dashboard')
   return actor
+}
+
+/** requireRole, gated by the route's own permission from `src/lib/routes.ts`. */
+export async function requireRouteAccess(pathname: string): Promise<Actor> {
+  return requireRole((role) => canAccessPath(pathname, role))
 }

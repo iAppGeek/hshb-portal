@@ -65,11 +65,6 @@ export async function submitRegistrationAction(
     public: true,
     formData,
     run: async (_input, { formData }) => {
-      if (!process.env.TURNSTILE_SECRET_KEY)
-        throw new ActionError(
-          'Registration is temporarily unavailable. Please try again later.',
-        )
-
       const parsed = registrationSubmissionSchema.safeParse(
         extractFormFields(formData),
       )

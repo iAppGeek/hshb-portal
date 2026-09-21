@@ -1,3 +1,5 @@
+import { env } from '@/env.server'
+
 const VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify'
 
 export async function verifyTurnstileToken(
@@ -6,7 +8,7 @@ export async function verifyTurnstileToken(
 ): Promise<boolean> {
   try {
     const body = new URLSearchParams({
-      secret: process.env.TURNSTILE_SECRET_KEY ?? '',
+      secret: env.TURNSTILE_SECRET_KEY,
       response: token,
     })
     if (remoteIp) body.set('remoteip', remoteIp)
@@ -20,7 +22,7 @@ export async function verifyTurnstileToken(
     const json = (await res.json()) as { success: boolean; hostname?: string }
     if (json.success !== true) return false
 
-    const expectedHostname = process.env.TURNSTILE_EXPECTED_HOSTNAME
+    const expectedHostname = env.TURNSTILE_EXPECTED_HOSTNAME
     if (expectedHostname) return json.hostname === expectedHostname
 
     return true

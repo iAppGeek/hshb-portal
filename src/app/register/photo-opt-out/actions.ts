@@ -9,14 +9,6 @@ import { verifyTurnstileToken, omitTurnstileToken } from '@/lib/turnstile'
 export async function submitPhotoOptOutAction(
   formData: FormData,
 ): Promise<ActionResult> {
-  // Ahead of `runAction` because the schema would otherwise report the missing
-  // hidden token as 'Required' first: with no secret key the widget never
-  // renders, so there is no token to send and that is not the visitor's fault.
-  if (!process.env.TURNSTILE_SECRET_KEY)
-    return {
-      error: 'This form is temporarily unavailable. Please try again later.',
-    }
-
   return runAction({
     name: 'register.photo-opt-out.submit',
     public: true,

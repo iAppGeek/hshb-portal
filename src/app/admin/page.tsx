@@ -1,8 +1,9 @@
 import { type ReactNode } from 'react'
 import { type Metadata } from 'next'
 
-import { requireRole } from '@/auth/require'
-import { canAccessAdminTasks } from '@/lib/permissions'
+import { requireRouteAccess } from '@/auth/require'
+
+import PageHeader from '../_components/PageHeader'
 
 import AdminTabBar from './_components/AdminTabBar'
 import AcademicYearsTab from './_tabs/academic-years/AcademicYearsTab'
@@ -21,18 +22,16 @@ export default async function AdminPage({
     targetYearId?: string
   }>
 }): Promise<ReactNode> {
-  await requireRole(canAccessAdminTasks)
+  await requireRouteAccess('/admin')
 
   const { tab = DEFAULT_TAB, sourceClassId, targetYearId } = await searchParams
 
   return (
     <div className="max-w-2xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Admin Tasks</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Administrative tools for managing the school year.
-        </p>
-      </div>
+      <PageHeader
+        title="Admin Tasks"
+        subtitle="Administrative tools for managing the school year."
+      />
 
       <AdminTabBar currentTab={tab} />
 

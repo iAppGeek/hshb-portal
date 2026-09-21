@@ -11,6 +11,7 @@ import { guardianReuseDiff, type FieldDiff } from '@/lib/guardianDiff'
 import { canApproveRegistrations } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
+import PageHeader from '../../_components/PageHeader'
 import { deleteRegistrationAction } from '../actions'
 
 import ApproveDialog from './ApproveDialog'
@@ -83,14 +84,12 @@ export default function RegistrationReview({
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div className="mb-2">
-        <h1 className="text-2xl font-bold text-gray-900">
-          {submission.child_last_name}, {submission.child_first_name}
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Submitted {formatDateTimeInSchoolTz(submission.submitted_at)}
-        </p>
-      </div>
+      <PageHeader
+        title={`${submission.child_last_name}, ${submission.child_first_name}`}
+        subtitle={`Submitted ${formatDateTimeInSchoolTz(submission.submitted_at)}`}
+        backHref="/registrations"
+        backLabel="Registrations"
+      />
 
       <Section title="Child">
         <Field label="First name" value={submission.child_first_name} />

@@ -1,9 +1,11 @@
 import { type Metadata } from 'next'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 
 import { requireSession } from '@/auth/require'
 import { getGuardianById, getStudentsByGuardian } from '@/db'
 import { canEditGuardians } from '@/lib/permissions'
+
+import PageHeader, { RequiredFieldsNote } from '../../../_components/PageHeader'
 
 import EditGuardianForm from './EditGuardianForm'
 
@@ -29,20 +31,17 @@ export default async function EditGuardianPage({
   ])
 
   if (!guardian) {
-    redirect('/students')
+    notFound()
   }
 
   return (
     <div className="max-w-2xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Edit Guardian: {guardian.last_name}, {guardian.first_name}
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Fields marked with <span className="text-red-500">*</span> are
-          required.
-        </p>
-      </div>
+      <PageHeader
+        title={`Edit Guardian: ${guardian.last_name}, ${guardian.first_name}`}
+        subtitle={RequiredFieldsNote}
+        backHref={`/guardians/${id}`}
+        backLabel="Guardian"
+      />
 
       <EditGuardianForm guardian={guardian} linkedStudents={linkedStudents} />
     </div>

@@ -242,19 +242,15 @@ describe('GuardianFamilyPage', () => {
     },
   )
 
-  it('redirects to the guardians list when the guardian is not found', async () => {
+  it('shows not found when the guardian is not found', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
     vi.mocked(getGuardianById).mockResolvedValue(null)
     vi.mocked(getFamilyForGuardian).mockResolvedValue(emptyFamily as any)
-    vi.mocked(redirect).mockImplementation(() => {
-      throw new Error('NEXT_REDIRECT')
-    })
 
     await expect(
       GuardianFamilyPage({ params: Promise.resolve({ id: 'missing-id' }) }),
-    ).rejects.toThrow('NEXT_REDIRECT')
-    expect(redirect).toHaveBeenCalledWith('/guardians')
+    ).rejects.toThrow('NEXT_HTTP_ERROR_FALLBACK;404')
   })
 })

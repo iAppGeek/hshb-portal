@@ -15,6 +15,8 @@ import { tbody, thead } from '@/lib/grid/styles'
 import { isTeacher } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
+import PageHeader from '../_components/PageHeader'
+
 type Props = {
   lessonPlans: LessonPlanRow[]
   role: StaffRole
@@ -36,17 +38,19 @@ export default function LessonPlansClient({
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Lesson Plans</h1>
-        {canCreate && (
-          <Link
-            href="/lesson-plans/new"
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
-          >
-            Add lesson plan
-          </Link>
-        )}
-      </div>
+      <PageHeader
+        title="Lesson Plans"
+        action={
+          canCreate && (
+            <Link
+              href="/lesson-plans/new"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+            >
+              Add lesson plan
+            </Link>
+          )
+        }
+      />
 
       {isTeacher(role) && (
         <p className="mb-4 text-sm text-gray-500">

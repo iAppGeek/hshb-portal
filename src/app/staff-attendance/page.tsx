@@ -18,6 +18,8 @@ import { compareNullableText } from '@/lib/grid/sort'
 import { isTeacher, showsOnSignInSheet } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
+import PageHeader from '../_components/PageHeader'
+
 import PrintButton from './PrintButton'
 import SignInSheetPrintTable from './SignInSheetPrintTable'
 import StaffAttendanceTable from './StaffAttendanceTable'
@@ -54,9 +56,7 @@ export default async function StaffAttendancePage({
 
     return (
       <div>
-        <h1 className="mb-6 text-2xl font-bold text-gray-900">
-          Your Attendance Today
-        </h1>
+        <PageHeader title="Your Attendance Today" />
         <StaffAttendanceTable
           rows={[{ staff: staffRow, record }]}
           defaultTime={currentTime}
@@ -117,29 +117,29 @@ export default async function StaffAttendancePage({
       <style>{`@page { size: A4 portrait; margin: 10mm; } @media print { a[href]::after { content: none !important; } }`}</style>
 
       {/* Screen toolbar */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between print:hidden">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Staff Sign-In</h1>
-          <div className="mt-1 flex items-center gap-2">
-            <p className="text-sm text-gray-500">{formattedDate}</p>
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium text-white print:hidden ${selectedDate === today ? 'bg-green-500' : 'bg-amber-500'}`}
-            >
-              {selectedDate === today
-                ? 'Today'
-                : selectedDate < today
-                  ? 'Historical'
-                  : 'Future'}
-            </span>
-          </div>
-        </div>
-        <div className="flex items-end gap-3">
-          <DatePicker
-            selectedDate={selectedDate}
-            basePath="/staff-attendance"
-          />
-          <PrintButton />
-        </div>
+      <div className="print:hidden">
+        <PageHeader
+          title="Staff Sign-In"
+          subtitle={formattedDate}
+          action={
+            <div className="flex items-end gap-3">
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium text-white ${selectedDate === today ? 'bg-green-500' : 'bg-amber-500'}`}
+              >
+                {selectedDate === today
+                  ? 'Today'
+                  : selectedDate < today
+                    ? 'Historical'
+                    : 'Future'}
+              </span>
+              <DatePicker
+                selectedDate={selectedDate}
+                basePath="/staff-attendance"
+              />
+              <PrintButton />
+            </div>
+          }
+        />
       </div>
 
       {/* Screen interactive table */}

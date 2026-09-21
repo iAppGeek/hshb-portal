@@ -86,19 +86,15 @@ describe('RegistrationDetailPage', () => {
     expect(redirect).toHaveBeenCalledWith('/login')
   })
 
-  it('redirects to the list when the submission is not found', async () => {
+  it('shows not found when the submission is missing', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'secretary', staffId: 'staff-1' },
     } as never)
     vi.mocked(getRegistrationSubmissionById).mockResolvedValue(null)
-    vi.mocked(redirect).mockImplementation(() => {
-      throw new Error('NEXT_REDIRECT')
-    })
 
     await expect(
       RegistrationDetailPage({ params: Promise.resolve({ id: 'missing' }) }),
-    ).rejects.toThrow('NEXT_REDIRECT')
-    expect(redirect).toHaveBeenCalledWith('/registrations')
+    ).rejects.toThrow('NEXT_HTTP_ERROR_FALLBACK;404')
   })
 
   it('fetches student matches, linking candidates and classes for admin', async () => {

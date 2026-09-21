@@ -104,7 +104,7 @@ describe('EditClassPage', () => {
     ).rejects.toThrow('NEXT_REDIRECT:/classes')
   })
 
-  it('redirects to /classes when class not found', async () => {
+  it('shows not found when class does not exist', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
@@ -114,7 +114,7 @@ describe('EditClassPage', () => {
 
     await expect(
       EditClassPage({ params: Promise.resolve({ id: 'nonexistent' }) }),
-    ).rejects.toThrow('NEXT_REDIRECT:/classes')
+    ).rejects.toThrow('NEXT_HTTP_ERROR_FALLBACK;404')
   })
 
   it('redirects to the class page when the class is inactive', async () => {

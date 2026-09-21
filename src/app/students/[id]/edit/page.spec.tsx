@@ -197,20 +197,16 @@ describe('EditStudentPage', () => {
     expect(screen.getByText('Left', { selector: 'p' })).toBeTruthy()
   })
 
-  it('redirects to students list when student not found', async () => {
+  it('shows not found when student not found', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
     vi.mocked(getStudentById).mockResolvedValue(null)
     vi.mocked(getAllGuardians).mockResolvedValue([])
     vi.mocked(getAllClasses).mockResolvedValue([])
-    vi.mocked(redirect).mockImplementation(() => {
-      throw new Error('NEXT_REDIRECT')
-    })
 
     await expect(
       EditStudentPage({ params: Promise.resolve({ id: 'missing-id' }) }),
-    ).rejects.toThrow('NEXT_REDIRECT')
-    expect(redirect).toHaveBeenCalledWith('/students')
+    ).rejects.toThrow('NEXT_HTTP_ERROR_FALLBACK;404')
   })
 })

@@ -1,6 +1,6 @@
 import { type Metadata } from 'next'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 
 import { requireSession } from '@/auth/require'
 import { getGuardianById, getFamilyForGuardian } from '@/db'
@@ -8,6 +8,8 @@ import type { FamilySlot } from '@/db'
 import LeaverBadge from '@/components/LeaverBadge'
 import { mailtoWithBcc } from '@/lib/mailto'
 import { canViewGuardians } from '@/lib/permissions'
+
+import PageHeader from '../../_components/PageHeader'
 
 export const metadata: Metadata = { title: 'Guardian' }
 
@@ -38,7 +40,7 @@ export default async function GuardianFamilyPage({
   ])
 
   if (!guardian) {
-    redirect('/guardians')
+    notFound()
   }
 
   const familyEmails = [
@@ -49,24 +51,19 @@ export default async function GuardianFamilyPage({
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {guardian.last_name}, {guardian.first_name}
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            <Link href="/guardians" className="hover:text-gray-700">
-              ← Back to Guardians
-            </Link>
-          </p>
-        </div>
-        <Link
-          href={`/guardians/${guardian.id}/edit`}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
-        >
-          Edit guardian
-        </Link>
-      </div>
+      <PageHeader
+        title={`${guardian.last_name}, ${guardian.first_name}`}
+        backHref="/guardians"
+        backLabel="Guardians"
+        action={
+          <Link
+            href={`/guardians/${guardian.id}/edit`}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+          >
+            Edit guardian
+          </Link>
+        }
+      />
 
       {/* Guardian details */}
       <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">

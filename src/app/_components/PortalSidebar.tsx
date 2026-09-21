@@ -26,27 +26,29 @@ import {
 } from '@heroicons/react/24/outline'
 
 import logo from '@/images/logo.png'
+import type { IconName } from '@/lib/routes'
 
-const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
-  '/dashboard': HomeIcon,
-  '/students': UsersIcon,
-  '/guardians': UserCircleIcon,
-  '/classes': AcademicCapIcon,
-  '/attendance': ClipboardDocumentCheckIcon,
-  '/staff-attendance': ClockIcon,
-  '/incidents': ExclamationTriangleIcon,
-  '/staff': UserGroupIcon,
-  '/lesson-plans': DocumentTextIcon,
-  '/reports': ChartBarIcon,
-  '/admin': ArrowPathRoundedSquareIcon,
-  '/registrations': InboxIcon,
-  '/finance': BanknotesIcon,
-  '/hr': IdentificationIcon,
+const ICONS: Record<IconName, React.ComponentType<{ className?: string }>> = {
+  home: HomeIcon,
+  chart: ChartBarIcon,
+  staff: UserGroupIcon,
+  students: UsersIcon,
+  guardians: UserCircleIcon,
+  classes: AcademicCapIcon,
+  attendance: ClipboardDocumentCheckIcon,
+  lessonPlans: DocumentTextIcon,
+  clock: ClockIcon,
+  incidents: ExclamationTriangleIcon,
+  inbox: InboxIcon,
+  hr: IdentificationIcon,
+  finance: BanknotesIcon,
+  admin: ArrowPathRoundedSquareIcon,
 }
 
 type NavItem = {
   href: string
   label: string
+  icon: IconName
 }
 
 type Props = {
@@ -84,8 +86,8 @@ export default function PortalSidebar({
 
   const pendingHref = isPending ? navigatingTo : null
 
-  const navLinks = navItems.map(({ href, label }) => {
-    const Icon = iconMap[href]
+  const navLinks = navItems.map(({ href, label, icon }) => {
+    const Icon = ICONS[icon]
     const isActive = pathname === href || pathname.startsWith(href + '/')
     const isLoading = pendingHref === href
     return (

@@ -3,6 +3,12 @@ import { render, screen } from '@testing-library/react'
 
 import LoginPage from './page'
 
+const mockEnv = vi.hoisted(() => ({
+  E2E_TEST: false,
+}))
+
+vi.mock('@/env.server', () => ({ env: mockEnv }))
+
 vi.mock('@/auth', () => ({
   auth: vi.fn(),
   signIn: vi.fn(),
@@ -30,6 +36,7 @@ beforeEach(async () => {
   authMock = auth as unknown as Mock
   redirectMock = redirect as unknown as Mock
   authMock.mockResolvedValue(null)
+  mockEnv.E2E_TEST = false
 })
 
 describe('LoginPage', () => {
@@ -75,24 +82,15 @@ describe('LoginPage', () => {
     expect(screen.queryByText(/not authorised/i)).toBeNull()
   })
 
-  it('does not render test login form when E2E_TEST is unset (production)', async () => {
-    vi.stubEnv('E2E_TEST', '')
+  it('does not render test login form when E2E_TEST is off', async () => {
+    mockEnv.E2E_TEST = false
     render(await LoginPage({ searchParams: Promise.resolve({}) }))
     expect(screen.queryByTestId('test-login-form')).toBeNull()
-    vi.unstubAllEnvs()
   })
 
-  it('does not render test login form when E2E_TEST is not "true"', async () => {
-    vi.stubEnv('E2E_TEST', 'false')
-    render(await LoginPage({ searchParams: Promise.resolve({}) }))
-    expect(screen.queryByTestId('test-login-form')).toBeNull()
-    vi.unstubAllEnvs()
-  })
-
-  it('renders test login form when E2E_TEST is "true"', async () => {
-    vi.stubEnv('E2E_TEST', 'true')
+  it('renders test login form when E2E_TEST is on', async () => {
+    mockEnv.E2E_TEST = true
     render(await LoginPage({ searchParams: Promise.resolve({}) }))
     expect(screen.getByTestId('test-login-form')).toBeTruthy()
-    vi.unstubAllEnvs()
   })
 })

@@ -1,5 +1,4 @@
 import { type Metadata } from 'next'
-import Link from 'next/link'
 
 import { requireSession } from '@/auth/require'
 import PrintPageSetup from '@/components/grid/PrintPageSetup'
@@ -12,6 +11,7 @@ import {
 import { compareByName } from '@/lib/grid/sort'
 import { canSeeAllData, isAdmin } from '@/lib/permissions'
 
+import PageHeader from '../../_components/PageHeader'
 import ClassRegisterCard, {
   type RegisterStudent,
 } from '../[id]/ClassRegisterCard'
@@ -47,19 +47,13 @@ export default async function AllClassRegistersPage({
     <div className="max-w-5xl print:max-w-none">
       <PrintPageSetup />
 
-      <div className="mb-6 flex items-center justify-between print:hidden">
-        <div>
-          <Link
-            href="/classes"
-            className="text-sm text-blue-600 hover:text-blue-800"
-          >
-            ← Back to Classes
-          </Link>
-          <h1 className="mt-1 text-2xl font-bold text-gray-900">
-            All Class Registers
-          </h1>
-        </div>
-        <PrintButton label="Print All Registers" />
+      <div className="print:hidden">
+        <PageHeader
+          title="All Class Registers"
+          backHref="/classes"
+          backLabel="Classes"
+          action={<PrintButton label="Print All Registers" />}
+        />
       </div>
 
       {classes.length === 0 ? (

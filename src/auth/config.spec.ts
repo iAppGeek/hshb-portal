@@ -127,14 +127,7 @@ describe('E2E_TEST provider guard', () => {
   })
 
   it('only includes MicrosoftEntraID when E2E_TEST is unset (production)', async () => {
-    vi.stubEnv('E2E_TEST', '')
-    await import('./config')
-    expect(capturedConfig.providers).toHaveLength(1)
-    expect(capturedConfig.providers[0].id).toBe('microsoft-entra-id')
-  })
-
-  it('only includes MicrosoftEntraID when E2E_TEST is not "true"', async () => {
-    vi.stubEnv('E2E_TEST', 'false')
+    delete process.env.E2E_TEST
     await import('./config')
     expect(capturedConfig.providers).toHaveLength(1)
     expect(capturedConfig.providers[0].id).toBe('microsoft-entra-id')

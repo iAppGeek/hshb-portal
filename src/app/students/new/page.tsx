@@ -5,6 +5,8 @@ import { requireSession } from '@/auth/require'
 import { getAllGuardians } from '@/db'
 import { canCreateStudents } from '@/lib/permissions'
 
+import PageHeader, { RequiredFieldsNote } from '../../_components/PageHeader'
+
 import AddStudentForm from './AddStudentForm'
 
 export const metadata: Metadata = { title: 'Add Student' }
@@ -21,13 +23,12 @@ export default async function AddStudentPage() {
 
   return (
     <div className="max-w-2xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Add Student</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Fields marked with <span className="text-red-500">*</span> are
-          required.
-        </p>
-      </div>
+      <PageHeader
+        title="Add Student"
+        subtitle={RequiredFieldsNote}
+        backHref="/students"
+        backLabel="Students"
+      />
 
       <AddStudentForm guardians={guardians} />
     </div>

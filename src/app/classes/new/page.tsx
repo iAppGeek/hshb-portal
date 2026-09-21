@@ -10,6 +10,7 @@ import {
 } from '@/db'
 import { canCreateClasses } from '@/lib/permissions'
 
+import PageHeader, { RequiredFieldsNote } from '../../_components/PageHeader'
 import ClassForm, {
   type ClassFormTeacher,
   type ClassFormStudent,
@@ -36,13 +37,12 @@ export default async function AddClassPage() {
 
   return (
     <div className="max-w-2xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Add Class</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Fields marked with <span className="text-red-500">*</span> are
-          required.
-        </p>
-      </div>
+      <PageHeader
+        title="Add Class"
+        subtitle={RequiredFieldsNote}
+        backHref="/classes"
+        backLabel="Classes"
+      />
 
       <ClassForm
         teachers={teachers as ClassFormTeacher[]}

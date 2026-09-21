@@ -1,8 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { vi } from 'vitest'
 
 import PhotoOptOutPage, { metadata } from './page'
+
+const mockEnv = vi.hoisted(() => ({
+  client: { NEXT_PUBLIC_TURNSTILE_SITE_KEY: 'test-site-key' as string },
+}))
+
+vi.mock('@/env', () => ({ env: mockEnv }))
 
 vi.mock('./PhotoOptOutForm', () => ({
   default: ({ turnstileSiteKey }: { turnstileSiteKey: string }) => (
@@ -12,16 +18,11 @@ vi.mock('./PhotoOptOutForm', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
-})
-
-afterEach(() => {
-  delete process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+  mockEnv.client.NEXT_PUBLIC_TURNSTILE_SITE_KEY = 'test-site-key'
 })
 
 describe('PhotoOptOutPage', () => {
   it('renders the form when a site key is configured', () => {
-    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY = 'test-site-key'
-
     render(<PhotoOptOutPage />)
 
     expect(screen.getByTestId('photo-opt-out-form').textContent).toBe(
@@ -30,7 +31,7 @@ describe('PhotoOptOutPage', () => {
   })
 
   it('shows an unavailable notice when the site key is missing', () => {
-    delete process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+    mockEnv.client.NEXT_PUBLIC_TURNSTILE_SITE_KEY = ''
 
     render(<PhotoOptOutPage />)
 

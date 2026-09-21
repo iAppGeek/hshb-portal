@@ -19,6 +19,9 @@ vi.mock('next/navigation', () => ({
   redirect: vi.fn((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`)
   }),
+  notFound: vi.fn(() => {
+    throw new Error('NEXT_HTTP_ERROR_FALLBACK;404')
+  }),
 }))
 vi.mock('@/db', () => ({
   getAcademicYears: vi.fn(),
@@ -156,10 +159,10 @@ describe('StudentFeesPage', () => {
     )
   })
 
-  it('redirects to the students tab when the student is missing', async () => {
+  it('shows not found when the student is missing', async () => {
     vi.mocked(getStudentFeeDetail).mockResolvedValue(null)
     await expect(StudentFeesPage(noSearchParams())).rejects.toThrow(
-      'NEXT_REDIRECT:/finance?tab=students',
+      'NEXT_HTTP_ERROR_FALLBACK;404',
     )
   })
 

@@ -67,12 +67,12 @@ describe('StaffPayrollPage', () => {
     },
   )
 
-  it('redirects to the staff tab when the staff member is missing', async () => {
+  it('shows not found when the staff member is missing', async () => {
     vi.mocked(getStaffById).mockResolvedValue(null)
     await expect(StaffPayrollPage({ params })).rejects.toThrow(
-      'NEXT_REDIRECT:/hr',
+      'NEXT_HTTP_ERROR_FALLBACK;404',
     )
-    expect(redirect).toHaveBeenCalledTimes(1)
+    expect(redirect).not.toHaveBeenCalled()
   })
 
   it('renders the title and an empty form without a record', async () => {

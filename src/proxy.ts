@@ -1,24 +1,14 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import {
-  canAccessReports,
-  canManageFinance,
-  canManageHr,
-} from '@/lib/permissions'
+import { canAccessPath, noAccessPath, publicPaths } from '@/lib/routes'
 import type { StaffRole } from '@/types/next-auth'
-
-const PUBLIC_PATHS = ['/register']
 
 export const proxy = auth((req) => {
   const { pathname } = req.nextUrl
   const isLoggedIn = !!req.auth
   const isLoginPage = pathname === '/login'
-  const isReportsPage = pathname.startsWith('/reports')
-  const isFinancePage =
-    pathname === '/finance' || pathname.startsWith('/finance/')
-  const isHrPage = pathname === '/hr' || pathname.startsWith('/hr/')
-  const isPublicPath = PUBLIC_PATHS.some(
+  const isPublicPath = publicPaths.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   )
 
@@ -32,23 +22,16 @@ export const proxy = auth((req) => {
     return NextResponse.redirect(new URL('/dashboard', req.url))
   }
 
-  if (isReportsPage) {
+  if (isLoggedIn) {
     const role = req.auth?.user?.role as StaffRole | undefined
-    if (!role || !canAccessReports(role)) {
-      return NextResponse.redirect(new URL('/dashboard', req.url))
+    const isNoAccessPage = pathname === noAccessPath
+    // A session without a role (no matching staff record) can't use any page;
+    // sending it to /dashboard would loop, so it gets a dead-end page instead.
+    if (!role) {
+      if (isNoAccessPage) return
+      return NextResponse.redirect(new URL(noAccessPath, req.url))
     }
-  }
-
-  if (isFinancePage) {
-    const role = req.auth?.user?.role as StaffRole | undefined
-    if (!role || !canManageFinance(role)) {
-      return NextResponse.redirect(new URL('/dashboard', req.url))
-    }
-  }
-
-  if (isHrPage) {
-    const role = req.auth?.user?.role as StaffRole | undefined
-    if (!role || !canManageHr(role)) {
+    if (isNoAccessPage || !canAccessPath(pathname, role)) {
       return NextResponse.redirect(new URL('/dashboard', req.url))
     }
   }

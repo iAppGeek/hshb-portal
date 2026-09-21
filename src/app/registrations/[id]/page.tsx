@@ -1,7 +1,7 @@
 import { type Metadata } from 'next'
-import { redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 
-import { requireRole } from '@/auth/require'
+import { requireRouteAccess } from '@/auth/require'
 import { logError } from '@/lib/log'
 import {
   getRegistrationSubmissionById,
@@ -12,10 +12,7 @@ import {
   type StudentMatch,
   type GuardianMatch,
 } from '@/db'
-import {
-  canReviewRegistrations,
-  canApproveRegistrations,
-} from '@/lib/permissions'
+import { canApproveRegistrations } from '@/lib/permissions'
 
 import RegistrationReview from './RegistrationReview'
 
@@ -26,13 +23,13 @@ export default async function RegistrationDetailPage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  const { role } = await requireRole(canReviewRegistrations)
+  const { role } = await requireRouteAccess('/registrations')
 
   const { id } = await params
   const submission = await getRegistrationSubmissionById(id)
 
   if (!submission) {
-    redirect('/registrations')
+    notFound()
   }
 
   const isAdmin = canApproveRegistrations(role)
