@@ -1,9 +1,8 @@
 import { type Metadata } from 'next'
-import Link from 'next/link'
 
 import { requireSession } from '@/auth/require'
-import StaffEmailDropdown from '@/clientComponents/StaffEmailDropdown'
-import Tooltip from '@/components/Tooltip'
+import EmailDropdown from '@/clientComponents/EmailDropdown'
+import PermissionedLink from '@/components/PermissionedLink'
 import { getAllStaffWithClasses } from '@/db'
 import { compareNullableText } from '@/lib/grid/sort'
 import { mailtoWithBcc, staffEmailsForMailto } from '@/lib/mailto'
@@ -60,34 +59,37 @@ export default async function StaffPage() {
         action={
           <div className="flex flex-wrap items-center justify-end gap-2">
             {staff.length > 0 && (
-              <StaffEmailDropdown
-                teachers={{
-                  emails: teacherBccEmails,
-                  mailtoHref: teacherMailtoHref,
-                }}
-                allStaff={{
-                  emails: allStaffBccEmails,
-                  mailtoHref: allStaffMailtoHref,
-                }}
+              <EmailDropdown
+                groups={[
+                  {
+                    label: 'Teachers & headteachers',
+                    emails: teacherBccEmails,
+                    mailtoHref: teacherMailtoHref,
+                    noEmailsReason:
+                      'No teacher or headteacher emails on this list.',
+                  },
+                  {
+                    label: 'All staff',
+                    emails: allStaffBccEmails,
+                    mailtoHref: allStaffMailtoHref,
+                    noEmailsReason: 'No staff emails on this list.',
+                  },
+                ]}
+                buttonLabel="Email staff"
                 triggerClassName="rounded-lg border border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 shadow-sm transition hover:bg-blue-50"
                 emptyReason="No email addresses available for staff on this list."
                 mailtoUnavailableReason="Too many addresses for your email app. Use copy instead."
               />
             )}
-            {canCreate ? (
-              <Link
-                href="/staff/new"
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
-              >
-                Add Staff
-              </Link>
-            ) : canSeeAllData(role) ? (
-              <Tooltip text="You don't have permission to add staff">
-                <span className="cursor-not-allowed rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white opacity-50 shadow-sm">
-                  Add Staff
-                </span>
-              </Tooltip>
-            ) : null}
+            <PermissionedLink
+              href="/staff/new"
+              allowed={canCreate}
+              showDisabled={canSeeAllData(role)}
+              disabledReason="You don't have permission to add staff"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+            >
+              Add Staff
+            </PermissionedLink>
           </div>
         }
       />
