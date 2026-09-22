@@ -14,6 +14,7 @@ import {
   useServerForm,
 } from '@/components/form'
 import { nowDatetimeLocalInSchoolTz } from '@/lib/datetime'
+import { personName } from '@/lib/format'
 
 import { createIncidentAction } from '../actions'
 
@@ -186,7 +187,7 @@ function StudentSearch({
       {selected ? (
         <div className="mt-1 flex items-center gap-2 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm">
           <span className="flex-1 text-gray-900">
-            {selected.last_name}, {selected.first_name}
+            {personName(selected, 'lastFirst')}
           </span>
           <button
             type="button"
@@ -222,7 +223,7 @@ function StudentSearch({
                   onMouseDown={() => select(s)}
                   className="cursor-pointer px-3 py-2 text-sm text-gray-900 hover:bg-blue-50"
                 >
-                  {s.last_name}, {s.first_name}
+                  {personName(s, 'lastFirst')}
                 </li>
               ))}
             </ul>

@@ -2,6 +2,7 @@ import type { ReactElement } from 'react'
 import clsx from 'clsx'
 
 import { formatTimeInSchoolTz } from '@/lib/datetime'
+import { personName } from '@/lib/format'
 import {
   printBlankLine,
   printTable,
@@ -51,8 +52,7 @@ export default function SignInSheetPrintTable({ rows }: Props): ReactElement {
                 <td
                   className={clsx(printTdCompact, 'font-medium text-gray-900')}
                 >
-                  {staff.display_name ??
-                    `${staff.first_name} ${staff.last_name}`}
+                  {personName(staff)}
                 </td>
                 <td className={clsx(printTdCompact, 'text-gray-700')}>
                   {staff.class_name ?? '—'}

@@ -16,6 +16,7 @@ import {
   schoolTzToUtcIso,
   todayInSchoolTz,
 } from '@/lib/datetime'
+import { personName } from '@/lib/format'
 import { tbody, theadStacked } from '@/lib/grid/styles'
 import { canManageStaffAttendance } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
@@ -169,7 +170,7 @@ function StaffRowInteractive({
   const [record, setOptimisticRecord] = useOptimistic(saved)
   const [editing, setEditing] = useState(isHistorical)
   const isSignedIn = !!record && !record.signed_out_at
-  const name = staff.display_name ?? `${staff.first_name} ${staff.last_name}`
+  const name = personName(staff)
   const canManageOthers = canManageStaffAttendance(role)
   const isSelf = staff.id === currentStaffId
   const disabled = !canManageOthers && !isSelf

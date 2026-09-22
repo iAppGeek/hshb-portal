@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+import { personName } from '@/lib/format'
 import { LEAVING_REASONS, LEAVING_REASON_LABELS } from '@/lib/schemas'
 import type { ActionResult } from '@/lib/action'
 import {
@@ -188,9 +189,7 @@ export default function ClassMigrationForm({
                       key={s.id}
                       className="flex items-center justify-between gap-4 px-4 py-2 text-sm text-gray-700"
                     >
-                      <span>
-                        {s.last_name}, {s.first_name}
-                      </span>
+                      <span>{personName(s, 'lastFirst')}</span>
                       <select
                         name={`action_${s.id}`}
                         defaultValue={createNewClass ? 'move' : 'none'}

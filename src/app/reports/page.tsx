@@ -8,6 +8,7 @@ import {
   todayInSchoolTz,
 } from '@/lib/datetime'
 import { summariseAttendance } from '@/lib/attendanceSummary'
+import { personName } from '@/lib/format'
 import { isTeachingStaff } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 import {
@@ -269,7 +270,7 @@ export async function PeriodReportSection({
 
   const staffDaysWorked: StaffDaysWorkedRow[] = teachingStaff
     .map((s) => ({
-      name: s.display_name ?? `${s.first_name} ${s.last_name}`,
+      name: personName(s),
       role: s.role,
       daysWorked: staffAttendanceMap.get(s.id)?.size ?? 0,
       dates: [...(staffAttendanceMap.get(s.id) ?? [])].sort(),
