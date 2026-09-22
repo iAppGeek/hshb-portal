@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 import { requireSession } from '@/auth/require'
 import { getAllStudents, getStudentsByTeacher } from '@/db'
-import Tooltip from '@/components/Tooltip'
+import PermissionedLink from '@/components/PermissionedLink'
 import { isTeacher, canSeeAllData, canCreateStudents } from '@/lib/permissions'
 
 import EmptyState from '../_components/EmptyState'
@@ -34,20 +34,15 @@ export default async function StudentsPage({
       <PageHeader
         title="Students"
         action={
-          canCreateStudents(role) ? (
-            <Link
-              href="/students/new"
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
-            >
-              Add student
-            </Link>
-          ) : canSeeAllData(role) ? (
-            <Tooltip text="You don't have permission to add students">
-              <span className="cursor-not-allowed rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white opacity-50 shadow-sm">
-                Add student
-              </span>
-            </Tooltip>
-          ) : null
+          <PermissionedLink
+            href="/students/new"
+            allowed={canCreateStudents(role)}
+            showDisabled={canSeeAllData(role)}
+            disabledReason="You don't have permission to add students"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+          >
+            Add student
+          </PermissionedLink>
         }
       />
 

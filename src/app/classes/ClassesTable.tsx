@@ -2,8 +2,8 @@ import type { ReactElement } from 'react'
 import Link from 'next/link'
 
 import ActiveBadge from '@/components/ActiveBadge'
-import EditAction from '@/components/EditAction'
 import SimpleGrid from '@/components/grid/SimpleGrid'
+import PermissionedLink from '@/components/PermissionedLink'
 import type { GridColumn, StackedRowSpec } from '@/lib/grid/columns'
 import { actionsCell, detailsLink } from '@/lib/grid/styles'
 import { canSeeAllData } from '@/lib/permissions'
@@ -72,12 +72,14 @@ export default function ClassesTable({
       align: 'right',
       cell: (cls) => (
         <div className={actionsCell}>
-          <EditAction
+          <PermissionedLink
             href={`/classes/${cls.id}/edit`}
-            canEdit={canEdit && cls.editable}
+            allowed={canEdit && cls.editable}
             showDisabled={canEdit === false && canSeeAllData(role)}
-            noun="classes"
-          />
+            disabledReason="You don't have permission to edit classes"
+          >
+            Edit
+          </PermissionedLink>
           <Link href={`/classes/${cls.id}`} className={detailsLink}>
             Details
           </Link>
@@ -94,12 +96,14 @@ export default function ClassesTable({
       </>
     ),
     titleAside: (cls) => (
-      <EditAction
+      <PermissionedLink
         href={`/classes/${cls.id}/edit`}
-        canEdit={canEdit && cls.editable}
+        allowed={canEdit && cls.editable}
         showDisabled={canEdit === false && canSeeAllData(role)}
-        noun="classes"
-      />
+        disabledReason="You don't have permission to edit classes"
+      >
+        Edit
+      </PermissionedLink>
     ),
     details: (cls) => [
       cls.room_number ?? '—',

@@ -1,15 +1,17 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 
 import type { IncidentRow, IncidentType } from '@/db'
 import Table from '@/components/grid/Table'
 import TableCard from '@/components/grid/TableCard'
 import Td from '@/components/grid/Td'
 import Th from '@/components/grid/Th'
-import Tooltip from '@/components/Tooltip'
+import PermissionedLink from '@/components/PermissionedLink'
+import TabBar, { type Tab } from '@/components/TabBar'
 import { formatDateInSchoolTz } from '@/lib/datetime'
+import { personName } from '@/lib/format'
 import { tbody, thead } from '@/lib/grid/styles'
 import { isTeacher } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
@@ -23,22 +25,17 @@ type Props = {
   canEdit: boolean
 }
 
-const TABS: { type: IncidentType; label: string }[] = [
-  { type: 'medical', label: 'Medical' },
-  { type: 'behaviour', label: 'Behaviour' },
-  { type: 'other', label: 'Other' },
+const TABS: Tab[] = [
+  { key: 'medical', label: 'Medical', href: '/incidents?tab=medical' },
+  { key: 'behaviour', label: 'Behaviour', href: '/incidents?tab=behaviour' },
+  { key: 'other', label: 'Other', href: '/incidents?tab=other' },
 ]
 
 export default function IncidentsClient({ incidents, role, canEdit }: Props) {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const activeTab = (searchParams.get('tab') as IncidentType) ?? 'medical'
 
   const filtered = incidents.filter((i) => i.type === activeTab)
-
-  function setTab(tab: IncidentType) {
-    router.replace(`/incidents?tab=${tab}`)
-  }
 
   return (
     <div>
@@ -54,21 +51,8 @@ export default function IncidentsClient({ incidents, role, canEdit }: Props) {
         }
       />
 
-      <div className="mb-4 flex gap-2">
-        {TABS.map((tab) => (
-          <button
-            key={tab.type}
-            onClick={() => setTab(tab.type)}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
-              activeTab === tab.type
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <TabBar tabs={TABS} current={activeTab} ariaLabel="Incident type" />
+
       {isTeacher(role) && (
         <p className="mb-4 text-sm text-gray-500">
           You can only view and record incidents for students in your class.
@@ -98,22 +82,15 @@ export default function IncidentsClient({ incidents, role, canEdit }: Props) {
                       {formatDateInSchoolTz(incident.incident_date)}
                     </p>
                   </div>
-                  {canEdit ? (
-                    <Link
-                      href={`/incidents/${incident.id}/edit`}
-                      className="shrink-0 text-xs font-medium text-blue-600 hover:text-blue-800"
-                    >
-                      Edit
-                    </Link>
-                  ) : (
-                    !isTeacher(role) && (
-                      <Tooltip text="You don't have permission to edit incidents">
-                        <span className="shrink-0 cursor-not-allowed text-xs font-medium text-gray-400">
-                          Edit
-                        </span>
-                      </Tooltip>
-                    )
-                  )}
+                  <PermissionedLink
+                    href={`/incidents/${incident.id}/edit`}
+                    allowed={canEdit}
+                    showDisabled={!isTeacher(role)}
+                    disabledReason="You don't have permission to edit incidents"
+                    className="shrink-0 text-xs font-medium text-blue-600 hover:text-blue-800"
+                  >
+                    Edit
+                  </PermissionedLink>
                 </div>
                 <p className="text-sm font-medium text-gray-800">
                   {incident.title}
@@ -195,15 +172,13 @@ export default function IncidentsClient({ incidents, role, canEdit }: Props) {
                       mobile="scroll"
                       meta={{ className: 'whitespace-nowrap' }}
                     >
-                      {incident.creator.first_name} {incident.creator.last_name}
+                      {personName(incident.creator)}
                     </Td>
                     <Td
                       mobile="scroll"
                       meta={{ className: 'whitespace-nowrap' }}
                     >
-                      {incident.updater
-                        ? `${incident.updater.first_name} ${incident.updater.last_name}`
-                        : '—'}
+                      {personName(incident.updater)}
                     </Td>
                     <Td
                       mobile="scroll"
@@ -215,31 +190,21 @@ export default function IncidentsClient({ incidents, role, canEdit }: Props) {
                           ? 'Yes'
                           : '—'}
                     </Td>
-                    {canEdit ? (
+                    {(canEdit || !isTeacher(role)) && (
                       <Td
                         mobile="scroll"
                         meta={{ className: 'whitespace-nowrap' }}
                       >
-                        <Link
+                        <PermissionedLink
                           href={`/incidents/${incident.id}/edit`}
+                          allowed={canEdit}
+                          showDisabled={!isTeacher(role)}
+                          disabledReason="You don't have permission to edit incidents"
                           className="font-medium text-blue-600 hover:text-blue-800"
                         >
                           Edit
-                        </Link>
+                        </PermissionedLink>
                       </Td>
-                    ) : (
-                      !isTeacher(role) && (
-                        <Td
-                          mobile="scroll"
-                          meta={{ className: 'whitespace-nowrap' }}
-                        >
-                          <Tooltip text="You don't have permission to edit incidents">
-                            <span className="cursor-not-allowed font-medium text-gray-400">
-                              Edit
-                            </span>
-                          </Tooltip>
-                        </Td>
-                      )
                     )}
                   </tr>
                 ))}
