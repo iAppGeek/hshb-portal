@@ -74,13 +74,11 @@ describe('AdminPage', () => {
     expect(screen.getByTestId('tab-bar')).toBeTruthy()
   })
 
-  it('defaults to class-migration tab when no tab param', async () => {
+  it('defaults to communication tab when no tab param', async () => {
     render(await AdminPage({ searchParams: Promise.resolve({}) }))
 
-    expect(screen.getByTestId('current-tab').textContent).toBe(
-      'class-migration',
-    )
-    expect(screen.getByTestId('class-migration-tab')).toBeTruthy()
+    expect(screen.getByTestId('current-tab').textContent).toBe('communication')
+    expect(screen.getByTestId('communication-tab')).toBeTruthy()
   })
 
   it('passes sourceClassId to the class-migration tab', async () => {
