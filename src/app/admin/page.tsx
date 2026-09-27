@@ -12,9 +12,14 @@ import CommunicationTab from './_tabs/communication/CommunicationTab'
 
 export const metadata: Metadata = { title: 'Admin Tasks' }
 
-const DEFAULT_TAB = 'class-migration'
+const DEFAULT_TAB = 'communication'
 
 const TABS: Tab[] = [
+  {
+    key: 'communication',
+    label: 'Communication',
+    href: '/admin?tab=communication',
+  },
   {
     key: 'class-migration',
     label: 'Class Migration',
@@ -24,11 +29,6 @@ const TABS: Tab[] = [
     key: 'academic-years',
     label: 'Academic Years',
     href: '/admin?tab=academic-years',
-  },
-  {
-    key: 'communication',
-    label: 'Communication',
-    href: '/admin?tab=communication',
   },
 ]
 
