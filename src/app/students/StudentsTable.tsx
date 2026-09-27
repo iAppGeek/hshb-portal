@@ -1,15 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import Link from 'next/link'
 
 import FunctionalGrid, {
   type FunctionalGridColumn,
 } from '@/clientComponents/grid/FunctionalGrid'
 import LeaverBadge from '@/components/LeaverBadge'
 import PermissionedLink from '@/components/PermissionedLink'
-import StudentDetailsModal, {
-  type StudentForModal,
-} from '@/components/StudentDetailsModal'
 import { personName } from '@/lib/format'
 import type { StackedRowSpec } from '@/lib/grid/columns'
 import { fullName, matchesAny, normaliseQuery } from '@/lib/grid/search'
@@ -17,10 +14,15 @@ import { compareByName, compareNullableText } from '@/lib/grid/sort'
 import { canEditStudents, canSeeAllData } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
-type Student = StudentForModal & {
+type Student = {
+  id: string
+  first_name: string
+  last_name: string
   student_code: string | null
   active: boolean
   leaving_reason: string | null
+  student_classes: Array<{ class: { name: string } | null }>
+  primary_guardian: { first_name: string; last_name: string } | null
 }
 
 type Props = {
@@ -77,8 +79,6 @@ export default function StudentsTable({
   students,
   role,
 }: Props): React.ReactElement {
-  const [selected, setSelected] = useState<Student | null>(null)
-
   const columns: FunctionalGridColumn<Student>[] = [
     {
       id: 'name',
@@ -133,13 +133,12 @@ export default function StudentsTable({
         return (
           <div className="flex items-center justify-end gap-3">
             <EditLink student={student} role={role} />
-            <button
-              type="button"
-              onClick={() => setSelected(student)}
+            <Link
+              href={`/students/${student.id}`}
               className="text-gray-500 hover:text-gray-700"
             >
               Details
-            </button>
+            </Link>
           </div>
         )
       },
@@ -162,40 +161,29 @@ export default function StudentsTable({
       guardianName(student),
     ],
     detailsAside: (student) => (
-      <button
-        type="button"
-        onClick={() => setSelected(student)}
+      <Link
+        href={`/students/${student.id}`}
         className="shrink-0 text-sm text-gray-500 hover:text-gray-700"
       >
         Details
-      </button>
+      </Link>
     ),
   }
 
   return (
-    <>
-      <FunctionalGrid
-        data={students}
-        columns={columns}
-        getRowId={(student) => student.id}
-        mobile="stacked"
-        stacked={stacked}
-        search={{
-          placeholder: 'Search students…',
-          label: 'Search students',
-          filterFn: matchesStudentSearch,
-        }}
-        initialSorting={[{ id: 'name', desc: false }]}
-        emptyMessage="No students match your search."
-      />
-
-      {selected && (
-        <StudentDetailsModal
-          student={selected}
-          role={role}
-          onClose={() => setSelected(null)}
-        />
-      )}
-    </>
+    <FunctionalGrid
+      data={students}
+      columns={columns}
+      getRowId={(student) => student.id}
+      mobile="stacked"
+      stacked={stacked}
+      search={{
+        placeholder: 'Search students…',
+        label: 'Search students',
+        filterFn: matchesStudentSearch,
+      }}
+      initialSorting={[{ id: 'name', desc: false }]}
+      emptyMessage="No students match your search."
+    />
   )
 }

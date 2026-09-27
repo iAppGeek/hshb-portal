@@ -40,7 +40,7 @@ const STUDENT_SELECT = `
 
 const STUDENT_SELECT_WITH_TEACHER = `
   *,
-  student_classes(class:classes(id, name, year_group, teacher_id)),
+  student_classes(class:classes(id, name, year_group, teacher_id, academic_year:academic_years(code))),
   enrolment_end_dates:student_classes(end_date),
   primary_guardian:guardians!students_primary_guardian_id_fkey(
     first_name, last_name, phone, email, occupation,
@@ -231,7 +231,7 @@ export async function getStudentById(id: string) {
   const { data } = await withCurrentClasses(
     supabase.from('students').select(STUDENT_SELECT_WITH_TEACHER).eq('id', id),
   ).single()
-  return data
+  return data ? withClassYearCodes(data) : null
 }
 
 /** Returns [] for empty input rather than issuing an unfiltered `.in()`. */

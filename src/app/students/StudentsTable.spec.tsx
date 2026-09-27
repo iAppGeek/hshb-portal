@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 
 vi.mock('next/link', () => ({
   default: ({
@@ -9,23 +9,6 @@ vi.mock('next/link', () => ({
     children: React.ReactNode
     href: string
   }) => <a href={href}>{children}</a>,
-}))
-
-vi.mock('@/components/StudentDetailsModal', () => ({
-  default: ({
-    student,
-    onClose,
-  }: {
-    student: { first_name: string; last_name: string }
-    onClose: () => void
-  }) => (
-    <div data-testid="student-modal">
-      <span>
-        {student.last_name}, {student.first_name}
-      </span>
-      <button onClick={onClose}>Close modal</button>
-    </div>
-  ),
 }))
 
 import StudentsTable from './StudentsTable'
@@ -208,54 +191,14 @@ describe('StudentsTable', () => {
     expect(screen.getByText('Primary Guardian')).toBeTruthy()
   })
 
-  it('renders a Details button for each student (mobile + desktop)', () => {
+  it('renders a Details link to the student page for each student (mobile + desktop)', () => {
     render(<StudentsTable students={students} role="admin" />)
-    // Each student has a Details button in both the mobile card and desktop actions cell
-    expect(screen.getAllByRole('button', { name: 'Details' })).toHaveLength(4)
-  })
-
-  it('opens modal for the clicked student', () => {
-    // The grid sorts by name ascending by default, so Georgiou comes before
-    // Papadopoulos (plans/shared-grids.md §3.1).
-    render(<StudentsTable students={students} role="admin" />)
-    expect(screen.queryByTestId('student-modal')).toBeNull()
-
-    fireEvent.click(screen.getAllByRole('button', { name: 'Details' })[0])
-
-    const modal = screen.getByTestId('student-modal')
-    expect(within(modal).getByText('Georgiou, Nick')).toBeTruthy()
-  })
-
-  it('opens modal for the correct student when second row is clicked', () => {
-    render(<StudentsTable students={students} role="admin" />)
-    // Order: [0]=Georgiou secondary, [1]=Georgiou desktop, [2]=Papadopoulos secondary, [3]=Papadopoulos desktop
-    fireEvent.click(screen.getAllByRole('button', { name: 'Details' })[2])
-    expect(
-      within(screen.getByTestId('student-modal')).getByText(
-        'Papadopoulos, Anna',
-      ),
-    ).toBeTruthy()
-  })
-
-  it('closes the modal when onClose is called', () => {
-    render(<StudentsTable students={students} role="admin" />)
-    fireEvent.click(screen.getAllByRole('button', { name: 'Details' })[0])
-    expect(screen.getByTestId('student-modal')).toBeTruthy()
-
-    fireEvent.click(screen.getByText('Close modal'))
-    expect(screen.queryByTestId('student-modal')).toBeNull()
-  })
-
-  it('only shows one modal at a time', () => {
-    render(<StudentsTable students={students} role="admin" />)
-    fireEvent.click(screen.getAllByRole('button', { name: 'Details' })[0])
-    fireEvent.click(screen.getAllByRole('button', { name: 'Details' })[2])
-    expect(screen.getAllByTestId('student-modal')).toHaveLength(1)
-    expect(
-      within(screen.getByTestId('student-modal')).getByText(
-        'Papadopoulos, Anna',
-      ),
-    ).toBeTruthy()
+    // Each student has a Details link in both the mobile card and desktop actions cell
+    const links = screen.getAllByRole('link', { name: 'Details' })
+    expect(links).toHaveLength(4)
+    // Sorted by name ascending: Georgiou (student-2) before Papadopoulos (student-1)
+    expect(links[0].getAttribute('href')).toBe('/students/student-2')
+    expect(links[2].getAttribute('href')).toBe('/students/student-1')
   })
 
   it('shows Edit links for admin with correct hrefs', () => {
