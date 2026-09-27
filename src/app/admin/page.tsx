@@ -8,6 +8,7 @@ import PageHeader from '../_components/PageHeader'
 
 import AcademicYearsTab from './_tabs/academic-years/AcademicYearsTab'
 import ClassMigrationTab from './_tabs/class-migration/ClassMigrationTab'
+import CommunicationTab from './_tabs/communication/CommunicationTab'
 
 export const metadata: Metadata = { title: 'Admin Tasks' }
 
@@ -23,6 +24,11 @@ const TABS: Tab[] = [
     key: 'academic-years',
     label: 'Academic Years',
     href: '/admin?tab=academic-years',
+  },
+  {
+    key: 'communication',
+    label: 'Communication',
+    href: '/admin?tab=communication',
   },
 ]
 
@@ -40,7 +46,7 @@ export default async function AdminPage({
   const { tab = DEFAULT_TAB, sourceClassId, targetYearId } = await searchParams
 
   return (
-    <div className="max-w-2xl">
+    <div className={tab === 'communication' ? 'max-w-3xl' : 'max-w-2xl'}>
       <PageHeader
         title="Admin Tasks"
         subtitle="Administrative tools for managing the school year."
@@ -55,6 +61,7 @@ export default async function AdminPage({
         />
       )}
       {tab === 'academic-years' && <AcademicYearsTab />}
+      {tab === 'communication' && <CommunicationTab />}
     </div>
   )
 }

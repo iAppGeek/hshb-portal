@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_MAX_MAILTO_LENGTH,
   formatEmailsAsCsv,
+  formatEmailsForOutlook,
   guardianEmailsForMailto,
   mailtoWithBcc,
+  mailtoWithRecipients,
   normalizeAndDedupeEmails,
   staffEmailsForMailto,
 } from './mailto'
@@ -85,6 +87,58 @@ describe('staffEmailsForMailto', () => {
         true,
       ),
     ).toEqual(['w@x.com', 'p@x.com'])
+  })
+})
+
+describe('formatEmailsForOutlook', () => {
+  it('joins deduped addresses with semicolons so Outlook splits recipients', () => {
+    expect(formatEmailsForOutlook(['a@x.com', 'b@x.com', 'a@x.com'])).toBe(
+      'a@x.com; b@x.com',
+    )
+  })
+
+  it('returns an empty string when there are no addresses', () => {
+    expect(formatEmailsForOutlook([])).toBe('')
+  })
+})
+
+describe('mailtoWithRecipients', () => {
+  it('returns null when every field is empty', () => {
+    expect(mailtoWithRecipients({ to: [], cc: [], bcc: [] })).toBeNull()
+  })
+
+  it('puts To addresses before the query and Cc and Bcc in the query', () => {
+    const href = mailtoWithRecipients({
+      to: ['parents@school.com'],
+      cc: ['teacher@school.com'],
+      bcc: ['a@x.com', 'b@x.com'],
+    })
+    expect(href).toMatch(/^mailto:parents%40school\.com\?/)
+    const params = new URLSearchParams(href!.slice(href!.indexOf('?') + 1))
+    expect(params.get('cc')).toBe('teacher@school.com')
+    expect(params.get('bcc')).toBe('a@x.com,b@x.com')
+  })
+
+  it('uses the address inside an Outlook display-name recipient', () => {
+    expect(
+      mailtoWithRecipients({
+        to: [
+          '"Parents" <parents@hshb.org.uk>',
+          '"HSHB Teachers" <teachers@hshb.org.uk>',
+        ],
+      }),
+    ).toBe('mailto:parents%40hshb.org.uk,teachers%40hshb.org.uk')
+  })
+
+  it('omits the query when only To is set', () => {
+    expect(
+      mailtoWithRecipients({ to: ['one@school.com', 'two@school.com'] }),
+    ).toBe('mailto:one%40school.com,two%40school.com')
+  })
+
+  it('returns null when the href exceeds maxTotalLength', () => {
+    const many = Array.from({ length: 80 }, (_, i) => `parent${i}@example.com`)
+    expect(mailtoWithRecipients({ bcc: many, maxTotalLength: 500 })).toBeNull()
   })
 })
 

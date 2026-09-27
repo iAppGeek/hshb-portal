@@ -2,7 +2,7 @@
 export const DEFAULT_MAX_MAILTO_LENGTH = 2000
 
 export function normalizeAndDedupeEmails(
-  inputs: (string | null | undefined)[],
+  inputs: readonly (string | null | undefined)[],
 ): string[] {
   const seen = new Set<string>()
   const out: string[] = []
@@ -76,4 +76,49 @@ function csvEscapeField(value: string): string {
 /** Single-row CSV of email addresses (deduped, RFC 4180–safe fields). */
 export function formatEmailsAsCsv(emails: string[]): string {
   return normalizeAndDedupeEmails(emails).map(csvEscapeField).join(',')
+}
+
+/**
+ * Semicolon-separated addresses. Outlook uses `;` between recipients, so this
+ * pastes into a To, Cc, or Bcc box as one address per person.
+ * A value may already be `"Name" <email>`; that form is kept as-is.
+ */
+export function formatEmailsForOutlook(emails: string[]): string {
+  return normalizeAndDedupeEmails(emails).join('; ')
+}
+
+/** `"Name" <email>` becomes the address. A bare address is unchanged. */
+function emailForMailto(
+  value: string | null | undefined,
+): string | null | undefined {
+  if (value == null) return value
+  const match = value.match(/<([^<>]+)>\s*$/)
+  return match ? match[1].trim() : value
+}
+
+export function mailtoWithRecipients(fields: {
+  to?: readonly (string | null | undefined)[]
+  cc?: readonly (string | null | undefined)[]
+  bcc?: readonly (string | null | undefined)[]
+  subject?: string
+  body?: string
+  maxTotalLength?: number
+}): string | null {
+  const to = normalizeAndDedupeEmails((fields.to ?? []).map(emailForMailto))
+  const cc = normalizeAndDedupeEmails((fields.cc ?? []).map(emailForMailto))
+  const bcc = normalizeAndDedupeEmails((fields.bcc ?? []).map(emailForMailto))
+  if (to.length === 0 && cc.length === 0 && bcc.length === 0) return null
+
+  const params = new URLSearchParams()
+  if (cc.length > 0) params.set('cc', cc.join(','))
+  if (bcc.length > 0) params.set('bcc', bcc.join(','))
+  if (fields.subject) params.set('subject', fields.subject)
+  if (fields.body) params.set('body', fields.body)
+
+  const query = params.toString()
+  const toPart = to.map((email) => encodeURIComponent(email)).join(',')
+  const href = `mailto:${toPart}${query ? `?${query}` : ''}`
+  const max = fields.maxTotalLength ?? DEFAULT_MAX_MAILTO_LENGTH
+  if (href.length > max) return null
+  return href
 }

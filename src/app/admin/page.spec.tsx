@@ -24,6 +24,9 @@ vi.mock('./_tabs/class-migration/ClassMigrationTab', () => ({
 vi.mock('./_tabs/academic-years/AcademicYearsTab', () => ({
   default: vi.fn(() => <div data-testid="academic-years-tab" />),
 }))
+vi.mock('./_tabs/communication/CommunicationTab', () => ({
+  default: vi.fn(() => <div data-testid="communication-tab" />),
+}))
 import { auth } from '@/auth'
 
 import AdminPage from './page'
@@ -112,6 +115,18 @@ describe('AdminPage', () => {
 
     expect(screen.getByTestId('current-tab').textContent).toBe('academic-years')
     expect(screen.getByTestId('academic-years-tab')).toBeTruthy()
+    expect(screen.queryByTestId('class-migration-tab')).toBeNull()
+  })
+
+  it('renders the communication tab when selected', async () => {
+    render(
+      await AdminPage({
+        searchParams: Promise.resolve({ tab: 'communication' }),
+      }),
+    )
+
+    expect(screen.getByTestId('current-tab').textContent).toBe('communication')
+    expect(screen.getByTestId('communication-tab')).toBeTruthy()
     expect(screen.queryByTestId('class-migration-tab')).toBeNull()
   })
 })

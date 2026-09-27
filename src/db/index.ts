@@ -90,6 +90,7 @@ export type {
 } from './guardians'
 export {
   getAllClasses,
+  getClassEmailRosters,
   getClassesByAcademicYear,
   getClassById,
   getClassWithStudents,
