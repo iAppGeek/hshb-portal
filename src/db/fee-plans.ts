@@ -1,8 +1,14 @@
+import 'server-only'
+
+import { asc, eq } from 'drizzle-orm'
+
 import type { Database } from '@/types/database'
 
-import { supabase } from './client'
+import { toSnake, type Snake } from './casing'
+import { db, supabase } from './client'
+import { feePlans, type FeePlan } from './schema'
 
-export type FeePlanRow = Database['public']['Tables']['fee_plans']['Row']
+export type FeePlanRow = Snake<FeePlan>
 
 export type FeePlanAcademicYear = {
   id: string
@@ -26,49 +32,42 @@ export type FeePlanInput = {
   active: boolean
 }
 
-const FEE_PLAN_SELECT =
-  '*, academic_year:academic_years(id, code, start_date, end_date)'
+const feePlanWith = {
+  academicYear: {
+    columns: { id: true, code: true, startDate: true, endDate: true },
+  },
+  feePlanClasses: { columns: { classId: true } },
+} as const
+
+/** A plan row with its year and the ids of the classes it covers. */
+function withClassIds<T extends { feePlanClasses: { classId: string }[] }>(
+  plan: T,
+): Omit<T, 'feePlanClasses'> & { classIds: string[] } {
+  const { feePlanClasses, ...rest } = plan
+  return { ...rest, classIds: feePlanClasses.map((link) => link.classId) }
+}
 
 /** All plans when `yearId` is omitted (e.g. for the override select's
  * "other years" guard, and for computing prior-year balances). */
 export async function getFeePlans(
   yearId?: string,
 ): Promise<FeePlanWithClasses[]> {
-  let query = supabase.from('fee_plans').select(FEE_PLAN_SELECT)
-  if (yearId) query = query.eq('academic_year_id', yearId)
-  const [{ data: plans }, { data: links }] = await Promise.all([
-    query.order('name'),
-    supabase.from('fee_plan_classes').select('fee_plan_id, class_id'),
-  ])
-  const classIdsByPlan = new Map<string, string[]>()
-  for (const link of links ?? []) {
-    const ids = classIdsByPlan.get(link.fee_plan_id) ?? []
-    ids.push(link.class_id)
-    classIdsByPlan.set(link.fee_plan_id, ids)
-  }
-  return ((plans ?? []) as unknown as FeePlanWithClasses[]).map((p) => ({
-    ...p,
-    class_ids: classIdsByPlan.get(p.id) ?? [],
-  }))
+  const rows = await db.query.feePlans.findMany({
+    with: feePlanWith,
+    where: yearId ? eq(feePlans.academicYearId, yearId) : undefined,
+    orderBy: asc(feePlans.name),
+  })
+  return toSnake(rows.map(withClassIds))
 }
 
 export async function getFeePlanById(
   id: string,
 ): Promise<FeePlanWithClasses | null> {
-  const { data: plan } = await supabase
-    .from('fee_plans')
-    .select(FEE_PLAN_SELECT)
-    .eq('id', id)
-    .maybeSingle()
-  if (!plan) return null
-  const { data: links } = await supabase
-    .from('fee_plan_classes')
-    .select('class_id')
-    .eq('fee_plan_id', id)
-  return {
-    ...(plan as unknown as FeePlanWithClasses),
-    class_ids: (links ?? []).map((l) => l.class_id),
-  }
+  const row = await db.query.feePlans.findFirst({
+    with: feePlanWith,
+    where: eq(feePlans.id, id),
+  })
+  return row ? toSnake(withClassIds(row)) : null
 }
 
 // The plan and its class links are written in one transaction by the
