@@ -119,7 +119,7 @@ describe('Server actions', () => {
 
 describe('Supabase client', () => {
   it('uses service role key, not anon key', () => {
-    const client = readFileSync(join(srcDir, 'db/client.ts'), 'utf-8')
+    const client = readFileSync(join(srcDir, 'db/supabase-client.ts'), 'utf-8')
     expect(client).toContain('SUPABASE_SERVICE_ROLE_KEY')
     expect(client).not.toContain('SUPABASE_ANON_KEY')
   })
