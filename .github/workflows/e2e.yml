@@ -51,6 +51,9 @@ jobs:
       - name: Start local Supabase
         run: npx supabase start
 
+      - name: Run database integration tests
+        run: npm run test:int
+
       - name: Cache Playwright browsers
         uses: actions/cache@v6
         with:

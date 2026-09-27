@@ -1,3 +1,4 @@
+import { DrizzleQueryError } from 'drizzle-orm'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 import { logError } from './log'
@@ -46,6 +47,24 @@ describe('logError', () => {
       classId: 'class-1',
       date: '2026-01-05',
     })
+  })
+
+  it('logs the Postgres error behind a DrizzleQueryError, not its parameters', () => {
+    const cause = Object.assign(new Error('violates check constraint'), {
+      code: '23514',
+      constraint_name: 'staff_payroll_bank_sort_code_check',
+    })
+    logError(
+      'payroll.save',
+      new DrizzleQueryError('update "staff_payroll" …', ['12345678'], cause),
+    )
+
+    expect(consoleError).toHaveBeenCalledWith('[payroll.save]', {
+      message: 'violates check constraint',
+      code: '23514',
+      constraint: 'staff_payroll_bank_sort_code_check',
+    })
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain('12345678')
   })
 
   it('stringifies a thrown value that is not an error', () => {

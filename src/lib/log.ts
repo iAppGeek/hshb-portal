@@ -1,17 +1,11 @@
-type ErrorLike = {
-  message?: unknown
-  code?: unknown
-  details?: unknown
-}
-
-function asErrorLike(err: unknown): ErrorLike {
-  return typeof err === 'object' && err !== null ? (err as ErrorLike) : {}
-}
+import { asDbError } from './db-error'
 
 function messageOf(err: unknown): string {
   if (err instanceof Error) return err.message
-  const { message } = asErrorLike(err)
-  if (typeof message === 'string') return message
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    const { message } = err
+    if (typeof message === 'string') return message
+  }
   return String(err)
 }
 
@@ -19,15 +13,21 @@ function messageOf(err: unknown): string {
  * The single place errors are written to the console. Callers pass a scope
  * (`'students.save'`) rather than logging at the throw site, so an error is
  * recorded exactly once with the context that identifies it.
+ *
+ * A database error is logged as Postgres reported it (code, message, detail).
+ * Drizzle's wrapper is not: its message embeds the query's parameter values,
+ * which can include personal or bank details.
  */
 export function logError(
   scope: string,
   err: unknown,
   context?: Record<string, unknown>,
 ): void {
-  const { code, details } = asErrorLike(err)
-  const payload: Record<string, unknown> = { message: messageOf(err) }
-  if (code !== undefined) payload.code = code
-  if (details !== undefined) payload.details = details
+  const dbError = asDbError(err)
+  const payload: Record<string, unknown> = dbError
+    ? { message: dbError.message, code: dbError.code }
+    : { message: messageOf(err) }
+  if (dbError?.details !== undefined) payload.details = dbError.details
+  if (dbError?.constraint !== undefined) payload.constraint = dbError.constraint
   console.error(`[${scope}]`, { ...payload, ...context })
 }

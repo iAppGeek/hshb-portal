@@ -1,12 +1,8 @@
 import { count, eq } from 'drizzle-orm'
-import { afterAll, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { db } from './client'
 import { classes, guardians, studentClasses, students } from './schema'
-
-afterAll(async () => {
-  await db.$client.end()
-})
 
 describe('db client', () => {
   it('runs a query over the direct connection', async () => {

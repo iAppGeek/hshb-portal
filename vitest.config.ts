@@ -19,7 +19,13 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'lcov'],
       include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/**/*.spec.{ts,tsx}', 'src/styles/**', 'src/types/**'],
+      // src/db is covered by the integration specs (npm run test:int).
+      exclude: [
+        'src/**/*.spec.{ts,tsx}',
+        'src/styles/**',
+        'src/types/**',
+        'src/db/**',
+      ],
       thresholds: {
         lines: 75,
         branches: 68,

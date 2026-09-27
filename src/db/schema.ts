@@ -27,14 +27,13 @@ import {
   pgEnum,
   pgTable,
   text,
-  timestamp,
   unique,
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
 
-// Timestamps come back as strings, matching what PostgREST returned before.
-const timestamptz = () => timestamp({ withTimezone: true, mode: 'string' })
+import { timestamptz } from './timestamptz'
+
 const money = () => numeric({ precision: 10, scale: 2, mode: 'number' })
 
 // ─── Enums ──────────────────────────────────────────────────────────────────
@@ -68,8 +67,12 @@ export const academicYears = pgTable(
     startDate: date().notNull(),
     endDate: date().notNull(),
     isCurrent: boolean().default(false).notNull(),
-    createdAt: timestamptz().defaultNow().notNull(),
-    updatedAt: timestamptz().defaultNow().notNull(),
+    createdAt: timestamptz()
+      .default(sql`now()`)
+      .notNull(),
+    updatedAt: timestamptz()
+      .default(sql`now()`)
+      .notNull(),
   },
   (t) => [
     unique('academic_years_code_key').on(t.code),
@@ -88,7 +91,7 @@ export const staff = pgTable(
     email: text().notNull(),
     role: text().notNull(),
     contactNumber: text(),
-    createdAt: timestamptz().defaultNow(),
+    createdAt: timestamptz().default(sql`now()`),
     firstName: text().notNull(),
     lastName: text().notNull(),
     displayName: text(),
@@ -117,8 +120,8 @@ export const guardians = pgTable(
     city: text(),
     postcode: text(),
     notes: text(),
-    createdAt: timestamptz().defaultNow(),
-    updatedAt: timestamptz().defaultNow(),
+    createdAt: timestamptz().default(sql`now()`),
+    updatedAt: timestamptz().default(sql`now()`),
     occupation: text(),
   },
   (t) => [
@@ -139,8 +142,8 @@ export const students = pgTable(
     enrollmentDate: date().default(sql`CURRENT_DATE`),
     active: boolean().default(true).notNull(),
     notes: text(),
-    createdAt: timestamptz().defaultNow(),
-    updatedAt: timestamptz().defaultNow(),
+    createdAt: timestamptz().default(sql`now()`),
+    updatedAt: timestamptz().default(sql`now()`),
     addressLine1: text('address_line_1'),
     addressLine2: text('address_line_2'),
     city: text(),
@@ -227,7 +230,7 @@ export const classes = pgTable(
     yearGroup: text().notNull(),
     roomNumber: text(),
     teacherId: uuid(),
-    createdAt: timestamptz().defaultNow(),
+    createdAt: timestamptz().default(sql`now()`),
     active: boolean().default(true).notNull(),
     academicYearId: uuid().notNull(),
   },
@@ -255,7 +258,7 @@ export const studentClasses = pgTable(
     id: uuid().defaultRandom().primaryKey(),
     studentId: uuid().notNull(),
     classId: uuid().notNull(),
-    enrolledAt: timestamptz().defaultNow(),
+    enrolledAt: timestamptz().default(sql`now()`),
     startDate: date()
       .default(sql`public.today_london()`)
       .notNull(),
@@ -300,8 +303,8 @@ export const attendance = pgTable(
     status: text().notNull(),
     notes: text(),
     recordedBy: uuid(),
-    createdAt: timestamptz().defaultNow(),
-    updatedAt: timestamptz().defaultNow(),
+    createdAt: timestamptz().default(sql`now()`),
+    updatedAt: timestamptz().default(sql`now()`),
   },
   (t) => [
     unique('attendance_class_student_date_key').on(
@@ -342,7 +345,7 @@ export const auditLog = pgTable(
     entity: text().notNull(),
     entityId: text(),
     details: jsonb().$type<Record<string, unknown>>(),
-    createdAt: timestamptz().defaultNow(),
+    createdAt: timestamptz().default(sql`now()`),
   },
   (t) => [
     index('idx_audit_log_created_at').using('btree', t.createdAt),
@@ -366,8 +369,12 @@ export const feePlans = pgTable(
     termlyInstalmentAmount: money().notNull(),
     notes: text(),
     active: boolean().default(true).notNull(),
-    createdAt: timestamptz().defaultNow().notNull(),
-    updatedAt: timestamptz().defaultNow().notNull(),
+    createdAt: timestamptz()
+      .default(sql`now()`)
+      .notNull(),
+    updatedAt: timestamptz()
+      .default(sql`now()`)
+      .notNull(),
     academicYearId: uuid().notNull(),
   },
   (t) => [
@@ -399,7 +406,9 @@ export const feePlanClasses = pgTable(
     id: uuid().defaultRandom().primaryKey(),
     feePlanId: uuid().notNull(),
     classId: uuid().notNull(),
-    createdAt: timestamptz().defaultNow().notNull(),
+    createdAt: timestamptz()
+      .default(sql`now()`)
+      .notNull(),
   },
   (t) => [
     unique('fee_plan_classes_class_id_key').on(t.classId),
@@ -428,8 +437,12 @@ export const incidents = pgTable(
     incidentDate: timestamptz().notNull(),
     createdBy: uuid().notNull(),
     updatedBy: uuid(),
-    createdAt: timestamptz().defaultNow().notNull(),
-    updatedAt: timestamptz().defaultNow().notNull(),
+    createdAt: timestamptz()
+      .default(sql`now()`)
+      .notNull(),
+    updatedAt: timestamptz()
+      .default(sql`now()`)
+      .notNull(),
     parentNotified: boolean().default(false).notNull(),
     parentNotifiedAt: timestamptz(),
   },
@@ -471,8 +484,12 @@ export const lessonPlans = pgTable(
     description: text().notNull(),
     createdBy: uuid().notNull(),
     updatedBy: uuid(),
-    createdAt: timestamptz().defaultNow().notNull(),
-    updatedAt: timestamptz().defaultNow().notNull(),
+    createdAt: timestamptz()
+      .default(sql`now()`)
+      .notNull(),
+    updatedAt: timestamptz()
+      .default(sql`now()`)
+      .notNull(),
   },
   (t) => [
     unique('lesson_plans_class_id_lesson_date_key').on(t.classId, t.lessonDate),
@@ -504,7 +521,9 @@ export const photoConsentOptOuts = pgTable(
   {
     id: uuid().defaultRandom().primaryKey(),
     status: photoOptOutStatus().default('pending').notNull(),
-    submittedAt: timestamptz().defaultNow().notNull(),
+    submittedAt: timestamptz()
+      .default(sql`now()`)
+      .notNull(),
     childFirstName: text().notNull(),
     childLastName: text().notNull(),
     dateOfBirth: date().notNull(),
@@ -514,8 +533,12 @@ export const photoConsentOptOuts = pgTable(
     actionedAt: timestamptz(),
     studentId: uuid(),
     rejectedReason: text(),
-    createdAt: timestamptz().defaultNow().notNull(),
-    updatedAt: timestamptz().defaultNow().notNull(),
+    createdAt: timestamptz()
+      .default(sql`now()`)
+      .notNull(),
+    updatedAt: timestamptz()
+      .default(sql`now()`)
+      .notNull(),
   },
   (t) => [
     index('photo_consent_opt_outs_status_idx').using('btree', t.status),
@@ -544,7 +567,7 @@ export const pushSubscriptions = pgTable(
     endpoint: text().notNull(),
     p256dh: text().notNull(),
     auth: text().notNull(),
-    createdAt: timestamptz().defaultNow(),
+    createdAt: timestamptz().default(sql`now()`),
   },
   (t) => [
     unique('push_subscriptions_endpoint_key').on(t.endpoint),
@@ -562,7 +585,9 @@ export const registrationSubmissions = pgTable(
   {
     id: uuid().defaultRandom().primaryKey(),
     status: submissionStatus().default('pending').notNull(),
-    submittedAt: timestamptz().defaultNow().notNull(),
+    submittedAt: timestamptz()
+      .default(sql`now()`)
+      .notNull(),
     childFirstName: text().notNull(),
     childLastName: text().notNull(),
     dateOfBirth: date().notNull(),
@@ -586,8 +611,12 @@ export const registrationSubmissions = pgTable(
     studentId: uuid(),
     linkedExisting: boolean().default(false).notNull(),
     rejectedReason: text(),
-    createdAt: timestamptz().defaultNow().notNull(),
-    updatedAt: timestamptz().defaultNow().notNull(),
+    createdAt: timestamptz()
+      .default(sql`now()`)
+      .notNull(),
+    updatedAt: timestamptz()
+      .default(sql`now()`)
+      .notNull(),
     englishSchoolName: text(),
   },
   (t) => [
@@ -629,7 +658,9 @@ export const registrationSubmissionContacts = pgTable(
     addressLine2: text('address_line_2'),
     city: text(),
     postcode: text(),
-    createdAt: timestamptz().defaultNow().notNull(),
+    createdAt: timestamptz()
+      .default(sql`now()`)
+      .notNull(),
     occupation: text(),
   },
   (t) => [
@@ -658,8 +689,8 @@ export const staffAttendance = pgTable(
       .notNull(),
     signedInAt: timestamptz().notNull(),
     signedOutAt: timestamptz(),
-    createdAt: timestamptz().defaultNow(),
-    updatedAt: timestamptz().defaultNow(),
+    createdAt: timestamptz().default(sql`now()`),
+    updatedAt: timestamptz().default(sql`now()`),
   },
   (t) => [
     unique('staff_attendance_staff_id_date_key').on(t.staffId, t.date),
@@ -708,8 +739,12 @@ export const staffPayroll = pgTable(
     fireWardenVerifiedAt: date(),
     fireWardenExpiryDate: date(),
     fireWardenReference: text(),
-    createdAt: timestamptz().defaultNow().notNull(),
-    updatedAt: timestamptz().defaultNow().notNull(),
+    createdAt: timestamptz()
+      .default(sql`now()`)
+      .notNull(),
+    updatedAt: timestamptz()
+      .default(sql`now()`)
+      .notNull(),
   },
   (t) => [
     unique('staff_payroll_staff_id_key').on(t.staffId),
@@ -778,8 +813,12 @@ export const studentFeeAccounts = pgTable(
     feePlanOverrideId: uuid(),
     customTotalAmount: money(),
     customUpToDate: boolean().default(false).notNull(),
-    createdAt: timestamptz().defaultNow().notNull(),
-    updatedAt: timestamptz().defaultNow().notNull(),
+    createdAt: timestamptz()
+      .default(sql`now()`)
+      .notNull(),
+    updatedAt: timestamptz()
+      .default(sql`now()`)
+      .notNull(),
     academicYearId: uuid().notNull(),
     settled: boolean().default(false).notNull(),
     settledNote: text(),
@@ -830,7 +869,9 @@ export const studentPayments = pgTable(
     method: text().notNull(),
     notes: text(),
     recordedBy: uuid(),
-    createdAt: timestamptz().defaultNow().notNull(),
+    createdAt: timestamptz()
+      .default(sql`now()`)
+      .notNull(),
     academicYearId: uuid().notNull(),
   },
   (t) => [
@@ -1028,12 +1069,12 @@ export const incidentsRelations = relations(incidents, ({ one }) => ({
     fields: [incidents.studentId],
     references: [students.id],
   }),
-  createdByStaff: one(staff, {
+  creator: one(staff, {
     fields: [incidents.createdBy],
     references: [staff.id],
     relationName: 'incidentCreatedBy',
   }),
-  updatedByStaff: one(staff, {
+  updater: one(staff, {
     fields: [incidents.updatedBy],
     references: [staff.id],
     relationName: 'incidentUpdatedBy',
@@ -1045,12 +1086,12 @@ export const lessonPlansRelations = relations(lessonPlans, ({ one }) => ({
     fields: [lessonPlans.classId],
     references: [classes.id],
   }),
-  createdByStaff: one(staff, {
+  creator: one(staff, {
     fields: [lessonPlans.createdBy],
     references: [staff.id],
     relationName: 'lessonPlanCreatedBy',
   }),
-  updatedByStaff: one(staff, {
+  updater: one(staff, {
     fields: [lessonPlans.updatedBy],
     references: [staff.id],
     relationName: 'lessonPlanUpdatedBy',

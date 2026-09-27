@@ -7,6 +7,7 @@ import {
   getClassesByTeacher,
 } from '@/db'
 import { ActionError, runAction, type ActionResult } from '@/lib/action'
+import { asDbError } from '@/lib/db-error'
 import {
   canCreateLessonPlans,
   canEditLessonPlans,
@@ -19,8 +20,7 @@ const DUPLICATE =
 
 /** The unique index on (class_id, lesson_date) has a message of its own. */
 function rethrowDuplicate(err: unknown): never {
-  if ((err as { code?: string })?.code === '23505')
-    throw new ActionError(DUPLICATE)
+  if (asDbError(err)?.code === '23505') throw new ActionError(DUPLICATE)
   throw err
 }
 
