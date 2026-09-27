@@ -42,8 +42,8 @@ describe('CommunicationPanel', () => {
 
     const link = screen.getByRole('link', { name: 'Open in email' })
     const href = decodeURIComponent(link.getAttribute('href') ?? '')
-    expect(href).toContain(ALL_PARENTS_LIST)
-    expect(href).toContain(ALL_TEACHERS_LIST)
+    expect(href).toContain('parents@hshb.org.uk')
+    expect(href).toContain('teachers@hshb.org.uk')
     expect(href).not.toContain('cc=')
     expect(href).not.toContain('bcc=')
   })

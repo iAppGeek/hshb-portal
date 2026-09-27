@@ -81,9 +81,19 @@ export function formatEmailsAsCsv(emails: string[]): string {
 /**
  * Semicolon-separated addresses. Outlook uses `;` between recipients, so this
  * pastes into a To, Cc, or Bcc box as one address per person.
+ * A value may already be `"Name" <email>`; that form is kept as-is.
  */
 export function formatEmailsForOutlook(emails: string[]): string {
   return normalizeAndDedupeEmails(emails).join('; ')
+}
+
+/** `"Name" <email>` becomes the address. A bare address is unchanged. */
+function emailForMailto(
+  value: string | null | undefined,
+): string | null | undefined {
+  if (value == null) return value
+  const match = value.match(/<([^<>]+)>\s*$/)
+  return match ? match[1].trim() : value
 }
 
 export function mailtoWithRecipients(fields: {
@@ -94,9 +104,9 @@ export function mailtoWithRecipients(fields: {
   body?: string
   maxTotalLength?: number
 }): string | null {
-  const to = normalizeAndDedupeEmails(fields.to ?? [])
-  const cc = normalizeAndDedupeEmails(fields.cc ?? [])
-  const bcc = normalizeAndDedupeEmails(fields.bcc ?? [])
+  const to = normalizeAndDedupeEmails((fields.to ?? []).map(emailForMailto))
+  const cc = normalizeAndDedupeEmails((fields.cc ?? []).map(emailForMailto))
+  const bcc = normalizeAndDedupeEmails((fields.bcc ?? []).map(emailForMailto))
   if (to.length === 0 && cc.length === 0 && bcc.length === 0) return null
 
   const params = new URLSearchParams()

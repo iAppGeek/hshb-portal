@@ -1,9 +1,9 @@
 import { personName } from '@/lib/format'
 import { guardianEmailsForMailto, normalizeAndDedupeEmails } from '@/lib/mailto'
 
-/** Exchange dynamic distribution lists from scripts/m365-sync (alias @hshb.org.uk). */
-export const ALL_PARENTS_LIST = 'allparents@hshb.org.uk'
-export const ALL_TEACHERS_LIST = 'allteachers@hshb.org.uk'
+/** Outlook form of the school distribution lists, ready to paste into To. */
+export const ALL_PARENTS_LIST = '"Parents" <parents@hshb.org.uk>'
+export const ALL_TEACHERS_LIST = '"HSHB Teachers" <teachers@hshb.org.uk>'
 
 export type CommunicationAudience =
   'broadcast' | 'parents' | 'teachers' | 'class'

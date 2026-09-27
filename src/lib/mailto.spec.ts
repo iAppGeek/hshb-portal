@@ -119,6 +119,17 @@ describe('mailtoWithRecipients', () => {
     expect(params.get('bcc')).toBe('a@x.com,b@x.com')
   })
 
+  it('uses the address inside an Outlook display-name recipient', () => {
+    expect(
+      mailtoWithRecipients({
+        to: [
+          '"Parents" <parents@hshb.org.uk>',
+          '"HSHB Teachers" <teachers@hshb.org.uk>',
+        ],
+      }),
+    ).toBe('mailto:parents%40hshb.org.uk,teachers%40hshb.org.uk')
+  })
+
   it('omits the query when only To is set', () => {
     expect(
       mailtoWithRecipients({ to: ['one@school.com', 'two@school.com'] }),
