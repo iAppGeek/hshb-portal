@@ -1,51 +1,108 @@
-import type { EnrolmentRangeRow, SummaryClass } from '@/lib/attendanceSummary'
-import {
-  toClassEmailRoster,
-  type ClassEmailRoster,
-  type ClassEmailSource,
-} from '@/lib/communication'
+import 'server-only'
+
+import { and, asc, eq, inArray } from 'drizzle-orm'
+
+import type { EnrolmentRangeRow } from '@/lib/attendanceSummary'
+import { toClassEmailRoster, type ClassEmailRoster } from '@/lib/communication'
 import type { EnrolmentRow } from '@/lib/enrolment'
 import type { Database } from '@/types/database'
 
-import { getCurrentAcademicYear } from './academic-years'
-import { supabase } from './client'
-import { withCurrentClasses } from './membership'
-import { fetchAllPages } from './paging'
+import { toCamel, toSnake, type Snake } from './casing'
+import { db, supabase } from './client'
+import { isCurrentStay, staysOverlapping } from './membership'
+import {
+  academicYears,
+  classes,
+  studentClasses,
+  type Class,
+  type Guardian,
+  type Staff,
+  type Student,
+} from './schema'
 
 /** The fields a form needs to list a class as a choice. */
 export type ClassOption = { id: string; name: string; year_group: string }
 
-const CLASS_SELECT =
-  '*, teacher:staff(id, first_name, last_name, display_name, email), academic_year:academic_years(id, code, start_date, end_date)'
+type TeacherSummary = Pick<
+  Staff,
+  'id' | 'firstName' | 'lastName' | 'displayName' | 'email'
+>
 
-type AcademicYearEmbed = {
-  id: string
-  code: string
-  start_date: string
-  end_date: string
-} | null
+/** A class with its teacher and its academic year's code. */
+export type ClassRow = Snake<Class & { teacher: TeacherSummary | null }> & {
+  academic_year: string
+}
+
+type ClassMember = Pick<
+  Student,
+  'id' | 'firstName' | 'lastName' | 'studentCode' | 'active' | 'leavingReason'
+>
+
+export type ClassWithMembers = ClassRow &
+  Snake<{ studentClasses: { studentId: string; student: ClassMember }[] }>
+
+type RosterGuardian = Pick<
+  Guardian,
+  'firstName' | 'lastName' | 'phone' | 'email'
+>
+
+export type ClassWithStudents = Omit<ClassRow, 'teacher'> &
+  Snake<{
+    teacher: Omit<TeacherSummary, 'id'> | null
+    studentClasses: {
+      student: Pick<
+        Student,
+        'id' | 'studentCode' | 'firstName' | 'lastName' | 'allergies'
+      > & {
+        primaryGuardian: RosterGuardian
+        secondaryGuardian: RosterGuardian | null
+      }
+    }[]
+    enrolmentHistory: {
+      id: string
+      startDate: string
+      endDate: string | null
+      student: Pick<Student, 'id' | 'firstName' | 'lastName'>
+    }[]
+  }>
+
+const teacherColumns = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  displayName: true,
+  email: true,
+} as const
+
+const classWith = {
+  teacher: { columns: teacherColumns },
+  academicYear: { columns: { code: true } },
+} as const
+
+/** The current academic year's id, as a subquery for `inArray`. */
+const currentYearId = db
+  .select({ id: academicYears.id })
+  .from(academicYears)
+  .where(eq(academicYears.isCurrent, true))
 
 /** Keeps the flat `academic_year: string` shape display components already use. */
-function withYearCode<T extends { academic_year: AcademicYearEmbed }>(
+function withYearCode<T extends { academicYear: { code: string } }>(
   row: T,
-): Omit<T, 'academic_year'> & { academic_year: string | null } {
-  const { academic_year, ...rest } = row
-  return { ...rest, academic_year: academic_year?.code ?? null }
+): Omit<T, 'academicYear'> & { academicYear: string } {
+  const { academicYear, ...rest } = row
+  return { ...rest, academicYear: academicYear.code }
 }
 
-async function getAllClassesForYear(yearId: string) {
-  const { data } = await supabase
-    .from('classes')
-    .select(CLASS_SELECT)
-    .eq('active', true)
-    .eq('academic_year_id', yearId)
-    .order('year_group')
-  return (data ?? []).map(withYearCode)
-}
-
-export async function getAllClasses() {
-  const current = await getCurrentAcademicYear()
-  return getAllClassesForYear(current.id)
+export async function getAllClasses(): Promise<ClassRow[]> {
+  const rows = await db.query.classes.findMany({
+    with: classWith,
+    where: and(
+      eq(classes.active, true),
+      inArray(classes.academicYearId, currentYearId),
+    ),
+    orderBy: asc(classes.yearGroup),
+  })
+  return toSnake(rows.map(withYearCode))
 }
 
 /** Active classes in the current year, with the teacher school email and guardian emails. */
@@ -53,27 +110,42 @@ export async function getClassEmailRosters(): Promise<{
   yearCode: string
   classes: ClassEmailRoster[]
 }> {
-  const current = await getCurrentAcademicYear()
-  const query = supabase
-    .from('classes')
-    .select(
-      `id, name, year_group,
-      teacher:staff(first_name, last_name, display_name, email),
-      student_classes(
-        student:students(
-          primary_guardian:guardians!students_primary_guardian_id_fkey(email),
-          secondary_guardian:guardians!students_secondary_guardian_id_fkey(email)
-        )
-      )`,
-    )
-    .eq('active', true)
-    .eq('academic_year_id', current.id)
-    .order('year_group')
-    .order('name')
-  const { data, error } = await withCurrentClasses(query)
-  if (error) throw error
+  const year = await db.query.academicYears.findFirst({
+    where: eq(academicYears.isCurrent, true),
+    columns: { code: true },
+    with: {
+      classes: {
+        where: eq(classes.active, true),
+        columns: { id: true, name: true, yearGroup: true },
+        with: {
+          teacher: {
+            columns: {
+              firstName: true,
+              lastName: true,
+              displayName: true,
+              email: true,
+            },
+          },
+          studentClasses: {
+            where: isCurrentStay,
+            columns: { id: true },
+            with: {
+              student: {
+                columns: { id: true },
+                with: {
+                  primaryGuardian: { columns: { email: true } },
+                  secondaryGuardian: { columns: { email: true } },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+  if (!year) throw new Error('No current academic year is set')
 
-  const rows = ((data ?? []) as ClassEmailSource[]).slice().sort((a, b) => {
+  const rows = toSnake(year.classes).sort((a, b) => {
     const byYear = a.year_group.localeCompare(b.year_group, 'en', {
       numeric: true,
     })
@@ -82,125 +154,175 @@ export async function getClassEmailRosters(): Promise<{
   })
 
   return {
-    yearCode: current.code,
+    yearCode: year.code,
     classes: rows.map(toClassEmailRoster),
   }
 }
 
-export async function getClassesByAcademicYear(yearId: string) {
-  const { data } = await supabase
-    .from('classes')
-    .select(CLASS_SELECT)
-    .eq('academic_year_id', yearId)
-    .order('year_group')
-  return (data ?? []).map(withYearCode)
+export async function getClassesByAcademicYear(
+  yearId: string,
+): Promise<ClassRow[]> {
+  const rows = await db.query.classes.findMany({
+    with: classWith,
+    where: eq(classes.academicYearId, yearId),
+    orderBy: asc(classes.yearGroup),
+  })
+  return toSnake(rows.map(withYearCode))
 }
 
-export async function getClassById(id: string) {
+export async function getClassById(
+  id: string,
+): Promise<ClassWithMembers | null> {
   // Member details let the class form show a leaver still on the class,
   // who isn't in the selectable (active) student list.
-  const { data } = await withCurrentClasses(
-    supabase
-      .from('classes')
-      .select(
-        `${CLASS_SELECT}, student_classes(student_id, student:students(id, first_name, last_name, student_code, active, leaving_reason))`,
-      )
-      .eq('id', id),
-  ).single()
-  return data ? withYearCode(data) : data
+  const row = await db.query.classes.findFirst({
+    where: eq(classes.id, id),
+    with: {
+      ...classWith,
+      studentClasses: {
+        where: isCurrentStay,
+        columns: { studentId: true },
+        with: {
+          student: {
+            columns: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              studentCode: true,
+              active: true,
+              leavingReason: true,
+            },
+          },
+        },
+      },
+    },
+  })
+  return row ? toSnake(withYearCode(row)) : null
 }
 
-async function getClassesByTeacherForYear(teacherId: string, yearId: string) {
-  const { data } = await supabase
-    .from('classes')
-    .select(CLASS_SELECT)
-    .eq('teacher_id', teacherId)
-    .eq('active', true)
-    .eq('academic_year_id', yearId)
-    .order('year_group')
-  return (data ?? []).map(withYearCode)
-}
-
-export async function getClassesByTeacher(teacherId: string) {
-  const current = await getCurrentAcademicYear()
-  return getClassesByTeacherForYear(teacherId, current.id)
-}
-
-export async function getClassWithStudents(id: string) {
-  const query = supabase
-    .from('classes')
-    .select(
-      `*, teacher:staff(first_name, last_name, display_name, email),
-    academic_year:academic_years(id, code, start_date, end_date),
-    student_classes(
-      student:students(
-        id, student_code, first_name, last_name, allergies,
-        primary_guardian:guardians!students_primary_guardian_id_fkey(first_name, last_name, phone, email),
-        secondary_guardian:guardians!students_secondary_guardian_id_fkey(first_name, last_name, phone, email)
-      )
+export async function getClassesByTeacher(
+  teacherId: string,
+): Promise<ClassRow[]> {
+  const rows = await db.query.classes.findMany({
+    with: classWith,
+    where: and(
+      eq(classes.teacherId, teacherId),
+      eq(classes.active, true),
+      inArray(classes.academicYearId, currentYearId),
     ),
-    enrolment_history:student_classes(
-      id, start_date, end_date,
-      student:students(id, first_name, last_name)
-    )`,
-    )
-    .eq('id', id)
-  // Only the roster embed is filtered; enrolment_history keeps every stay.
-  const { data } = await withCurrentClasses(query).single()
-  return data ? withYearCode(data) : data
+    orderBy: asc(classes.yearGroup),
+  })
+  return toSnake(rows.map(withYearCode))
+}
+
+export async function getClassWithStudents(
+  id: string,
+): Promise<ClassWithStudents | null> {
+  const guardianColumns = {
+    firstName: true,
+    lastName: true,
+    phone: true,
+    email: true,
+  } as const
+  // Every stay, once: the roster is the current ones, the history all of them.
+  const row = await db.query.classes.findFirst({
+    where: eq(classes.id, id),
+    with: {
+      teacher: {
+        columns: {
+          firstName: true,
+          lastName: true,
+          displayName: true,
+          email: true,
+        },
+      },
+      academicYear: { columns: { code: true } },
+      studentClasses: {
+        columns: { id: true, startDate: true, endDate: true },
+        with: {
+          student: {
+            columns: {
+              id: true,
+              studentCode: true,
+              firstName: true,
+              lastName: true,
+              allergies: true,
+            },
+            with: {
+              primaryGuardian: { columns: guardianColumns },
+              secondaryGuardian: { columns: guardianColumns },
+            },
+          },
+        },
+      },
+    },
+  })
+  if (!row) return null
+
+  const { studentClasses: stays, ...cls } = withYearCode(row)
+  return toSnake({
+    ...cls,
+    studentClasses: stays
+      .filter((stay) => stay.endDate === null)
+      .map((stay) => ({ student: stay.student })),
+    enrolmentHistory: stays.map((stay) => ({
+      id: stay.id,
+      startDate: stay.startDate,
+      endDate: stay.endDate,
+      student: {
+        id: stay.student.id,
+        firstName: stay.student.firstName,
+        lastName: stay.student.lastName,
+      },
+    })),
+  })
 }
 
 export async function getEnrolmentsForClass(
   classId: string,
 ): Promise<EnrolmentRow[]> {
-  const { data, error } = await supabase
-    .from('student_classes')
-    .select('class_id, student_id, start_date, end_date')
-    .eq('class_id', classId)
-  if (error) throw error
-  return data ?? []
+  const rows = await db
+    .select({
+      classId: studentClasses.classId,
+      studentId: studentClasses.studentId,
+      startDate: studentClasses.startDate,
+      endDate: studentClasses.endDate,
+    })
+    .from(studentClasses)
+    .where(eq(studentClasses.classId, classId))
+  return toSnake(rows)
 }
 
 export async function getEnrolmentsInRange(
   start: string,
   end: string,
 ): Promise<EnrolmentRangeRow[]> {
-  const rows = await fetchAllPages<{
-    class_id: string
-    student_id: string
-    start_date: string
-    end_date: string | null
-    class: {
-      id: string
-      name: string
-      active: boolean
-      academic_year: { code: string } | null
-    } | null
-  }>((from, to) =>
-    supabase
-      .from('student_classes')
-      .select(
-        'class_id, student_id, start_date, end_date, class:classes!inner(id, name, active, academic_year:academic_years(code))',
-      )
-      .lte('start_date', end)
-      .or(`end_date.is.null,end_date.gt.${start}`)
-      .order('id')
-      .range(from, to),
-  )
-  return rows
-    .filter((r) => r.class)
-    .map((r) => ({
-      class_id: r.class_id,
-      student_id: r.student_id,
-      start_date: r.start_date,
-      end_date: r.end_date,
+  const rows = await db
+    .select({
+      classId: studentClasses.classId,
+      studentId: studentClasses.studentId,
+      startDate: studentClasses.startDate,
+      endDate: studentClasses.endDate,
       class: {
-        id: r.class!.id,
-        name: r.class!.name,
-        active: r.class!.active,
-        yearCode: r.class!.academic_year?.code ?? null,
-      } satisfies SummaryClass,
-    }))
+        id: classes.id,
+        name: classes.name,
+        active: classes.active,
+        yearCode: academicYears.code,
+      },
+    })
+    .from(studentClasses)
+    .innerJoin(classes, eq(classes.id, studentClasses.classId))
+    .innerJoin(academicYears, eq(academicYears.id, classes.academicYearId))
+    .where(staysOverlapping(studentClasses, start, end))
+    .orderBy(asc(studentClasses.id))
+  // `class` is a SummaryClass, whose `yearCode` stays camelCase.
+  return rows.map((r) => ({
+    class_id: r.classId,
+    student_id: r.studentId,
+    start_date: r.startDate,
+    end_date: r.endDate,
+    class: r.class,
+  }))
 }
 
 type ClassInsert = {
@@ -212,14 +334,9 @@ type ClassInsert = {
   active?: boolean
 }
 
-export async function createClass(data: ClassInsert) {
-  const { data: cls, error } = await supabase
-    .from('classes')
-    .insert(data)
-    .select()
-    .single()
-  if (error) throw error
-  return cls
+export async function createClass(data: ClassInsert): Promise<Snake<Class>> {
+  const [row] = await db.insert(classes).values(toCamel(data)).returning()
+  return toSnake(row)
 }
 
 /** A class's academic year is fixed once created; deactivation only happens
@@ -227,9 +344,8 @@ export async function createClass(data: ClassInsert) {
 export async function updateClass(
   id: string,
   data: Partial<Omit<ClassInsert, 'academic_year_id' | 'active'>>,
-) {
-  const { error } = await supabase.from('classes').update(data).eq('id', id)
-  if (error) throw error
+): Promise<void> {
+  await db.update(classes).set(toCamel(data)).where(eq(classes.id, id))
 }
 
 export type MigrationAction =
@@ -270,7 +386,10 @@ export async function migrateClass(input: {
   return data as unknown as MigrateClassResult
 }
 
-export async function setClassStudents(classId: string, studentIds: string[]) {
+export async function setClassStudents(
+  classId: string,
+  studentIds: string[],
+): Promise<void> {
   const { error } = await supabase.rpc('set_enrolments', {
     p_student_id: null,
     p_class_id: classId,
