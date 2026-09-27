@@ -9,8 +9,9 @@ import Table from '@/components/grid/Table'
 import TableCard from '@/components/grid/TableCard'
 import Td from '@/components/grid/Td'
 import Th from '@/components/grid/Th'
-import Tooltip from '@/components/Tooltip'
+import PermissionedLink from '@/components/PermissionedLink'
 import { formatCalendarDate, formatDateTimeInSchoolTz } from '@/lib/datetime'
+import { personName } from '@/lib/format'
 import { tbody, thead } from '@/lib/grid/styles'
 import { isTeacher } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
@@ -81,22 +82,15 @@ export default function LessonPlansClient({
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
-                    {canEdit ? (
-                      <Link
-                        href={`/lesson-plans/${plan.id}/edit`}
-                        className="text-xs font-medium text-blue-600 hover:text-blue-800"
-                      >
-                        Edit
-                      </Link>
-                    ) : (
-                      !isTeacher(role) && (
-                        <Tooltip text="You don't have permission to edit lesson plans">
-                          <span className="cursor-not-allowed text-xs font-medium text-gray-400">
-                            Edit
-                          </span>
-                        </Tooltip>
-                      )
-                    )}
+                    <PermissionedLink
+                      href={`/lesson-plans/${plan.id}/edit`}
+                      allowed={canEdit}
+                      showDisabled={!isTeacher(role)}
+                      disabledReason="You don't have permission to edit lesson plans"
+                      className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                    >
+                      Edit
+                    </PermissionedLink>
                     <button
                       onClick={() => setSelected(plan)}
                       className="text-xs font-medium text-gray-500 hover:text-gray-700"
@@ -109,7 +103,7 @@ export default function LessonPlansClient({
                   {plan.description}
                 </p>
                 <div className="mt-2 text-xs text-gray-400">
-                  By {plan.creator.first_name} {plan.creator.last_name}
+                  By {personName(plan.creator)}
                 </div>
               </div>
             ))}
@@ -152,7 +146,7 @@ export default function LessonPlansClient({
                       mobile="scroll"
                       meta={{ className: 'whitespace-nowrap' }}
                     >
-                      {plan.creator.first_name} {plan.creator.last_name}
+                      {personName(plan.creator)}
                     </Td>
                     <Td
                       mobile="scroll"
@@ -162,22 +156,14 @@ export default function LessonPlansClient({
                       }}
                     >
                       <div className="flex items-center justify-end gap-3">
-                        {canEdit ? (
-                          <Link
-                            href={`/lesson-plans/${plan.id}/edit`}
-                            className="text-blue-600 hover:text-blue-800"
-                          >
-                            Edit
-                          </Link>
-                        ) : (
-                          !isTeacher(role) && (
-                            <Tooltip text="You don't have permission to edit lesson plans">
-                              <span className="cursor-not-allowed text-gray-400">
-                                Edit
-                              </span>
-                            </Tooltip>
-                          )
-                        )}
+                        <PermissionedLink
+                          href={`/lesson-plans/${plan.id}/edit`}
+                          allowed={canEdit}
+                          showDisabled={!isTeacher(role)}
+                          disabledReason="You don't have permission to edit lesson plans"
+                        >
+                          Edit
+                        </PermissionedLink>
                         <button
                           onClick={() => setSelected(plan)}
                           className="text-gray-500 hover:text-gray-700"
@@ -260,7 +246,7 @@ function LessonPlanModal({
             <div className="space-y-1 text-sm text-gray-600">
               <p>
                 <span className="font-medium text-gray-700">Created by: </span>
-                {plan.creator.first_name} {plan.creator.last_name}
+                {personName(plan.creator)}
               </p>
               <p className="text-xs text-gray-400">
                 {formatDateTimeInSchoolTz(plan.created_at)}
@@ -271,7 +257,7 @@ function LessonPlanModal({
                     <span className="font-medium text-gray-700">
                       Last updated by:{' '}
                     </span>
-                    {plan.updater.first_name} {plan.updater.last_name}
+                    {personName(plan.updater)}
                   </p>
                   <p className="text-xs text-gray-400">
                     {formatDateTimeInSchoolTz(plan.updated_at)}

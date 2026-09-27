@@ -8,6 +8,7 @@ import {
   getClassWithStudents,
   getCurrentAcademicYear,
 } from '@/db'
+import { personName } from '@/lib/format'
 import { compareByName } from '@/lib/grid/sort'
 import { canSeeAllData, isAdmin } from '@/lib/permissions'
 
@@ -67,10 +68,7 @@ export default async function AllClassRegistersPage({
             email: string | null
           } | null
 
-          const teacherName = teacher
-            ? (teacher.display_name ??
-              `${teacher.first_name} ${teacher.last_name}`)
-            : '—'
+          const teacherName = personName(teacher)
 
           const students = (
             cls.student_classes as Array<{ student: RegisterStudent | null }>

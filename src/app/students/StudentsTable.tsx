@@ -1,16 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 
 import FunctionalGrid, {
   type FunctionalGridColumn,
 } from '@/clientComponents/grid/FunctionalGrid'
 import LeaverBadge from '@/components/LeaverBadge'
+import PermissionedLink from '@/components/PermissionedLink'
 import StudentDetailsModal, {
   type StudentForModal,
 } from '@/components/StudentDetailsModal'
-import Tooltip from '@/components/Tooltip'
+import { personName } from '@/lib/format'
 import type { StackedRowSpec } from '@/lib/grid/columns'
 import { fullName, matchesAny, normaliseQuery } from '@/lib/grid/search'
 import { compareByName, compareNullableText } from '@/lib/grid/sort'
@@ -61,24 +61,16 @@ function EditLink({
   student: Student
   role: StaffRole
 }): React.ReactElement | null {
-  if (canEditStudents(role)) {
-    return (
-      <Link
-        href={`/students/${student.id}/edit`}
-        className="text-blue-600 hover:text-blue-800"
-      >
-        Edit
-      </Link>
-    )
-  }
-  if (canSeeAllData(role)) {
-    return (
-      <Tooltip text="You don't have permission to edit students">
-        <span className="cursor-not-allowed text-gray-400">Edit</span>
-      </Tooltip>
-    )
-  }
-  return null
+  return (
+    <PermissionedLink
+      href={`/students/${student.id}/edit`}
+      allowed={canEditStudents(role)}
+      showDisabled={canSeeAllData(role)}
+      disabledReason="You don't have permission to edit students"
+    >
+      Edit
+    </PermissionedLink>
+  )
 }
 
 export default function StudentsTable({
@@ -95,7 +87,7 @@ export default function StudentsTable({
         const student = info.row.original
         return (
           <span className="inline-flex items-center gap-2">
-            {student.last_name}, {student.first_name}
+            {personName(student, 'lastFirst')}
             {!student.active && <LeaverBadge reason={student.leaving_reason} />}
           </span>
         )
@@ -159,7 +151,7 @@ export default function StudentsTable({
   const stacked: StackedRowSpec<Student> = {
     title: (student) => (
       <>
-        {student.last_name}, {student.first_name}
+        {personName(student, 'lastFirst')}
         {!student.active && <LeaverBadge reason={student.leaving_reason} />}
       </>
     ),

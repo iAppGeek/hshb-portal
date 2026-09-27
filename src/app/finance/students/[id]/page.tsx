@@ -12,6 +12,7 @@ import {
 import type { FeePlanWithClasses } from '@/db'
 import { resolveYearId } from '@/lib/academicYears'
 import { todayInSchoolTz } from '@/lib/datetime'
+import { personName } from '@/lib/format'
 import LeaverBadge from '@/components/LeaverBadge'
 
 import PageHeader from '../../../_components/PageHeader'
@@ -71,7 +72,7 @@ export default async function StudentFeesPage({
       <PageHeader
         title={
           <span className="flex items-center gap-2">
-            {student.last_name}, {student.first_name}
+            {personName(student, 'lastFirst')}
             {!student.active && <LeaverBadge reason={student.leaving_reason} />}
           </span>
         }

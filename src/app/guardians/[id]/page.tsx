@@ -6,6 +6,7 @@ import { requireSession } from '@/auth/require'
 import { getGuardianById, getFamilyForGuardian } from '@/db'
 import type { FamilySlot } from '@/db'
 import LeaverBadge from '@/components/LeaverBadge'
+import { personName } from '@/lib/format'
 import { mailtoWithBcc } from '@/lib/mailto'
 import { canViewGuardians } from '@/lib/permissions'
 
@@ -135,7 +136,7 @@ export default async function GuardianFamilyPage({
               >
                 <div>
                   <p className="flex items-center gap-2 text-sm font-medium text-gray-900">
-                    {child.last_name}, {child.first_name}
+                    {personName(child, 'lastFirst')}
                     {!child.active && (
                       <LeaverBadge reason={child.leaving_reason} />
                     )}
@@ -172,7 +173,7 @@ export default async function GuardianFamilyPage({
               >
                 <div>
                   <p className="text-sm font-medium text-gray-900">
-                    {co.last_name}, {co.first_name}
+                    {personName(co, 'lastFirst')}
                   </p>
                   <p className="mt-0.5 text-xs text-gray-500">
                     {co.links

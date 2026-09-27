@@ -12,6 +12,7 @@ import {
   formStyles,
   useServerForm,
 } from '@/components/form'
+import { personName } from '@/lib/format'
 import { matchesAny, normaliseQuery } from '@/lib/grid/search'
 import type { ActionResult } from '@/lib/action'
 
@@ -223,7 +224,7 @@ export default function ClassForm({
                   defaultChecked={s.enrolled}
                   className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
-                {s.last_name}, {s.first_name}
+                {personName(s, 'lastFirst')}
                 {s.student_code && (
                   <span className="text-gray-400">({s.student_code})</span>
                 )}

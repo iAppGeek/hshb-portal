@@ -17,6 +17,7 @@ import {
   formStyles,
   useServerForm,
 } from '@/components/form'
+import { personName } from '@/lib/format'
 
 import { approveRegistrationAction } from '../actions'
 
@@ -117,7 +118,7 @@ export default function ApproveDialog({
                     >
                       {matches.map((m) => (
                         <option key={m.id} value={m.id}>
-                          {m.last_name}, {m.first_name}
+                          {personName(m, 'lastFirst')}
                           {m.student_code ? ` (${m.student_code})` : ''}
                         </option>
                       ))}
@@ -153,7 +154,7 @@ export default function ApproveDialog({
                                 : 'text-gray-700'
                             }`}
                           >
-                            {s.last_name}, {s.first_name}
+                            {personName(s, 'lastFirst')}
                             {s.student_code ? ` (${s.student_code})` : ''}
                           </button>
                         </li>

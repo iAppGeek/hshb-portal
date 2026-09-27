@@ -9,6 +9,7 @@ import Td from '@/components/grid/Td'
 import Th from '@/components/grid/Th'
 import Tooltip from '@/components/Tooltip'
 import { formatDateInSchoolTz, formatDateTimeInSchoolTz } from '@/lib/datetime'
+import { personName } from '@/lib/format'
 import { tbody, theadStacked } from '@/lib/grid/styles'
 import { canApproveRegistrations } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
@@ -78,7 +79,13 @@ export default function PhotoOptOutSection({
               return (
                 <tr key={r.id} className="hover:bg-gray-50">
                   <Td mobile="hide-columns" meta={{ primary: true }}>
-                    {r.child_last_name}, {r.child_first_name}
+                    {personName(
+                      {
+                        first_name: r.child_first_name,
+                        last_name: r.child_last_name,
+                      },
+                      'lastFirst',
+                    )}
                   </Td>
                   <Td mobile="hide-columns" meta={{ mobile: 'hide' }}>
                     {formatDateInSchoolTz(r.date_of_birth)}

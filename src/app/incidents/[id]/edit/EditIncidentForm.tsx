@@ -14,6 +14,7 @@ import {
   nowDatetimeLocalInSchoolTz,
   toDatetimeLocalInSchoolTz,
 } from '@/lib/datetime'
+import { personName } from '@/lib/format'
 
 import { updateIncidentAction } from '../../actions'
 
@@ -45,7 +46,7 @@ export default function EditIncidentForm({ incident }: Props) {
         <div className="grid grid-cols-1 gap-4">
           <div className="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-500">
             <span className="font-medium text-gray-700">Student: </span>
-            {incident.student.last_name}, {incident.student.first_name}
+            {personName(incident.student, 'lastFirst')}
           </div>
 
           <TextField

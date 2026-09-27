@@ -11,6 +11,7 @@ import Th from '@/components/grid/Th'
 import Tooltip from '@/components/Tooltip'
 import Tr from '@/components/grid/Tr'
 import { useServerForm } from '@/components/form'
+import { personName } from '@/lib/format'
 import { tbody, theadStacked } from '@/lib/grid/styles'
 import { canUpdateAttendance } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
@@ -168,9 +169,7 @@ export default function AttendanceForm({
                             />
                           )}
                           <div className="flex items-center justify-between gap-2 sm:block">
-                            <span>
-                              {student.last_name}, {student.first_name}
-                            </span>
+                            <span>{personName(student, 'lastFirst')}</span>
                             <button
                               type="button"
                               onClick={() => setSelectedStudent(student)}

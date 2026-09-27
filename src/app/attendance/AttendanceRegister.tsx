@@ -1,4 +1,4 @@
-import BulkEmailDropdown from '@/clientComponents/BulkEmailDropdown'
+import EmailDropdown from '@/clientComponents/EmailDropdown'
 import {
   getStudentsByIds,
   getAttendanceByClassAndDate,
@@ -59,9 +59,8 @@ export default async function AttendanceRegister({
       date === today ? 'Today' : date < today ? 'Historical' : 'Future',
     actions:
       students.length > 0 ? (
-        <BulkEmailDropdown
-          emails={attendanceBcc}
-          mailtoHref={attendanceMailtoHref}
+        <EmailDropdown
+          groups={[{ emails: attendanceBcc, mailtoHref: attendanceMailtoHref }]}
           buttonLabel="Email class"
           triggerClassName="rounded-lg border border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 shadow-sm transition hover:bg-blue-50"
           emptyReason="No guardian email addresses on file for this class."

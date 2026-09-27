@@ -10,6 +10,7 @@ import {
   TextField,
   useServerForm,
 } from '@/components/form'
+import { personName } from '@/lib/format'
 
 import { updateGuardianAction } from './actions'
 
@@ -133,7 +134,7 @@ export default function EditGuardianForm({ guardian, linkedStudents }: Props) {
             {linkedStudents.map((s) => (
               <li key={s.id} className="flex items-center justify-between py-2">
                 <span className="text-sm text-gray-900">
-                  {s.last_name}, {s.first_name}
+                  {personName(s, 'lastFirst')}
                   {s.student_code && (
                     <span className="ml-2 text-gray-400">
                       ({s.student_code})

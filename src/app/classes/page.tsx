@@ -8,7 +8,7 @@ import {
   getClassesByTeacher,
   getCurrentAcademicYear,
 } from '@/db'
-import Tooltip from '@/components/Tooltip'
+import PermissionedLink from '@/components/PermissionedLink'
 import { resolveYearId } from '@/lib/academicYears'
 import { isClassOpen } from '@/lib/classes'
 import {
@@ -78,20 +78,15 @@ export default async function ClassesPage({
                 Print All Registers
               </Link>
             )}
-            {canCreateClasses(role) ? (
-              <Link
-                href="/classes/new"
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
-              >
-                Add Class
-              </Link>
-            ) : canSeeAllData(role) ? (
-              <Tooltip text="You don't have permission to add classes">
-                <span className="cursor-not-allowed rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white opacity-50 shadow-sm">
-                  Add Class
-                </span>
-              </Tooltip>
-            ) : null}
+            <PermissionedLink
+              href="/classes/new"
+              allowed={canCreateClasses(role)}
+              showDisabled={canSeeAllData(role)}
+              disabledReason="You don't have permission to add classes"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+            >
+              Add Class
+            </PermissionedLink>
           </div>
         }
       />

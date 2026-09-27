@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react'
 
-import EditAction from '@/components/EditAction'
 import SimpleGrid from '@/components/grid/SimpleGrid'
+import PermissionedLink from '@/components/PermissionedLink'
 import type { getAllStaffWithClasses } from '@/db'
 import type { GridColumn, StackedRowSpec } from '@/lib/grid/columns'
 import { rowLink } from '@/lib/grid/styles'
@@ -48,12 +48,14 @@ export default function StaffTable({
   const showActions = canEdit || canSeeAllData(role)
 
   const editAction = (member: StaffMember): ReactElement => (
-    <EditAction
+    <PermissionedLink
       href={`/staff/${member.id}/edit`}
-      canEdit={canEdit}
+      allowed={canEdit}
       showDisabled={showDisabled}
-      noun="staff"
-    />
+      disabledReason="You don't have permission to edit staff"
+    >
+      Edit
+    </PermissionedLink>
   )
 
   const columns: GridColumn<StaffMember>[] = [

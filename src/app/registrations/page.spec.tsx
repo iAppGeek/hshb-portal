@@ -28,9 +28,9 @@ vi.mock('next/navigation', async (importOriginal) => ({
   redirect: vi.fn(),
 }))
 
-vi.mock('./RegistrationTabs', () => ({
-  default: ({ currentStatus }: { currentStatus: string }) => (
-    <div data-testid="tabs">{currentStatus}</div>
+vi.mock('@/components/TabBar', () => ({
+  default: ({ current }: { current: string }) => (
+    <div data-testid="tabs">{current}</div>
   ),
 }))
 

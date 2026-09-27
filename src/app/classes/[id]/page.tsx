@@ -3,10 +3,11 @@ import { type Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
 import { requireSession } from '@/auth/require'
-import BulkEmailDropdown from '@/clientComponents/BulkEmailDropdown'
+import EmailDropdown from '@/clientComponents/EmailDropdown'
 import PrintPageSetup from '@/components/grid/PrintPageSetup'
 import TableSkeleton from '@/components/grid/TableSkeleton'
 import { getClassWithStudents } from '@/db'
+import { personName } from '@/lib/format'
 import { compareByName } from '@/lib/grid/sort'
 import { guardianEmailsForMailto, mailtoWithBcc } from '@/lib/mailto'
 import { isTeacher } from '@/lib/permissions'
@@ -53,9 +54,7 @@ export default async function ClassRegisterPage({
     email: string | null
   } | null
 
-  const teacherName = teacher
-    ? (teacher.display_name ?? `${teacher.first_name} ${teacher.last_name}`)
-    : '—'
+  const teacherName = personName(teacher)
 
   const students = (cls.student_classes as Array<{ student: Student | null }>)
     .map((sc) => sc.student)
@@ -82,9 +81,10 @@ export default async function ClassRegisterPage({
           action={
             <div className="flex shrink-0 items-center gap-3">
               {students.length > 0 && (
-                <BulkEmailDropdown
-                  emails={classBccEmails}
-                  mailtoHref={classMailtoHref}
+                <EmailDropdown
+                  groups={[
+                    { emails: classBccEmails, mailtoHref: classMailtoHref },
+                  ]}
                   buttonLabel="Email class"
                   triggerClassName="rounded-lg border border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 shadow-sm transition hover:bg-blue-50"
                   emptyReason="No guardian email addresses on file for this class."

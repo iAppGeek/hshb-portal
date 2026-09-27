@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import Link from 'next/link'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 
+import { personName } from '@/lib/format'
 import { canSeeStudentMedical, canEditGuardians } from '@/lib/permissions'
 import { resolveStudentAddress } from '@/lib/student-address'
 import type { AddressSource } from '@/lib/student-address'
@@ -104,7 +105,7 @@ export default function StudentDetailsModal({ student, role, onClose }: Props) {
       >
         <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
           <h2 className="text-lg font-semibold text-gray-900">
-            {student.last_name}, {student.first_name}
+            {personName(student, 'lastFirst')}
           </h2>
           <button
             onClick={onClose}

@@ -8,6 +8,7 @@ import type { GuardianMatch } from '@/db'
 import DefinitionList from '@/components/DefinitionList'
 import Tooltip from '@/components/Tooltip'
 import { formatDateInSchoolTz, formatDateTimeInSchoolTz } from '@/lib/datetime'
+import { personName } from '@/lib/format'
 import { guardianReuseDiff, type FieldDiff } from '@/lib/guardianDiff'
 import { canApproveRegistrations } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
@@ -216,11 +217,8 @@ export default function RegistrationReview({
                     key={m.id}
                     className="col-span-full rounded-lg bg-amber-50 p-3 text-sm text-amber-800"
                   >
-                    Matches existing guardian{' '}
-                    <strong>
-                      {m.first_name} {m.last_name}
-                    </strong>{' '}
-                    ({m.phone}
+                    Matches existing guardian <strong>{personName(m)}</strong> (
+                    {m.phone}
                     {m.email ? `, ${m.email}` : ''}) by {m.matched_on}.
                     Approving with &quot;reuse&quot; on will link the student to
                     that record and update its phone, occupation and address.
@@ -311,7 +309,7 @@ export default function RegistrationReview({
             <ul className="space-y-1 text-sm text-gray-700">
               {matches.map((m) => (
                 <li key={m.id}>
-                  {m.last_name}, {m.first_name}
+                  {personName(m, 'lastFirst')}
                   {m.date_of_birth ? ` — ${m.date_of_birth}` : ''}
                   {m.student_code ? ` (${m.student_code})` : ''}
                   {!m.active && (
