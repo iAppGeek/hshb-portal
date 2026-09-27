@@ -82,7 +82,12 @@ export default function PhotoOptOutReview({
 
       <DefinitionList title="Workflow" items={workflowItems(request)} />
 
-      <div className="flex flex-wrap items-center gap-3">
+      {/* Named so a test can click a trigger without also matching the
+          same-labelled confirm button inside the dialog it opens. */}
+      <div
+        data-testid="review-actions"
+        className="flex flex-wrap items-center gap-3"
+      >
         <PermissionedButton
           allowed={canAct}
           showDisabled={!isAdmin}

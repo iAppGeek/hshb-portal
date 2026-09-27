@@ -120,8 +120,9 @@ test.describe('Photo consent opt-out — admin review', () => {
     }).toPass({ timeout: 45000 })
 
     const dialog = page.getByTestId('match-student-dialog')
+    const actions = page.getByTestId('review-actions')
     await expect(async () => {
-      await page.getByRole('button', { name: 'Match & apply' }).click()
+      await actions.getByRole('button', { name: 'Match & apply' }).click()
       await expect(
         dialog.getByRole('heading', { name: 'Match to a student' }),
       ).toBeVisible({ timeout: 3000 })
@@ -171,8 +172,11 @@ test.describe('Photo consent opt-out — admin review', () => {
     ).toBeVisible()
 
     const dialog = page.getByTestId('reason-dialog')
+    // Scoped to the action bar: the dialog's confirm button is also called
+    // "Reject", so an unscoped locator would match two nodes on a retry.
+    const actions = page.getByTestId('review-actions')
     await expect(async () => {
-      await page.getByRole('button', { name: 'Reject' }).click()
+      await actions.getByRole('button', { name: 'Reject' }).click()
       await expect(dialog).toBeVisible({ timeout: 3000 })
     }).toPass({ timeout: 45000 })
     await dialog.getByLabel(/Reason/).fill('Cannot match to a student')
@@ -210,8 +214,9 @@ test.describe('Photo consent opt-out — admin review', () => {
 
     await page.goto(`/registrations/photo-opt-outs/${id}`)
     const dialog = page.getByTestId('confirm-dialog')
+    const actions = page.getByTestId('review-actions')
     await expect(async () => {
-      await page.getByRole('button', { name: 'Delete' }).click()
+      await actions.getByRole('button', { name: 'Delete' }).click()
       await expect(dialog).toBeVisible({ timeout: 3000 })
     }).toPass({ timeout: 45000 })
     await expect(

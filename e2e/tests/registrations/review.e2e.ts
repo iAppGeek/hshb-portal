@@ -255,7 +255,12 @@ test.describe('Registration review', () => {
     })
 
     await page.goto(`/registrations/${id}`)
-    await page.getByRole('button', { name: 'Reject' }).click()
+    // Scoped to the action bar: the dialog's confirm button is also called
+    // "Reject", so an unscoped locator would match two nodes once it opens.
+    await page
+      .getByTestId('review-actions')
+      .getByRole('button', { name: 'Reject' })
+      .click()
     // The same ReasonDialog rejects photo opt-outs (photo-opt-out.e2e.ts).
     const dialog = page.getByTestId('reason-dialog')
     await dialog.getByLabel(/Reason/).fill('Duplicate')
