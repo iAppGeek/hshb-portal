@@ -17,23 +17,6 @@ vi.mock('@/db', () => ({
   getClassesByTeacher: vi.fn(),
 }))
 
-vi.mock('./LessonPlansClient', () => ({
-  default: ({
-    lessonPlans,
-    canCreate,
-    canEdit,
-  }: {
-    lessonPlans: unknown[]
-    canCreate: boolean
-    canEdit: boolean
-  }) => (
-    <div>
-      LessonPlansClient count={lessonPlans.length} canCreate=
-      {String(canCreate)} canEdit={String(canEdit)}
-    </div>
-  ),
-}))
-
 import { auth } from '@/auth'
 import { getLessonPlans, getClassesByTeacher } from '@/db'
 
@@ -57,45 +40,49 @@ const mockPlan = {
   updater: null,
 }
 
+async function renderPage(searchParams: { classId?: string } = {}) {
+  render(await LessonPlansPage({ searchParams: Promise.resolve(searchParams) }))
+}
+
 describe('LessonPlansPage', () => {
   it('redirects to /login when not authenticated', async () => {
     vi.mocked(auth).mockResolvedValue(null as any)
 
-    await expect(LessonPlansPage()).rejects.toThrow('NEXT_REDIRECT:/login')
+    await expect(
+      LessonPlansPage({ searchParams: Promise.resolve({}) }),
+    ).rejects.toThrow('NEXT_REDIRECT:/login')
   })
 
-  it('renders LessonPlansClient for admin with canCreate=true and canEdit=true', async () => {
+  it('renders lesson plans for admin with an add button and edit links', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
     vi.mocked(getLessonPlans).mockResolvedValue([mockPlan] as any)
 
-    render(await LessonPlansPage())
-    expect(screen.getByText(/canCreate=true/)).toBeTruthy()
-    expect(screen.getByText(/canEdit=true/)).toBeTruthy()
+    await renderPage()
+
+    expect(screen.getByText('Add lesson plan')).toBeTruthy()
+    expect(screen.getAllByText('Year 1A').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Edit').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('View').length).toBeGreaterThan(0)
   })
 
-  it('renders LessonPlansClient for headteacher with canCreate=true and canEdit=true', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { role: 'headteacher', staffId: 'staff-2' },
-    } as any)
-    vi.mocked(getLessonPlans).mockResolvedValue([])
-
-    render(await LessonPlansPage())
-    expect(screen.getByText(/canCreate=true/)).toBeTruthy()
-    expect(screen.getByText(/canEdit=true/)).toBeTruthy()
-  })
-
-  it('renders LessonPlansClient for teacher with canCreate=true and canEdit=true', async () => {
+  it('renders lesson plans for teacher with an add button and edit links', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'teacher', staffId: 'staff-3' },
     } as any)
     vi.mocked(getClassesByTeacher).mockResolvedValue([{ id: 'class-1' }] as any)
     vi.mocked(getLessonPlans).mockResolvedValue([mockPlan] as any)
 
-    render(await LessonPlansPage())
-    expect(screen.getByText(/canCreate=true/)).toBeTruthy()
-    expect(screen.getByText(/canEdit=true/)).toBeTruthy()
+    await renderPage()
+
+    expect(screen.getByText('Add lesson plan')).toBeTruthy()
+    expect(screen.getAllByText('Edit').length).toBeGreaterThan(0)
+    expect(
+      screen.getByText(
+        'You can only view and create lesson plans for your class.',
+      ),
+    ).toBeTruthy()
   })
 
   it('scopes lesson plans to teacher classes only', async () => {
@@ -105,7 +92,8 @@ describe('LessonPlansPage', () => {
     vi.mocked(getClassesByTeacher).mockResolvedValue([{ id: 'class-1' }] as any)
     vi.mocked(getLessonPlans).mockResolvedValue([])
 
-    await LessonPlansPage()
+    await renderPage()
+
     expect(getClassesByTeacher).toHaveBeenCalledWith('staff-3')
     expect(getLessonPlans).toHaveBeenCalledWith({
       classIds: ['class-1'],
@@ -119,20 +107,39 @@ describe('LessonPlansPage', () => {
     } as any)
     vi.mocked(getLessonPlans).mockResolvedValue([])
 
-    await LessonPlansPage()
-    expect(getLessonPlans).toHaveBeenCalledWith({ limit: 50 })
+    await renderPage()
+
+    expect(getLessonPlans).toHaveBeenCalledWith({
+      classId: undefined,
+      limit: 50,
+    })
     expect(getClassesByTeacher).not.toHaveBeenCalled()
   })
 
-  it('renders LessonPlansClient for secretary with canCreate=false and canEdit=false', async () => {
+  it('filters by the classId search param for admin', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
+    vi.mocked(getLessonPlans).mockResolvedValue([])
+
+    await renderPage({ classId: 'class-1' })
+
+    expect(getLessonPlans).toHaveBeenCalledWith({
+      classId: 'class-1',
+      limit: 50,
+    })
+  })
+
+  it('renders lesson plans for secretary without an add button', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'secretary', staffId: 'staff-4' },
     } as any)
     vi.mocked(getLessonPlans).mockResolvedValue([mockPlan] as any)
 
-    render(await LessonPlansPage())
-    expect(screen.getByText(/canCreate=false/)).toBeTruthy()
-    expect(screen.getByText(/canEdit=false/)).toBeTruthy()
+    await renderPage()
+
+    expect(screen.queryByText('Add lesson plan')).toBeNull()
+    expect(screen.getAllByText('Edit').length).toBeGreaterThan(0)
   })
 
   it('fetches all lesson plans for secretary without scoping', async () => {
@@ -141,8 +148,12 @@ describe('LessonPlansPage', () => {
     } as any)
     vi.mocked(getLessonPlans).mockResolvedValue([])
 
-    await LessonPlansPage()
-    expect(getLessonPlans).toHaveBeenCalledWith({ limit: 50 })
+    await renderPage()
+
+    expect(getLessonPlans).toHaveBeenCalledWith({
+      classId: undefined,
+      limit: 50,
+    })
     expect(getClassesByTeacher).not.toHaveBeenCalled()
   })
 })
