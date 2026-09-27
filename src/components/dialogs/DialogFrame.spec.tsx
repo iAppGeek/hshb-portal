@@ -64,4 +64,38 @@ describe('DialogButtons', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(onCancel).toHaveBeenCalled()
   })
+
+  it('leaves the initial focus to Headless UI by default', () => {
+    render(
+      <DialogButtons
+        confirmLabel="Go"
+        pendingLabel="Going…"
+        isPending={false}
+        error={null}
+        onCancel={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Cancel' })).not.toHaveAttribute(
+      'data-autofocus',
+    )
+  })
+
+  it('marks Cancel as the autofocus target when asked', () => {
+    render(
+      <DialogButtons
+        confirmLabel="Go"
+        pendingLabel="Going…"
+        isPending={false}
+        autoFocusCancel
+        error={null}
+        onCancel={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveAttribute(
+      'data-autofocus',
+    )
+    expect(screen.getByRole('button', { name: 'Go' })).not.toHaveAttribute(
+      'data-autofocus',
+    )
+  })
 })

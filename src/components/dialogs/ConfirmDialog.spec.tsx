@@ -80,6 +80,18 @@ describe('ConfirmDialog', () => {
     )
   })
 
+  it('points the initial focus at Cancel, not the destructive confirm', () => {
+    renderDialog()
+    // Headless UI would otherwise focus the first tabbable element, arming
+    // "Confirm delete" on the Enter key as soon as the dialog opens.
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveAttribute(
+      'data-autofocus',
+    )
+    expect(
+      screen.getByRole('button', { name: 'Confirm delete' }),
+    ).not.toHaveAttribute('data-autofocus')
+  })
+
   it('calls onClose when Cancel is clicked', () => {
     const onClose = vi.fn()
     renderDialog({ onClose })

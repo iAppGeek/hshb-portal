@@ -58,6 +58,12 @@ type DialogButtonsProps = {
   isPending: boolean
   /** Disables confirm for reasons other than a pending save. */
   disabled?: boolean
+  /**
+   * Takes the dialog's initial focus, so a destructive confirm is not already
+   * armed when the dialog opens. Only for a dialog with nothing to fill in —
+   * otherwise Headless UI focuses the first field, which is what we want.
+   */
+  autoFocusCancel?: boolean
   error: string | null
   onCancel: () => void
 }
@@ -69,6 +75,7 @@ export function DialogButtons({
   variant = 'primary',
   isPending,
   disabled = false,
+  autoFocusCancel = false,
   error,
   onCancel,
 }: DialogButtonsProps): React.ReactElement {
@@ -95,6 +102,7 @@ export function DialogButtons({
         </button>
         <button
           type="button"
+          data-autofocus={autoFocusCancel || undefined}
           onClick={onCancel}
           className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50"
         >

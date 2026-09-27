@@ -15,6 +15,11 @@ export type ConfirmDialogProps = {
   onClose: () => void
 }
 
+/**
+ * A dialog with nothing to fill in, so Headless UI would otherwise land the
+ * initial focus on the confirm button — `autoFocusCancel` keeps a destructive
+ * confirm off the Enter key.
+ */
 export default function ConfirmDialog({
   title,
   body,
@@ -39,6 +44,7 @@ export default function ConfirmDialog({
           pendingLabel={pendingLabel}
           variant={variant}
           isPending={isPending}
+          autoFocusCancel
           error={error}
           onCancel={onClose}
         />
