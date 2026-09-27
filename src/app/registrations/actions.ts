@@ -18,7 +18,7 @@ import {
   rejectReasonSchema,
 } from '@/lib/schemas'
 
-const OPT_OUTS_PATH = '/registrations?tab=photo-opt-outs'
+import { OPT_OUTS_PATH } from './paths'
 
 /** The dialogs pass plain values; runAction parses them from FormData. */
 function formDataOf(fields: Record<string, string>): FormData {

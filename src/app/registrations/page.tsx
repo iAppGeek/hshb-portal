@@ -12,13 +12,12 @@ import { registrationStatusFilter, registrationsTab } from '@/lib/schemas'
 import EmptyState from '../_components/EmptyState'
 import PageHeader from '../_components/PageHeader'
 
+import { OPT_OUTS_PATH } from './paths'
 import PhotoOptOutsTable from './PhotoOptOutsTable'
 import RegistrationsTable from './RegistrationsTable'
 import ShareLinksBar from './ShareLinksBar'
 
 export const metadata: Metadata = { title: 'Registrations' }
-
-const OPT_OUTS_HREF = '/registrations?tab=photo-opt-outs'
 
 const STATUSES = [
   { key: 'pending', label: 'To-do' },
@@ -59,7 +58,7 @@ export default async function RegistrationsPage({
     {
       key: 'photo-opt-outs',
       label: 'Photo opt-outs',
-      href: OPT_OUTS_HREF,
+      href: OPT_OUTS_PATH,
       // TabBar renders any defined count, so 0 must not become a badge.
       count: pendingOptOuts || undefined,
     },
@@ -79,7 +78,7 @@ export default async function RegistrationsPage({
       {isOptOuts ? (
         <>
           <TabBar
-            tabs={statusTabs(OPT_OUTS_HREF)}
+            tabs={statusTabs(OPT_OUTS_PATH)}
             current={status}
             ariaLabel="Photo opt-out status"
           />

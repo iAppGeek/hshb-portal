@@ -20,6 +20,7 @@ import {
   deletePhotoOptOutAction,
   rejectPhotoOptOutAction,
 } from '../../actions'
+import { OPT_OUTS_PATH } from '../../paths'
 import { workflowItems } from '../../workflowItems'
 
 type Props = {
@@ -55,7 +56,7 @@ export default function PhotoOptOutReview({
           'lastFirst',
         )}
         subtitle={`Submitted ${formatDateTimeInSchoolTz(request.submitted_at)}`}
-        backHref="/registrations?tab=photo-opt-outs"
+        backHref={OPT_OUTS_PATH}
         backLabel="Photo opt-outs"
       />
 
