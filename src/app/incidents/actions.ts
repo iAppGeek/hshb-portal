@@ -8,17 +8,29 @@ import { createIncidentSchema, updateIncidentSchema } from '@/lib/schemas'
 
 function notifiedAt(
   parentNotified: boolean,
-  parentNotifiedAt: string | null,
+  parentNotifiedAt: string | null | undefined,
 ): string | null {
   return parentNotified && parentNotifiedAt
     ? datetimeLocalToUtcIso(parentNotifiedAt)
     : null
 }
 
-// TODO(plan-05): align with canEditIncidents
-export async function createIncidentAction(
+/**
+ * Any signed-in staff member can record an incident against any student — any
+ * member of staff may witness one, and the new-incident page identifies the
+ * student by name and class. Only `canEditIncidents` can edit an existing one.
+ * The student is fixed once recorded, so only creating parses `student_id`.
+ */
+export async function saveIncidentAction(
+  id: string | null,
   formData: FormData,
 ): Promise<ActionResult> {
+  return id === null
+    ? createIncidentAction(formData)
+    : updateIncidentAction(id, formData)
+}
+
+async function createIncidentAction(formData: FormData): Promise<ActionResult> {
   return runAction({
     name: 'incidents.create',
     schema: createIncidentSchema,
@@ -47,7 +59,7 @@ export async function createIncidentAction(
   })
 }
 
-export async function updateIncidentAction(
+async function updateIncidentAction(
   id: string,
   formData: FormData,
 ): Promise<ActionResult> {

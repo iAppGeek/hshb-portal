@@ -5,8 +5,8 @@ import { requireSession } from '@/auth/require'
 import { canCreateStaff } from '@/lib/permissions'
 
 import PageHeader, { RequiredFieldsNote } from '../../_components/PageHeader'
-
-import AddStaffForm from './AddStaffForm'
+import { saveStaffAction } from '../actions'
+import StaffForm from '../StaffForm'
 
 export const metadata: Metadata = { title: 'Add Staff Member' }
 
@@ -27,7 +27,10 @@ export default async function AddStaffPage() {
         backLabel="Staff"
       />
 
-      <AddStaffForm />
+      <StaffForm
+        action={saveStaffAction.bind(null, null)}
+        submitLabel="Add Staff Member"
+      />
     </div>
   )
 }

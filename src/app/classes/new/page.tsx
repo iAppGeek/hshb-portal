@@ -11,12 +11,11 @@ import {
 import { canCreateClasses } from '@/lib/permissions'
 
 import PageHeader, { RequiredFieldsNote } from '../../_components/PageHeader'
+import { saveClassAction } from '../actions'
 import ClassForm, {
   type ClassFormTeacher,
   type ClassFormStudent,
 } from '../ClassForm'
-
-import { createClassAction } from './actions'
 
 export const metadata: Metadata = { title: 'Add Class' }
 
@@ -49,7 +48,7 @@ export default async function AddClassPage() {
         students={students as ClassFormStudent[]}
         years={years}
         defaultAcademicYearId={currentYear.id}
-        action={createClassAction}
+        action={saveClassAction.bind(null, null)}
         submitLabel="Add Class"
       />
     </div>

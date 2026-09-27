@@ -4,13 +4,12 @@ import { useState } from 'react'
 import Link from 'next/link'
 
 import type { GuardianSummary } from '@/db'
-import {
-  FormGrid,
-  RadioGroup,
-  SelectField,
-  TextField,
-  formStyles,
-} from '@/components/form'
+
+import FormGrid from './FormGrid'
+import RadioGroup from './RadioGroup'
+import SelectField from './SelectField'
+import * as formStyles from './styles'
+import TextField from './TextField'
 
 const SEARCH_MIN_LENGTH = 5
 const SEARCH_MAX_RESULTS = 10
@@ -64,9 +63,9 @@ function guardianOption(g: GuardianSummary): { value: string; label: string } {
  * One guardian/contact slot on the student forms: either link an existing
  * guardian (search + select) or enter a new one. Field names are prefixed
  * (`${prefix}_first_name`, `${prefix}_existing_id`, …) to match the parsing
- * in the student actions.
+ * in `parseGuardianSlot` (src/lib/guardians/resolveGuardian.ts).
  */
-export default function GuardianSelector({
+export default function GuardianPicker({
   prefix,
   guardians,
   defaultId,

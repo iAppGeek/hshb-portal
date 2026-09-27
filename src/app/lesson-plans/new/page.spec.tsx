@@ -17,9 +17,13 @@ vi.mock('@/db', () => ({
   getClassesByTeacher: vi.fn(),
 }))
 
-vi.mock('./AddLessonPlanForm', () => ({
-  default: () => <div>AddLessonPlanForm</div>,
+vi.mock('../LessonPlanForm', () => ({
+  default: ({ submitLabel }: { submitLabel: string }) => (
+    <div>LessonPlanForm {submitLabel}</div>
+  ),
 }))
+
+vi.mock('../actions', () => ({ saveLessonPlanAction: vi.fn() }))
 
 import { auth } from '@/auth'
 import { getAllClasses, getClassesByTeacher } from '@/db'
@@ -53,14 +57,14 @@ describe('AddLessonPlanPage', () => {
     )
   })
 
-  it('renders AddLessonPlanForm for admin with all classes', async () => {
+  it('renders LessonPlanForm for admin with all classes', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
     vi.mocked(getAllClasses).mockResolvedValue([mockClass] as any)
 
     render(await AddLessonPlanPage())
-    expect(screen.getByText('AddLessonPlanForm')).toBeTruthy()
+    expect(screen.getByText('LessonPlanForm Add Lesson Plan')).toBeTruthy()
     expect(getAllClasses).toHaveBeenCalled()
     expect(getClassesByTeacher).not.toHaveBeenCalled()
   })
@@ -76,14 +80,14 @@ describe('AddLessonPlanPage', () => {
     expect(getAllClasses).not.toHaveBeenCalled()
   })
 
-  it('renders AddLessonPlanForm for headteacher with all classes', async () => {
+  it('renders LessonPlanForm for headteacher with all classes', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'headteacher', staffId: 'staff-2' },
     } as any)
     vi.mocked(getAllClasses).mockResolvedValue([mockClass] as any)
 
     render(await AddLessonPlanPage())
-    expect(screen.getByText('AddLessonPlanForm')).toBeTruthy()
+    expect(screen.getByText('LessonPlanForm Add Lesson Plan')).toBeTruthy()
     expect(getAllClasses).toHaveBeenCalled()
   })
 })

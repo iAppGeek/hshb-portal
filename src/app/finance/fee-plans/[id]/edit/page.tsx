@@ -14,7 +14,7 @@ import PageHeader, {
 } from '../../../../_components/PageHeader'
 import { takenClassLabels, toClassOptions } from '../../../_lib/feePlanClasses'
 import FeePlanForm from '../../FeePlanForm'
-import { updateFeePlanAction } from '../../actions'
+import { saveFeePlanAction } from '../../actions'
 
 export const metadata: Metadata = { title: 'Edit Fee Plan' }
 
@@ -54,7 +54,7 @@ export default async function EditFeePlanPage({
         classes={toClassOptions(classes)}
         years={years}
         takenBy={takenClassLabels(plans, plan.id)}
-        action={updateFeePlanAction.bind(null, plan.id)}
+        action={saveFeePlanAction.bind(null, plan.id)}
         submitLabel="Save changes"
       />
     </div>

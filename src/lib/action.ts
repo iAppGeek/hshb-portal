@@ -143,6 +143,27 @@ export function prefixFieldErrors(
 }
 
 /**
+ * Parses `fields` by hand inside `run`, throwing an `ActionError` with the same
+ * `fieldErrors` shape `runAction` returns for its own `schema`. With `prefix`,
+ * field names gain `${prefix}_` to match a prefixed block of the form.
+ */
+export function parseOrThrow<T>(
+  schema: z.ZodType<T>,
+  fields: unknown,
+  prefix?: string,
+): T {
+  const parsed = schema.safeParse(fields)
+  if (!parsed.success) {
+    const fieldErrors = firstFieldErrors(parsed.error)
+    throw new ActionError(
+      parsed.error.issues[0].message,
+      prefix ? prefixFieldErrors(fieldErrors, prefix) : fieldErrors,
+    )
+  }
+  return parsed.data
+}
+
+/**
  * With `redirectTo` the result only builds the path; without it a non-void
  * result goes back to the client as `{ data }`.
  */

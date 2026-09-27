@@ -33,7 +33,21 @@ async function assertOwnClass(
   if (!classes.some((c) => c.id === classId)) throw new ActionError(message)
 }
 
-export async function createLessonPlanAction(
+/**
+ * A plan's class is fixed once created, so creating parses `class_id` and
+ * editing does not: the two schemas differ, hence separate create and update
+ * paths behind the one action.
+ */
+export async function saveLessonPlanAction(
+  id: string | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  return id === null
+    ? createLessonPlanAction(formData)
+    : updateLessonPlanAction(id, formData)
+}
+
+async function createLessonPlanAction(
   formData: FormData,
 ): Promise<ActionResult> {
   return runAction({
@@ -66,7 +80,7 @@ export async function createLessonPlanAction(
   })
 }
 
-export async function updateLessonPlanAction(
+async function updateLessonPlanAction(
   id: string,
   formData: FormData,
 ): Promise<ActionResult> {

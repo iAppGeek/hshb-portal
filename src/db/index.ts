@@ -21,6 +21,7 @@ export {
 export {
   getAllStudents,
   getStudentsForList,
+  getStudentSummaries,
   searchStudents,
   getStudentsByTeacher,
   getStudentIdsByTeacher,
@@ -102,7 +103,11 @@ export {
   setClassStudents,
   migrateClass,
 } from './classes'
-export type { MigrationAction, MigrateClassResult } from './classes'
+export type {
+  ClassOption,
+  MigrationAction,
+  MigrateClassResult,
+} from './classes'
 export {
   getIncidentCount,
   getIncidents,

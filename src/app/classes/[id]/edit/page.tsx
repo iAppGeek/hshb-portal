@@ -13,13 +13,12 @@ import { isClassOpen } from '@/lib/classes'
 import { canEditClasses } from '@/lib/permissions'
 
 import PageHeader, { RequiredFieldsNote } from '../../../_components/PageHeader'
+import { saveClassAction } from '../../actions'
 import ClassForm, {
   type ClassFormTeacher,
   type ClassFormStudent,
   type ClassFormData,
 } from '../../ClassForm'
-
-import { updateClassAction } from './actions'
 
 export const metadata: Metadata = { title: 'Edit Class' }
 
@@ -69,7 +68,7 @@ export default async function EditClassPage({
         students={students as ClassFormStudent[]}
         years={years}
         classData={classData as ClassFormData}
-        action={updateClassAction.bind(null, id)}
+        action={saveClassAction.bind(null, id)}
         submitLabel="Save changes"
       />
     </div>

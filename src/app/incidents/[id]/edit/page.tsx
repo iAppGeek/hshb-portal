@@ -6,8 +6,8 @@ import { getIncidentById } from '@/db'
 import { canEditIncidents } from '@/lib/permissions'
 
 import PageHeader, { RequiredFieldsNote } from '../../../_components/PageHeader'
-
-import EditIncidentForm from './EditIncidentForm'
+import { saveIncidentAction } from '../../actions'
+import IncidentForm from '../../IncidentForm'
 
 export const metadata: Metadata = { title: 'Edit Incident' }
 
@@ -38,7 +38,11 @@ export default async function EditIncidentPage({
         backHref="/incidents"
         backLabel="Incidents"
       />
-      <EditIncidentForm incident={incident} />
+      <IncidentForm
+        initial={incident}
+        action={saveIncidentAction.bind(null, incident.id)}
+        submitLabel="Save changes"
+      />
     </div>
   )
 }

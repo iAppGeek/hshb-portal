@@ -32,7 +32,7 @@ import {
   createLessonPlanSchema,
   updateLessonPlanSchema,
   staffAttendanceSchema,
-  createStaffSchema,
+  staffSchema,
   createStudentSchema,
   updateStudentSchema,
   guardianSchema,
@@ -620,9 +620,9 @@ describe('staffAttendanceSchema', () => {
   })
 })
 
-describe('createStaffSchema', () => {
+describe('staffSchema', () => {
   it('accepts valid staff data', () => {
-    const result = createStaffSchema.parse({
+    const result = staffSchema.parse({
       title: ' Mrs ',
       first_name: 'Jane',
       last_name: 'Smith',
@@ -640,7 +640,7 @@ describe('createStaffSchema', () => {
 
   it('requires a title', () => {
     expect(() =>
-      createStaffSchema.parse({
+      staffSchema.parse({
         title: '',
         first_name: 'Jane',
         last_name: 'Smith',
@@ -655,7 +655,7 @@ describe('createStaffSchema', () => {
 
   it('rejects invalid role', () => {
     expect(() =>
-      createStaffSchema.parse({
+      staffSchema.parse({
         title: 'Ms',
         first_name: 'Jane',
         last_name: 'Smith',

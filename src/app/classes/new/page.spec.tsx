@@ -25,8 +25,8 @@ vi.mock('../ClassForm', () => ({
   ),
 }))
 
-vi.mock('./actions', () => ({
-  createClassAction: vi.fn(),
+vi.mock('../actions', () => ({
+  saveClassAction: vi.fn(),
 }))
 
 import { auth } from '@/auth'

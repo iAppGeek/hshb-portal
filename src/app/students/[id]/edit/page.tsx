@@ -2,14 +2,20 @@ import { type Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
 
 import { requireSession } from '@/auth/require'
-import { getStudentById, getAllGuardians, getAllClasses } from '@/db'
+import {
+  getStudentById,
+  getAllGuardians,
+  getAllClasses,
+  type ClassOption,
+} from '@/db'
 import LeaverBadge from '@/components/LeaverBadge'
 import { formatCalendarDate } from '@/lib/datetime'
 import { canEditStudents } from '@/lib/permissions'
 
 import PageHeader, { RequiredFieldsNote } from '../../../_components/PageHeader'
+import { saveStudentAction } from '../../actions'
+import StudentForm from '../../StudentForm'
 
-import EditStudentForm from './EditStudentForm'
 import LeaverSection from './LeaverSection'
 
 export const metadata: Metadata = { title: 'Edit Student' }
@@ -72,15 +78,13 @@ export default async function EditStudentPage({
         </div>
       )}
 
-      <EditStudentForm
-        student={student}
+      <StudentForm
+        initial={student}
         guardians={guardians}
-        classes={
-          student.active
-            ? (classes as { id: string; name: string; year_group: string }[])
-            : undefined
-        }
+        classes={classes as ClassOption[]}
         enrolledClassIds={enrolledClassIds}
+        action={saveStudentAction.bind(null, id)}
+        submitLabel="Save changes"
       />
 
       {student.active && canEditStudents(role) && (

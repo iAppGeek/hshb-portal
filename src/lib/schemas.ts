@@ -222,11 +222,9 @@ export const createIncidentSchema = z.object({
   description: requiredString,
   incident_date: isoDateTime,
   parent_notified: booleanFromString,
-  parent_notified_at: z
-    .string()
-    .trim()
-    .transform((v) => v || null)
-    .nullable(),
+  // The form only mounts this input while "parent notified" is ticked, so the
+  // key is absent from FormData whenever it is not.
+  parent_notified_at: optionalString.optional(),
 })
 
 export const updateIncidentSchema = createIncidentSchema.omit({
@@ -254,7 +252,7 @@ export const staffAttendanceSchema = z.object({
   time: isoTime,
 })
 
-export const createStaffSchema = z.object({
+export const staffSchema = z.object({
   title: shortText,
   first_name: requiredString,
   last_name: requiredString,
@@ -264,8 +262,6 @@ export const createStaffSchema = z.object({
   contact_number: optionalUkPhone,
   personal_email: optionalEmail,
 })
-
-export const updateStaffSchema = createStaffSchema
 
 const guardianNewBase = z.object({
   mode: z.literal('new'),

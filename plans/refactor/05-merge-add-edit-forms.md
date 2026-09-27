@@ -27,10 +27,11 @@ between the two student action files.
 - Guardian sub-form becomes a shared client component `src/components/form/GuardianPicker.tsx`
   (new vs existing toggle, search, fields). Its server-side counterpart is
   `src/lib/guardians/resolveGuardian.ts` (moved from the two action files; one copy).
-- `createIncidentAction`'s missing permission check is fixed here: `saveIncidentAction` uses
-  `canEditIncidents` for edit and, for create, "any signed-in staff" (current behaviour for create,
-  documented in `PERMISSIONS.md`). Confirm the row in `PERMISSIONS.md` says teachers can create
-  incidents for their own students; do not widen or narrow it.
+- `createIncidentAction`'s missing permission check is resolved here by settling the rule rather
+  than adding a check: `saveIncidentAction` uses `canEditIncidents` for edit and, for create, "any
+  signed-in staff, any student". Any member of staff may witness an incident, so the create branch
+  deliberately has no `permission` and no student-ownership check, and the new-incident page offers
+  all active students to every role, identified by name and class. `PERMISSIONS.md` records this.
 
 ## Per-entity specification
 

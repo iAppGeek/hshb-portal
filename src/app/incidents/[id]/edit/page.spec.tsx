@@ -16,11 +16,13 @@ vi.mock('@/db', () => ({
   getIncidentById: vi.fn(),
 }))
 
-vi.mock('./EditIncidentForm', () => ({
-  default: ({ incident }: { incident: { title: string } }) => (
-    <div>EditIncidentForm title={incident.title}</div>
+vi.mock('../../IncidentForm', () => ({
+  default: ({ initial }: { initial: { title: string } }) => (
+    <div>IncidentForm title={initial.title}</div>
   ),
 }))
+
+vi.mock('../../actions', () => ({ saveIncidentAction: vi.fn() }))
 
 import { auth } from '@/auth'
 import { getIncidentById } from '@/db'
@@ -91,25 +93,25 @@ describe('EditIncidentPage', () => {
     expect(screen.getByText('Edit Incident')).toBeTruthy()
   })
 
-  it('renders EditIncidentForm for admin', async () => {
+  it('renders IncidentForm for admin', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
 
     render(await EditIncidentPage({ params }))
     expect(
-      screen.getByText('EditIncidentForm title=Allergic reaction'),
+      screen.getByText('IncidentForm title=Allergic reaction'),
     ).toBeTruthy()
   })
 
-  it('renders EditIncidentForm for headteacher', async () => {
+  it('renders IncidentForm for headteacher', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'headteacher', staffId: 'staff-1' },
     } as any)
 
     render(await EditIncidentPage({ params }))
     expect(
-      screen.getByText('EditIncidentForm title=Allergic reaction'),
+      screen.getByText('IncidentForm title=Allergic reaction'),
     ).toBeTruthy()
   })
 })

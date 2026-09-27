@@ -17,11 +17,13 @@ vi.mock('@/db', () => ({
   getClassesByTeacher: vi.fn(),
 }))
 
-vi.mock('./EditLessonPlanForm', () => ({
-  default: ({ plan }: { plan: { description: string } }) => (
-    <div>EditLessonPlanForm description={plan.description}</div>
+vi.mock('../../LessonPlanForm', () => ({
+  default: ({ initial }: { initial: { description: string } }) => (
+    <div>LessonPlanForm description={initial.description}</div>
   ),
 }))
+
+vi.mock('../../actions', () => ({ saveLessonPlanAction: vi.fn() }))
 
 import { auth } from '@/auth'
 import { getLessonPlanById, getClassesByTeacher } from '@/db'
@@ -92,7 +94,7 @@ describe('EditLessonPlanPage', () => {
     )
   })
 
-  it('renders EditLessonPlanForm for admin', async () => {
+  it('renders LessonPlanForm for admin', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
@@ -100,22 +102,22 @@ describe('EditLessonPlanPage', () => {
     render(await EditLessonPlanPage({ params }))
     expect(screen.getByText('Edit Lesson Plan')).toBeTruthy()
     expect(
-      screen.getByText('EditLessonPlanForm description=Phonics lesson'),
+      screen.getByText('LessonPlanForm description=Phonics lesson'),
     ).toBeTruthy()
   })
 
-  it('renders EditLessonPlanForm for headteacher', async () => {
+  it('renders LessonPlanForm for headteacher', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'headteacher', staffId: 'staff-2' },
     } as any)
 
     render(await EditLessonPlanPage({ params }))
     expect(
-      screen.getByText('EditLessonPlanForm description=Phonics lesson'),
+      screen.getByText('LessonPlanForm description=Phonics lesson'),
     ).toBeTruthy()
   })
 
-  it('renders EditLessonPlanForm for teacher when class belongs to them', async () => {
+  it('renders LessonPlanForm for teacher when class belongs to them', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'teacher', staffId: 'staff-3' },
     } as any)
@@ -123,7 +125,7 @@ describe('EditLessonPlanPage', () => {
 
     render(await EditLessonPlanPage({ params }))
     expect(
-      screen.getByText('EditLessonPlanForm description=Phonics lesson'),
+      screen.getByText('LessonPlanForm description=Phonics lesson'),
     ).toBeTruthy()
   })
 })

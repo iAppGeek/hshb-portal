@@ -6,8 +6,8 @@ import { getAllGuardians } from '@/db'
 import { canCreateStudents } from '@/lib/permissions'
 
 import PageHeader, { RequiredFieldsNote } from '../../_components/PageHeader'
-
-import AddStudentForm from './AddStudentForm'
+import { saveStudentAction } from '../actions'
+import StudentForm from '../StudentForm'
 
 export const metadata: Metadata = { title: 'Add Student' }
 
@@ -30,7 +30,11 @@ export default async function AddStudentPage() {
         backLabel="Students"
       />
 
-      <AddStudentForm guardians={guardians} />
+      <StudentForm
+        guardians={guardians}
+        action={saveStudentAction.bind(null, null)}
+        submitLabel="Save student"
+      />
     </div>
   )
 }

@@ -24,7 +24,7 @@ vi.mock('@/db', () => ({
   getClassesByAcademicYear: vi.fn(),
   getFeePlans: vi.fn(),
 }))
-vi.mock('../actions', () => ({ createFeePlanAction: vi.fn() }))
+vi.mock('../actions', () => ({ saveFeePlanAction: vi.fn() }))
 vi.mock('../FeePlanForm', () => ({
   default: (props: {
     plan: unknown
