@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 import {
   getAllClasses,
+  getClassEmailRosters,
   getClassesByAcademicYear,
   getClassById,
   getClassesByTeacher,
@@ -91,6 +92,85 @@ describe('getAllClasses', () => {
 
     const result = await getAllClasses()
     expect(result).toEqual([])
+  })
+})
+
+describe('getClassEmailRosters', () => {
+  it('returns current-year classes with teacher and guardian emails, open stays only', async () => {
+    const mockIs = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'class-2',
+          name: 'Year 10',
+          year_group: '10',
+          teacher: {
+            first_name: 'Ann',
+            last_name: 'Lee',
+            display_name: null,
+            email: 'ann@hshb.org.uk',
+          },
+          student_classes: [
+            {
+              student: {
+                primary_guardian: { email: 'p@x.com' },
+                secondary_guardian: null,
+              },
+            },
+          ],
+        },
+        {
+          id: 'class-1',
+          name: 'Year 2',
+          year_group: '2',
+          teacher: null,
+          student_classes: [],
+        },
+      ],
+      error: null,
+    })
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockReturnValue({
+              order: vi.fn().mockReturnValue({ is: mockIs }),
+            }),
+          }),
+        }),
+      }),
+    })
+
+    const result = await getClassEmailRosters()
+
+    expect(mockFrom).toHaveBeenCalledWith('classes')
+    expect(mockIs).toHaveBeenCalledWith('student_classes.end_date', null)
+    expect(result.yearCode).toBe('2026-27')
+    expect(result.classes.map((c) => c.name)).toEqual(['Year 2', 'Year 10'])
+    expect(result.classes[1]).toMatchObject({
+      teacherEmail: 'ann@hshb.org.uk',
+      guardianEmails: ['p@x.com'],
+    })
+  })
+
+  it('throws when the query fails', async () => {
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockReturnValue({
+              order: vi.fn().mockReturnValue({
+                is: vi.fn().mockResolvedValue({
+                  data: null,
+                  error: new Error('db down'),
+                }),
+              }),
+            }),
+          }),
+        }),
+      }),
+    })
+
+    await expect(getClassEmailRosters()).rejects.toThrow('db down')
   })
 })
 

@@ -1,4 +1,9 @@
 import type { EnrolmentRangeRow, SummaryClass } from '@/lib/attendanceSummary'
+import {
+  toClassEmailRoster,
+  type ClassEmailRoster,
+  type ClassEmailSource,
+} from '@/lib/communication'
 import type { EnrolmentRow } from '@/lib/enrolment'
 import type { Database } from '@/types/database'
 
@@ -38,6 +43,45 @@ async function getAllClassesForYear(yearId: string) {
 export async function getAllClasses() {
   const current = await getCurrentAcademicYear()
   return getAllClassesForYear(current.id)
+}
+
+/** Active classes in the current year, with the teacher school email and guardian emails. */
+export async function getClassEmailRosters(): Promise<{
+  yearCode: string
+  classes: ClassEmailRoster[]
+}> {
+  const current = await getCurrentAcademicYear()
+  const query = supabase
+    .from('classes')
+    .select(
+      `id, name, year_group,
+      teacher:staff(first_name, last_name, display_name, email),
+      student_classes(
+        student:students(
+          primary_guardian:guardians!students_primary_guardian_id_fkey(email),
+          secondary_guardian:guardians!students_secondary_guardian_id_fkey(email)
+        )
+      )`,
+    )
+    .eq('active', true)
+    .eq('academic_year_id', current.id)
+    .order('year_group')
+    .order('name')
+  const { data, error } = await withCurrentClasses(query)
+  if (error) throw error
+
+  const rows = ((data ?? []) as ClassEmailSource[]).slice().sort((a, b) => {
+    const byYear = a.year_group.localeCompare(b.year_group, 'en', {
+      numeric: true,
+    })
+    if (byYear !== 0) return byYear
+    return a.name.localeCompare(b.name, 'en')
+  })
+
+  return {
+    yearCode: current.code,
+    classes: rows.map(toClassEmailRoster),
+  }
 }
 
 export async function getClassesByAcademicYear(yearId: string) {
