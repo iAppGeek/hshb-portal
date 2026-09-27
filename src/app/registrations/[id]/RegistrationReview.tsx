@@ -1,7 +1,7 @@
 'use client'
 
 import type { RegistrationFull, ContactRole, StudentMatch } from '@/db'
-import type { GuardianMatch } from '@/db'
+import type { ClassOption, GuardianMatch } from '@/db'
 import DefinitionList from '@/components/DefinitionList'
 import PermissionedButton from '@/components/PermissionedButton'
 import { ConfirmDialog, ReasonDialog, useDialog } from '@/components/dialogs'
@@ -16,8 +16,6 @@ import { deleteRegistrationAction, rejectRegistrationAction } from '../actions'
 import { workflowItems } from '../workflowItems'
 
 import RegistrationApproveDialog from './RegistrationApproveDialog'
-
-type ClassOption = { id: string; name: string; year_group: string }
 
 type Props = {
   submission: RegistrationFull

@@ -12,7 +12,7 @@ import {
 } from '@/db'
 import {
   ActionError,
-  firstFieldErrors,
+  parseOrThrow,
   runAction,
   type ActionResult,
 } from '@/lib/action'
@@ -29,16 +29,6 @@ import {
   leaverSchema,
   extractFormFields,
 } from '@/lib/schemas'
-
-function parseOrThrow<T>(schema: z.ZodType<T>, fields: unknown): T {
-  const parsed = schema.safeParse(fields)
-  if (!parsed.success)
-    throw new ActionError(
-      parsed.error.issues[0].message,
-      firstFieldErrors(parsed.error),
-    )
-  return parsed.data
-}
 
 /**
  * The student shares the primary guardian's address, so that guardian must have
@@ -61,14 +51,15 @@ async function assertGuardianHasAddress(
 
 /**
  * The columns both creating and editing write: the student's own details,
- * the guardian links (creating any new guardians) and the address source.
+ * the guardian links and the address source. Like `resolveGuardian`, this
+ * writes: any guardian entered as new is created before the row is returned.
  *
  * Every guardian block is parsed and the address rule checked before the first
  * guardian row is written: there is no transaction around the guardian inserts
  * and the student write, so a rejection after an insert would leave orphaned
  * guardians behind and the user's retry would duplicate them.
  */
-async function studentFields(
+async function resolveStudentRow(
   formData: FormData,
   d: z.infer<typeof createStudentSchema>,
 ): Promise<Parameters<typeof createStudent>[0]> {
@@ -148,22 +139,26 @@ export async function saveStudentAction(
   id: string | null,
   formData: FormData,
 ): Promise<ActionResult> {
+  const isCreate = id === null
+
   return runAction({
-    name: id === null ? 'students.create' : 'students.update',
-    permission: id === null ? canCreateStudents : canEditStudents,
+    name: isCreate ? 'students.create' : 'students.update',
+    permission: isCreate ? canCreateStudents : canEditStudents,
     formData,
     run: async (_input, { formData }) => {
       const fields = extractFormFields(formData, ['class_ids'])
 
-      if (id === null) {
+      if (isCreate) {
         const d = parseOrThrow(createStudentSchema, fields)
-        const student = await createStudent(await studentFields(formData, d))
+        const student = await createStudent(
+          await resolveStudentRow(formData, d),
+        )
         return { id: student.id, details: d as Record<string, unknown> }
       }
 
       const d = parseOrThrow(updateStudentSchema, fields)
       await updateStudent(id, {
-        ...(await studentFields(formData, d)),
+        ...(await resolveStudentRow(formData, d)),
         consent_privacy_notice: d.consent_privacy_notice,
         consent_emergency_first_aid: d.consent_emergency_first_aid,
         consent_photo_media: d.consent_photo_media,
@@ -180,7 +175,7 @@ export async function saveStudentAction(
     },
     audit: {
       entity: 'student',
-      action: id === null ? 'create' : 'update',
+      action: isCreate ? 'create' : 'update',
       entityId: (result) => result.id,
       details: (result) => result.details,
     },

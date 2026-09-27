@@ -40,7 +40,6 @@ export default async function EditIncidentPage({
       />
       <IncidentForm
         initial={incident}
-        students={[]}
         action={saveIncidentAction.bind(null, incident.id)}
         submitLabel="Save changes"
       />

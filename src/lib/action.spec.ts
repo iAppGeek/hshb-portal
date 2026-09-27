@@ -5,7 +5,7 @@ import { notFound, redirect } from 'next/navigation'
 import { getActor } from '@/auth/require'
 import { logAuditEvent } from '@/db'
 
-import { runAction, ActionError } from './action'
+import { runAction, ActionError, parseOrThrow } from './action'
 import { notifyAdmins } from './notify'
 
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
@@ -741,5 +741,38 @@ describe('runAction — public', () => {
     })
 
     expect(result).toEqual({ error: 'Verification failed.' })
+  })
+})
+
+describe('parseOrThrow', () => {
+  const schema = z.object({ name: z.string().min(1, 'Name is required') })
+
+  function catchActionError(fn: () => unknown): ActionError {
+    try {
+      fn()
+    } catch (e: unknown) {
+      if (e instanceof ActionError) return e
+      throw e
+    }
+    throw new Error('expected an ActionError')
+  }
+
+  it('returns the parsed data when the fields are valid', () => {
+    expect(parseOrThrow(schema, { name: 'Ada' })).toEqual({ name: 'Ada' })
+  })
+
+  it('throws an ActionError with the first message and field errors', () => {
+    const err = catchActionError(() => parseOrThrow(schema, { name: '' }))
+
+    expect(err.message).toBe('Name is required')
+    expect(err.fieldErrors).toEqual({ name: 'Name is required' })
+  })
+
+  it('prefixes field errors when given a prefix', () => {
+    const err = catchActionError(() =>
+      parseOrThrow(schema, { name: '' }, 'primary'),
+    )
+
+    expect(err.fieldErrors).toEqual({ primary_name: 'Name is required' })
   })
 })

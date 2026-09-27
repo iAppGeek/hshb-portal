@@ -2,14 +2,19 @@ import { type Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
 
 import { requireSession } from '@/auth/require'
-import { getStudentById, getAllGuardians, getAllClasses } from '@/db'
+import {
+  getStudentById,
+  getAllGuardians,
+  getAllClasses,
+  type ClassOption,
+} from '@/db'
 import LeaverBadge from '@/components/LeaverBadge'
 import { formatCalendarDate } from '@/lib/datetime'
 import { canEditStudents } from '@/lib/permissions'
 
 import PageHeader, { RequiredFieldsNote } from '../../../_components/PageHeader'
 import { saveStudentAction } from '../../actions'
-import StudentForm, { type ClassOption } from '../../StudentForm'
+import StudentForm from '../../StudentForm'
 
 import LeaverSection from './LeaverSection'
 

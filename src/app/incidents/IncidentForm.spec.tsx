@@ -106,7 +106,6 @@ describe('IncidentForm', () => {
     const { container } = render(
       <IncidentForm
         initial={incident}
-        students={[]}
         action={action}
         submitLabel="Save changes"
       />,

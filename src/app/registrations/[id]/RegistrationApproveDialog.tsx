@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-import type { StudentMatch } from '@/db'
+import type { ClassOption, StudentMatch } from '@/db'
 import {
   DialogButtons,
   DialogFrame,
@@ -18,8 +18,6 @@ import {
 } from '@/components/form'
 
 import { approveRegistrationAction } from '../actions'
-
-type ClassOption = { id: string; name: string; year_group: string }
 
 type Props = {
   submissionId: string

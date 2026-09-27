@@ -20,11 +20,10 @@ import {
 } from '@/lib/datetime'
 import { personName } from '@/lib/format'
 
-export type StudentOption = StudentSummary
-
 type Props = {
   initial?: IncidentRow
-  students: StudentOption[]
+  /** The students to choose from; unused when editing, as the student is fixed. */
+  students?: StudentSummary[]
   defaultType?: IncidentType
   action: (formData: FormData) => Promise<ActionResult>
   submitLabel: string
@@ -32,7 +31,7 @@ type Props = {
 
 export default function IncidentForm({
   initial,
-  students,
+  students = [],
   defaultType = 'medical',
   action,
   submitLabel,

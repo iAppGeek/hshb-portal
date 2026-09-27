@@ -12,6 +12,9 @@ import { supabase } from './client'
 import { withCurrentClasses } from './membership'
 import { fetchAllPages } from './paging'
 
+/** The fields a form needs to list a class as a choice. */
+export type ClassOption = { id: string; name: string; year_group: string }
+
 const CLASS_SELECT =
   '*, teacher:staff(id, first_name, last_name, display_name, email), academic_year:academic_years(id, code, start_date, end_date)'
 

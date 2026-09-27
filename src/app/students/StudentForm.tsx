@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-import type { GuardianSummary } from '@/db'
+import type { ClassOption, GuardianSummary } from '@/db'
 import {
   CheckboxField,
   FormActions,
@@ -14,12 +14,6 @@ import {
   useServerForm,
 } from '@/components/form'
 import type { ActionResult } from '@/lib/action'
-
-export type ClassOption = {
-  id: string
-  name: string
-  year_group: string
-}
 
 export type StudentFormData = {
   id: string

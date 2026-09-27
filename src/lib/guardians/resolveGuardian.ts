@@ -3,7 +3,7 @@ import 'server-only'
 import type { z } from 'zod'
 
 import { createGuardian } from '@/db'
-import { ActionError, firstFieldErrors, prefixFieldErrors } from '@/lib/action'
+import { parseOrThrow } from '@/lib/action'
 import {
   extractGuardianFields,
   type guardianSchema,
@@ -43,11 +43,9 @@ export function parseGuardianSlot(
   prefix: string,
   schema: typeof guardianSchema | typeof guardianSchemaWithOccupation,
 ): z.infer<typeof guardianSchema> {
-  const parsed = schema.safeParse(extractGuardianFields(formData, prefix))
-  if (!parsed.success)
-    throw new ActionError(
-      parsed.error.issues[0].message,
-      prefixFieldErrors(firstFieldErrors(parsed.error), prefix),
-    )
-  return parsed.data
+  return parseOrThrow<z.infer<typeof guardianSchema>>(
+    schema,
+    extractGuardianFields(formData, prefix),
+    prefix,
+  )
 }

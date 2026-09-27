@@ -1,6 +1,6 @@
 'use client'
 
-import type { LessonPlanRow } from '@/db'
+import type { ClassOption, LessonPlanRow } from '@/db'
 import {
   FormActions,
   FormGrid,
@@ -12,8 +12,6 @@ import {
 } from '@/components/form'
 import type { ActionResult } from '@/lib/action'
 import { todayInSchoolTz } from '@/lib/datetime'
-
-export type ClassOption = { id: string; name: string; year_group: string }
 
 type Props = {
   initial?: LessonPlanRow

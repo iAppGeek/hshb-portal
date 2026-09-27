@@ -103,7 +103,11 @@ export {
   setClassStudents,
   migrateClass,
 } from './classes'
-export type { MigrationAction, MigrateClassResult } from './classes'
+export type {
+  ClassOption,
+  MigrationAction,
+  MigrateClassResult,
+} from './classes'
 export {
   getIncidentCount,
   getIncidents,
