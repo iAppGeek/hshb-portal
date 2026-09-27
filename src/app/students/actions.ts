@@ -16,7 +16,10 @@ import {
   runAction,
   type ActionResult,
 } from '@/lib/action'
-import { resolveGuardianSlot } from '@/lib/guardians/resolveGuardian'
+import {
+  parseGuardianSlot,
+  resolveGuardian,
+} from '@/lib/guardians/resolveGuardian'
 import { canCreateStudents, canEditStudents } from '@/lib/permissions'
 import {
   createStudentSchema,
@@ -38,44 +41,59 @@ function parseOrThrow<T>(schema: z.ZodType<T>, fields: unknown): T {
 }
 
 /**
+ * The student shares the primary guardian's address, so that guardian must have
+ * one. A guardian being created carries its address in the form; an existing
+ * one is read back from its row.
+ */
+async function assertGuardianHasAddress(
+  guardian: z.infer<typeof guardianSchema>,
+): Promise<void> {
+  const address =
+    guardian.mode === 'existing'
+      ? await getGuardianById(guardian.existing_id)
+      : guardian
+
+  if (!address?.address_line_1 || !address.city || !address.postcode)
+    throw new ActionError(
+      'The selected guardian does not have an address. Add their address first.',
+    )
+}
+
+/**
  * The columns both creating and editing write: the student's own details,
  * the guardian links (creating any new guardians) and the address source.
+ *
+ * Every guardian block is parsed and the address rule checked before the first
+ * guardian row is written: there is no transaction around the guardian inserts
+ * and the student write, so a rejection after an insert would leave orphaned
+ * guardians behind and the user's retry would duplicate them.
  */
 async function studentFields(
   formData: FormData,
   d: z.infer<typeof createStudentSchema>,
 ): Promise<Parameters<typeof createStudent>[0]> {
-  const primaryGuardianId = await resolveGuardianSlot(
+  const primary = parseGuardianSlot(
     formData,
     'primary',
     guardianSchemaWithOccupation,
   )
 
-  const secondaryGuardianId = d.has_secondary
-    ? await resolveGuardianSlot(
-        formData,
-        'secondary',
-        guardianSchemaWithOccupation,
-      )
+  const secondary = d.has_secondary
+    ? parseGuardianSlot(formData, 'secondary', guardianSchemaWithOccupation)
     : null
 
-  const contact1Id = d.has_contact1
-    ? await resolveGuardianSlot(formData, 'contact1', guardianSchema)
+  const contact1 = d.has_contact1
+    ? parseGuardianSlot(formData, 'contact1', guardianSchema)
     : null
 
-  const contact2Id = d.has_contact2
-    ? await resolveGuardianSlot(formData, 'contact2', guardianSchema)
+  const contact2 = d.has_contact2
+    ? parseGuardianSlot(formData, 'contact2', guardianSchema)
     : null
 
-  const addressGuardianId =
-    d.address_guardian_id === 'primary' ? primaryGuardianId : null
+  const sharesPrimaryAddress = d.address_guardian_id === 'primary'
 
-  if (addressGuardianId) {
-    const guardian = await getGuardianById(addressGuardianId)
-    if (!guardian?.address_line_1 || !guardian?.city || !guardian?.postcode)
-      throw new ActionError(
-        'The selected guardian does not have an address. Add their address first.',
-      )
+  if (sharesPrimaryAddress) {
+    await assertGuardianHasAddress(primary)
   } else if (
     !d.student_address_line_1 ||
     !d.student_city ||
@@ -85,6 +103,14 @@ async function studentFields(
       'Enter an address or select a guardian whose address the student shares',
     )
   }
+
+  const primaryGuardianId = await resolveGuardian(primary)
+  const secondaryGuardianId = secondary
+    ? await resolveGuardian(secondary)
+    : null
+  const contact1Id = contact1 ? await resolveGuardian(contact1) : null
+  const contact2Id = contact2 ? await resolveGuardian(contact2) : null
+  const addressGuardianId = sharesPrimaryAddress ? primaryGuardianId : null
 
   return {
     first_name: d.student_first_name,

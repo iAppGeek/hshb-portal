@@ -32,21 +32,22 @@ export async function resolveGuardian(
 }
 
 /**
- * The server side of one `GuardianPicker`. Guardians live in several prefixed
- * blocks of the same form, so each is parsed here rather than through
+ * The validating half of one `GuardianPicker`. Guardians live in several
+ * prefixed blocks of the same form, so each is parsed here rather than through
  * `runAction`'s single `schema`; field errors keep the `${prefix}_` names the
- * picker renders.
+ * picker renders. Parsing is separate from `resolveGuardian` so a caller
+ * filling several slots can reject the whole form before writing any row.
  */
-export async function resolveGuardianSlot(
+export function parseGuardianSlot(
   formData: FormData,
   prefix: string,
   schema: typeof guardianSchema | typeof guardianSchemaWithOccupation,
-): Promise<string> {
+): z.infer<typeof guardianSchema> {
   const parsed = schema.safeParse(extractGuardianFields(formData, prefix))
   if (!parsed.success)
     throw new ActionError(
       parsed.error.issues[0].message,
       prefixFieldErrors(firstFieldErrors(parsed.error), prefix),
     )
-  return resolveGuardian(parsed.data)
+  return parsed.data
 }

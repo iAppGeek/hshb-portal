@@ -63,7 +63,7 @@ function guardianOption(g: GuardianSummary): { value: string; label: string } {
  * One guardian/contact slot on the student forms: either link an existing
  * guardian (search + select) or enter a new one. Field names are prefixed
  * (`${prefix}_first_name`, `${prefix}_existing_id`, …) to match the parsing
- * in `resolveGuardianSlot` (src/lib/guardians/resolveGuardian.ts).
+ * in `parseGuardianSlot` (src/lib/guardians/resolveGuardian.ts).
  */
 export default function GuardianPicker({
   prefix,

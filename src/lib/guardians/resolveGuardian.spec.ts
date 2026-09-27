@@ -4,7 +4,7 @@ import { createGuardian } from '@/db'
 import { ActionError } from '@/lib/action'
 import { guardianSchema, guardianSchemaWithOccupation } from '@/lib/schemas'
 
-import { resolveGuardian, resolveGuardianSlot } from './resolveGuardian'
+import { parseGuardianSlot, resolveGuardian } from './resolveGuardian'
 
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('@/db', () => ({
@@ -14,6 +14,15 @@ vi.mock('@/db', () => ({
 
 const EXISTING_ID = '00000000-0000-4000-8000-000000000001'
 const NEW_ID = '00000000-0000-4000-8000-000000000002'
+
+function catchActionError(fn: () => unknown): ActionError {
+  try {
+    fn()
+  } catch (e: unknown) {
+    return e as ActionError
+  }
+  throw new Error('expected an ActionError')
+}
 
 function makeFormData(fields: Record<string, string>): FormData {
   const fd = new FormData()
@@ -73,50 +82,50 @@ describe('resolveGuardian', () => {
   })
 })
 
-describe('resolveGuardianSlot', () => {
-  it('reads the prefixed block and resolves an existing guardian', async () => {
+describe('parseGuardianSlot', () => {
+  it('reads the prefixed block without writing a guardian row', () => {
+    expect(
+      parseGuardianSlot(
+        makeFormData(newGuardianFields),
+        'contact1',
+        guardianSchema,
+      ),
+    ).toMatchObject({ mode: 'new', first_name: 'Maria', last_name: 'Smith' })
+    expect(createGuardian).not.toHaveBeenCalled()
+  })
+
+  it('reads an existing guardian reference from the prefixed block', () => {
     const fd = makeFormData({
       primary_mode: 'existing',
       primary_existing_id: EXISTING_ID,
     })
 
-    await expect(
-      resolveGuardianSlot(fd, 'primary', guardianSchemaWithOccupation),
-    ).resolves.toBe(EXISTING_ID)
+    expect(
+      parseGuardianSlot(fd, 'primary', guardianSchemaWithOccupation),
+    ).toEqual({ mode: 'existing', existing_id: EXISTING_ID })
   })
 
-  it('creates a new contact from the prefixed fields', async () => {
-    await expect(
-      resolveGuardianSlot(
-        makeFormData(newGuardianFields),
-        'contact1',
-        guardianSchema,
-      ),
-    ).resolves.toBe(NEW_ID)
-    expect(createGuardian).toHaveBeenCalledWith(
-      expect.objectContaining({ first_name: 'Maria', phone: '07700 900000' }),
-    )
-  })
-
-  it('throws prefixed field errors for an invalid block', async () => {
+  it('throws prefixed field errors for an invalid block', () => {
     const fd = makeFormData({ ...newGuardianFields, contact1_phone: 'nope' })
 
-    const err = await resolveGuardianSlot(fd, 'contact1', guardianSchema).catch(
-      (e: unknown) => e,
+    const err = catchActionError(() =>
+      parseGuardianSlot(fd, 'contact1', guardianSchema),
     )
 
     expect(err).toBeInstanceOf(ActionError)
-    expect((err as ActionError).fieldErrors).toHaveProperty('contact1_phone')
+    expect(err.fieldErrors).toHaveProperty('contact1_phone')
     expect(createGuardian).not.toHaveBeenCalled()
   })
 
-  it('requires an occupation only with the parent/carer schema', async () => {
+  it('requires an occupation only with the parent/carer schema', () => {
     const fd = makeFormData(newGuardianFields)
 
-    await expect(
-      resolveGuardianSlot(fd, 'contact1', guardianSchemaWithOccupation),
-    ).rejects.toMatchObject({
-      fieldErrors: { contact1_occupation: expect.any(String) },
+    const err = catchActionError(() =>
+      parseGuardianSlot(fd, 'contact1', guardianSchemaWithOccupation),
+    )
+
+    expect(err.fieldErrors).toMatchObject({
+      contact1_occupation: expect.any(String),
     })
   })
 })

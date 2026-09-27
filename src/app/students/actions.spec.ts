@@ -373,10 +373,9 @@ describe('saveStudentAction (create)', () => {
     )
   })
 
-  it('returns error when selected guardian has no address', async () => {
-    vi.mocked(createGuardian).mockResolvedValue({ id: GUARDIAN_1 } as any)
+  it('returns error when the existing guardian chosen has no address', async () => {
     vi.mocked(getGuardianById).mockResolvedValue({
-      id: GUARDIAN_1,
+      id: GUARDIAN_EXISTING,
       first_name: 'Maria',
       last_name: 'Smith',
       phone: '07700 900000',
@@ -387,12 +386,57 @@ describe('saveStudentAction (create)', () => {
 
     const result = await saveStudentAction(
       null,
-      makeFormData(createGuardianAddressFields),
+      makeFormData({
+        ...createGuardianAddressFields,
+        primary_mode: 'existing',
+        primary_existing_id: GUARDIAN_EXISTING,
+      }),
     )
 
     expect(result).toEqual({
       error: expect.stringContaining('does not have an address'),
     })
+    expect(createStudent).not.toHaveBeenCalled()
+  })
+
+  // The address rule is checked before any insert, so a rejection leaves no
+  // orphaned guardian rows for a retry to duplicate.
+  it('writes no guardian when a new primary guardian has no address to share', async () => {
+    const result = await saveStudentAction(
+      null,
+      makeFormData({
+        ...createGuardianAddressFields,
+        primary_address_line_1: '',
+        primary_city: '',
+        primary_postcode: '',
+      }),
+    )
+
+    expect(result).toEqual({
+      error: expect.stringContaining('does not have an address'),
+    })
+    expect(createGuardian).not.toHaveBeenCalled()
+    expect(getGuardianById).not.toHaveBeenCalled()
+    expect(createStudent).not.toHaveBeenCalled()
+  })
+
+  it('writes no guardian when a later slot fails validation', async () => {
+    const result = await saveStudentAction(
+      null,
+      makeFormData({
+        ...createFields,
+        has_contact1: 'true',
+        contact1_first_name: 'Eleni',
+        contact1_last_name: 'Georgiou',
+        contact1_phone: 'not-a-phone',
+        contact1_relationship: 'Aunt',
+      }),
+    )
+
+    expect(result).toMatchObject({
+      fieldErrors: { contact1_phone: expect.any(String) },
+    })
+    expect(createGuardian).not.toHaveBeenCalled()
     expect(createStudent).not.toHaveBeenCalled()
   })
 
