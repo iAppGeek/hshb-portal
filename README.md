@@ -6,7 +6,7 @@ Internal staff portal for the Hellenic School of High Barnet, deployed at [porta
 
 - [Next.js 16](https://nextjs.org) (App Router, Turbopack, React Compiler)
 - [React 19](https://react.dev)
-- Postgres hosted on [Supabase](https://supabase.com), accessed with [Drizzle ORM](https://orm.drizzle.team) over a direct [postgres.js](https://github.com/porsager/postgres) connection. `@supabase/supabase-js` remains only for legacy queries and `.rpc()` calls until refactor plan 10 removes it — see [Database](#database)
+- Postgres hosted on [Supabase](https://supabase.com), accessed with [Drizzle ORM](https://orm.drizzle.team) over a direct [postgres.js](https://github.com/porsager/postgres) connection. `@supabase/supabase-js` remains only for the `.rpc()` calls to the database functions that refactor plan 10 moves to TypeScript — see [Database](#database)
 - [NextAuth v5](https://authjs.dev) with Microsoft Entra ID (Azure AD)
 - [Tailwind CSS 4](https://tailwindcss.com) + [Headless UI](https://headlessui.dev)
 - [Zod](https://zod.dev) for input validation
@@ -74,8 +74,9 @@ Other helpers:
 
 ### Writing queries
 
-- Use `db` from `@/db/client` and the tables and row types (`Student`, `NewStudent`, …) from `@/db/schema`. Do not add new `supabase.from(…)` calls; the remaining ones are being ported. `supabase.rpc(…)` is kept only for the existing database functions until plan 10.
+- Use `db` from `@/db/client` and the tables and row types (`Student`, `NewStudent`, …) from `@/db/schema`. Never use `supabase.from(…)`. `supabase.rpc(…)` is kept only for the existing database functions until plan 10.
 - Use the relational API (`db.query.students.findFirst({ with: … })`) for an entity plus its children, and the SQL-like builder with `count()`, `sum()` and `groupBy` for aggregates — not fetch-then-group in a JS `Map`.
+- Drizzle rows are camelCase; the functions in `src/db` return and accept the snake_case shapes the app uses. Convert at that boundary with `toSnake` / `toCamel` from `src/db/casing.ts`. `timestamptz` columns come back as ISO strings (`2026-09-27T12:00:00+00:00`).
 - One exported function = one query or one transaction. Every module in `src/db` starts with `import 'server-only'`.
 - Production uses the Supabase Supavisor **transaction pooler** (port 6543), which is why the client sets `prepare: false`.
 

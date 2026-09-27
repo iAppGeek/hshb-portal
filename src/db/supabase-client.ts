@@ -6,7 +6,7 @@ import { env } from '@/env.server'
 
 import type { Database } from '../types/database'
 
-/** Kept until plan 10 for `.rpc()` calls only. */
+/** Kept until plan 10, for the remaining RPC calls only. */
 export const supabase = createClient<Database>(
   env.NEXT_PUBLIC_SUPABASE_URL,
   env.SUPABASE_SERVICE_ROLE_KEY,
