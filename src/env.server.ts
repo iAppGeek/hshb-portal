@@ -9,6 +9,9 @@ const serverSchema = z
     AZURE_AD_CLIENT_ID: z.string().min(1),
     AZURE_AD_TENANT_ID: z.string().min(1),
     AZURE_AD_CLIENT_SECRET: z.string().min(1),
+    // Direct Postgres connection for Drizzle. Production: the Supabase
+    // Supavisor transaction pooler (port 6543).
+    DATABASE_URL: z.string().url(),
     NEXT_PUBLIC_SUPABASE_URL: z.string().url(), // removed in plan 10
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1), // removed in plan 10
     VAPID_PRIVATE_KEY: z.string().min(1),
