@@ -1,12 +1,15 @@
+import 'server-only'
+
+import { desc, eq } from 'drizzle-orm'
 import { cache } from 'react'
 
 import { academicYearForDate } from '@/lib/academicYears'
-import type { Database } from '@/types/database'
 
-import { supabase } from './client'
+import { toCamel, toSnake, type Snake } from './casing'
+import { db, supabase } from './client'
+import { academicYears, type AcademicYear } from './schema'
 
-export type AcademicYearRow =
-  Database['public']['Tables']['academic_years']['Row']
+export type AcademicYearRow = Snake<AcademicYear>
 
 export type AcademicYearInput = {
   code: string
@@ -19,11 +22,11 @@ export type AcademicYearInput = {
  * other lookups below all go through it, and a page often calls several.
  */
 export const getAcademicYears = cache(async (): Promise<AcademicYearRow[]> => {
-  const { data } = await supabase
-    .from('academic_years')
-    .select('*')
-    .order('start_date', { ascending: false })
-  return data ?? []
+  const rows = await db
+    .select()
+    .from(academicYears)
+    .orderBy(desc(academicYears.startDate))
+  return toSnake(rows)
 })
 
 export async function getCurrentAcademicYear(): Promise<AcademicYearRow> {
@@ -50,24 +53,21 @@ export async function getAcademicYearForDate(
 export async function createAcademicYear(
   input: AcademicYearInput,
 ): Promise<{ id: string }> {
-  const { data, error } = await supabase
-    .from('academic_years')
-    .insert(input)
-    .select('id')
-    .single()
-  if (error) throw error
-  return data
+  const [row] = await db
+    .insert(academicYears)
+    .values(toCamel(input))
+    .returning({ id: academicYears.id })
+  return row
 }
 
 export async function updateAcademicYear(
   id: string,
   input: Omit<AcademicYearInput, 'code'>,
 ): Promise<void> {
-  const { error } = await supabase
-    .from('academic_years')
-    .update(input)
-    .eq('id', id)
-  if (error) throw error
+  await db
+    .update(academicYears)
+    .set(toCamel(input))
+    .where(eq(academicYears.id, id))
 }
 
 export async function setCurrentAcademicYear(id: string): Promise<void> {
