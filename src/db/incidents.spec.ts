@@ -95,6 +95,22 @@ describe('getIncidents', () => {
     expect(inFn).toHaveBeenCalledWith('student_id', ['student-1'])
   })
 
+  it('filters by type when provided', async () => {
+    const eqFn = vi
+      .fn()
+      .mockResolvedValue({ data: [mockIncident], error: null })
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        order: vi.fn().mockReturnValue({
+          eq: eqFn,
+        }),
+      }),
+    })
+
+    await getIncidents({ type: 'behaviour' })
+    expect(eqFn).toHaveBeenCalledWith('type', 'behaviour')
+  })
+
   it('throws on database error', async () => {
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({

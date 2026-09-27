@@ -38,6 +38,7 @@ export async function getIncidentCount(): Promise<number> {
 }
 
 export async function getIncidents(options?: {
+  type?: IncidentType
   studentIds?: string[]
   limit?: number
   offset?: number
@@ -46,6 +47,10 @@ export async function getIncidents(options?: {
     .from('incidents')
     .select(INCIDENT_SELECT)
     .order('incident_date', { ascending: false })
+
+  if (options?.type) {
+    query = query.eq('type', options.type)
+  }
 
   if (options?.studentIds && options.studentIds.length > 0) {
     query = query.in('student_id', options.studentIds)
