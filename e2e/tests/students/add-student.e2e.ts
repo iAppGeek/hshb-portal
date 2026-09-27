@@ -4,9 +4,15 @@ import { db } from '../../fixtures/seed'
 // Pin to admin — only admins can create students
 test.use({ storageState: 'e2e/.auth/admin.json' })
 
-const STUDENT_FIRST = 'E2ETest'
+// Every project (viewport × role) runs this file in parallel, so each one
+// creates and checks its own student and guardian, named after the project —
+// a shared name made the `.single()` lookups below race between projects.
+function projectTag(): string {
+  return test.info().project.name.replace(/[^a-z]/gi, '')
+}
+const studentFirst = (): string => `E2ETest${projectTag()}`
 const STUDENT_LAST = 'GuardianAddress'
-const GUARDIAN_FIRST = 'E2EGuardian'
+const guardianFirst = (): string => `E2EGuardian${projectTag()}`
 const GUARDIAN_LAST = 'AddrTest'
 
 // Distinct from the pair above: this student is never expected to save, but
@@ -25,12 +31,12 @@ test.describe.serial('Add student', () => {
     await db
       .from('students')
       .delete()
-      .eq('first_name', STUDENT_FIRST)
+      .eq('first_name', studentFirst())
       .eq('last_name', STUDENT_LAST)
     await db
       .from('guardians')
       .delete()
-      .eq('first_name', GUARDIAN_FIRST)
+      .eq('first_name', guardianFirst())
       .eq('last_name', GUARDIAN_LAST)
     await db
       .from('students')
@@ -50,13 +56,13 @@ test.describe.serial('Add student', () => {
     await page.goto('/students/new')
 
     // Student details
-    await page.locator('input[name="student_first_name"]').fill(STUDENT_FIRST)
+    await page.locator('input[name="student_first_name"]').fill(studentFirst())
     await page.locator('input[name="student_last_name"]').fill(STUDENT_LAST)
 
     // Address mode defaults to "Same as guardian" (primary) — no interaction needed
 
     // Primary guardian (new)
-    await page.locator('input[name="primary_first_name"]').fill(GUARDIAN_FIRST)
+    await page.locator('input[name="primary_first_name"]').fill(guardianFirst())
     await page.locator('input[name="primary_last_name"]').fill(GUARDIAN_LAST)
     await page.locator('input[name="primary_phone"]').fill('07700 900999')
     await page
@@ -73,12 +79,11 @@ test.describe.serial('Add student', () => {
     await page.getByRole('button', { name: 'Save student' }).click()
 
     await expect(page).toHaveURL('/students')
-    // Parallel projects add a student with the same name, so match any row.
     // Stacked mode's mobile summary title also duplicates the desktop name
     // cell, and only one of the two is visible at a given viewport.
     await expect(
       page
-        .getByText(`${STUDENT_LAST}, ${STUDENT_FIRST}`)
+        .getByText(`${STUDENT_LAST}, ${studentFirst()}`)
         .filter({ visible: true })
         .first(),
     ).toBeVisible()
@@ -87,7 +92,7 @@ test.describe.serial('Add student', () => {
     const { data: student } = await db
       .from('students')
       .select('address_guardian_id, address_line_1, english_school_name')
-      .eq('first_name', STUDENT_FIRST)
+      .eq('first_name', studentFirst())
       .eq('last_name', STUDENT_LAST)
       .single()
 

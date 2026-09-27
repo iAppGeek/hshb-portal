@@ -37,23 +37,3 @@ export function staysOverlapping(
 export function enrolledOn(stay: StayColumns, date: string): SQL {
   return staysOverlapping(stay, date, date)
 }
-
-// ─── PostgREST helpers, removed once guardians.ts is ported ──────────────────
-
-type FilterableQuery<Q> = { is(column: string, value: null): Q }
-
-/** Filters a query on the `student_classes` table to current stays. */
-export function currentStays<Q extends FilterableQuery<Q>>(query: Q): Q {
-  return query.is('end_date', null)
-}
-
-/**
- * Filters a `student_classes` embed to current stays. Never use `!inner` for
- * this: it would drop students (or classes) that have no current stay.
- */
-export function withCurrentClasses<Q extends FilterableQuery<Q>>(
-  query: Q,
-  embed = 'student_classes',
-): Q {
-  return query.is(`${embed}.end_date`, null)
-}

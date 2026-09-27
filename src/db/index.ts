@@ -68,7 +68,7 @@ export type { PhotoOptOutStatus, PhotoOptOutRow } from './photoOptOuts'
 export {
   getGuardianCount,
   getAllGuardians,
-  getGuardianChildCounts,
+  getGuardiansWithChildCounts,
   createGuardian,
   getGuardianById,
   getStudentsByGuardian,

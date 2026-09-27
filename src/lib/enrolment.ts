@@ -3,7 +3,7 @@
 //
 // Two questions, two rules:
 // - "Current classes" (membership): stays with no end date, including one that
-//   starts in the future. Queried via withCurrentClasses in @/db/membership.
+//   starts in the future. Queried via isCurrentStay in @/db/membership.
 // - "In the class on a date": isEnrolledOn / buildRegisterRoster below.
 
 export type EnrolmentRow = {
