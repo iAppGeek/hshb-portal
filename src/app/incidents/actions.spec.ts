@@ -125,6 +125,24 @@ describe('saveIncidentAction (create)', () => {
     )
   })
 
+  it('accepts a missing parent_notified_at, which the unticked form omits', async () => {
+    vi.mocked(createIncident).mockResolvedValue({ id: INCIDENT_ID } as any)
+    vi.mocked(redirect).mockImplementation(() => {
+      throw new Error('NEXT_REDIRECT')
+    })
+
+    const fields = { ...baseCreateFields }
+    delete fields.parent_notified_at
+
+    await expect(
+      saveIncidentAction(null, makeFormData(fields)),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(createIncident).toHaveBeenCalledWith(
+      expect.objectContaining({ parent_notified_at: null }),
+    )
+  })
+
   it('returns error when creation fails', async () => {
     vi.mocked(createIncident).mockRejectedValue(new Error('DB error'))
 
@@ -207,6 +225,28 @@ describe('saveIncidentAction (update)', () => {
       error: 'Failed to update incident. Please try again.',
     })
     expect(redirect).not.toHaveBeenCalled()
+  })
+
+  it('accepts a missing parent_notified_at, which the unticked form omits', async () => {
+    vi.mocked(updateIncident).mockResolvedValue(undefined as any)
+    vi.mocked(redirect).mockImplementation(() => {
+      throw new Error('NEXT_REDIRECT')
+    })
+
+    const fields: Record<string, string> = {
+      ...baseUpdateFields,
+      parent_notified: 'false',
+    }
+    delete fields.parent_notified_at
+
+    await expect(
+      saveIncidentAction(INCIDENT_ID, makeFormData(fields)),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(updateIncident).toHaveBeenCalledWith(
+      INCIDENT_ID,
+      expect.objectContaining({ parent_notified_at: null }),
+    )
   })
 
   it('returns error when validation fails', async () => {

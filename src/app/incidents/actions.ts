@@ -8,7 +8,7 @@ import { createIncidentSchema, updateIncidentSchema } from '@/lib/schemas'
 
 function notifiedAt(
   parentNotified: boolean,
-  parentNotifiedAt: string | null,
+  parentNotifiedAt: string | null | undefined,
 ): string | null {
   return parentNotified && parentNotifiedAt
     ? datetimeLocalToUtcIso(parentNotifiedAt)
