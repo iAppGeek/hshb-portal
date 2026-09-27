@@ -146,7 +146,6 @@ export type {
   AttendanceInsert,
   AttendanceRow,
 } from './attendance'
-export { fetchAllPages } from './paging'
 export {
   getStaffAttendanceForToday,
   getStaffAttendanceByDate,
