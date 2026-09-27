@@ -3,6 +3,7 @@
 import type { RegistrationFull, ContactRole, StudentMatch } from '@/db'
 import type { GuardianMatch } from '@/db'
 import DefinitionList from '@/components/DefinitionList'
+import PermissionedButton from '@/components/PermissionedButton'
 import { ConfirmDialog, ReasonDialog, useDialog } from '@/components/dialogs'
 import { formatDateInSchoolTz, formatDateTimeInSchoolTz } from '@/lib/datetime'
 import { personName } from '@/lib/format'
@@ -12,7 +13,6 @@ import type { StaffRole } from '@/types/next-auth'
 
 import PageHeader from '../../_components/PageHeader'
 import { deleteRegistrationAction, rejectRegistrationAction } from '../actions'
-import ReviewActionButton from '../ReviewActionButton'
 import { workflowItems } from '../workflowItems'
 
 import RegistrationApproveDialog from './RegistrationApproveDialog'
@@ -76,7 +76,13 @@ export default function RegistrationReview({
   return (
     <div className="max-w-3xl space-y-6">
       <PageHeader
-        title={`${submission.child_last_name}, ${submission.child_first_name}`}
+        title={personName(
+          {
+            first_name: submission.child_first_name,
+            last_name: submission.child_last_name,
+          },
+          'lastFirst',
+        )}
         subtitle={`Submitted ${formatDateTimeInSchoolTz(submission.submitted_at)}`}
         backHref="/registrations"
         backLabel="Registrations"
@@ -280,30 +286,33 @@ export default function RegistrationReview({
       )}
 
       <div className="flex flex-wrap items-center gap-3">
-        <ReviewActionButton
-          label="Approve & save student"
+        <PermissionedButton
           allowed={canAct}
           showDisabled={!isAdmin}
           disabledReason={ADMIN_ONLY}
           onClick={() => approveDialog.open()}
           className="bg-blue-600 text-white hover:bg-blue-700"
-        />
-        <ReviewActionButton
-          label="Reject"
+        >
+          Approve & save student
+        </PermissionedButton>
+        <PermissionedButton
           allowed={canAct}
           showDisabled={!isAdmin}
           disabledReason={ADMIN_ONLY}
           onClick={() => rejectDialog.open()}
           className="bg-white text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50"
-        />
-        <ReviewActionButton
-          label="Delete"
+        >
+          Reject
+        </PermissionedButton>
+        <PermissionedButton
           allowed={isAdmin}
           showDisabled={!isAdmin}
           disabledReason={ADMIN_ONLY}
           onClick={() => deleteDialog.open()}
           className="bg-white text-red-600 ring-1 ring-gray-300 hover:bg-red-50"
-        />
+        >
+          Delete
+        </PermissionedButton>
       </div>
 
       {deleteDialog.isOpen && (

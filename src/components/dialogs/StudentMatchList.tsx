@@ -4,6 +4,7 @@ import { useId, useState } from 'react'
 
 import type { StudentMatch } from '@/db'
 import { RadioGroup, formStyles } from '@/components/form'
+import { personName } from '@/lib/format'
 
 export type StudentChoice =
   { mode: 'existing'; studentId: string } | { mode: 'new' }
@@ -50,7 +51,7 @@ function filterStudents(
 }
 
 function studentLabel(s: StudentMatch): string {
-  return `${s.last_name}, ${s.first_name}${s.student_code ? ` (${s.student_code})` : ''}`
+  return `${personName(s, 'lastFirst')}${s.student_code ? ` (${s.student_code})` : ''}`
 }
 
 type Props = {
@@ -146,7 +147,7 @@ export default function StudentMatchList({
 
       {selected && (
         <p className="text-sm text-gray-600">
-          Selected: {selected.last_name}, {selected.first_name}
+          Selected: {personName(selected, 'lastFirst')}
         </p>
       )}
     </>

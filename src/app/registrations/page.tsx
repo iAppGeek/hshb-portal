@@ -60,7 +60,8 @@ export default async function RegistrationsPage({
       key: 'photo-opt-outs',
       label: 'Photo opt-outs',
       href: OPT_OUTS_HREF,
-      count: pendingOptOuts,
+      // TabBar renders any defined count, so 0 must not become a badge.
+      count: pendingOptOuts || undefined,
     },
   ]
 

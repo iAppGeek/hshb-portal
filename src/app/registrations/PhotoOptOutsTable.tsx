@@ -7,6 +7,7 @@ import FunctionalGrid, {
 } from '@/clientComponents/grid/FunctionalGrid'
 import type { PhotoOptOutRow } from '@/db'
 import { formatDateInSchoolTz, formatDateTimeInSchoolTz } from '@/lib/datetime'
+import { personName } from '@/lib/format'
 import { compareByName, compareNullableText } from '@/lib/grid/sort'
 import { matchesAny, normaliseQuery } from '@/lib/grid/search'
 import { rowLink } from '@/lib/grid/styles'
@@ -28,7 +29,13 @@ const columns: FunctionalGridColumn<PhotoOptOutRow>[] = [
     id: 'child',
     header: 'Child',
     cell: (info) =>
-      `${info.row.original.child_last_name}, ${info.row.original.child_first_name}`,
+      personName(
+        {
+          first_name: info.row.original.child_first_name,
+          last_name: info.row.original.child_last_name,
+        },
+        'lastFirst',
+      ),
     sortFn: (rowA, rowB) =>
       compareByName(
         {

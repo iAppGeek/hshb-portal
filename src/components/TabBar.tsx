@@ -15,9 +15,9 @@ export default function TabBar({
   ariaLabel,
 }: Props): ReactElement {
   return (
-    <div
-      className="mb-6 flex gap-1 rounded-xl bg-gray-100 p-1"
+    <nav
       aria-label={ariaLabel}
+      className="mb-6 flex flex-wrap gap-1 rounded-xl bg-gray-100 p-1"
     >
       {tabs.map((tab) => (
         <Link
@@ -36,6 +36,6 @@ export default function TabBar({
           )}
         </Link>
       ))}
-    </div>
+    </nav>
   )
 }
