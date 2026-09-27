@@ -58,6 +58,8 @@ export const staffRole = z.enum([
 
 export const incidentType = z.enum(['medical', 'behaviour', 'other'])
 
+export const incidentTypeFilter = incidentType.catch('medical')
+
 export const attendanceStatus = z.enum(['present', 'absent', 'late'])
 
 export const booleanFromString = z
