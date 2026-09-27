@@ -1,5 +1,9 @@
 import { test, expect } from '../../fixtures/index'
-import { db, deletePhotoOptOutsByChildLastName } from '../../fixtures/seed'
+import {
+  db,
+  createPhotoOptOut,
+  deletePhotoOptOutsByChildLastName,
+} from '../../fixtures/seed'
 
 test.describe('Photo consent opt-out — public form', () => {
   test.use({ storageState: { cookies: [], origins: [] } })
@@ -96,25 +100,29 @@ test.describe('Photo consent opt-out — admin review', () => {
     await submitOptOut.click()
     await expect(page).toHaveURL(/\/register\/photo-opt-out\/success/)
 
-    await page.goto('/registrations')
+    const { data: submitted } = await db
+      .from('photo_consent_opt_outs')
+      .select('id')
+      .eq('child_last_name', childLastName)
+      .single()
 
-    // In dev mode a click right after reload can occasionally land before
-    // the row has finished hydrating, silently dropping it.
-    // Retry the whole reload-then-click cycle — a fresh reload gives
-    // hydration another full attempt — rather than re-clicking the same
-    // possibly-stuck DOM node.
+    // The request is listed on the opt-outs tab and links to its review page.
+    // In dev mode a click right after load can land before hydration and be
+    // dropped, so retry the load-then-click cycle rather than the click.
     const row = page.locator('tr', { hasText: childLastName })
-    const dialog = page.getByRole('dialog')
     await expect(async () => {
-      await page.reload()
-      await expect(page.getByText('Photo consent opt-outs')).toBeVisible({
-        timeout: 2000,
-      })
-      await expect(
-        row.getByRole('button', { name: 'Match & apply' }),
-      ).toBeVisible({ timeout: 2000 })
-      await page.waitForLoadState('networkidle')
-      await row.getByRole('button', { name: 'Match & apply' }).click()
+      await page.goto('/registrations?tab=photo-opt-outs')
+      await row.getByRole('link', { name: 'Review' }).click({ timeout: 2000 })
+      await expect(page).toHaveURL(
+        `/registrations/photo-opt-outs/${submitted!.id}`,
+        { timeout: 3000 },
+      )
+    }).toPass({ timeout: 45000 })
+
+    const dialog = page.getByTestId('match-student-dialog')
+    const actions = page.getByTestId('review-actions')
+    await expect(async () => {
+      await actions.getByRole('button', { name: 'Match & apply' }).click()
       await expect(
         dialog.getByRole('heading', { name: 'Match to a student' }),
       ).toBeVisible({ timeout: 3000 })
@@ -122,17 +130,15 @@ test.describe('Photo consent opt-out — admin review', () => {
     await expect(
       dialog.getByText(new RegExp(`Selected:.*${childLastName}`)),
     ).toBeVisible()
+    // Applying an opt-out needs an existing student: there is no create path.
+    await expect(
+      dialog.getByRole('radio', { name: 'Create new student' }),
+    ).toHaveCount(0)
 
-    // The dialog stays on /registrations throughout (it's a modal, not a
-    // navigation), so the only reliable signal that Apply actually went
-    // through is the dialog closing — same hydration-timing risk as the
-    // Match & apply click above, so retry the click too.
-    await expect(async () => {
-      await dialog.getByRole('button', { name: 'Apply opt-out' }).click()
-      await expect(dialog).toBeHidden({ timeout: 3000 })
-    }).toPass({ timeout: 15000 })
+    await dialog.getByRole('button', { name: 'Apply opt-out' }).click()
+    await expect(page).toHaveURL(/\/registrations\?tab=photo-opt-outs$/)
 
-    // The dialog closing confirms the redirect fired, but the DB write it
+    // The redirect confirms the action returned, but the DB write it
     // triggered can still be a beat behind this test's own read — poll
     // rather than asserting on a single, possibly-too-early read.
     await expect(async () => {
@@ -151,5 +157,98 @@ test.describe('Photo consent opt-out — admin review', () => {
       .single()
     expect(request?.status).toBe('actioned')
     expect(request?.student_id).toBe(student!.id)
+  })
+
+  test('rejects an opt-out request through the shared reason dialog', async ({
+    page,
+  }, testInfo) => {
+    const suffix = testInfo.project.name.replace(/[^a-z0-9]/gi, '')
+    childLastName = `OptOutReject${suffix}`
+    const { id } = await createPhotoOptOut(childLastName)
+
+    await page.goto(`/registrations/photo-opt-outs/${id}`)
+    await expect(
+      page.getByRole('heading', { name: new RegExp(childLastName) }),
+    ).toBeVisible()
+
+    const dialog = page.getByTestId('reason-dialog')
+    // Scoped to the action bar: the dialog's confirm button is also called
+    // "Reject", so an unscoped locator would match two nodes on a retry.
+    const actions = page.getByTestId('review-actions')
+    await expect(async () => {
+      await actions.getByRole('button', { name: 'Reject' }).click()
+      await expect(dialog).toBeVisible({ timeout: 3000 })
+    }).toPass({ timeout: 45000 })
+    await dialog.getByLabel(/Reason/).fill('Cannot match to a student')
+    await dialog.getByRole('button', { name: 'Reject' }).click()
+
+    await expect(page).toHaveURL(/\/registrations\?tab=photo-opt-outs$/)
+
+    const { data: rejected } = await db
+      .from('photo_consent_opt_outs')
+      .select('status, rejected_reason, actioned_by, actioned_at')
+      .eq('id', id)
+      .single()
+    expect(rejected?.status).toBe('rejected')
+    expect(rejected?.rejected_reason).toBe('Cannot match to a student')
+    expect(rejected?.actioned_by).not.toBeNull()
+    expect(rejected?.actioned_at).not.toBeNull()
+
+    await expect(async () => {
+      const { data: audit } = await db
+        .from('audit_log')
+        .select('details')
+        .eq('action', 'photo_opt_out_rejected')
+        .eq('entity_id', id)
+        .single()
+      expect(audit?.details).toEqual({ reason: 'Cannot match to a student' })
+    }).toPass({ timeout: 5000 })
+  })
+
+  test('deletes an opt-out request through the confirm dialog', async ({
+    page,
+  }, testInfo) => {
+    const suffix = testInfo.project.name.replace(/[^a-z0-9]/gi, '')
+    childLastName = `OptOutDelete${suffix}`
+    const { id } = await createPhotoOptOut(childLastName)
+
+    await page.goto(`/registrations/photo-opt-outs/${id}`)
+    const dialog = page.getByTestId('confirm-dialog')
+    const actions = page.getByTestId('review-actions')
+    await expect(async () => {
+      await actions.getByRole('button', { name: 'Delete' }).click()
+      await expect(dialog).toBeVisible({ timeout: 3000 })
+    }).toPass({ timeout: 45000 })
+    await expect(
+      dialog.getByText(/Delete this opt-out request permanently/),
+    ).toBeVisible()
+    await dialog.getByRole('button', { name: 'Confirm delete' }).click()
+
+    await expect(page).toHaveURL(/\/registrations\?tab=photo-opt-outs$/)
+
+    const { data } = await db
+      .from('photo_consent_opt_outs')
+      .select('id')
+      .eq('id', id)
+    expect(data).toEqual([])
+
+    await expect(async () => {
+      const { data: audit } = await db
+        .from('audit_log')
+        .select('action')
+        .eq('action', 'photo_opt_out_deleted')
+        .eq('entity_id', id)
+      expect(audit).toHaveLength(1)
+    }).toPass({ timeout: 5000 })
+  })
+
+  test('shows the not-found page for an unknown opt-out id', async ({
+    page,
+  }) => {
+    childLastName = ''
+    await page.goto(
+      '/registrations/photo-opt-outs/00000000-0000-0000-0000-000000000000',
+    )
+    await expect(page.getByRole('heading', { name: 'Not found' })).toBeVisible()
   })
 })

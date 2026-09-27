@@ -12,6 +12,7 @@ type RouteRule = {
 const GUARDIAN_ID = '20000000-0000-0000-0000-000000000001'
 // Pending registration submission seed ID from supabase/seed.sql
 const PENDING_REGISTRATION_ID = '80000000-0000-0000-0000-000000000001'
+const PENDING_PHOTO_OPT_OUT_ID = '82000000-0000-0000-0000-000000000001'
 // Teacher staff seed ID from supabase/seed.sql
 const TEACHER_STAFF_ID = '00000000-0000-0000-0000-000000000002'
 
@@ -86,6 +87,11 @@ const ROUTE_RULES: RouteRule[] = [
   },
   {
     route: `/registrations/${PENDING_REGISTRATION_ID}`,
+    allowedRoles: ['admin', 'headteacher', 'secretary'],
+    redirectTo: '/dashboard',
+  },
+  {
+    route: `/registrations/photo-opt-outs/${PENDING_PHOTO_OPT_OUT_ID}`,
     allowedRoles: ['admin', 'headteacher', 'secretary'],
     redirectTo: '/dashboard',
   },

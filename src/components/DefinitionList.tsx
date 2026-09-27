@@ -1,8 +1,8 @@
-type Item = { label: string; value: React.ReactNode }
+export type DefinitionItem = { label: string; value: React.ReactNode }
 
 type Props = {
   title?: string
-  items: Item[]
+  items: DefinitionItem[]
 }
 
 export default function DefinitionList({

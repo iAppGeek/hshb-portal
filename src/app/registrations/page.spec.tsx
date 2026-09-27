@@ -6,8 +6,7 @@ import { auth } from '@/auth'
 import {
   getRegistrationSubmissions,
   getPhotoOptOuts,
-  getStudentsForLinking,
-  findStudentMatches,
+  getPendingPhotoOptOutCount,
 } from '@/db'
 
 import RegistrationsPage from './page'
@@ -19,19 +18,12 @@ vi.mock('@/auth', () => ({
 vi.mock('@/db', () => ({
   getRegistrationSubmissions: vi.fn(),
   getPhotoOptOuts: vi.fn(),
-  getStudentsForLinking: vi.fn(),
-  findStudentMatches: vi.fn(),
+  getPendingPhotoOptOutCount: vi.fn(),
 }))
 
 vi.mock('next/navigation', async (importOriginal) => ({
   ...(await importOriginal<typeof import('next/navigation')>()),
   redirect: vi.fn(),
-}))
-
-vi.mock('@/components/TabBar', () => ({
-  default: ({ current }: { current: string }) => (
-    <div data-testid="tabs">{current}</div>
-  ),
 }))
 
 vi.mock('./RegistrationsTable', () => ({
@@ -40,28 +32,32 @@ vi.mock('./RegistrationsTable', () => ({
   ),
 }))
 
+vi.mock('./PhotoOptOutsTable', () => ({
+  default: ({ requests }: { requests: unknown[] }) => (
+    <div>PhotoOptOutsTable count={requests.length}</div>
+  ),
+}))
+
 vi.mock('./ShareLinksBar', () => ({
   default: () => <div data-testid="share-links" />,
 }))
 
-vi.mock('./PhotoOptOutSection', () => ({
-  default: ({ requests }: { requests: unknown[] }) => (
-    <div>PhotoOptOutSection count={requests.length}</div>
-  ),
-}))
+function signInAs(role: string): void {
+  vi.mocked(auth).mockResolvedValue({
+    user: { role, staffId: 'staff-1' },
+  } as never)
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(getRegistrationSubmissions).mockResolvedValue([])
   vi.mocked(getPhotoOptOuts).mockResolvedValue([])
-  vi.mocked(getStudentsForLinking).mockResolvedValue([])
-  vi.mocked(findStudentMatches).mockResolvedValue([])
+  vi.mocked(getPendingPhotoOptOutCount).mockResolvedValue(0)
 })
 
 describe('RegistrationsPage', () => {
   it('redirects teacher to dashboard', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { role: 'teacher', staffId: 'staff-2' },
-    } as never)
+    signInAs('teacher')
     vi.mocked(redirect).mockImplementation(() => {
       throw new Error('NEXT_REDIRECT')
     })
@@ -84,23 +80,50 @@ describe('RegistrationsPage', () => {
     expect(redirect).toHaveBeenCalledWith('/login')
   })
 
-  it('defaults to the pending status for admin and shows the share links bar', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { role: 'admin', staffId: 'staff-1' },
-    } as never)
-    vi.mocked(getRegistrationSubmissions).mockResolvedValue([])
+  it('defaults to pending registrations and shows the share links bar', async () => {
+    signInAs('admin')
 
     render(await RegistrationsPage({ searchParams: Promise.resolve({}) }))
 
     expect(getRegistrationSubmissions).toHaveBeenCalledWith('pending')
-    expect(screen.getByTestId('tabs').textContent).toBe('pending')
+    expect(getPhotoOptOuts).not.toHaveBeenCalled()
+    expect(
+      screen.getByRole('link', { name: 'To-do' }).getAttribute('aria-current'),
+    ).toBe('page')
     expect(screen.getByTestId('share-links')).toBeTruthy()
   })
 
+  it('renders five tabs, the last linking to photo opt-outs', async () => {
+    signInAs('admin')
+
+    render(await RegistrationsPage({ searchParams: Promise.resolve({}) }))
+
+    const nav = screen.getByRole('navigation', { name: 'Registrations' })
+    const links = nav.querySelectorAll('a')
+    expect(Array.from(links).map((a) => a.textContent)).toEqual([
+      'To-do',
+      'Actioned',
+      'Rejected',
+      'All',
+      'Photo opt-outs',
+    ])
+    expect(links[4].getAttribute('href')).toBe(
+      '/registrations?tab=photo-opt-outs',
+    )
+  })
+
+  it('shows the pending opt-out count on the opt-outs tab', async () => {
+    signInAs('secretary')
+    vi.mocked(getPendingPhotoOptOutCount).mockResolvedValue(2)
+
+    render(await RegistrationsPage({ searchParams: Promise.resolve({}) }))
+
+    const tab = screen.getByRole('link', { name: /Photo opt-outs/ })
+    expect(tab.textContent).toContain('2')
+  })
+
   it('passes the requested status through and renders rows', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { role: 'secretary', staffId: 'staff-5' },
-    } as never)
+    signInAs('secretary')
     vi.mocked(getRegistrationSubmissions).mockResolvedValue([
       { id: 'sub-1' },
     ] as never)
@@ -116,67 +139,15 @@ describe('RegistrationsPage', () => {
   })
 
   it('shows an empty state when there are no registrations', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { role: 'headteacher', staffId: 'staff-4' },
-    } as never)
-    vi.mocked(getRegistrationSubmissions).mockResolvedValue([])
+    signInAs('headteacher')
 
     render(await RegistrationsPage({ searchParams: Promise.resolve({}) }))
 
     expect(screen.getByText('No registrations found.')).toBeTruthy()
   })
 
-  it('fetches student-matching data for admin but not for secretary', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { role: 'admin', staffId: 'staff-1' },
-    } as never)
-    vi.mocked(getRegistrationSubmissions).mockResolvedValue([])
-    vi.mocked(getPhotoOptOuts).mockResolvedValue([
-      {
-        id: 'opt-1',
-        status: 'pending',
-        child_first_name: 'Alice',
-        child_last_name: 'Student',
-        date_of_birth: '2015-06-01',
-      },
-    ] as never)
-
-    render(await RegistrationsPage({ searchParams: Promise.resolve({}) }))
-
-    expect(getStudentsForLinking).toHaveBeenCalled()
-    expect(findStudentMatches).toHaveBeenCalledWith({
-      firstName: 'Alice',
-      lastName: 'Student',
-      dateOfBirth: '2015-06-01',
-    })
-  })
-
-  it('does not fetch student-matching data for secretary', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { role: 'secretary', staffId: 'staff-5' },
-    } as never)
-    vi.mocked(getRegistrationSubmissions).mockResolvedValue([])
-    vi.mocked(getPhotoOptOuts).mockResolvedValue([
-      {
-        id: 'opt-1',
-        status: 'pending',
-        child_first_name: 'Alice',
-        child_last_name: 'Student',
-        date_of_birth: '2015-06-01',
-      },
-    ] as never)
-
-    render(await RegistrationsPage({ searchParams: Promise.resolve({}) }))
-
-    expect(getStudentsForLinking).not.toHaveBeenCalled()
-    expect(findStudentMatches).not.toHaveBeenCalled()
-  })
-
   it('falls back to pending when the status param is invalid', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { role: 'admin', staffId: 'staff-1' },
-    } as never)
-    vi.mocked(getRegistrationSubmissions).mockResolvedValue([])
+    signInAs('admin')
 
     render(
       await RegistrationsPage({
@@ -187,24 +158,63 @@ describe('RegistrationsPage', () => {
     expect(getRegistrationSubmissions).toHaveBeenCalledWith('pending')
   })
 
-  it('still renders when findStudentMatches rejects', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { role: 'admin', staffId: 'staff-1' },
-    } as never)
-    vi.mocked(getRegistrationSubmissions).mockResolvedValue([])
-    vi.mocked(getPhotoOptOuts).mockResolvedValue([
-      {
-        id: 'opt-1',
-        status: 'pending',
-        child_first_name: 'Alice',
-        child_last_name: 'Student',
-        date_of_birth: '2015-06-01',
-      },
-    ] as never)
-    vi.mocked(findStudentMatches).mockRejectedValue(new Error('rpc failed'))
+  describe('photo opt-outs tab', () => {
+    it('lists pending opt-outs by default in the opt-outs table', async () => {
+      signInAs('admin')
+      vi.mocked(getPhotoOptOuts).mockResolvedValue([{ id: 'opt-1' }] as never)
 
-    render(await RegistrationsPage({ searchParams: Promise.resolve({}) }))
+      render(
+        await RegistrationsPage({
+          searchParams: Promise.resolve({ tab: 'photo-opt-outs' }),
+        }),
+      )
 
-    expect(screen.getByText('PhotoOptOutSection count=1')).toBeTruthy()
+      expect(getPhotoOptOuts).toHaveBeenCalledWith('pending')
+      expect(getRegistrationSubmissions).not.toHaveBeenCalled()
+      expect(screen.getByText('PhotoOptOutsTable count=1')).toBeTruthy()
+      expect(
+        screen
+          .getByRole('link', { name: 'Photo opt-outs' })
+          .getAttribute('aria-current'),
+      ).toBe('page')
+    })
+
+    it('filters by status with a second tab bar scoped to opt-outs', async () => {
+      signInAs('admin')
+
+      render(
+        await RegistrationsPage({
+          searchParams: Promise.resolve({
+            tab: 'photo-opt-outs',
+            status: 'actioned',
+          }),
+        }),
+      )
+
+      expect(getPhotoOptOuts).toHaveBeenCalledWith('actioned')
+      const statusNav = screen.getByRole('navigation', {
+        name: 'Photo opt-out status',
+      })
+      const actioned = Array.from(statusNav.querySelectorAll('a')).find(
+        (a) => a.textContent === 'Actioned',
+      )
+      expect(actioned?.getAttribute('href')).toBe(
+        '/registrations?tab=photo-opt-outs&status=actioned',
+      )
+      expect(actioned?.getAttribute('aria-current')).toBe('page')
+    })
+
+    it('renders the opt-outs table even when there are none', async () => {
+      signInAs('admin')
+
+      render(
+        await RegistrationsPage({
+          searchParams: Promise.resolve({ tab: 'photo-opt-outs' }),
+        }),
+      )
+
+      expect(screen.getByText('PhotoOptOutsTable count=0')).toBeTruthy()
+      expect(screen.queryByText('No registrations found.')).toBeNull()
+    })
   })
 })

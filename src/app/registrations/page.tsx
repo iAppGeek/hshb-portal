@@ -2,93 +2,89 @@ import { type Metadata } from 'next'
 
 import { requireRouteAccess } from '@/auth/require'
 import TabBar, { type Tab } from '@/components/TabBar'
-import { logError } from '@/lib/log'
 import {
   getRegistrationSubmissions,
   getPhotoOptOuts,
-  getStudentsForLinking,
-  findStudentMatches,
-  type StudentMatch,
+  getPendingPhotoOptOutCount,
 } from '@/db'
-import { canApproveRegistrations } from '@/lib/permissions'
-import { registrationStatusFilter } from '@/lib/schemas'
+import { registrationStatusFilter, registrationsTab } from '@/lib/schemas'
 
 import EmptyState from '../_components/EmptyState'
 import PageHeader from '../_components/PageHeader'
 
-import PhotoOptOutSection from './PhotoOptOutSection'
+import { OPT_OUTS_PATH } from './paths'
+import PhotoOptOutsTable from './PhotoOptOutsTable'
 import RegistrationsTable from './RegistrationsTable'
 import ShareLinksBar from './ShareLinksBar'
 
 export const metadata: Metadata = { title: 'Registrations' }
 
-const TABS: Tab[] = [
-  { key: 'pending', label: 'To-do', href: '/registrations?status=pending' },
-  {
-    key: 'actioned',
-    label: 'Actioned',
-    href: '/registrations?status=actioned',
-  },
-  {
-    key: 'rejected',
-    label: 'Rejected',
-    href: '/registrations?status=rejected',
-  },
-  { key: 'all', label: 'All', href: '/registrations?status=all' },
+const STATUSES = [
+  { key: 'pending', label: 'To-do' },
+  { key: 'actioned', label: 'Actioned' },
+  { key: 'rejected', label: 'Rejected' },
+  { key: 'all', label: 'All' },
 ]
+
+function statusTabs(baseHref: string): Tab[] {
+  const join = baseHref.includes('?') ? '&' : '?'
+  return STATUSES.map(({ key, label }) => ({
+    key,
+    label,
+    href: `${baseHref}${join}status=${key}`,
+  }))
+}
 
 export default async function RegistrationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>
-}) {
-  const { role } = await requireRouteAccess('/registrations')
+  searchParams: Promise<{ status?: string; tab?: string }>
+}): Promise<React.ReactElement> {
+  await requireRouteAccess('/registrations')
 
   const params = await searchParams
+  const tab = registrationsTab.parse(params.tab)
   const status = registrationStatusFilter.parse(params.status)
-  const isAdmin = canApproveRegistrations(role)
+  const isOptOuts = tab === 'photo-opt-outs'
 
-  const [registrations, photoOptOuts, studentsForLinking] = await Promise.all([
-    getRegistrationSubmissions(status),
-    getPhotoOptOuts('all'),
-    isAdmin ? getStudentsForLinking() : Promise.resolve([]),
+  const [registrations, optOuts, pendingOptOuts] = await Promise.all([
+    isOptOuts ? Promise.resolve([]) : getRegistrationSubmissions(status),
+    isOptOuts ? getPhotoOptOuts(status) : Promise.resolve([]),
+    getPendingPhotoOptOutCount(),
   ])
 
-  const matchesByRequest: Record<string, StudentMatch[]> = {}
-  if (isAdmin) {
-    const pending = photoOptOuts.filter((r) => r.status === 'pending')
-    const results = await Promise.all(
-      pending.map((r) =>
-        findStudentMatches({
-          firstName: r.child_first_name,
-          lastName: r.child_last_name,
-          dateOfBirth: r.date_of_birth,
-        }).catch((err: unknown) => {
-          logError('registrations.findStudentMatches', err)
-          return [] as StudentMatch[]
-        }),
-      ),
-    )
-    pending.forEach((r, i) => {
-      matchesByRequest[r.id] = results[i]
-    })
-  }
+  const tabs: Tab[] = [
+    ...statusTabs('/registrations'),
+    {
+      key: 'photo-opt-outs',
+      label: 'Photo opt-outs',
+      href: OPT_OUTS_PATH,
+      // TabBar renders any defined count, so 0 must not become a badge.
+      count: pendingOptOuts || undefined,
+    },
+  ]
 
   return (
     <>
       <PageHeader title="Registrations" />
       <ShareLinksBar />
 
-      <PhotoOptOutSection
-        requests={photoOptOuts}
-        matchesByRequest={matchesByRequest}
-        studentsForLinking={studentsForLinking}
-        role={role}
+      <TabBar
+        tabs={tabs}
+        current={isOptOuts ? 'photo-opt-outs' : status}
+        ariaLabel="Registrations"
       />
 
-      <TabBar tabs={TABS} current={status} ariaLabel="Registrations" />
-
-      {registrations.length === 0 ? (
+      {isOptOuts ? (
+        <>
+          <TabBar
+            tabs={statusTabs(OPT_OUTS_PATH)}
+            current={status}
+            ariaLabel="Photo opt-out status"
+          />
+          <PhotoOptOutsTable requests={optOuts} />
+        </>
+      ) : registrations.length === 0 ? (
         <EmptyState message="No registrations found." />
       ) : (
         <RegistrationsTable registrations={registrations} />

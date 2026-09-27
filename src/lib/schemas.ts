@@ -79,6 +79,11 @@ export const registrationStatusFilter = z
   .enum(['pending', 'actioned', 'rejected', 'all'])
   .catch('pending')
 
+/** Which list the /registrations page shows; opt-outs are its last tab. */
+export const registrationsTab = z
+  .enum(['registrations', 'photo-opt-outs'])
+  .catch('registrations')
+
 export const SHORT_TEXT_MAX = 100
 export const ADDRESS_TEXT_MAX = 200
 export const LONG_TEXT_MAX = 2000
@@ -414,7 +419,8 @@ export const approveRegistrationSchema = z.object({
   reuse_guardians: checkbox,
 })
 
-export const rejectRegistrationSchema = z.object({ reason: requiredString })
+/** Rejecting a registration or a photo opt-out request. */
+export const rejectReasonSchema = z.object({ reason: requiredString })
 
 // ─── Photo consent opt-out ────────────────────────────────────────────────────
 
@@ -430,8 +436,6 @@ export const photoOptOutSchema = z.object({
 export const applyPhotoOptOutSchema = z.object({
   student_id: uuid,
 })
-
-export const rejectPhotoOptOutSchema = z.object({ reason: requiredString })
 
 // ─── Finance ─────────────────────────────────────────────────────────────────
 // Enum values mirror the CHECK constraints in the finance_payments migration.

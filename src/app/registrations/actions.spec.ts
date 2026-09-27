@@ -7,6 +7,10 @@ import {
   rejectRegistration,
   deleteRegistrationSubmission,
   getRegistrationSubmissionById,
+  applyPhotoOptOut,
+  rejectPhotoOptOut,
+  deletePhotoOptOut,
+  getPhotoOptOutById,
   logAuditEvent,
 } from '@/db'
 
@@ -14,6 +18,9 @@ import {
   approveRegistrationAction,
   rejectRegistrationAction,
   deleteRegistrationAction,
+  applyPhotoOptOutAction,
+  rejectPhotoOptOutAction,
+  deletePhotoOptOutAction,
 } from './actions'
 
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
@@ -26,6 +33,10 @@ vi.mock('@/db', () => ({
   rejectRegistration: vi.fn(),
   deleteRegistrationSubmission: vi.fn(),
   getRegistrationSubmissionById: vi.fn(),
+  applyPhotoOptOut: vi.fn(),
+  rejectPhotoOptOut: vi.fn(),
+  deletePhotoOptOut: vi.fn(),
+  getPhotoOptOutById: vi.fn(),
   logAuditEvent: vi.fn(),
 }))
 
@@ -33,6 +44,7 @@ const STAFF_ID = '00000000-0000-4000-8000-000000000001'
 const SUBMISSION_ID = '00000000-0000-4000-8000-000000000010'
 const STUDENT_ID = '00000000-0000-4000-8000-000000000020'
 const CLASS_ID = '00000000-0000-4000-8000-000000000030'
+const REQUEST_ID = '00000000-0000-4000-8000-000000000040'
 
 const adminSession = { staffId: STAFF_ID, role: 'admin', name: null, email: '' }
 
@@ -282,19 +294,13 @@ describe('rejectRegistrationAction', () => {
       email: '',
     } as never)
 
-    const result = await rejectRegistrationAction(
-      SUBMISSION_ID,
-      makeFormData({ reason: 'Duplicate' }),
-    )
+    const result = await rejectRegistrationAction(SUBMISSION_ID, 'Duplicate')
     expect(result).toEqual({ error: 'Not authorised' })
     expect(rejectRegistration).not.toHaveBeenCalled()
   })
 
   it('returns a zod error when reason is missing', async () => {
-    const result = await rejectRegistrationAction(
-      SUBMISSION_ID,
-      makeFormData({ reason: '' }),
-    )
+    const result = await rejectRegistrationAction(SUBMISSION_ID, '')
     expect(result?.error).toBeDefined()
     expect(rejectRegistration).not.toHaveBeenCalled()
   })
@@ -302,10 +308,7 @@ describe('rejectRegistrationAction', () => {
   it('returns an error when there is no signed-in staff member', async () => {
     vi.mocked(getActor).mockResolvedValue(null)
 
-    const result = await rejectRegistrationAction(
-      SUBMISSION_ID,
-      makeFormData({ reason: 'Duplicate' }),
-    )
+    const result = await rejectRegistrationAction(SUBMISSION_ID, 'Duplicate')
     expect(result).toEqual({ error: 'Not authenticated' })
     expect(rejectRegistration).not.toHaveBeenCalled()
   })
@@ -316,10 +319,7 @@ describe('rejectRegistrationAction', () => {
     )
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    const result = await rejectRegistrationAction(
-      SUBMISSION_ID,
-      makeFormData({ reason: 'Duplicate' }),
-    )
+    const result = await rejectRegistrationAction(SUBMISSION_ID, 'Duplicate')
     expect(result).toEqual({
       error: 'Failed to reject registration. Please try again.',
     })
@@ -330,10 +330,7 @@ describe('rejectRegistrationAction', () => {
     vi.mocked(rejectRegistration).mockResolvedValue(undefined)
 
     await expect(
-      rejectRegistrationAction(
-        SUBMISSION_ID,
-        makeFormData({ reason: 'Duplicate' }),
-      ),
+      rejectRegistrationAction(SUBMISSION_ID, 'Duplicate'),
     ).rejects.toThrow('NEXT_REDIRECT')
 
     expect(rejectRegistration).toHaveBeenCalledWith({
@@ -399,5 +396,150 @@ describe('deleteRegistrationAction', () => {
       }),
     )
     expect(redirect).toHaveBeenCalledWith('/registrations?status=rejected')
+  })
+})
+
+describe('applyPhotoOptOutAction', () => {
+  it('returns error when not authenticated', async () => {
+    vi.mocked(getActor).mockResolvedValue(null as never)
+
+    const result = await applyPhotoOptOutAction(REQUEST_ID, STUDENT_ID)
+    expect(result).toEqual({ error: 'Not authenticated' })
+    expect(applyPhotoOptOut).not.toHaveBeenCalled()
+  })
+
+  it('returns error when role is secretary', async () => {
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      role: 'secretary',
+      name: null,
+      email: '',
+    } as never)
+
+    const result = await applyPhotoOptOutAction(REQUEST_ID, STUDENT_ID)
+    expect(result).toEqual({ error: 'Not authorised' })
+  })
+
+  it('returns a zod error for an invalid student id', async () => {
+    const result = await applyPhotoOptOutAction(REQUEST_ID, 'not-a-uuid')
+    expect(result?.error).toBeDefined()
+    expect(applyPhotoOptOut).not.toHaveBeenCalled()
+  })
+
+  it('returns a friendly error when the RPC throws', async () => {
+    vi.mocked(applyPhotoOptOut).mockRejectedValue(
+      new Error('Request not found or already actioned'),
+    )
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const result = await applyPhotoOptOutAction(REQUEST_ID, STUDENT_ID)
+    expect(result).toEqual({
+      error: 'Failed to apply the opt-out. Please try again.',
+    })
+    consoleSpy.mockRestore()
+  })
+
+  it('returns an error when there is no signed-in staff member', async () => {
+    vi.mocked(getActor).mockResolvedValue(null)
+
+    const result = await applyPhotoOptOutAction(REQUEST_ID, STUDENT_ID)
+    expect(result).toEqual({ error: 'Not authenticated' })
+    expect(applyPhotoOptOut).not.toHaveBeenCalled()
+  })
+
+  it('applies, audits, and redirects on success', async () => {
+    vi.mocked(applyPhotoOptOut).mockResolvedValue(STUDENT_ID)
+
+    await expect(
+      applyPhotoOptOutAction(REQUEST_ID, STUDENT_ID),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(applyPhotoOptOut).toHaveBeenCalledWith({
+      requestId: REQUEST_ID,
+      staffId: STAFF_ID,
+      studentId: STUDENT_ID,
+    })
+    expect(logAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'photo_opt_out_applied' }),
+    )
+    expect(redirect).toHaveBeenCalledWith('/registrations?tab=photo-opt-outs')
+  })
+})
+
+describe('rejectPhotoOptOutAction', () => {
+  it('returns error when not authorised', async () => {
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      role: 'teacher',
+      name: null,
+      email: '',
+    } as never)
+
+    const result = await rejectPhotoOptOutAction(REQUEST_ID, 'Cannot match')
+    expect(result).toEqual({ error: 'Not authorised' })
+    expect(rejectPhotoOptOut).not.toHaveBeenCalled()
+  })
+
+  it('returns an error when there is no signed-in staff member', async () => {
+    vi.mocked(getActor).mockResolvedValue(null)
+
+    const result = await rejectPhotoOptOutAction(REQUEST_ID, 'Cannot match')
+    expect(result).toEqual({ error: 'Not authenticated' })
+    expect(rejectPhotoOptOut).not.toHaveBeenCalled()
+  })
+
+  it('rejects, audits, and redirects on success', async () => {
+    vi.mocked(rejectPhotoOptOut).mockResolvedValue(undefined)
+
+    await expect(
+      rejectPhotoOptOutAction(REQUEST_ID, 'Cannot match'),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(rejectPhotoOptOut).toHaveBeenCalledWith({
+      requestId: REQUEST_ID,
+      staffId: STAFF_ID,
+      reason: 'Cannot match',
+    })
+    expect(logAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'photo_opt_out_rejected' }),
+    )
+    expect(redirect).toHaveBeenCalledWith('/registrations?tab=photo-opt-outs')
+  })
+})
+
+describe('deletePhotoOptOutAction', () => {
+  it('returns error when not authorised', async () => {
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      role: 'headteacher',
+      name: null,
+      email: '',
+    } as never)
+
+    const result = await deletePhotoOptOutAction(REQUEST_ID)
+    expect(result).toEqual({ error: 'Not authorised' })
+    expect(deletePhotoOptOut).not.toHaveBeenCalled()
+  })
+
+  it('deletes, audits with the child name and status, and redirects', async () => {
+    vi.mocked(getPhotoOptOutById).mockResolvedValue({
+      child_first_name: 'Alice',
+      child_last_name: 'Student',
+      status: 'actioned',
+    } as never)
+    vi.mocked(deletePhotoOptOut).mockResolvedValue(undefined)
+
+    await expect(deletePhotoOptOutAction(REQUEST_ID)).rejects.toThrow(
+      'NEXT_REDIRECT',
+    )
+
+    expect(deletePhotoOptOut).toHaveBeenCalledWith(REQUEST_ID)
+    expect(logAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'photo_opt_out_deleted',
+        details: { childName: 'Alice Student', status: 'actioned' },
+      }),
+    )
+    expect(redirect).toHaveBeenCalledWith('/registrations?tab=photo-opt-outs')
   })
 })

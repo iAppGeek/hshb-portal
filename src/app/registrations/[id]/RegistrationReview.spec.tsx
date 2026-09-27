@@ -3,26 +3,19 @@ import { render, screen, fireEvent } from '@testing-library/react'
 
 import type { RegistrationFull, GuardianMatch } from '@/db'
 
-import { deleteRegistrationAction } from '../actions'
+import { deleteRegistrationAction, rejectRegistrationAction } from '../actions'
 
 import RegistrationReview from './RegistrationReview'
 
 vi.mock('../actions', () => ({
   deleteRegistrationAction: vi.fn(),
+  rejectRegistrationAction: vi.fn(),
 }))
 
-vi.mock('./ApproveDialog', () => ({
+vi.mock('./RegistrationApproveDialog', () => ({
   default: ({ onClose }: { onClose: () => void }) => (
     <div data-testid="approve-dialog">
       <button onClick={onClose}>close-approve</button>
-    </div>
-  ),
-}))
-
-vi.mock('./RejectDialog', () => ({
-  default: ({ onClose }: { onClose: () => void }) => (
-    <div data-testid="reject-dialog">
-      <button onClick={onClose}>close-reject</button>
     </div>
   ),
 }))
@@ -154,7 +147,27 @@ describe('RegistrationReview', () => {
   it('opens the reject dialog', () => {
     renderReview()
     fireEvent.click(screen.getByRole('button', { name: 'Reject' }))
-    expect(screen.getByTestId('reject-dialog')).toBeTruthy()
+    expect(screen.getByTestId('reason-dialog').textContent).toContain(
+      'Reject registration',
+    )
+  })
+
+  it('submits the typed reason to rejectRegistrationAction', async () => {
+    vi.mocked(rejectRegistrationAction).mockResolvedValue(undefined)
+    renderReview()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reject' }))
+    fireEvent.change(screen.getByLabelText(/Reason/), {
+      target: { value: 'Duplicate' },
+    })
+    fireEvent.submit(screen.getByLabelText(/Reason/).closest('form')!)
+
+    await vi.waitFor(() => {
+      expect(rejectRegistrationAction).toHaveBeenCalledWith(
+        'sub-1',
+        'Duplicate',
+      )
+    })
   })
 
   it('shows a delete confirmation and calls deleteRegistrationAction', async () => {
@@ -162,9 +175,9 @@ describe('RegistrationReview', () => {
     renderReview()
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
-    expect(
-      screen.getByText(/Delete this registration permanently/),
-    ).toBeTruthy()
+    expect(screen.getByTestId('confirm-dialog').textContent).toMatch(
+      /Delete this registration permanently/,
+    )
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete' }))
     await vi.waitFor(() => {

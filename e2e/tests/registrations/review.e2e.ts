@@ -255,8 +255,14 @@ test.describe('Registration review', () => {
     })
 
     await page.goto(`/registrations/${id}`)
-    await page.getByRole('button', { name: 'Reject' }).click()
-    const dialog = page.getByRole('dialog')
+    // Scoped to the action bar: the dialog's confirm button is also called
+    // "Reject", so an unscoped locator would match two nodes once it opens.
+    await page
+      .getByTestId('review-actions')
+      .getByRole('button', { name: 'Reject' })
+      .click()
+    // The same ReasonDialog rejects photo opt-outs (photo-opt-out.e2e.ts).
+    const dialog = page.getByTestId('reason-dialog')
     await dialog.getByLabel(/Reason/).fill('Duplicate')
     await dialog.getByRole('button', { name: 'Reject' }).click()
 
@@ -277,7 +283,10 @@ test.describe('Registration review', () => {
     // Delete from the detail page, addressed by id for the same reason.
     await page.goto(`/registrations/${id}`)
     await page.getByRole('button', { name: 'Delete' }).click()
-    await page.getByRole('button', { name: 'Confirm delete' }).click()
+    await page
+      .getByTestId('confirm-dialog')
+      .getByRole('button', { name: 'Confirm delete' })
+      .click()
 
     await expect(page).toHaveURL(/\/registrations\?status=rejected/)
 

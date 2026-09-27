@@ -17,6 +17,7 @@ import {
   requiredCheckbox,
   submissionStatus,
   registrationStatusFilter,
+  registrationsTab,
   createClassSchema,
   updateClassSchema,
   LEAVING_REASONS,
@@ -40,10 +41,9 @@ import {
   registrationParentContactSchema,
   registrationSubmissionSchema,
   approveRegistrationSchema,
-  rejectRegistrationSchema,
+  rejectReasonSchema,
   photoOptOutSchema,
   applyPhotoOptOutSchema,
-  rejectPhotoOptOutSchema,
   extractFormFields,
   extractGuardianFields,
   extractRegistrationContact,
@@ -282,6 +282,14 @@ describe('registrationStatusFilter', () => {
     expect(registrationStatusFilter.parse('actioned')).toBe('actioned')
     expect(registrationStatusFilter.parse('rejected')).toBe('rejected')
     expect(registrationStatusFilter.parse('all')).toBe('all')
+  })
+})
+
+describe('registrationsTab', () => {
+  it('defaults to registrations for anything but the opt-outs tab', () => {
+    expect(registrationsTab.parse(undefined)).toBe('registrations')
+    expect(registrationsTab.parse('nonsense')).toBe('registrations')
+    expect(registrationsTab.parse('photo-opt-outs')).toBe('photo-opt-outs')
   })
 })
 
@@ -1282,10 +1290,11 @@ describe('approveRegistrationSchema', () => {
   })
 })
 
-describe('rejectRegistrationSchema', () => {
-  it('requires a reason', () => {
-    expect(() => rejectRegistrationSchema.parse({ reason: '' })).toThrow()
-    expect(rejectRegistrationSchema.parse({ reason: 'Duplicate' }).reason).toBe(
+describe('rejectReasonSchema', () => {
+  it('requires a non-blank reason and trims it', () => {
+    expect(() => rejectReasonSchema.parse({ reason: '' })).toThrow()
+    expect(() => rejectReasonSchema.parse({ reason: '   ' })).toThrow()
+    expect(rejectReasonSchema.parse({ reason: ' Duplicate ' }).reason).toBe(
       'Duplicate',
     )
   })
@@ -1364,15 +1373,6 @@ describe('applyPhotoOptOutSchema', () => {
       applyPhotoOptOutSchema.parse({ student_id: 'not-a-uuid' }),
     ).toThrow()
     expect(() => applyPhotoOptOutSchema.parse({ student_id: '' })).toThrow()
-  })
-})
-
-describe('rejectPhotoOptOutSchema', () => {
-  it('requires a reason', () => {
-    expect(() => rejectPhotoOptOutSchema.parse({ reason: '' })).toThrow()
-    expect(
-      rejectPhotoOptOutSchema.parse({ reason: 'Cannot match child' }).reason,
-    ).toBe('Cannot match child')
   })
 })
 

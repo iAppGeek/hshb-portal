@@ -32,6 +32,13 @@ const tabs: Tab[] = [
 ]
 
 describe('TabBar', () => {
+  it('renders a labelled nav landmark so pages can carry two tab bars', () => {
+    render(<TabBar tabs={tabs} current="pending" ariaLabel="Registrations" />)
+    expect(
+      screen.getByRole('navigation', { name: 'Registrations' }),
+    ).toBeTruthy()
+  })
+
   it('renders a link per tab with the given href', () => {
     render(<TabBar tabs={tabs} current="pending" ariaLabel="Registrations" />)
     expect(

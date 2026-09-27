@@ -5,36 +5,37 @@ import Link from 'next/link'
 import FunctionalGrid, {
   type FunctionalGridColumn,
 } from '@/clientComponents/grid/FunctionalGrid'
-import type { RegistrationSummary } from '@/db'
+import type { PhotoOptOutRow } from '@/db'
 import { formatDateInSchoolTz, formatDateTimeInSchoolTz } from '@/lib/datetime'
+import { personName } from '@/lib/format'
 import { compareByName, compareNullableText } from '@/lib/grid/sort'
 import { matchesAny, normaliseQuery } from '@/lib/grid/search'
+import { rowLink } from '@/lib/grid/styles'
 
 import StatusBadge from './StatusBadge'
 
 type Props = {
-  registrations: RegistrationSummary[]
+  requests: PhotoOptOutRow[]
 }
 
-function matchesRegistrationSearch(
-  r: RegistrationSummary,
-  rawQuery: string,
-): boolean {
+function matchesOptOutSearch(r: PhotoOptOutRow, rawQuery: string): boolean {
   const q = normaliseQuery(rawQuery)
   if (!q) return true
   return matchesAny([`${r.child_first_name} ${r.child_last_name}`], q)
 }
 
-const columns: FunctionalGridColumn<RegistrationSummary>[] = [
+const columns: FunctionalGridColumn<PhotoOptOutRow>[] = [
   {
     id: 'child',
     header: 'Child',
-    cell: (info) => (
-      <Link href={`/registrations/${info.row.original.id}`} className="block">
-        {info.row.original.child_last_name},{' '}
-        {info.row.original.child_first_name}
-      </Link>
-    ),
+    cell: (info) =>
+      personName(
+        {
+          first_name: info.row.original.child_first_name,
+          last_name: info.row.original.child_last_name,
+        },
+        'lastFirst',
+      ),
     sortFn: (rowA, rowB) =>
       compareByName(
         {
@@ -56,21 +57,9 @@ const columns: FunctionalGridColumn<RegistrationSummary>[] = [
     meta: { mobile: 'hide' },
   },
   {
-    id: 'preferred_year_group',
-    header: 'Year group pref.',
-    cell: (info) => info.row.original.preferred_year_group ?? '—',
-    enableSorting: false,
-    meta: { mobile: 'hide' },
-  },
-  {
-    id: 'primary_contact',
-    header: 'Primary contact',
-    cell: (info) => {
-      const contact = info.row.original.primary_contact
-      return contact
-        ? `${contact.first_name} ${contact.last_name} — ${contact.phone}`
-        : '—'
-    },
+    id: 'declaration_name',
+    header: 'Declared by',
+    cell: (info) => info.row.original.declaration_name,
     enableSorting: false,
     meta: { mobile: 'hide' },
   },
@@ -92,24 +81,38 @@ const columns: FunctionalGridColumn<RegistrationSummary>[] = [
     sortFn: (rowA, rowB) =>
       compareNullableText(rowA.original.status, rowB.original.status),
   },
+  {
+    id: 'actions',
+    header: 'Actions',
+    cell: (info) => (
+      <Link
+        href={`/registrations/photo-opt-outs/${info.row.original.id}`}
+        className={`font-medium ${rowLink}`}
+      >
+        Review
+      </Link>
+    ),
+    enableSorting: false,
+    meta: { srOnlyHeader: true, align: 'right' },
+  },
 ]
 
-export default function RegistrationsTable({
-  registrations,
+export default function PhotoOptOutsTable({
+  requests,
 }: Props): React.ReactElement {
   return (
     <FunctionalGrid
-      data={registrations}
+      data={requests}
       columns={columns}
       getRowId={(r) => r.id}
       mobile="hide-columns"
       search={{
         placeholder: 'Search by child name…',
         label: 'Search by child name',
-        filterFn: matchesRegistrationSearch,
+        filterFn: matchesOptOutSearch,
       }}
       initialSorting={[{ id: 'submitted_at', desc: true }]}
-      emptyMessage="No registrations found."
+      emptyMessage="No photo opt-out requests found."
     />
   )
 }
