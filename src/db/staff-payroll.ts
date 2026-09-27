@@ -1,13 +1,20 @@
-import type { Database } from '@/types/database'
+import 'server-only'
 
-import { supabase } from './client'
+import { asc, eq } from 'drizzle-orm'
 
-type PayrollTable = Database['public']['Tables']['staff_payroll']
+import { toCamel, toSnake, type Snake } from './casing'
+import { db } from './client'
+import {
+  staff,
+  staffPayroll,
+  type NewStaffPayroll,
+  type StaffPayroll,
+} from './schema'
 
-export type StaffPayrollRow = PayrollTable['Row']
+export type StaffPayrollRow = Snake<StaffPayroll>
 
 export type StaffPayrollInput = Omit<
-  PayrollTable['Insert'],
+  Snake<NewStaffPayroll>,
   'id' | 'staff_id' | 'created_at' | 'updated_at'
 >
 
@@ -23,40 +30,39 @@ export type StaffPayrollListItem = {
 // Payroll rows are lazy (decision 14), so the list starts from staff and
 // attaches a record where one exists.
 export async function getStaffPayrollList(): Promise<StaffPayrollListItem[]> {
-  const [{ data: staff }, { data: payroll }] = await Promise.all([
-    supabase
-      .from('staff')
-      .select('id, title, first_name, last_name, role')
-      .order('last_name'),
-    supabase.from('staff_payroll').select('*'),
-  ])
-  const byStaffId = new Map((payroll ?? []).map((p) => [p.staff_id, p]))
-  return (staff ?? []).map((s) => ({
-    ...s,
-    payroll: byStaffId.get(s.id) ?? null,
-  }))
+  const rows = await db.query.staff.findMany({
+    columns: {
+      id: true,
+      title: true,
+      firstName: true,
+      lastName: true,
+      role: true,
+    },
+    with: { payroll: true },
+    orderBy: asc(staff.lastName),
+  })
+  return toSnake(rows)
 }
 
 export async function getStaffPayrollByStaffId(
   staffId: string,
 ): Promise<StaffPayrollRow | null> {
-  const { data } = await supabase
-    .from('staff_payroll')
-    .select('*')
-    .eq('staff_id', staffId)
-    .maybeSingle()
-  return data
+  const [row] = await db
+    .select()
+    .from(staffPayroll)
+    .where(eq(staffPayroll.staffId, staffId))
+  return row ? toSnake(row) : null
 }
 
 export async function upsertStaffPayroll(
   staffId: string,
   input: StaffPayrollInput,
 ): Promise<StaffPayrollRow> {
-  const { data, error } = await supabase
-    .from('staff_payroll')
-    .upsert({ ...input, staff_id: staffId }, { onConflict: 'staff_id' })
-    .select()
-    .single()
-  if (error) throw error
-  return data
+  const values = toCamel(input)
+  const [row] = await db
+    .insert(staffPayroll)
+    .values({ ...values, staffId })
+    .onConflictDoUpdate({ target: staffPayroll.staffId, set: values })
+    .returning()
+  return toSnake(row)
 }

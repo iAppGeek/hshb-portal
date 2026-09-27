@@ -1,40 +1,36 @@
-import { supabase } from './client'
+import 'server-only'
 
-export type StaffAttendanceRow = {
-  id: string
-  staff_id: string
-  date: string
-  signed_in_at: string
-  signed_out_at: string | null
-  created_at: string | null
-  updated_at: string | null
-}
+import { and, asc, count, eq, gte, lte } from 'drizzle-orm'
+
+import { toSnake, type Snake } from './casing'
+import { db } from './client'
+import { staffAttendance, type StaffAttendance } from './schema'
+
+export type StaffAttendanceRow = Snake<StaffAttendance>
 
 /** Fetch a single staff member's attendance record for a given date. Returns null if not found. */
 export async function getStaffAttendanceForToday(
   staffId: string,
   date: string,
 ): Promise<StaffAttendanceRow | null> {
-  const { data, error } = await supabase
-    .from('staff_attendance')
-    .select('*')
-    .eq('staff_id', staffId)
-    .eq('date', date)
-    .maybeSingle()
-  if (error) throw error
-  return data
+  const [row] = await db
+    .select()
+    .from(staffAttendance)
+    .where(
+      and(eq(staffAttendance.staffId, staffId), eq(staffAttendance.date, date)),
+    )
+  return row ? toSnake(row) : null
 }
 
 /** Fetch all staff attendance records for a given date. */
 export async function getStaffAttendanceByDate(
   date: string,
 ): Promise<StaffAttendanceRow[]> {
-  const { data, error } = await supabase
-    .from('staff_attendance')
-    .select('*')
-    .eq('date', date)
-  if (error) throw error
-  return data ?? []
+  const rows = await db
+    .select()
+    .from(staffAttendance)
+    .where(eq(staffAttendance.date, date))
+  return toSnake(rows)
 }
 
 /**
@@ -46,21 +42,15 @@ export async function signInStaff(
   date: string,
   signedInAt: string,
 ): Promise<StaffAttendanceRow> {
-  const { data, error } = await supabase
-    .from('staff_attendance')
-    .upsert(
-      {
-        staff_id: staffId,
-        date,
-        signed_in_at: signedInAt,
-        signed_out_at: null,
-      },
-      { onConflict: 'staff_id,date' },
-    )
-    .select()
-    .single()
-  if (error) throw error
-  return data
+  const [row] = await db
+    .insert(staffAttendance)
+    .values({ staffId, date, signedInAt, signedOutAt: null })
+    .onConflictDoUpdate({
+      target: [staffAttendance.staffId, staffAttendance.date],
+      set: { signedInAt, signedOutAt: null },
+    })
+    .returning()
+  return toSnake(row)
 }
 
 /**
@@ -72,15 +62,14 @@ export async function signOutStaff(
   date: string,
   signedOutAt: string,
 ): Promise<StaffAttendanceRow | null> {
-  const { data, error } = await supabase
-    .from('staff_attendance')
-    .update({ signed_out_at: signedOutAt })
-    .eq('staff_id', staffId)
-    .eq('date', date)
-    .select()
-    .maybeSingle()
-  if (error) throw error
-  return data
+  const [row] = await db
+    .update(staffAttendance)
+    .set({ signedOutAt })
+    .where(
+      and(eq(staffAttendance.staffId, staffId), eq(staffAttendance.date, date)),
+    )
+    .returning()
+  return row ? toSnake(row) : null
 }
 
 /** Fetch all staff attendance records within a date range (inclusive). */
@@ -88,14 +77,17 @@ export async function getStaffAttendanceByDateRange(
   startDate: string,
   endDate: string,
 ): Promise<StaffAttendanceRow[]> {
-  const { data, error } = await supabase
-    .from('staff_attendance')
-    .select('*')
-    .gte('date', startDate)
-    .lte('date', endDate)
-    .order('date', { ascending: true })
-  if (error) throw error
-  return data ?? []
+  const rows = await db
+    .select()
+    .from(staffAttendance)
+    .where(
+      and(
+        gte(staffAttendance.date, startDate),
+        lte(staffAttendance.date, endDate),
+      ),
+    )
+    .orderBy(asc(staffAttendance.date))
+  return toSnake(rows)
 }
 
 /**
@@ -103,10 +95,9 @@ export async function getStaffAttendanceByDateRange(
  * they have since signed out.
  */
 export async function getStaffAttendedCount(date: string): Promise<number> {
-  const { count, error } = await supabase
-    .from('staff_attendance')
-    .select('*', { count: 'exact', head: true })
-    .eq('date', date)
-  if (error) throw error
-  return count ?? 0
+  const [{ n }] = await db
+    .select({ n: count() })
+    .from(staffAttendance)
+    .where(eq(staffAttendance.date, date))
+  return n
 }
