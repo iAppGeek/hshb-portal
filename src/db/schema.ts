@@ -300,7 +300,7 @@ export const attendance = pgTable(
     classId: uuid().notNull(),
     studentId: uuid().notNull(),
     date: date().notNull(),
-    status: text().notNull(),
+    status: text().$type<'present' | 'absent' | 'late'>().notNull(),
     notes: text(),
     recordedBy: uuid(),
     createdAt: timestamptz().default(sql`now()`),
@@ -430,7 +430,7 @@ export const incidents = pgTable(
   'incidents',
   {
     id: uuid().defaultRandom().primaryKey(),
-    type: text().notNull(),
+    type: text().$type<'medical' | 'behaviour' | 'other'>().notNull(),
     studentId: uuid().notNull(),
     title: text().notNull(),
     description: text().notNull(),

@@ -1,87 +1,96 @@
+import 'server-only'
+
+import { and, asc, eq, gte, lte, sql, type SQL } from 'drizzle-orm'
+
 import type { AttendanceRangeRow, SummaryClass } from '@/lib/attendanceSummary'
-import type { Tables, TablesInsert } from '@/types/database'
 
-import { supabase } from './client'
-import { fetchAllPages } from './paging'
+import { camelKey, toCamel, toSnake, type Snake } from './casing'
+import { db } from './client'
+import {
+  academicYears,
+  attendance,
+  classes,
+  type Attendance,
+  type NewAttendance,
+} from './schema'
 
-export type AttendanceStatus = 'present' | 'absent' | 'late'
-export type AttendanceInsert = TablesInsert<'attendance'>
-export type AttendanceRow = Tables<'attendance'>
+export type AttendanceStatus = Attendance['status']
+export type AttendanceInsert = Snake<NewAttendance>
+export type AttendanceRow = Snake<Attendance>
+
+const CONFLICT_KEYS = ['class_id', 'student_id', 'date']
 
 export async function getAttendanceByClassAndDate(
   classId: string,
   date: string,
-) {
-  const { data, error } = await supabase
-    .from('attendance')
-    .select('*')
-    .eq('class_id', classId)
-    .eq('date', date)
-  if (error) throw error
-  return data
+): Promise<AttendanceRow[]> {
+  const rows = await db
+    .select()
+    .from(attendance)
+    .where(and(eq(attendance.classId, classId), eq(attendance.date, date)))
+  return toSnake(rows)
 }
 
-type AttendanceRangeQueryRow = {
-  class_id: string
-  student_id: string
-  date: string
-  status: AttendanceStatus
-  created_at: string
-  updated_at: string
-  class: {
-    id: string
-    name: string
-    active: boolean
-    academic_year: { code: string } | null
-  } | null
-}
-
-/** Fetch attendance rows across a date range for aggregation, paged past
- * PostgREST's 1000-row cap. */
+/** Attendance rows across a date range, with their class, for aggregation. */
 export async function getAttendanceByDateRange(
   startDate: string,
   endDate: string,
 ): Promise<(AttendanceRangeRow & { class: SummaryClass })[]> {
-  const rows = await fetchAllPages<AttendanceRangeQueryRow>(
-    (from, to) =>
-      supabase
-        .from('attendance')
-        .select(
-          'class_id, student_id, date, status, created_at, updated_at, class:classes!inner(id, name, active, academic_year:academic_years(code))',
-        )
-        .gte('date', startDate)
-        .lte('date', endDate)
-        .order('id')
-        .range(from, to) as unknown as PromiseLike<{
-        data: AttendanceRangeQueryRow[] | null
-        error: unknown
-      }>,
-  )
-  return rows
-    .filter((r) => r.class)
-    .map((r) => ({
-      class_id: r.class_id,
-      student_id: r.student_id,
-      date: r.date,
-      status: r.status,
-      created_at: r.created_at,
-      updated_at: r.updated_at,
+  const rows = await db
+    .select({
+      classId: attendance.classId,
+      studentId: attendance.studentId,
+      date: attendance.date,
+      status: attendance.status,
+      createdAt: attendance.createdAt,
+      updatedAt: attendance.updatedAt,
       class: {
-        id: r.class!.id,
-        name: r.class!.name,
-        active: r.class!.active,
-        yearCode: r.class!.academic_year?.code ?? null,
-      } satisfies SummaryClass,
-    }))
+        id: classes.id,
+        name: classes.name,
+        active: classes.active,
+        yearCode: academicYears.code,
+      },
+    })
+    .from(attendance)
+    .innerJoin(classes, eq(classes.id, attendance.classId))
+    .innerJoin(academicYears, eq(academicYears.id, classes.academicYearId))
+    .where(and(gte(attendance.date, startDate), lte(attendance.date, endDate)))
+    .orderBy(asc(attendance.id))
+  // `class` is a SummaryClass, whose `yearCode` stays camelCase.
+  return rows.map((r) => ({
+    class_id: r.classId,
+    student_id: r.studentId,
+    date: r.date,
+    status: r.status,
+    // Both columns default to now(); the type allows null, rows never are.
+    created_at: r.createdAt ?? '',
+    updated_at: r.updatedAt ?? '',
+    class: r.class,
+  }))
 }
 
+/**
+ * Saves a register: one row per student, updating an existing mark for the
+ * same class, student and date. On conflict only the columns the records
+ * carry are overwritten.
+ */
 export async function saveAttendance(
   records: AttendanceInsert[],
 ): Promise<AttendanceRow[]> {
-  const { data, error } = await supabase
-    .from('attendance')
-    .upsert(records, { onConflict: 'class_id,student_id,date' })
-    .select()
-  if (error) throw error
-  return data
+  if (records.length === 0) return []
+  const updated = [...new Set(records.flatMap((r) => Object.keys(r)))].filter(
+    (key) => !CONFLICT_KEYS.includes(key),
+  )
+  const set: Record<string, SQL> = Object.fromEntries(
+    updated.map((key) => [camelKey(key), sql`excluded.${sql.identifier(key)}`]),
+  )
+  const rows = await db
+    .insert(attendance)
+    .values(records.map(toCamel))
+    .onConflictDoUpdate({
+      target: [attendance.classId, attendance.studentId, attendance.date],
+      set,
+    })
+    .returning()
+  return toSnake(rows)
 }

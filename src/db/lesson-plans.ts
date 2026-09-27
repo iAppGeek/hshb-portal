@@ -1,4 +1,10 @@
-import { supabase } from './client'
+import 'server-only'
+
+import { and, count, desc, eq, inArray } from 'drizzle-orm'
+
+import { toCamel, toSnake } from './casing'
+import { db, type Tx } from './client'
+import { lessonPlans } from './schema'
 
 export type LessonPlanRow = {
   id: string
@@ -14,29 +20,37 @@ export type LessonPlanRow = {
   updater: { id: string; first_name: string; last_name: string } | null
 }
 
-const LESSON_PLAN_SELECT = `
-  id, class_id, lesson_date, description,
-  created_by, updated_by, created_at, updated_at,
-  class:classes(id, name, year_group),
-  creator:staff!lesson_plans_created_by_fkey(id, first_name, last_name),
-  updater:staff!lesson_plans_updated_by_fkey(id, first_name, last_name)
-`
+const person = {
+  columns: { id: true, firstName: true, lastName: true },
+} as const
+const lessonPlanWith = {
+  class: { columns: { id: true, name: true, yearGroup: true } },
+  creator: person,
+  updater: person,
+} as const
+
+async function findLessonPlan(
+  tx: Tx | typeof db,
+  id: string,
+): Promise<LessonPlanRow | null> {
+  const row = await tx.query.lessonPlans.findFirst({
+    where: eq(lessonPlans.id, id),
+    with: lessonPlanWith,
+  })
+  return row ? toSnake(row) : null
+}
 
 export async function getLessonPlanCount(): Promise<number> {
-  const { count, error } = await supabase
-    .from('lesson_plans')
-    .select('*', { count: 'exact', head: true })
-  if (error) throw error
-  return count ?? 0
+  const [{ n }] = await db.select({ n: count() }).from(lessonPlans)
+  return n
 }
 
 export async function getLessonPlanCountByDate(date: string): Promise<number> {
-  const { count, error } = await supabase
-    .from('lesson_plans')
-    .select('*', { count: 'exact', head: true })
-    .eq('lesson_date', date)
-  if (error) throw error
-  return count ?? 0
+  const [{ n }] = await db
+    .select({ n: count() })
+    .from(lessonPlans)
+    .where(eq(lessonPlans.lessonDate, date))
+  return n
 }
 
 export async function getLessonPlans(options?: {
@@ -45,42 +59,24 @@ export async function getLessonPlans(options?: {
   limit?: number
   offset?: number
 }): Promise<LessonPlanRow[]> {
-  let query = supabase
-    .from('lesson_plans')
-    .select(LESSON_PLAN_SELECT)
-    .order('lesson_date', { ascending: false })
-
-  if (options?.classId) {
-    query = query.eq('class_id', options.classId)
-  }
-
-  if (options?.classIds && options.classIds.length > 0) {
-    query = query.in('class_id', options.classIds)
-  }
-
-  if (options?.limit !== undefined) {
-    const from = options.offset ?? 0
-    query = query.range(from, from + options.limit - 1)
-  }
-
-  const { data, error } = await query
-  if (error) throw error
-  return data as LessonPlanRow[]
+  const classIds = options?.classIds ?? []
+  const rows = await db.query.lessonPlans.findMany({
+    with: lessonPlanWith,
+    where: and(
+      options?.classId ? eq(lessonPlans.classId, options.classId) : undefined,
+      classIds.length > 0 ? inArray(lessonPlans.classId, classIds) : undefined,
+    ),
+    orderBy: desc(lessonPlans.lessonDate),
+    limit: options?.limit,
+    offset: options?.limit !== undefined ? (options.offset ?? 0) : undefined,
+  })
+  return toSnake(rows)
 }
 
 export async function getLessonPlanById(
   id: string,
 ): Promise<LessonPlanRow | null> {
-  const { data, error } = await supabase
-    .from('lesson_plans')
-    .select(LESSON_PLAN_SELECT)
-    .eq('id', id)
-    .single()
-  if (error) {
-    if (error.code === 'PGRST116') return null
-    throw error
-  }
-  return data as LessonPlanRow
+  return findLessonPlan(db, id)
 }
 
 export async function createLessonPlan(data: {
@@ -89,13 +85,13 @@ export async function createLessonPlan(data: {
   description: string
   created_by: string
 }): Promise<LessonPlanRow> {
-  const { data: row, error } = await supabase
-    .from('lesson_plans')
-    .insert(data)
-    .select(LESSON_PLAN_SELECT)
-    .single()
-  if (error) throw error
-  return row as LessonPlanRow
+  return db.transaction(async (tx) => {
+    const [{ id }] = await tx
+      .insert(lessonPlans)
+      .values(toCamel(data))
+      .returning({ id: lessonPlans.id })
+    return (await findLessonPlan(tx, id))!
+  })
 }
 
 export async function updateLessonPlan(
@@ -106,12 +102,13 @@ export async function updateLessonPlan(
     updated_by: string
   },
 ): Promise<LessonPlanRow> {
-  const { data: row, error } = await supabase
-    .from('lesson_plans')
-    .update(data)
-    .eq('id', id)
-    .select(LESSON_PLAN_SELECT)
-    .single()
-  if (error) throw error
-  return row as LessonPlanRow
+  return db.transaction(async (tx) => {
+    await tx
+      .update(lessonPlans)
+      .set(toCamel(data))
+      .where(eq(lessonPlans.id, id))
+    const row = await findLessonPlan(tx, id)
+    if (!row) throw new Error('Lesson plan not found')
+    return row
+  })
 }
