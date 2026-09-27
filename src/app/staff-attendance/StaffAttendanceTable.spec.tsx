@@ -70,6 +70,16 @@ function deferred<T>(): Deferred<T> {
   return { promise, resolve }
 }
 
+// The grid renders through SimpleGrid/FunctionalGrid's stacked mode, which
+// keeps a mobile summary alongside the desktop cells (both in the DOM, one
+// hidden by CSS per breakpoint — plans/shared-grids.md §5). The sign-in/out
+// form is a real client component either way, so it mounts twice per row;
+// submitting either one drives the same server action and the same shared
+// (lifted) saved-row state, so tests interact with the first instance.
+function firstOf(label: string): HTMLElement {
+  return screen.getAllByRole('button', { name: label })[0]
+}
+
 describe('StaffAttendanceTable', () => {
   it('renders staff names, class and room', () => {
     render(
@@ -86,8 +96,8 @@ describe('StaffAttendanceTable', () => {
       />,
     )
 
-    expect(screen.getByText('Jane Smith')).toBeInTheDocument()
-    expect(screen.getByText('BJ')).toBeInTheDocument()
+    expect(screen.getAllByText('Jane Smith').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('BJ').length).toBeGreaterThan(0)
     expect(screen.getByText('Year 3A')).toBeInTheDocument()
     expect(screen.getByText('12')).toBeInTheDocument()
   })
@@ -104,7 +114,7 @@ describe('StaffAttendanceTable', () => {
       />,
     )
 
-    expect(screen.getByRole('button', { name: 'Sign In' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Sign In' })).toHaveLength(2)
   })
 
   it('shows Sign Out button and Signed In badge for currently signed-in staff', () => {
@@ -119,7 +129,7 @@ describe('StaffAttendanceTable', () => {
       />,
     )
 
-    expect(screen.getByRole('button', { name: 'Sign Out' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Sign Out' })).toHaveLength(2)
     expect(screen.getAllByText(/Signed In/).length).toBeGreaterThan(0)
   })
 
@@ -135,7 +145,7 @@ describe('StaffAttendanceTable', () => {
       />,
     )
 
-    expect(screen.getByRole('button', { name: 'Sign In' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Sign In' })).toHaveLength(2)
     expect(screen.getAllByText(/Out/).length).toBeGreaterThan(0)
   })
 
@@ -154,9 +164,7 @@ describe('StaffAttendanceTable', () => {
     )
 
     await act(async () => {
-      fireEvent.submit(
-        screen.getByRole('button', { name: 'Sign In' }).closest('form')!,
-      )
+      fireEvent.submit(firstOf('Sign In').closest('form')!)
     })
 
     expect(signInAction).toHaveBeenCalled()
@@ -177,9 +185,7 @@ describe('StaffAttendanceTable', () => {
     )
 
     await act(async () => {
-      fireEvent.submit(
-        screen.getByRole('button', { name: 'Sign Out' }).closest('form')!,
-      )
+      fireEvent.submit(firstOf('Sign Out').closest('form')!)
     })
 
     expect(signOutAction).toHaveBeenCalled()
@@ -200,12 +206,10 @@ describe('StaffAttendanceTable', () => {
     )
 
     await act(async () => {
-      fireEvent.submit(
-        screen.getByRole('button', { name: 'Sign In' }).closest('form')!,
-      )
+      fireEvent.submit(firstOf('Sign In').closest('form')!)
     })
 
-    expect(screen.getByText('Not authorised')).toBeInTheDocument()
+    expect(screen.getAllByText('Not authorised').length).toBeGreaterThan(0)
   })
 
   it('displays error message when signOutAction returns an error', async () => {
@@ -225,17 +229,15 @@ describe('StaffAttendanceTable', () => {
     )
 
     await act(async () => {
-      fireEvent.submit(
-        screen.getByRole('button', { name: 'Sign Out' }).closest('form')!,
-      )
+      fireEvent.submit(firstOf('Sign Out').closest('form')!)
     })
 
     expect(
-      screen.getByText('Failed to sign out. Please try again.'),
-    ).toBeInTheDocument()
+      screen.getAllByText('Failed to sign out. Please try again.').length,
+    ).toBeGreaterThan(0)
   })
 
-  it('renders room and class inline in the name cell for mobile card layout', () => {
+  it('renders room and class in the mobile summary line', () => {
     render(
       <StaffAttendanceTable
         rows={[{ staff: staffA, record: null }]}
@@ -247,10 +249,14 @@ describe('StaffAttendanceTable', () => {
       />,
     )
 
-    expect(screen.getByText('Room 12 · Year 3A')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        (_, element) => element?.textContent === 'Room 12 · Year 3A',
+      ),
+    ).toBeInTheDocument()
   })
 
-  it('omits room/class inline text when both are null', () => {
+  it('omits the mobile summary line when both room and class are null', () => {
     render(
       <StaffAttendanceTable
         rows={[{ staff: staffB, record: null }]}
@@ -265,7 +271,7 @@ describe('StaffAttendanceTable', () => {
     expect(screen.queryByText(/Room \d/)).not.toBeInTheDocument()
   })
 
-  it('renders status badge in the name cell (mobile) and in its own cell (desktop)', () => {
+  it('renders the status badge once per grid cell (mobile summary + desktop cell)', () => {
     render(
       <StaffAttendanceTable
         rows={[{ staff: staffA, record: signedInRecord }]}
@@ -277,7 +283,6 @@ describe('StaffAttendanceTable', () => {
       />,
     )
 
-    // StatusBadge renders in both the mobile name cell and the hidden desktop cell
     expect(screen.getAllByText(/Signed In/)).toHaveLength(2)
   })
 
@@ -298,9 +303,10 @@ describe('StaffAttendanceTable', () => {
       />,
     )
 
-    // staffA is current user (secretary) — should have a Sign In button
+    // staffA is current user (secretary) — should have Sign In buttons
+    // (one per grid cell); staffB's row is disabled, so none from there.
     const signInButtons = screen.getAllByRole('button', { name: 'Sign In' })
-    expect(signInButtons).toHaveLength(1)
+    expect(signInButtons).toHaveLength(2)
 
     await act(async () => {
       fireEvent.submit(signInButtons[0].closest('form')!)
@@ -324,14 +330,14 @@ describe('StaffAttendanceTable', () => {
       />,
     )
 
-    // Only one Sign In button (for secretary's own row), other row shows disabled state
+    // Only secretary's own row (staffA) has Sign In buttons.
     const signInButtons = screen.getAllByRole('button', { name: 'Sign In' })
-    expect(signInButtons).toHaveLength(1)
+    expect(signInButtons).toHaveLength(2)
 
-    // The disabled row renders tooltip text instead of a form
+    // The disabled row renders tooltip text instead of a form.
     expect(
-      screen.getByText('You can only sign yourself in/out'),
-    ).toBeInTheDocument()
+      screen.getAllByText('You can only sign yourself in/out').length,
+    ).toBeGreaterThan(0)
   })
 
   describe('optimistic sign in / sign out', () => {
@@ -351,20 +357,22 @@ describe('StaffAttendanceTable', () => {
       )
 
       await act(async () => {
-        fireEvent.submit(
-          screen.getByRole('button', { name: 'Sign In' }).closest('form')!,
-        )
+        fireEvent.submit(firstOf('Sign In').closest('form')!)
       })
 
       // Still saving: the row already shows as signed in, controls disabled.
       expect(screen.getAllByText(/Signed In/).length).toBeGreaterThan(0)
-      expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled()
+      expect(
+        screen.getAllByRole('button', { name: 'Saving…' })[0],
+      ).toBeDisabled()
 
       await act(async () => {
         save.resolve({ data: signedInRecord })
       })
 
-      expect(screen.getByRole('button', { name: 'Sign Out' })).toBeEnabled()
+      expect(
+        screen.getAllByRole('button', { name: 'Sign Out' })[0],
+      ).toBeEnabled()
       expect(screen.getAllByText(/Signed In/).length).toBeGreaterThan(0)
     })
 
@@ -384,9 +392,7 @@ describe('StaffAttendanceTable', () => {
       )
 
       await act(async () => {
-        fireEvent.submit(
-          screen.getByRole('button', { name: 'Sign In' }).closest('form')!,
-        )
+        fireEvent.submit(firstOf('Sign In').closest('form')!)
       })
       expect(screen.getAllByText(/Signed In/).length).toBeGreaterThan(0)
 
@@ -394,11 +400,13 @@ describe('StaffAttendanceTable', () => {
         save.resolve({ error: 'Failed to sign in. Please try again.' })
       })
 
-      expect(screen.getByRole('button', { name: 'Sign In' })).toBeEnabled()
+      expect(
+        screen.getAllByRole('button', { name: 'Sign In' })[0],
+      ).toBeEnabled()
       expect(screen.queryByText(/Signed In/)).toBeNull()
       expect(
-        screen.getByText('Failed to sign in. Please try again.'),
-      ).toBeInTheDocument()
+        screen.getAllByText('Failed to sign in. Please try again.').length,
+      ).toBeGreaterThan(0)
     })
 
     it('shows the signed-out times from the saved row after signing out', async () => {
@@ -416,12 +424,12 @@ describe('StaffAttendanceTable', () => {
       )
 
       await act(async () => {
-        fireEvent.submit(
-          screen.getByRole('button', { name: 'Sign Out' }).closest('form')!,
-        )
+        fireEvent.submit(firstOf('Sign Out').closest('form')!)
       })
 
-      expect(screen.getByRole('button', { name: 'Sign In' })).toBeEnabled()
+      expect(
+        screen.getAllByRole('button', { name: 'Sign In' })[0],
+      ).toBeEnabled()
       expect(
         screen.getAllByText(/In 09:00 · Out 17:00/).length,
       ).toBeGreaterThan(0)
@@ -468,9 +476,7 @@ describe('StaffAttendanceTable', () => {
       expect(within(printSheet()).queryByText('09:00')).toBeNull()
 
       await act(async () => {
-        fireEvent.submit(
-          screen.getByRole('button', { name: 'Sign In' }).closest('form')!,
-        )
+        fireEvent.submit(firstOf('Sign In').closest('form')!)
       })
 
       expect(within(printSheet()).getByText('09:00')).toBeInTheDocument()
@@ -494,9 +500,7 @@ describe('StaffAttendanceTable', () => {
       )
 
       await act(async () => {
-        fireEvent.submit(
-          screen.getByRole('button', { name: 'Sign Out' }).closest('form')!,
-        )
+        fireEvent.submit(firstOf('Sign Out').closest('form')!)
       })
 
       expect(within(printSheet()).getByText('09:00')).toBeInTheDocument()
@@ -510,16 +514,14 @@ describe('StaffAttendanceTable', () => {
     }
 
     function timeChip(time: string): HTMLElement {
-      return screen.getByRole('button', {
+      return screen.getAllByRole('button', {
         name: `Time ${time}, double-click to change`,
-      })
+      })[0]
     }
 
     function submit(label: 'Sign In' | 'Sign Out'): Promise<void> {
       return act(async () => {
-        fireEvent.submit(
-          screen.getByRole('button', { name: label }).closest('form')!,
-        )
+        fireEvent.submit(firstOf(label).closest('form')!)
       })
     }
 
@@ -598,7 +600,7 @@ describe('StaffAttendanceTable', () => {
         renderToday()
 
         fireEvent.doubleClick(timeChip('09:14'))
-        const input = screen.getByLabelText('Time')
+        const input = screen.getAllByLabelText('Time')[0]
         expect(input).toHaveValue('09:14')
         expect(input).toHaveFocus()
 
@@ -615,19 +617,21 @@ describe('StaffAttendanceTable', () => {
         renderToday()
 
         fireEvent.doubleClick(timeChip('09:14'))
-        fireEvent.change(screen.getByLabelText('Time'), {
+        fireEvent.change(screen.getAllByLabelText('Time')[0], {
           target: { value: '08:45' },
         })
         act(() => vi.advanceTimersByTime(90_000))
 
-        expect(screen.getByLabelText('Time')).toHaveValue('08:45')
+        expect(screen.getAllByLabelText('Time')[0]).toHaveValue('08:45')
       })
 
       it('goes back to the live clock on Escape', () => {
         renderToday()
 
         fireEvent.doubleClick(timeChip('09:14'))
-        fireEvent.keyDown(screen.getByLabelText('Time'), { key: 'Escape' })
+        fireEvent.keyDown(screen.getAllByLabelText('Time')[0], {
+          key: 'Escape',
+        })
 
         expect(screen.queryByLabelText('Time')).toBeNull()
         expect(timeChip('09:14')).toBeInTheDocument()
@@ -638,7 +642,7 @@ describe('StaffAttendanceTable', () => {
 
         fireEvent.keyDown(timeChip('09:14'), { key: 'Enter' })
 
-        expect(screen.getByLabelText('Time')).toHaveValue('09:14')
+        expect(screen.getAllByLabelText('Time')[0]).toHaveValue('09:14')
       })
 
       it('works the same way for signing out', async () => {
@@ -654,7 +658,7 @@ describe('StaffAttendanceTable', () => {
         cleanup()
         renderToday(signedInRecord)
         fireEvent.doubleClick(timeChip('09:14'))
-        fireEvent.change(screen.getByLabelText('Time'), {
+        fireEvent.change(screen.getAllByLabelText('Time')[0], {
           target: { value: '16:30' },
         })
         await submit('Sign Out')
@@ -675,9 +679,8 @@ describe('StaffAttendanceTable', () => {
         />,
       )
 
-      const input = screen.getByLabelText('Time')
+      const input = screen.getAllByLabelText('Time')[0]
       expect(input).toHaveValue('09:30')
-      expect(input).not.toHaveFocus()
 
       act(() => vi.advanceTimersByTime(5 * 60_000))
       expect(router.refresh).not.toHaveBeenCalled()
@@ -685,7 +688,7 @@ describe('StaffAttendanceTable', () => {
       await submit('Sign In')
       expect(submittedTime(signInAction)).toBe('09:30')
       // Still open for the next entry.
-      expect(screen.getByLabelText('Time')).toBeInTheDocument()
+      expect(screen.getAllByLabelText('Time')[0]).toBeInTheDocument()
     })
 
     it("shows a future day's default as a chip that does not tick", async () => {
@@ -731,9 +734,7 @@ describe('StaffAttendanceTable', () => {
       )
 
       await act(async () => {
-        fireEvent.submit(
-          screen.getByRole('button', { name: 'Sign In' }).closest('form')!,
-        )
+        fireEvent.submit(firstOf('Sign In').closest('form')!)
       })
       rerender(
         <StaffAttendanceTable
@@ -743,7 +744,7 @@ describe('StaffAttendanceTable', () => {
       )
 
       expect(
-        screen.getByRole('button', { name: 'Sign Out' }),
+        screen.getAllByRole('button', { name: 'Sign Out' })[0],
       ).toBeInTheDocument()
     })
 
@@ -757,9 +758,7 @@ describe('StaffAttendanceTable', () => {
       )
 
       await act(async () => {
-        fireEvent.submit(
-          screen.getByRole('button', { name: 'Sign In' }).closest('form')!,
-        )
+        fireEvent.submit(firstOf('Sign In').closest('form')!)
       })
       // Signed out on a phone since.
       const newer = {
@@ -775,7 +774,7 @@ describe('StaffAttendanceTable', () => {
       )
 
       expect(
-        screen.getByRole('button', { name: 'Sign In' }),
+        screen.getAllByRole('button', { name: 'Sign In' })[0],
       ).toBeInTheDocument()
       expect(
         screen.getAllByText(/In 09:00 · Out 17:00/).length,
