@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   getAllStudents,
   getStudentsForList,
+  getStudentSummaries,
   searchStudents,
   getStudentsByTeacher,
   getStudentIdsByTeacher,
@@ -100,6 +101,47 @@ describe('getStudentsForList', () => {
 
     const result = await getStudentsForList()
     expect(result).toEqual([])
+  })
+})
+
+describe('getStudentSummaries', () => {
+  it('returns active students with their current classes', async () => {
+    const order = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'student-1',
+          first_name: 'Nikos',
+          last_name: 'Papadopoulos',
+          student_code: 'STU-001',
+          student_classes: [{ class: { name: 'Year 3' } }],
+        },
+      ],
+    })
+    const is = vi.fn().mockReturnValue({ order })
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ is }) }),
+    })
+
+    const result = await getStudentSummaries()
+    expect(result).toHaveLength(1)
+    expect(result[0].student_classes).toEqual([{ class: { name: 'Year 3' } }])
+    // Current stays only, and never !inner: a student with no class still shows.
+    expect(is).toHaveBeenCalledWith('student_classes.end_date', null)
+    expect(order).toHaveBeenCalledWith('last_name')
+  })
+
+  it('returns empty array when no students', async () => {
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          is: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({ data: null }),
+          }),
+        }),
+      }),
+    })
+
+    expect(await getStudentSummaries()).toEqual([])
   })
 })
 

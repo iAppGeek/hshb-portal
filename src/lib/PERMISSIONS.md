@@ -62,9 +62,11 @@ Four roles exist: **teacher**, **admin**, **headteacher**, **secretary**.
 ## Notes
 
 - Teachers can only create/edit lesson plans for their own classes.
-- Any signed-in staff member can record an incident (`saveIncidentAction` with
-  no id has no `permission`); the new-incident page offers teachers only their
-  own students.
+- Any signed-in staff member can record an incident against any student
+  (`saveIncidentAction` with no id has no `permission`): any member of staff may
+  witness one, so the new-incident page offers every active student to every
+  role, identified by name and class. Editing an incident still needs
+  `canEditIncidents`.
 - Teachers and secretaries can sign themselves in/out but cannot sign in/out other staff.
 - Admins and headteachers can sign in/out any staff member.
 - Secretaries can save new attendance but cannot update existing attendance records.

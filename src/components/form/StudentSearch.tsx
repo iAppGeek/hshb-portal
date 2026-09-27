@@ -11,6 +11,8 @@ export type StudentSummary = {
   id: string
   first_name: string
   last_name: string
+  /** Current classes, when the caller has them; shown to separate namesakes. */
+  student_classes?: { class: { name: string } | null }[]
 }
 
 type Props = {
@@ -19,10 +21,19 @@ type Props = {
   error?: string
 }
 
+/** The student's current classes as one label, '' when there are none. */
+function classLabel(student: StudentSummary): string {
+  return (student.student_classes ?? [])
+    .map((sc) => sc.class?.name)
+    .filter(Boolean)
+    .join(', ')
+}
+
 /**
- * Type-ahead picker over an in-memory student list. It holds no form value of
- * its own: the parent renders the hidden input and receives the id through
- * `onSelect` ('' when cleared). Errors link to `student_id-error`.
+ * Type-ahead picker over an in-memory student list, matching on name and class.
+ * It holds no form value of its own: the parent renders the hidden input and
+ * receives the id through `onSelect` ('' when cleared). Errors link to
+ * `student_id-error`.
  */
 export default function StudentSearch({
   students,
@@ -40,7 +51,7 @@ export default function StudentSearch({
 
   const filtered = search.trim()
     ? sorted.filter((s) =>
-        `${s.last_name} ${s.first_name}`
+        `${s.last_name} ${s.first_name} ${classLabel(s)}`
           .toLowerCase()
           .includes(search.toLowerCase()),
       )
@@ -82,6 +93,11 @@ export default function StudentSearch({
         <div className="mt-1 flex items-center gap-2 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm">
           <span className="flex-1 text-gray-900">
             {personName(selected, 'lastFirst')}
+            {classLabel(selected) && (
+              <span className="ml-2 text-xs text-gray-500">
+                {classLabel(selected)}
+              </span>
+            )}
           </span>
           <button
             type="button"
@@ -97,7 +113,7 @@ export default function StudentSearch({
           <input
             id="student_search"
             type="text"
-            placeholder="Search by name…"
+            placeholder="Search by name or class…"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value)
@@ -118,6 +134,11 @@ export default function StudentSearch({
                   className="cursor-pointer px-3 py-2 text-sm text-gray-900 hover:bg-blue-50"
                 >
                   {personName(s, 'lastFirst')}
+                  {classLabel(s) && (
+                    <span className="ml-2 text-xs text-gray-500">
+                      {classLabel(s)}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>

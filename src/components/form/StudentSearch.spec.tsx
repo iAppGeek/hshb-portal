@@ -47,6 +47,54 @@ describe('StudentSearch', () => {
     expect(screen.getByLabelText(/Student/)).toBeTruthy()
   })
 
+  it('shows the class beside the name and matches on it', () => {
+    const onSelect = vi.fn()
+    const withClasses = [
+      {
+        id: 'student-1',
+        first_name: 'Anna',
+        last_name: 'Papadopoulos',
+        student_classes: [{ class: { name: 'Year 3' } }],
+      },
+      {
+        id: 'student-3',
+        first_name: 'Anna',
+        last_name: 'Papadopoulos',
+        student_classes: [{ class: { name: 'Year 5' } }],
+      },
+    ]
+    render(<StudentSearch students={withClasses} onSelect={onSelect} />)
+
+    fireEvent.change(screen.getByLabelText(/Student/), {
+      target: { value: 'year 5' },
+    })
+
+    const items = screen.getAllByRole('listitem').map((li) => li.textContent)
+    expect(items).toEqual(['Papadopoulos, AnnaYear 5'])
+
+    fireEvent.mouseDown(screen.getByRole('listitem'))
+    expect(onSelect).toHaveBeenCalledWith('student-3')
+  })
+
+  it('ignores classes for students that have none', () => {
+    render(
+      <StudentSearch
+        students={[
+          {
+            id: 'student-4',
+            first_name: 'Nikos',
+            last_name: 'Georgiou',
+            student_classes: [],
+          },
+        ]}
+        onSelect={vi.fn()}
+      />,
+    )
+
+    fireEvent.focus(screen.getByLabelText(/Student/))
+    expect(screen.getByRole('listitem').textContent).toBe('Georgiou, Nikos')
+  })
+
   it('says when nothing matches', () => {
     render(<StudentSearch students={students} onSelect={vi.fn()} />)
 

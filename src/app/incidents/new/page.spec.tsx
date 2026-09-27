@@ -13,20 +13,25 @@ vi.mock('next/navigation', async (importOriginal) => ({
 }))
 
 vi.mock('@/db', () => ({
-  getStudentsForList: vi.fn(),
-  getStudentsByTeacher: vi.fn(),
+  getStudentSummaries: vi.fn(),
 }))
 
 vi.mock('../IncidentForm', () => ({
-  default: ({ defaultType }: { defaultType: string }) => (
-    <div>IncidentForm type={defaultType}</div>
+  default: ({
+    defaultType,
+    students,
+  }: {
+    defaultType: string
+    students: { id: string }[]
+  }) => (
+    <div>{`IncidentForm type=${defaultType} students=${students.length}`}</div>
   ),
 }))
 
 vi.mock('../actions', () => ({ saveIncidentAction: vi.fn() }))
 
 import { auth } from '@/auth'
-import { getStudentsForList, getStudentsByTeacher } from '@/db'
+import { getStudentSummaries } from '@/db'
 
 import AddIncidentPage from './page'
 
@@ -38,6 +43,7 @@ const mockStudent = {
   id: 'student-1',
   first_name: 'Nikos',
   last_name: 'Papadopoulos',
+  student_classes: [{ class: { name: 'Year 3' } }],
 }
 
 describe('AddIncidentPage', () => {
@@ -53,46 +59,43 @@ describe('AddIncidentPage', () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
-    vi.mocked(getStudentsForList).mockResolvedValue([mockStudent] as any)
+    vi.mocked(getStudentSummaries).mockResolvedValue([mockStudent] as any)
 
     render(await AddIncidentPage({ searchParams: Promise.resolve({}) }))
-    expect(screen.getByText('IncidentForm type=medical')).toBeTruthy()
+    expect(
+      screen.getByText('IncidentForm type=medical students=1'),
+    ).toBeTruthy()
   })
 
   it('passes behaviour type from searchParams', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
-    vi.mocked(getStudentsForList).mockResolvedValue([])
+    vi.mocked(getStudentSummaries).mockResolvedValue([])
 
     render(
       await AddIncidentPage({
         searchParams: Promise.resolve({ type: 'behaviour' }),
       }),
     )
-    expect(screen.getByText('IncidentForm type=behaviour')).toBeTruthy()
+    expect(
+      screen.getByText('IncidentForm type=behaviour students=0'),
+    ).toBeTruthy()
   })
 
-  it('renders IncidentForm for secretary with all students', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { role: 'secretary', staffId: 'staff-4' },
-    } as any)
-    vi.mocked(getStudentsForList).mockResolvedValue([mockStudent] as any)
+  it.each(['admin', 'headteacher', 'secretary', 'teacher'])(
+    'offers every active student to a %s',
+    async (role) => {
+      vi.mocked(auth).mockResolvedValue({
+        user: { role, staffId: 'staff-3' },
+      } as any)
+      vi.mocked(getStudentSummaries).mockResolvedValue([mockStudent] as any)
 
-    render(await AddIncidentPage({ searchParams: Promise.resolve({}) }))
-    expect(screen.getByText('IncidentForm type=medical')).toBeTruthy()
-    expect(getStudentsForList).toHaveBeenCalled()
-    expect(getStudentsByTeacher).not.toHaveBeenCalled()
-  })
-
-  it('scopes students for teacher role', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { role: 'teacher', staffId: 'staff-3' },
-    } as any)
-    vi.mocked(getStudentsByTeacher).mockResolvedValue([mockStudent] as any)
-
-    await AddIncidentPage({ searchParams: Promise.resolve({}) })
-    expect(getStudentsByTeacher).toHaveBeenCalledWith('staff-3')
-    expect(getStudentsForList).not.toHaveBeenCalled()
-  })
+      render(await AddIncidentPage({ searchParams: Promise.resolve({}) }))
+      expect(
+        screen.getByText('IncidentForm type=medical students=1'),
+      ).toBeTruthy()
+      expect(getStudentSummaries).toHaveBeenCalled()
+    },
+  )
 })

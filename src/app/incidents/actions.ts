@@ -16,8 +16,9 @@ function notifiedAt(
 }
 
 /**
- * Any signed-in staff member can record an incident (teachers pick from their
- * own students on the new-incident page); only `canEditIncidents` can edit.
+ * Any signed-in staff member can record an incident against any student — any
+ * member of staff may witness one, and the new-incident page identifies the
+ * student by name and class. Only `canEditIncidents` can edit an existing one.
  * The student is fixed once recorded, so only creating parses `student_id`.
  */
 export async function saveIncidentAction(

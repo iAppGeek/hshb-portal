@@ -21,6 +21,7 @@ export {
 export {
   getAllStudents,
   getStudentsForList,
+  getStudentSummaries,
   searchStudents,
   getStudentsByTeacher,
   getStudentIdsByTeacher,

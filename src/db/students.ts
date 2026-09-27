@@ -6,6 +6,14 @@ import { currentStays, withCurrentClasses } from './membership'
 
 const STUDENT_LIST_SELECT = 'id, first_name, last_name, student_code'
 
+// The high-level shape of a student — who they are and which class they are
+// in — for anywhere a student has to be identified without loading their
+// guardians, address or medical details. Goes through withCurrentClasses.
+const STUDENT_SUMMARY_SELECT = `
+  id, first_name, last_name, student_code,
+  student_classes(class:classes(name))
+`
+
 // The student_classes embed lists current classes, so every query using these
 // selects goes through withCurrentClasses.
 const STUDENT_SELECT = `
@@ -91,6 +99,14 @@ export async function getStudentsForList() {
     .select(STUDENT_LIST_SELECT)
     .eq('active', true)
     .order('last_name')
+  return data ?? []
+}
+
+/** Every active student as name plus current classes, ordered by last name. */
+export async function getStudentSummaries() {
+  const { data } = await withCurrentClasses(
+    supabase.from('students').select(STUDENT_SUMMARY_SELECT).eq('active', true),
+  ).order('last_name')
   return data ?? []
 }
 
