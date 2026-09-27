@@ -1,7 +1,10 @@
 import 'server-only'
 
-import { and, gt, isNull, lte, or, type SQL } from 'drizzle-orm'
+import { and, eq, gt, isNull, lte, or, type SQL } from 'drizzle-orm'
 import type { PgColumn } from 'drizzle-orm/pg-core'
+
+import { db } from './client'
+import { classes, studentClasses } from './schema'
 
 // "Current classes" (membership): a student's stays with no end date. This
 // includes a stay that starts in the future (e.g. after being migrated into
@@ -36,4 +39,22 @@ export function staysOverlapping(
 /** Stays that cover `date`. */
 export function enrolledOn(stay: StayColumns, date: string): SQL {
   return staysOverlapping(stay, date, date)
+}
+
+/**
+ * Subquery: ids of students with a current stay in one of the teacher's
+ * active classes (any academic year), for `inArray(students.id, …)`.
+ */
+export function studentIdsTaughtBy(teacherId: string) {
+  return db
+    .selectDistinct({ id: studentClasses.studentId })
+    .from(studentClasses)
+    .innerJoin(classes, eq(classes.id, studentClasses.classId))
+    .where(
+      and(
+        eq(classes.teacherId, teacherId),
+        eq(classes.active, true),
+        isCurrentStay(studentClasses),
+      ),
+    )
 }

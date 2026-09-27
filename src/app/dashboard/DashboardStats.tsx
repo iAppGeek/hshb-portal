@@ -8,20 +8,8 @@ import {
   InboxIcon,
 } from '@heroicons/react/24/outline'
 
-import {
-  getStudentCount,
-  getStudentsByTeacher,
-  getAllClasses,
-  getClassesByTeacher,
-  getTeachers,
-  getIncidentCount,
-  getLessonPlanCountByDate,
-  getAttendanceByDateRange,
-  getEnrolmentsInRange,
-  getPendingRegistrationCount,
-} from '@/db'
-import { summariseAttendance, type DateTotals } from '@/lib/attendanceSummary'
-import { isTeacher, canReviewRegistrations } from '@/lib/permissions'
+import { getDashboardStats } from '@/db'
+import { isTeacher } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
 const pct = (n: number, total: number) =>
@@ -59,45 +47,17 @@ export default async function DashboardStats({
   today: string
 }): Promise<ReactElement> {
   const teacherOnly = isTeacher(role)
-
-  const emptyTotals: DateTotals = {
-    distinctPresent: 0,
-    distinctEnrolled: 0,
-    distinctLate: 0,
-    classesTaken: 0,
-  }
-
-  const [
+  const {
     studentCount,
-    classes,
-    teachers,
+    classCount,
+    teacherCount,
     incidentCount,
-    lessonPlanCount,
-    attendanceRows,
-    enrolments,
+    lessonPlansToday,
+    presentToday,
+    enrolledToday,
+    registersTakenToday,
     pendingRegistrationCount,
-  ] = await Promise.all([
-    teacherOnly
-      ? getStudentsByTeacher(staffId).then((s) => s.length)
-      : getStudentCount(),
-    teacherOnly ? getClassesByTeacher(staffId) : getAllClasses(),
-    teacherOnly ? Promise.resolve([] as { id: string }[]) : getTeachers(),
-    teacherOnly ? Promise.resolve(null) : getIncidentCount(),
-    teacherOnly ? Promise.resolve(null) : getLessonPlanCountByDate(today),
-    teacherOnly ? Promise.resolve([]) : getAttendanceByDateRange(today, today),
-    teacherOnly ? Promise.resolve([]) : getEnrolmentsInRange(today, today),
-    canReviewRegistrations(role)
-      ? getPendingRegistrationCount()
-      : Promise.resolve(null),
-  ])
-
-  const totals = teacherOnly
-    ? emptyTotals
-    : (summariseAttendance(attendanceRows, enrolments, [today]).byDate[today] ??
-      emptyTotals)
-  const presentToday = totals.distinctPresent
-  const enrolledToday = totals.distinctEnrolled
-  const registersSubmitted = totals.classesTaken
+  } = await getDashboardStats({ role, staffId }, today)
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-5">
@@ -113,7 +73,7 @@ export default async function DashboardStats({
               {presentToday}/{enrolledToday}
             </span>
             <span className="text-sm font-medium text-gray-500">
-              {pct(presentToday, enrolledToday)}
+              {pct(presentToday ?? 0, enrolledToday ?? 0)}
             </span>
           </p>
         </Link>
@@ -145,10 +105,10 @@ export default async function DashboardStats({
           <p className="text-sm text-gray-500">Attendance submitted today</p>
           <p className="mt-1 flex items-center gap-2">
             <span className="text-3xl font-bold text-gray-900">
-              {registersSubmitted}/{classes.length}
+              {registersTakenToday}/{classCount}
             </span>
             <span className="text-sm font-medium text-gray-500">
-              {pct(registersSubmitted, classes.length)}
+              {pct(registersTakenToday ?? 0, classCount)}
             </span>
           </p>
         </Link>
@@ -166,7 +126,7 @@ export default async function DashboardStats({
             {teacherOnly ? 'My Classes' : 'Total Classes'}
           </p>
           <p className="mt-0.5 text-2xl font-bold text-gray-900">
-            {classes.length}
+            {classCount}
           </p>
         </div>
       </Link>
@@ -183,7 +143,7 @@ export default async function DashboardStats({
           <div>
             <p className="text-sm font-medium text-gray-500">Total Teachers</p>
             <p className="mt-0.5 text-2xl font-bold text-gray-900">
-              {teachers.length}
+              {teacherCount}
             </p>
           </div>
         </Link>
@@ -207,10 +167,10 @@ export default async function DashboardStats({
             </p>
             <p className="mt-1 flex items-center gap-2">
               <span className="text-3xl font-bold text-gray-900">
-                {lessonPlanCount}/{classes.length}
+                {lessonPlansToday}/{classCount}
               </span>
               <span className="text-sm font-medium text-gray-500">
-                {pct(lessonPlanCount ?? 0, classes.length)}
+                {pct(lessonPlansToday ?? 0, classCount)}
               </span>
             </p>
           </Link>

@@ -17,9 +17,8 @@ import type { Database } from '@/types/database'
 
 import { toCamel, toSnake, type Snake } from './casing'
 import { db, supabase } from './client'
-import { isCurrentStay } from './membership'
+import { isCurrentStay, studentIdsTaughtBy } from './membership'
 import {
-  classes,
   studentClasses,
   students,
   type Class,
@@ -161,21 +160,6 @@ function withClassYearCodes<R extends object, C extends ClassWithYear>(
       class: { ...cls, academicYear: academicYear.code },
     })),
   }
-}
-
-/** Ids of active students with a current stay in one of the teacher's active classes. */
-function studentIdsTaughtBy(teacherId: string) {
-  return db
-    .selectDistinct({ id: studentClasses.studentId })
-    .from(studentClasses)
-    .innerJoin(classes, eq(classes.id, studentClasses.classId))
-    .where(
-      and(
-        eq(classes.teacherId, teacherId),
-        eq(classes.active, true),
-        isCurrentStay(studentClasses),
-      ),
-    )
 }
 
 export async function getStudentsForList(): Promise<StudentListItem[]> {

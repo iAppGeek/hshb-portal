@@ -199,5 +199,7 @@ export type {
   StudentFeeDetail,
   StudentFeeYear,
 } from './student-fees'
+export { getDashboardStats } from './dashboard'
+export type { DashboardStats } from './dashboard'
 export { logAuditEvent } from './audit-log'
 export type { AuditAction, AuditEntry } from './audit-log'
