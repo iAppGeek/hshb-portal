@@ -86,11 +86,11 @@ function makeFormData(fields: Record<string, string | string[]>): FormData {
 
 const mockSub = {
   id: 'sub-1',
-  staff_id: ADMIN_ID,
+  staffId: ADMIN_ID,
   endpoint: 'https://fcm.googleapis.com/fcm/send/abc',
   p256dh: 'p256dh-key',
   auth: 'auth-key',
-  created_at: null,
+  createdAt: null,
 }
 
 describe('saveAttendanceAction', () => {
@@ -216,7 +216,7 @@ describe('saveAttendanceAction', () => {
   })
 
   it('excludes the submitting staff member from notifications', async () => {
-    const submitterSub = { ...mockSub, staff_id: STAFF_ID }
+    const submitterSub = { ...mockSub, staffId: STAFF_ID }
     vi.mocked(getActor).mockResolvedValue({
       staffId: STAFF_ID,
       name: null,

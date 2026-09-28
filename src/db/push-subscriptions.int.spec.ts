@@ -34,11 +34,11 @@ describe('push subscriptions', () => {
     const admins = await getAdminSubscriptions()
     expect(admins.find((s) => s.endpoint === 'https://push/shared')).toEqual({
       id: expect.any(String),
-      staff_id: SEED.staff.headteacher,
+      staffId: SEED.staff.headteacher,
       endpoint: 'https://push/shared',
       p256dh: 'p',
       auth: 'new',
-      created_at: expect.any(String),
+      createdAt: expect.any(String),
     })
   })
 

@@ -76,7 +76,7 @@ Other helpers:
 
 - Use `db` from `@/db/client` and the tables and row types (`Student`, `NewStudent`, …) from `@/db/schema`. Never use `supabase.from(…)`. `supabase.rpc(…)` is kept only for the existing database functions until plan 10.
 - Use the relational API (`db.query.students.findFirst({ with: … })`) for an entity plus its children, and the SQL-like builder with `count()`, `sum()` and `groupBy` for aggregates — not fetch-then-group in a JS `Map`.
-- Drizzle rows are camelCase; the functions in `src/db` return and accept the snake_case shapes the app uses. Convert at that boundary with `toSnake` / `toCamel` from `src/db/casing.ts`. `timestamptz` columns come back as ISO strings (`2026-09-27T12:00:00+00:00`).
+- Drizzle rows are camelCase; the functions in `src/db` return and accept the snake_case shapes the app's pages and forms use, converted with `toSnake` / `toCamel` from `src/db/casing.ts`. Rows the app only hands to a `src/lib` helper (enrolment and attendance ranges, push subscriptions) are returned as queried, and new code should prefer that — don't convert rows nobody reads field by field. `timestamptz` columns come back as ISO strings (`2026-09-27T12:00:00+00:00`).
 - One exported function = one query or one transaction. Every module in `src/db` starts with `import 'server-only'`.
 - Production uses the Supabase Supavisor **transaction pooler** (port 6543), which is why the client sets `prepare: false`.
 

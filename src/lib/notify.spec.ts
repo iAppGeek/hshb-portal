@@ -26,11 +26,11 @@ vi.mock('@/lib/push', () => ({
 
 const mockSub = {
   id: 'sub-1',
-  staff_id: 'admin-1',
+  staffId: 'admin-1',
   endpoint: 'https://fcm.googleapis.com/fcm/send/abc',
   p256dh: 'p256dh-key',
   auth: 'auth-key',
-  created_at: null,
+  createdAt: null,
 }
 
 const notification = {
@@ -74,7 +74,7 @@ describe('notifyAdmins', () => {
   })
 
   it('excludes the actor when excludeStaffId is set', async () => {
-    const actorSub = { ...mockSub, staff_id: 'actor-1' }
+    const actorSub = { ...mockSub, staffId: 'actor-1' }
     vi.mocked(getAdminSubscriptions).mockResolvedValue([actorSub, mockSub])
     vi.mocked(sendPushNotification).mockResolvedValue(undefined)
 

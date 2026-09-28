@@ -51,7 +51,7 @@ async function sendToAdmins(
   try {
     const subs = await getAdminSubscriptions()
     const recipients = excludeStaffId
-      ? subs.filter((sub) => sub.staff_id !== excludeStaffId)
+      ? subs.filter((sub) => sub.staffId !== excludeStaffId)
       : subs
     await sendToSubscriptions(recipients, n)
   } catch (err) {

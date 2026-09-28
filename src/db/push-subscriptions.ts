@@ -4,7 +4,7 @@ import { eq, inArray } from 'drizzle-orm'
 
 import { NOTIFICATION_ROLES } from '@/lib/permissions'
 
-import { toCamel, toSnake, type Snake } from './casing'
+import { toCamel, type Snake } from './casing'
 import { db } from './client'
 import {
   pushSubscriptions,
@@ -13,7 +13,7 @@ import {
   type PushSubscription,
 } from './schema'
 
-export type PushSubscriptionRow = Snake<PushSubscription>
+export type PushSubscriptionRow = PushSubscription
 
 export type SavePushSubscriptionInput = Snake<NewPushSubscription>
 
@@ -53,7 +53,7 @@ export async function pushSubscriptionExists(
 
 /** Subscriptions of the staff who get admin notifications. */
 export async function getAdminSubscriptions(): Promise<PushSubscriptionRow[]> {
-  const rows = await db
+  return db
     .select({
       id: pushSubscriptions.id,
       staffId: pushSubscriptions.staffId,
@@ -65,5 +65,4 @@ export async function getAdminSubscriptions(): Promise<PushSubscriptionRow[]> {
     .from(pushSubscriptions)
     .innerJoin(staff, eq(staff.id, pushSubscriptions.staffId))
     .where(inArray(staff.role, NOTIFICATION_ROLES))
-  return toSnake(rows)
 }
