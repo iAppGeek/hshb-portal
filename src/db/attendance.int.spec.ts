@@ -85,12 +85,12 @@ describe('attendance', () => {
     const rows = await getAttendanceByDateRange('2026-10-12', '2026-10-19')
     expect(rows).toHaveLength(2)
     expect(rows[0]).toStrictEqual({
-      class_id: SEED.classes.alpha,
-      student_id: expect.any(String),
+      classId: SEED.classes.alpha,
+      studentId: expect.any(String),
       date: '2026-10-12',
       status: expect.any(String),
-      created_at: expect.any(String),
-      updated_at: expect.any(String),
+      createdAt: expect.any(String),
+      updatedAt: expect.any(String),
       class: {
         id: SEED.classes.alpha,
         name: 'Alpha',

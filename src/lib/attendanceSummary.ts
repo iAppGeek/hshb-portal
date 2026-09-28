@@ -11,12 +11,13 @@ export type SummaryClass = {
 }
 
 export type AttendanceRangeRow = {
-  class_id: string
-  student_id: string
+  classId: string
+  studentId: string
   date: string
   status: 'present' | 'absent' | 'late'
-  created_at: string
-  updated_at: string
+  // Default now(); nullable in the schema, set on every row in practice.
+  createdAt: string | null
+  updatedAt: string | null
 }
 
 export type EnrolmentRangeRow = EnrolmentRow & { class: SummaryClass }
@@ -66,20 +67,20 @@ export function summariseAttendance(
   const rangeAttendance = attendance.filter((row) => dateSet.has(row.date))
 
   const classesById = new Map<string, SummaryClass>()
-  for (const row of rangeAttendance) classesById.set(row.class_id, row.class)
-  for (const row of enrolments) classesById.set(row.class_id, row.class)
+  for (const row of rangeAttendance) classesById.set(row.classId, row.class)
+  for (const row of enrolments) classesById.set(row.classId, row.class)
 
   const enrolmentsByClass = new Map<string, EnrolmentRangeRow[]>()
   for (const row of enrolments) {
-    const list = enrolmentsByClass.get(row.class_id) ?? []
+    const list = enrolmentsByClass.get(row.classId) ?? []
     list.push(row)
-    enrolmentsByClass.set(row.class_id, list)
+    enrolmentsByClass.set(row.classId, list)
   }
   const markedByClassDate = new Map<string, string[]>()
   for (const row of rangeAttendance) {
-    const key = `${row.class_id}|${row.date}`
+    const key = `${row.classId}|${row.date}`
     const list = markedByClassDate.get(key) ?? []
-    list.push(row.student_id)
+    list.push(row.studentId)
     markedByClassDate.set(key, list)
   }
 
@@ -119,22 +120,23 @@ export function summariseAttendance(
   }
 
   for (const row of rangeAttendance) {
-    const summary = summariesByClass.get(row.class_id)
+    const summary = summariesByClass.get(row.classId)
     if (!summary) continue
     if (row.status === 'present' || row.status === 'late') summary.present += 1
     if (row.status === 'absent') summary.absent += 1
     if (row.status === 'late') summary.late += 1
     if (
-      summary.firstRecordedAt === null ||
-      row.created_at < summary.firstRecordedAt
+      row.createdAt !== null &&
+      (summary.firstRecordedAt === null ||
+        row.createdAt < summary.firstRecordedAt)
     ) {
-      summary.firstRecordedAt = row.created_at
+      summary.firstRecordedAt = row.createdAt
     }
     if (
-      summary.lastUpdatedAt === null ||
-      row.updated_at > summary.lastUpdatedAt
+      row.updatedAt !== null &&
+      (summary.lastUpdatedAt === null || row.updatedAt > summary.lastUpdatedAt)
     ) {
-      summary.lastUpdatedAt = row.updated_at
+      summary.lastUpdatedAt = row.updatedAt
     }
   }
 
@@ -150,12 +152,12 @@ export function summariseAttendance(
     const presentStudentIds = new Set(
       dayAttendance
         .filter((row) => row.status === 'present' || row.status === 'late')
-        .map((row) => row.student_id),
+        .map((row) => row.studentId),
     )
     const lateStudentIds = new Set(
       dayAttendance
         .filter((row) => row.status === 'late')
-        .map((row) => row.student_id),
+        .map((row) => row.studentId),
     )
     const enrolledStudentIds = new Set(
       [...rostersByClass.values()].flatMap((rosters) => rosters.get(date)!),
@@ -164,7 +166,7 @@ export function summariseAttendance(
       distinctPresent: presentStudentIds.size,
       distinctEnrolled: enrolledStudentIds.size,
       distinctLate: lateStudentIds.size,
-      classesTaken: new Set(dayAttendance.map((row) => row.class_id)).size,
+      classesTaken: new Set(dayAttendance.map((row) => row.classId)).size,
     }
   }
 

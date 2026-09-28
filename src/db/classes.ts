@@ -281,7 +281,7 @@ export async function getClassWithStudents(
 export async function getEnrolmentsForClass(
   classId: string,
 ): Promise<EnrolmentRow[]> {
-  const rows = await db
+  return db
     .select({
       classId: studentClasses.classId,
       studentId: studentClasses.studentId,
@@ -290,14 +290,13 @@ export async function getEnrolmentsForClass(
     })
     .from(studentClasses)
     .where(eq(studentClasses.classId, classId))
-  return toSnake(rows)
 }
 
 export async function getEnrolmentsInRange(
   start: string,
   end: string,
 ): Promise<EnrolmentRangeRow[]> {
-  const rows = await db
+  return db
     .select({
       classId: studentClasses.classId,
       studentId: studentClasses.studentId,
@@ -315,14 +314,6 @@ export async function getEnrolmentsInRange(
     .innerJoin(academicYears, eq(academicYears.id, classes.academicYearId))
     .where(staysOverlapping(studentClasses, start, end))
     .orderBy(asc(studentClasses.id))
-  // `class` is a SummaryClass, whose `yearCode` stays camelCase.
-  return rows.map((r) => ({
-    class_id: r.classId,
-    student_id: r.studentId,
-    start_date: r.startDate,
-    end_date: r.endDate,
-    class: r.class,
-  }))
 }
 
 type ClassInsert = {

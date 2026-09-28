@@ -107,13 +107,10 @@ function classesOfYear(yearId: string) {
 
 /** The classes whose fee plan applies, from a student's stays in one year. */
 function feeClasses(stays: Stay[]): FeeClass[] {
-  return feeClassesForYear(
-    stays.map((s) => ({
-      start_date: s.startDate,
-      end_date: s.endDate,
-      class: s.class,
-    })),
-  ).map((s) => ({ id: s.class.id, name: s.class.name }))
+  return feeClassesForYear(stays).map((s) => ({
+    id: s.class.id,
+    name: s.class.name,
+  }))
 }
 
 function toPaymentSummary(p: {

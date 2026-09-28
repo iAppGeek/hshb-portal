@@ -36,7 +36,7 @@ export async function getAttendanceByDateRange(
   startDate: string,
   endDate: string,
 ): Promise<(AttendanceRangeRow & { class: SummaryClass })[]> {
-  const rows = await db
+  return db
     .select({
       classId: attendance.classId,
       studentId: attendance.studentId,
@@ -56,17 +56,6 @@ export async function getAttendanceByDateRange(
     .innerJoin(academicYears, eq(academicYears.id, classes.academicYearId))
     .where(and(gte(attendance.date, startDate), lte(attendance.date, endDate)))
     .orderBy(asc(attendance.id))
-  // `class` is a SummaryClass, whose `yearCode` stays camelCase.
-  return rows.map((r) => ({
-    class_id: r.classId,
-    student_id: r.studentId,
-    date: r.date,
-    status: r.status,
-    // Both columns default to now(); the type allows null, rows never are.
-    created_at: r.createdAt ?? '',
-    updated_at: r.updatedAt ?? '',
-    class: r.class,
-  }))
 }
 
 /**

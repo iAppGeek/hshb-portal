@@ -55,9 +55,9 @@ describe('membership SQL fragments', () => {
     '2026-10-01',
     '2027-01-01',
   ])('enrolledOn(%s) agrees with isEnrolledOn', async (date) => {
-    const expected = STAYS.filter((s) =>
-      isEnrolledOn({ start_date: s.startDate, end_date: s.endDate }, date),
-    ).map((s) => s.startDate)
+    const expected = STAYS.filter((s) => isEnrolledOn(s, date)).map(
+      (s) => s.startDate,
+    )
     expect(await matching(enrolledOn(studentClasses, date))).toEqual(expected)
   })
 

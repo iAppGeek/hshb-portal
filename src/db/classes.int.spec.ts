@@ -102,10 +102,10 @@ describe('single class', () => {
     const stays = await getEnrolmentsForClass(SEED.classes.alpha)
     expect(stays).toHaveLength(3)
     expect(Object.keys(stays[0]).sort()).toEqual([
-      'class_id',
-      'end_date',
-      'start_date',
-      'student_id',
+      'classId',
+      'endDate',
+      'startDate',
+      'studentId',
     ])
   })
 })
@@ -114,15 +114,15 @@ describe('getEnrolmentsInRange', () => {
   it('includes stays overlapping the range and nothing else', async () => {
     const during = await getEnrolmentsInRange('2026-09-05', '2026-09-05')
     expect(
-      during.filter((r) => r.student_id === SEED.students.carol),
+      during.filter((r) => r.studentId === SEED.students.carol),
     ).toHaveLength(2)
 
     // The week in Alpha ended on the 8th, so it no longer covers that day.
     const onEnd = await getEnrolmentsInRange('2026-09-08', '2026-09-08')
     expect(
       onEnd
-        .filter((r) => r.student_id === SEED.students.carol)
-        .map((r) => r.class_id),
+        .filter((r) => r.studentId === SEED.students.carol)
+        .map((r) => r.classId),
     ).toEqual([SEED.classes.beta])
 
     expect(await getEnrolmentsInRange('2026-08-01', '2026-08-31')).toEqual([])

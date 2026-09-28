@@ -24,12 +24,12 @@ function attendance(
   overrides: Partial<AttendanceRangeRow> & { class: SummaryClass },
 ): AttendanceRangeRow & { class: SummaryClass } {
   return {
-    class_id: overrides.class.id,
-    student_id: 's1',
+    classId: overrides.class.id,
+    studentId: 's1',
     date: '2026-09-01',
     status: 'present',
-    created_at: '2026-09-01T09:00:00Z',
-    updated_at: '2026-09-01T09:00:00Z',
+    createdAt: '2026-09-01T09:00:00Z',
+    updatedAt: '2026-09-01T09:00:00Z',
     ...overrides,
   }
 }
@@ -38,10 +38,10 @@ function enrolment(
   overrides: Partial<EnrolmentRangeRow> & { class: SummaryClass },
 ): EnrolmentRangeRow {
   return {
-    class_id: overrides.class.id,
-    student_id: 's1',
-    start_date: '2026-09-01',
-    end_date: null,
+    classId: overrides.class.id,
+    studentId: 's1',
+    startDate: '2026-09-01',
+    endDate: null,
     ...overrides,
   }
 }
@@ -53,26 +53,26 @@ describe('summariseAttendance', () => {
     const attendanceRows = [
       attendance({
         class: classA,
-        student_id: 'alice',
+        studentId: 'alice',
         date: '2026-09-01',
         status: 'present',
       }),
       attendance({
         class: classA,
-        student_id: 'alice',
+        studentId: 'alice',
         date: '2026-09-02',
         status: 'absent',
       }),
       attendance({
         class: classB,
-        student_id: 'bob',
+        studentId: 'bob',
         date: '2026-09-01',
         status: 'late',
       }),
     ]
     const enrolmentRows = [
-      enrolment({ class: classA, student_id: 'alice' }),
-      enrolment({ class: classB, student_id: 'bob' }),
+      enrolment({ class: classA, studentId: 'alice' }),
+      enrolment({ class: classB, studentId: 'bob' }),
     ]
 
     const result = summariseAttendance(attendanceRows, enrolmentRows, dates)
@@ -96,20 +96,20 @@ describe('summariseAttendance', () => {
     const attendanceRows = [
       attendance({
         class: classA,
-        student_id: 'dual',
+        studentId: 'dual',
         date: '2026-09-01',
         status: 'present',
       }),
       attendance({
         class: classB,
-        student_id: 'dual',
+        studentId: 'dual',
         date: '2026-09-01',
         status: 'present',
       }),
     ]
     const enrolmentRows = [
-      enrolment({ class: classA, student_id: 'dual' }),
-      enrolment({ class: classB, student_id: 'dual' }),
+      enrolment({ class: classA, studentId: 'dual' }),
+      enrolment({ class: classB, studentId: 'dual' }),
     ]
 
     const result = summariseAttendance(attendanceRows, enrolmentRows, dates)
@@ -124,9 +124,9 @@ describe('summariseAttendance', () => {
     const enrolmentRows = [
       enrolment({
         class: classA,
-        student_id: 'leaver',
-        start_date: '2026-09-01',
-        end_date: '2026-09-02',
+        studentId: 'leaver',
+        startDate: '2026-09-01',
+        endDate: '2026-09-02',
       }),
     ]
     const result = summariseAttendance([], enrolmentRows, dates)
@@ -135,7 +135,7 @@ describe('summariseAttendance', () => {
 
   it('counts late toward present', () => {
     const attendanceRows = [
-      attendance({ class: classA, student_id: 'alice', status: 'late' }),
+      attendance({ class: classA, studentId: 'alice', status: 'late' }),
     ]
     const result = summariseAttendance(attendanceRows, [], dates)
     expect(result.classes[0].present).toBe(1)
@@ -143,7 +143,7 @@ describe('summariseAttendance', () => {
   })
 
   it('a class with enrolments but no marks has possible > 0, present 0, times null', () => {
-    const enrolmentRows = [enrolment({ class: classA, student_id: 'alice' })]
+    const enrolmentRows = [enrolment({ class: classA, studentId: 'alice' })]
     const result = summariseAttendance([], enrolmentRows, dates)
     const summary = result.classes[0]
     expect(summary.possible).toBeGreaterThan(0)
@@ -153,7 +153,7 @@ describe('summariseAttendance', () => {
   })
 
   it('counts a marked student with no enrolment towards possible on the marked date', () => {
-    const attendanceRows = [attendance({ class: classA, student_id: 'alice' })]
+    const attendanceRows = [attendance({ class: classA, studentId: 'alice' })]
     const result = summariseAttendance(attendanceRows, [], dates)
     expect(result.classes).toHaveLength(1)
     expect(result.classes[0].possible).toBe(1)
@@ -162,16 +162,16 @@ describe('summariseAttendance', () => {
   })
 
   it('never reports more present than possible for a student marked then moved the same day', () => {
-    // Marked present on 09-02, then moved out that day (end_date exclusive).
+    // Marked present on 09-02, then moved out that day (endDate exclusive).
     const attendanceRows = [
-      attendance({ class: classA, student_id: 'mover', date: '2026-09-02' }),
+      attendance({ class: classA, studentId: 'mover', date: '2026-09-02' }),
     ]
     const enrolmentRows = [
       enrolment({
         class: classA,
-        student_id: 'mover',
-        start_date: '2026-09-01',
-        end_date: '2026-09-02',
+        studentId: 'mover',
+        startDate: '2026-09-01',
+        endDate: '2026-09-02',
       }),
     ]
     const result = summariseAttendance(attendanceRows, enrolmentRows, dates)
@@ -184,11 +184,11 @@ describe('summariseAttendance', () => {
 
   it('counts a student once per class and date even with overlapping stays', () => {
     const enrolmentRows = [
-      enrolment({ class: classA, student_id: 'alice', end_date: '2026-09-03' }),
+      enrolment({ class: classA, studentId: 'alice', endDate: '2026-09-03' }),
       enrolment({
         class: classA,
-        student_id: 'alice',
-        start_date: '2026-09-02',
+        studentId: 'alice',
+        startDate: '2026-09-02',
       }),
     ]
     const result = summariseAttendance([], enrolmentRows, dates)
@@ -205,7 +205,7 @@ describe('summariseAttendance', () => {
     const attendanceRows = [
       attendance({
         class: classA,
-        student_id: 'alice',
+        studentId: 'alice',
         date: '2026-10-01',
         status: 'present',
       }),
