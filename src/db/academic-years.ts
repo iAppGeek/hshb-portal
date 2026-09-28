@@ -1,12 +1,12 @@
 import 'server-only'
 
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq, ne } from 'drizzle-orm'
 import { cache } from 'react'
 
 import { academicYearForDate } from '@/lib/academicYears'
 
 import { toCamel, toSnake, type Snake } from './casing'
-import { db, supabase } from './client'
+import { db } from './client'
 import { academicYears, type AcademicYear } from './schema'
 
 export type AcademicYearRow = Snake<AcademicYear>
@@ -70,9 +70,23 @@ export async function updateAcademicYear(
     .where(eq(academicYears.id, id))
 }
 
+/**
+ * Makes `id` the one current year. Two updates in a transaction — clear the
+ * old current year, then set the new one — so the one-current partial unique
+ * index never sees two. (The set_current_academic_year RPC this replaces did
+ * it in one WHERE-less UPDATE, which pg-safeupdate rejects via PostgREST.)
+ */
 export async function setCurrentAcademicYear(id: string): Promise<void> {
-  const { error } = await supabase.rpc('set_current_academic_year', {
-    p_id: id,
+  await db.transaction(async (tx) => {
+    await tx
+      .update(academicYears)
+      .set({ isCurrent: false })
+      .where(and(eq(academicYears.isCurrent, true), ne(academicYears.id, id)))
+    const updated = await tx
+      .update(academicYears)
+      .set({ isCurrent: true })
+      .where(eq(academicYears.id, id))
+      .returning({ id: academicYears.id })
+    if (updated.length === 0) throw new Error('Academic year not found')
   })
-  if (error) throw error
 }

@@ -169,11 +169,21 @@ export async function deleteFeePlansByName(name: string): Promise<void> {
   await db.from('fee_plans').delete().eq('name', name)
 }
 
-// Restores the seeded current year after a test that switches it, via the
-// same RPC the app uses so the partial unique index stays satisfied.
+// Restores the seeded current year after a test that switches it. Two
+// filtered updates, like the app's setCurrentAcademicYear: the one-current
+// partial unique index never sees two current years, and PostgREST's
+// pg-safeupdate rejects an UPDATE without a WHERE clause.
 export async function setCurrentAcademicYear(id: string): Promise<void> {
-  const { error } = await db.rpc('set_current_academic_year', { p_id: id })
-  if (error) throw error
+  const cleared = await db
+    .from('academic_years')
+    .update({ is_current: false })
+    .eq('is_current', true)
+  if (cleared.error) throw cleared.error
+  const set = await db
+    .from('academic_years')
+    .update({ is_current: true })
+    .eq('id', id)
+  if (set.error) throw set.error
 }
 
 // Classes/fee plans/payments referencing this year must be deleted first

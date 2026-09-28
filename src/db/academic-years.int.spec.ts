@@ -9,6 +9,7 @@ import {
   getAcademicYearForDate,
   getAcademicYears,
   getCurrentAcademicYear,
+  setCurrentAcademicYear,
   updateAcademicYear,
 } from './academic-years'
 import { db } from './client'
@@ -117,5 +118,27 @@ describe('writes', () => {
       end_date: '2027-01-31',
     }).catch((e: unknown) => e)
     expect(asDbError(err)?.code).toBe('23P01')
+  })
+
+  it('makes a year current, clearing the previous one', async () => {
+    await setCurrentAcademicYear(PRIOR_YEAR)
+    expect((await getCurrentAcademicYear()).id).toBe(PRIOR_YEAR)
+    const currentRows = await db
+      .select({ id: academicYears.id })
+      .from(academicYears)
+      .where(eq(academicYears.isCurrent, true))
+    expect(currentRows).toEqual([{ id: PRIOR_YEAR }])
+
+    // Making the current year current again is a no-op, not an error.
+    await setCurrentAcademicYear(PRIOR_YEAR)
+    await setCurrentAcademicYear(CURRENT_YEAR)
+    expect((await getCurrentAcademicYear()).id).toBe(CURRENT_YEAR)
+  })
+
+  it('rejects an unknown year and leaves the current year alone', async () => {
+    await expect(
+      setCurrentAcademicYear('05000000-0000-4000-8000-0000000000ff'),
+    ).rejects.toThrow('Academic year not found')
+    expect((await getCurrentAcademicYear()).id).toBe(CURRENT_YEAR)
   })
 })
