@@ -5,6 +5,7 @@ import { and, asc, eq, inArray } from 'drizzle-orm'
 import type { EnrolmentRangeRow } from '@/lib/attendanceSummary'
 import { toClassEmailRoster, type ClassEmailRoster } from '@/lib/communication'
 import type { EnrolmentRow } from '@/lib/enrolment'
+import { isUuid } from '@/lib/uuid'
 import type { Database } from '@/types/database'
 
 import { toCamel, toSnake, type Snake } from './casing'
@@ -173,6 +174,9 @@ export async function getClassesByAcademicYear(
 export async function getClassById(
   id: string,
 ): Promise<ClassWithMembers | null> {
+  // A malformed id finds nothing, rather than failing the uuid cast.
+  if (!isUuid(id)) return null
+
   // Member details let the class form show a leaver still on the class,
   // who isn't in the selectable (active) student list.
   const row = await db.query.classes.findFirst({

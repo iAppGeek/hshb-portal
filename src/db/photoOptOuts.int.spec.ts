@@ -38,6 +38,7 @@ describe('photo opt-outs', () => {
     expect(
       await getPhotoOptOutById('82000000-0000-0000-0000-0000000000ff'),
     ).toBeNull()
+    expect(await getPhotoOptOutById('not-a-uuid')).toBeNull()
   })
 
   it('applies a request to a student through the RPC', async () => {

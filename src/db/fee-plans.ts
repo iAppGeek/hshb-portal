@@ -2,6 +2,7 @@ import 'server-only'
 
 import { asc, eq } from 'drizzle-orm'
 
+import { isUuid } from '@/lib/uuid'
 import type { Database } from '@/types/database'
 
 import { toSnake, type Snake } from './casing'
@@ -63,6 +64,9 @@ export async function getFeePlans(
 export async function getFeePlanById(
   id: string,
 ): Promise<FeePlanWithClasses | null> {
+  // A malformed id finds nothing, rather than failing the uuid cast.
+  if (!isUuid(id)) return null
+
   const row = await db.query.feePlans.findFirst({
     with: feePlanWith,
     where: eq(feePlans.id, id),

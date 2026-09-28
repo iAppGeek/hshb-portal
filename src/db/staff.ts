@@ -3,6 +3,7 @@ import 'server-only'
 import { asc, eq, inArray } from 'drizzle-orm'
 
 import { TEACHING_ROLES } from '@/lib/permissions'
+import { isUuid } from '@/lib/uuid'
 
 import { toCamel, toSnake, type Snake } from './casing'
 import { db } from './client'
@@ -67,6 +68,9 @@ export async function getStaffByEmail(
 }
 
 export async function getStaffById(id: string): Promise<StaffMember | null> {
+  // A malformed id finds nothing, rather than failing the uuid cast.
+  if (!isUuid(id)) return null
+
   const [row] = await db
     .select(staffColumns)
     .from(staff)

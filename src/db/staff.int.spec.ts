@@ -44,6 +44,7 @@ describe('staff reads', () => {
     expect(
       await getStaffById('00000000-0000-0000-0000-0000000000ff'),
     ).toBeNull()
+    expect(await getStaffById('not-a-uuid')).toBeNull()
   })
 
   it('lists everyone by last name', async () => {

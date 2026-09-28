@@ -135,6 +135,8 @@ describe('student fee detail and years', () => {
     expect(
       await getStudentFeeDetail('30000000-0000-0000-0000-0000000000ff', PRIOR),
     ).toBeNull()
+    expect(await getStudentFeeDetail('not-a-uuid', PRIOR)).toBeNull()
+    expect(await getStudentFeeDetail(S.alice, 'not-a-uuid')).toBeNull()
   })
 
   it('lists every year the student has something in, newest first', async () => {
@@ -145,6 +147,7 @@ describe('student fee detail and years', () => {
       account: { payment_plan: 'monthly' },
     })
     expect(await getStudentFeeYears(S.carol)).toHaveLength(1)
+    expect(await getStudentFeeYears('not-a-uuid')).toEqual([])
   })
 })
 

@@ -79,6 +79,7 @@ describe('single class', () => {
       alpha?.student_classes.map((sc) => sc.student.first_name).sort(),
     ).toEqual(['Alice', 'Bob'])
     expect(await getClassById(MISSING)).toBeNull()
+    expect(await getClassById('not-a-uuid')).toBeNull()
   })
 
   it('separates the current roster from the full enrolment history', async () => {

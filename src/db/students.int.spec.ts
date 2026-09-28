@@ -157,6 +157,7 @@ describe('by teacher, class and id', () => {
     expect(
       await getStudentById('30000000-0000-0000-0000-0000000000ff'),
     ).toBeNull()
+    expect(await getStudentById('not-a-uuid')).toBeNull()
   })
 
   it('finds students by ids, and nothing for no ids', async () => {

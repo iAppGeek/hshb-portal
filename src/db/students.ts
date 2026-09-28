@@ -13,6 +13,7 @@ import {
 } from 'drizzle-orm'
 
 import type { LeavingReason } from '@/lib/schemas'
+import { isUuid } from '@/lib/uuid'
 import type { Database } from '@/types/database'
 
 import { toCamel, toSnake, type Snake } from './casing'
@@ -284,6 +285,9 @@ export async function getStudentsByClass(
 export async function getStudentById(
   id: string,
 ): Promise<StudentDetail | null> {
+  // A malformed id finds nothing, rather than failing the uuid cast.
+  if (!isUuid(id)) return null
+
   // Every stay, once: current classes are the open ones, and the end dates
   // cover all of them.
   const row = await db.query.students.findFirst({

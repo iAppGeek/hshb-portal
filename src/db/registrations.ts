@@ -2,6 +2,7 @@ import 'server-only'
 
 import { and, count, desc, eq } from 'drizzle-orm'
 
+import { isUuid } from '@/lib/uuid'
 import type { Database, Json } from '@/types/database'
 
 import { toSnake, type Snake } from './casing'
@@ -85,6 +86,9 @@ export async function getPendingRegistrationCount(): Promise<number> {
 export async function getRegistrationSubmissionById(
   id: string,
 ): Promise<RegistrationFull | null> {
+  // A malformed id finds nothing, rather than failing the uuid cast.
+  if (!isUuid(id)) return null
+
   const row = await db.query.registrationSubmissions.findFirst({
     where: eq(registrationSubmissions.id, id),
     with: { contacts: true },

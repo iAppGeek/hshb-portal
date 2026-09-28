@@ -79,6 +79,7 @@ describe('registration reads', () => {
         '80000000-0000-0000-0000-0000000000ff',
       ),
     ).toBeNull()
+    expect(await getRegistrationSubmissionById('not-a-uuid')).toBeNull()
   })
 })
 

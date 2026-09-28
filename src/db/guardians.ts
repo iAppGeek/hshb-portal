@@ -112,6 +112,9 @@ export type GuardianFull = GuardianInsert & { id: string }
 export async function getGuardianById(
   id: string,
 ): Promise<GuardianFull | null> {
+  // A malformed id finds nothing, rather than failing the uuid cast.
+  if (!isUuid(id)) return null
+
   const [row] = await db
     .select({
       id: guardians.id,

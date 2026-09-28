@@ -58,5 +58,6 @@ describe('fee plans', () => {
     expect(
       await getFeePlanById('90000000-0000-0000-0000-0000000000ff'),
     ).toBeNull()
+    expect(await getFeePlanById('not-a-uuid')).toBeNull()
   })
 })

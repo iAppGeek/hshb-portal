@@ -70,6 +70,7 @@ describe('single guardian', () => {
     expect(
       await getGuardianById('20000000-0000-0000-0000-0000000000ff'),
     ).toBeNull()
+    expect(await getGuardianById('not-a-uuid')).toBeNull()
   })
 
   it('lists the active students linked in any slot', async () => {

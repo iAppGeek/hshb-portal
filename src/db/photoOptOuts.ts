@@ -2,6 +2,8 @@ import 'server-only'
 
 import { and, count, desc, eq } from 'drizzle-orm'
 
+import { isUuid } from '@/lib/uuid'
+
 import { toCamel, toSnake, type Snake } from './casing'
 import { db, supabase } from './client'
 import {
@@ -48,6 +50,9 @@ export async function getPendingPhotoOptOutCount(): Promise<number> {
 export async function getPhotoOptOutById(
   id: string,
 ): Promise<PhotoOptOutRow | null> {
+  // A malformed id finds nothing, rather than failing the uuid cast.
+  if (!isUuid(id)) return null
+
   const [row] = await db
     .select()
     .from(photoConsentOptOuts)

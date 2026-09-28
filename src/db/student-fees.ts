@@ -9,6 +9,7 @@ import {
   resolvedPlanOrNull,
   type PaymentPlan,
 } from '@/lib/fees'
+import { isUuid } from '@/lib/uuid'
 
 import type { AcademicYearRow } from './academic-years'
 import { toCamel, toSnake, type Snake } from './casing'
@@ -165,6 +166,9 @@ export async function getStudentFeeDetail(
   studentId: string,
   yearId: string,
 ): Promise<StudentFeeDetail | null> {
+  // A malformed id finds nothing, rather than failing the uuid cast.
+  if (!isUuid(studentId) || !isUuid(yearId)) return null
+
   const row = await db.query.students.findFirst({
     columns: studentColumns,
     where: eq(students.id, studentId),
@@ -202,6 +206,9 @@ export async function getStudentFeeDetail(
 export async function getStudentFeeYears(
   studentId: string,
 ): Promise<StudentFeeYear[]> {
+  // A malformed id finds nothing, rather than failing the uuid cast.
+  if (!isUuid(studentId)) return []
+
   const years = await db.query.academicYears.findMany({
     orderBy: desc(academicYears.startDate),
     with: {
