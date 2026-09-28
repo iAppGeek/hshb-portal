@@ -40,6 +40,7 @@ export async function getIncidentCount(): Promise<number> {
 export async function getIncidents(options?: {
   type?: IncidentType
   studentIds?: string[]
+  createdBy?: string
   limit?: number
   offset?: number
 }): Promise<IncidentRow[]> {
@@ -52,7 +53,14 @@ export async function getIncidents(options?: {
     query = query.eq('type', options.type)
   }
 
-  if (options?.studentIds && options.studentIds.length > 0) {
+  // With createdBy, match incidents for studentIds OR recorded by that staff member
+  if (options?.createdBy) {
+    const filters = [`created_by.eq.${options.createdBy}`]
+    if (options.studentIds && options.studentIds.length > 0) {
+      filters.push(`student_id.in.(${options.studentIds.join(',')})`)
+    }
+    query = query.or(filters.join(','))
+  } else if (options?.studentIds && options.studentIds.length > 0) {
     query = query.in('student_id', options.studentIds)
   }
 

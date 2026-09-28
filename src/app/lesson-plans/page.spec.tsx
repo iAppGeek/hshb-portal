@@ -101,6 +101,30 @@ describe('LessonPlansPage', () => {
     })
   })
 
+  it('returns no lesson plans when the classId param is not one of the teacher classes', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'teacher', staffId: 'staff-3' },
+    } as any)
+    vi.mocked(getClassesByTeacher).mockResolvedValue([{ id: 'class-1' }] as any)
+
+    await renderPage({ classId: 'class-other' })
+
+    expect(getLessonPlans).not.toHaveBeenCalled()
+    expect(screen.getByText('No lesson plans found.')).toBeTruthy()
+  })
+
+  it('returns no lesson plans for a teacher with no classes', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'teacher', staffId: 'staff-3' },
+    } as any)
+    vi.mocked(getClassesByTeacher).mockResolvedValue([])
+
+    await renderPage()
+
+    expect(getLessonPlans).not.toHaveBeenCalled()
+    expect(screen.getByText('No lesson plans found.')).toBeTruthy()
+  })
+
   it('fetches all lesson plans for admin without scoping', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },

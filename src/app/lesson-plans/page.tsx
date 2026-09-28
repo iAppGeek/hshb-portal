@@ -38,7 +38,9 @@ export default async function LessonPlansPage({
     const classIds = classId
       ? classes.filter((c) => c.id === classId).map((c) => c.id)
       : classes.map((c) => c.id)
-    lessonPlans = await getLessonPlans({ classIds, limit: 50 })
+    // An empty classIds means "no filter" to getLessonPlans, so skip the query
+    lessonPlans =
+      classIds.length > 0 ? await getLessonPlans({ classIds, limit: 50 }) : []
   } else {
     lessonPlans = await getLessonPlans({ classId, limit: 50 })
   }

@@ -48,7 +48,12 @@ export default async function IncidentsPage({
   const studentIds = teacherOnly
     ? await getStudentIdsByTeacher(staffId)
     : undefined
-  const incidents = await getIncidents({ type, studentIds, limit: 50 })
+  const incidents = await getIncidents({
+    type,
+    studentIds,
+    createdBy: teacherOnly ? staffId : undefined,
+    limit: 50,
+  })
 
   const showActions = canEdit || !teacherOnly
 

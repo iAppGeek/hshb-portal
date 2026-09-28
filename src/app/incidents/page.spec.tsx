@@ -100,6 +100,24 @@ describe('IncidentsPage', () => {
     expect(getIncidents).toHaveBeenCalledWith({
       type: 'medical',
       studentIds: ['student-1'],
+      createdBy: 'staff-3',
+      limit: 50,
+    })
+  })
+
+  it('still scopes to incidents the teacher recorded when they have no students', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'teacher', staffId: 'staff-3' },
+    } as any)
+    vi.mocked(getStudentIdsByTeacher).mockResolvedValue([])
+    vi.mocked(getIncidents).mockResolvedValue([])
+
+    await renderPage()
+
+    expect(getIncidents).toHaveBeenCalledWith({
+      type: 'medical',
+      studentIds: [],
+      createdBy: 'staff-3',
       limit: 50,
     })
   })
@@ -115,6 +133,7 @@ describe('IncidentsPage', () => {
     expect(getIncidents).toHaveBeenCalledWith({
       type: 'medical',
       studentIds: undefined,
+      createdBy: undefined,
       limit: 50,
     })
     expect(getStudentIdsByTeacher).not.toHaveBeenCalled()
@@ -131,6 +150,7 @@ describe('IncidentsPage', () => {
     expect(getIncidents).toHaveBeenCalledWith({
       type: 'behaviour',
       studentIds: undefined,
+      createdBy: undefined,
       limit: 50,
     })
   })

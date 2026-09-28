@@ -95,6 +95,41 @@ describe('getIncidents', () => {
     expect(inFn).toHaveBeenCalledWith('student_id', ['student-1'])
   })
 
+  it('matches studentIds or createdBy when createdBy is provided', async () => {
+    const orFn = vi
+      .fn()
+      .mockResolvedValue({ data: [mockIncident], error: null })
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        order: vi.fn().mockReturnValue({
+          or: orFn,
+        }),
+      }),
+    })
+
+    await getIncidents({
+      studentIds: ['student-1', 'student-2'],
+      createdBy: 'staff-3',
+    })
+    expect(orFn).toHaveBeenCalledWith(
+      'created_by.eq.staff-3,student_id.in.(student-1,student-2)',
+    )
+  })
+
+  it('filters by createdBy alone when studentIds is empty', async () => {
+    const orFn = vi.fn().mockResolvedValue({ data: [], error: null })
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        order: vi.fn().mockReturnValue({
+          or: orFn,
+        }),
+      }),
+    })
+
+    await getIncidents({ studentIds: [], createdBy: 'staff-3' })
+    expect(orFn).toHaveBeenCalledWith('created_by.eq.staff-3')
+  })
+
   it('filters by type when provided', async () => {
     const eqFn = vi
       .fn()
