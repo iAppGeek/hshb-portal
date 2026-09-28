@@ -26,8 +26,13 @@ test.describe('Staff sign-in time', () => {
   let staffEmail: string
   let lastName: string
   let row: Locator
+  // The grid's stacked mobile mode mounts the sign-in/out form twice per row
+  // (a mobile summary and a desktop cell, one hidden by CSS per breakpoint —
+  // plans/shared-grids.md §5), so role queries are narrowed to the visible one.
+  let visible: (locator: Locator) => Locator
 
   test.beforeEach(async ({ page }, testInfo) => {
+    visible = (locator) => locator.and(page.locator(':visible'))
     // Tests run fully parallel, so names must be unique per test as well as
     // per project, or one test's cleanup deletes another's fixtures.
     const suffix =
@@ -50,7 +55,9 @@ test.describe('Staff sign-in time', () => {
     await page.clock.install()
     row = page.getByRole('row').filter({ hasText: lastName })
     await loadWithFreshData(page, '/staff-attendance', async () => {
-      await expect(row.getByRole('button', { name: CHIP })).toBeVisible()
+      await expect(
+        visible(row.getByRole('button', { name: CHIP })),
+      ).toBeVisible()
     })
   })
 
@@ -68,9 +75,11 @@ test.describe('Staff sign-in time', () => {
       await page.clock.fastForward('01:00')
       const expected = await londonTime(page)
       await expect(
-        row.getByRole('button', {
-          name: `Time ${expected}, double-click to change`,
-        }),
+        visible(
+          row.getByRole('button', {
+            name: `Time ${expected}, double-click to change`,
+          }),
+        ),
       ).toBeVisible({ timeout: 1_000 })
     }).toPass({ timeout: 15_000 })
   })
@@ -84,30 +93,36 @@ test.describe('Staff sign-in time', () => {
       await page.clock.runFor(60_000)
       const shown = await londonTime(page)
       await expect(
-        row.getByRole('button', {
-          name: `Time ${shown}, double-click to change`,
-        }),
+        visible(
+          row.getByRole('button', {
+            name: `Time ${shown}, double-click to change`,
+          }),
+        ),
       ).toBeVisible({ timeout: 1_000 })
     }).toPass({ timeout: 15_000 })
     const expected = await londonTime(page)
 
-    await row.getByRole('button', { name: 'Sign In' }).click()
+    await visible(row.getByRole('button', { name: 'Sign In' })).click()
 
     await expect(row).toContainText(`Signed In ${expected}`)
-    await expect(row.getByRole('button', { name: 'Sign Out' })).toBeVisible()
+    await expect(
+      visible(row.getByRole('button', { name: 'Sign Out' })),
+    ).toBeVisible()
   })
 
   test('records a time set by hand after a double-click', async () => {
     // A double-click before hydration does nothing, so retry until it opens.
     await expect(async () => {
-      await row.getByRole('button', { name: CHIP }).dblclick()
-      await expect(row.getByLabel('Time')).toBeVisible({ timeout: 1_000 })
+      await visible(row.getByRole('button', { name: CHIP })).dblclick()
+      await expect(visible(row.getByLabel('Time'))).toBeVisible({
+        timeout: 1_000,
+      })
     }).toPass({ timeout: 15_000 })
-    await row.getByLabel('Time').fill('07:45')
-    await row.getByRole('button', { name: 'Sign In' }).click()
+    await visible(row.getByLabel('Time')).fill('07:45')
+    await visible(row.getByRole('button', { name: 'Sign In' })).click()
 
     await expect(row).toContainText('Signed In 07:45')
     // Back to the live clock for signing out.
-    await expect(row.getByRole('button', { name: CHIP })).toBeVisible()
+    await expect(visible(row.getByRole('button', { name: CHIP }))).toBeVisible()
   })
 })

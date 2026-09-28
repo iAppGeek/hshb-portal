@@ -1,25 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 
 vi.mock('./actions', () => ({
   saveAttendanceAction: vi.fn().mockResolvedValue(undefined),
 }))
 
-vi.mock('@/components/StudentDetailsModal', () => ({
+vi.mock('next/link', () => ({
   default: ({
-    student,
-    onClose,
+    children,
+    href,
   }: {
-    student: { first_name: string; last_name: string }
-    onClose: () => void
-  }) => (
-    <div data-testid="student-modal">
-      <span>
-        {student.last_name}, {student.first_name}
-      </span>
-      <button onClick={onClose}>Close modal</button>
-    </div>
-  ),
+    children: React.ReactNode
+    href: string
+  }) => <a href={href}>{children}</a>,
 }))
 
 import AttendanceForm from './AttendanceForm'
@@ -262,7 +255,7 @@ describe('AttendanceForm', () => {
     })
   })
 
-  it('renders a Details button for each student', () => {
+  it('links each student name to their student page', () => {
     render(
       <AttendanceForm
         classId="class-1"
@@ -274,50 +267,8 @@ describe('AttendanceForm', () => {
         header={header}
       />,
     )
-    // Details button renders twice per student (mobile card + desktop column)
-    expect(screen.getAllByRole('button', { name: 'Details' })).toHaveLength(4)
-  })
-
-  it('opens the modal when Details is clicked', () => {
-    render(
-      <AttendanceForm
-        classId="class-1"
-        date="2024-03-08"
-        students={students}
-        existing={{}}
-        role="admin"
-        hasExisting={false}
-        header={header}
-      />,
-    )
-    expect(screen.queryByTestId('student-modal')).toBeNull()
-
-    fireEvent.click(screen.getAllByRole('button', { name: 'Details' })[0])
-
-    expect(
-      within(screen.getByTestId('student-modal')).getByText(
-        'Papadopoulos, Anna',
-      ),
-    ).toBeTruthy()
-  })
-
-  it('closes the modal when onClose is called', () => {
-    render(
-      <AttendanceForm
-        classId="class-1"
-        date="2024-03-08"
-        students={students}
-        existing={{}}
-        role="admin"
-        hasExisting={false}
-        header={header}
-      />,
-    )
-    fireEvent.click(screen.getAllByRole('button', { name: 'Details' })[0])
-    expect(screen.getByTestId('student-modal')).toBeTruthy()
-
-    fireEvent.click(screen.getByText('Close modal'))
-    expect(screen.queryByTestId('student-modal')).toBeNull()
+    const link = screen.getByRole('link', { name: 'Papadopoulos, Anna' })
+    expect(link.getAttribute('href')).toBe('/students/student-1')
   })
 
   it('shows disabled save button for secretary when hasExisting is true', () => {

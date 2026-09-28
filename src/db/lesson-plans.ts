@@ -40,6 +40,7 @@ export async function getLessonPlanCountByDate(date: string): Promise<number> {
 }
 
 export async function getLessonPlans(options?: {
+  classId?: string
   classIds?: string[]
   limit?: number
   offset?: number
@@ -48,6 +49,10 @@ export async function getLessonPlans(options?: {
     .from('lesson_plans')
     .select(LESSON_PLAN_SELECT)
     .order('lesson_date', { ascending: false })
+
+  if (options?.classId) {
+    query = query.eq('class_id', options.classId)
+  }
 
   if (options?.classIds && options.classIds.length > 0) {
     query = query.in('class_id', options.classIds)

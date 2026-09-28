@@ -1,10 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 
-import StudentDetailsModal, {
-  type StudentForModal,
-} from '@/components/StudentDetailsModal'
 import Table from '@/components/grid/Table'
 import TableCard from '@/components/grid/TableCard'
 import Th from '@/components/grid/Th'
@@ -21,7 +19,10 @@ import RegisterHeader, { type RegisterHeaderInfo } from './RegisterHeader'
 
 type AttendanceStatus = 'present' | 'absent' | 'late'
 
-type Student = StudentForModal & {
+type Student = {
+  id: string
+  first_name: string
+  last_name: string
   student_code: string | null
 }
 
@@ -47,7 +48,6 @@ export default function AttendanceForm({
   archived = false,
   header,
 }: Props) {
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   // `statuses` and `taken` are copied from props once. The attendance page
   // keys the register on class and date, so a new register remounts this.
   const [statuses, setStatuses] = useState<
@@ -135,17 +135,8 @@ export default function AttendanceForm({
               <Table>
                 <thead className={theadStacked}>
                   <tr>
-                    <Th>Student</Th>
+                    <Th meta={{ className: 'sm:w-full' }}>Student</Th>
                     <Th>Status</Th>
-                    <Th
-                      meta={{
-                        srOnlyHeader: true,
-                        align: 'right',
-                        className: 'sm:w-full',
-                      }}
-                    >
-                      Details
-                    </Th>
                   </tr>
                 </thead>
                 <tbody className={tbody}>
@@ -153,7 +144,7 @@ export default function AttendanceForm({
                     const current = statuses[student.id]
                     return (
                       <Tr key={student.id} stacked>
-                        {/* Name cell — on mobile also contains Details button */}
+                        {/* Name cell — the name itself links to the student's page */}
                         <td className="block px-4 pt-4 pb-2 text-sm font-medium text-gray-900 sm:table-cell sm:px-6 sm:py-4 sm:align-middle sm:whitespace-nowrap">
                           {/* Hidden inputs carry the data for the server action */}
                           <input
@@ -168,16 +159,12 @@ export default function AttendanceForm({
                               value={current}
                             />
                           )}
-                          <div className="flex items-center justify-between gap-2 sm:block">
-                            <span>{personName(student, 'lastFirst')}</span>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedStudent(student)}
-                              className="shrink-0 text-sm text-gray-500 hover:text-gray-700 sm:hidden"
-                            >
-                              Details
-                            </button>
-                          </div>
+                          <Link
+                            href={`/students/${student.id}`}
+                            className="hover:text-blue-600"
+                          >
+                            {personName(student, 'lastFirst')}
+                          </Link>
                         </td>
 
                         {/* Status buttons — full width on mobile, compact on desktop */}
@@ -221,17 +208,6 @@ export default function AttendanceForm({
                             </button>
                           </div>
                         </td>
-
-                        {/* Details — hidden on mobile (shown in name cell), visible on desktop */}
-                        <td className="hidden sm:table-cell sm:px-6 sm:py-4 sm:text-right sm:align-middle sm:text-sm sm:font-medium">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedStudent(student)}
-                            className="text-gray-500 hover:text-gray-700"
-                          >
-                            Details
-                          </button>
-                        </td>
                       </Tr>
                     )
                   })}
@@ -274,13 +250,6 @@ export default function AttendanceForm({
               {error && <span className="text-sm text-red-600">{error}</span>}
             </div>
           </>
-        )}
-        {selectedStudent && (
-          <StudentDetailsModal
-            student={selectedStudent}
-            role={role}
-            onClose={() => setSelectedStudent(null)}
-          />
         )}
       </form>
     </>

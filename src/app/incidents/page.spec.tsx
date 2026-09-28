@@ -17,20 +17,6 @@ vi.mock('@/db', () => ({
   getStudentIdsByTeacher: vi.fn(),
 }))
 
-vi.mock('./IncidentsClient', () => ({
-  default: ({
-    incidents,
-    canEdit,
-  }: {
-    incidents: unknown[]
-    canEdit: boolean
-  }) => (
-    <div>
-      IncidentsClient count={incidents.length} canEdit={String(canEdit)}
-    </div>
-  ),
-}))
-
 import { auth } from '@/auth'
 import { getIncidents, getStudentIdsByTeacher } from '@/db'
 
@@ -49,6 +35,8 @@ const mockIncident = {
   incident_date: '2026-03-14T10:00:00Z',
   created_by: 'staff-1',
   updated_by: null,
+  parent_notified: false,
+  parent_notified_at: null,
   created_at: '2026-03-14T10:00:00Z',
   updated_at: '2026-03-14T10:00:00Z',
   student: { id: 'student-1', first_name: 'Nikos', last_name: 'Papadopoulos' },
@@ -56,43 +44,47 @@ const mockIncident = {
   updater: null,
 }
 
+async function renderPage(searchParams: { type?: string } = {}) {
+  render(await IncidentsPage({ searchParams: Promise.resolve(searchParams) }))
+}
+
 describe('IncidentsPage', () => {
   it('redirects to /login when not authenticated', async () => {
     vi.mocked(auth).mockResolvedValue(null as any)
 
-    await expect(IncidentsPage()).rejects.toThrow('NEXT_REDIRECT:/login')
+    await expect(
+      IncidentsPage({ searchParams: Promise.resolve({}) }),
+    ).rejects.toThrow('NEXT_REDIRECT:/login')
   })
 
-  it('renders IncidentsClient for admin with all incidents', async () => {
+  it('renders incidents for admin with an edit link', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
     vi.mocked(getIncidents).mockResolvedValue([mockIncident] as any)
 
-    render(await IncidentsPage())
-    expect(screen.getByText(/IncidentsClient/)).toBeTruthy()
-    expect(screen.getByText(/canEdit=true/)).toBeTruthy()
+    await renderPage()
+
+    expect(screen.getAllByText('Papadopoulos, Nikos').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Edit').length).toBeGreaterThan(0)
   })
 
-  it('renders IncidentsClient for headteacher with canEdit=true', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { role: 'headteacher', staffId: 'staff-2' },
-    } as any)
-    vi.mocked(getIncidents).mockResolvedValue([])
-
-    render(await IncidentsPage())
-    expect(screen.getByText(/canEdit=true/)).toBeTruthy()
-  })
-
-  it('renders IncidentsClient for teacher with canEdit=false', async () => {
+  it('renders incidents for teacher without an edit link', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'teacher', staffId: 'staff-3' },
     } as any)
     vi.mocked(getStudentIdsByTeacher).mockResolvedValue(['student-1'])
     vi.mocked(getIncidents).mockResolvedValue([mockIncident] as any)
 
-    render(await IncidentsPage())
-    expect(screen.getByText(/canEdit=false/)).toBeTruthy()
+    await renderPage()
+
+    expect(screen.getAllByText('Papadopoulos, Nikos').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Edit')).toBeNull()
+    expect(
+      screen.getByText(
+        'You can only view and record incidents for students in your class.',
+      ),
+    ).toBeTruthy()
   })
 
   it('scopes incidents to teacher students only', async () => {
@@ -102,10 +94,30 @@ describe('IncidentsPage', () => {
     vi.mocked(getStudentIdsByTeacher).mockResolvedValue(['student-1'])
     vi.mocked(getIncidents).mockResolvedValue([])
 
-    await IncidentsPage()
+    await renderPage()
+
     expect(getStudentIdsByTeacher).toHaveBeenCalledWith('staff-3')
     expect(getIncidents).toHaveBeenCalledWith({
+      type: 'medical',
       studentIds: ['student-1'],
+      createdBy: 'staff-3',
+      limit: 50,
+    })
+  })
+
+  it('still scopes to incidents the teacher recorded when they have no students', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'teacher', staffId: 'staff-3' },
+    } as any)
+    vi.mocked(getStudentIdsByTeacher).mockResolvedValue([])
+    vi.mocked(getIncidents).mockResolvedValue([])
+
+    await renderPage()
+
+    expect(getIncidents).toHaveBeenCalledWith({
+      type: 'medical',
+      studentIds: [],
+      createdBy: 'staff-3',
       limit: 50,
     })
   })
@@ -116,30 +128,42 @@ describe('IncidentsPage', () => {
     } as any)
     vi.mocked(getIncidents).mockResolvedValue([])
 
-    await IncidentsPage()
-    expect(getIncidents).toHaveBeenCalledWith({ limit: 50 })
+    await renderPage()
+
+    expect(getIncidents).toHaveBeenCalledWith({
+      type: 'medical',
+      studentIds: undefined,
+      createdBy: undefined,
+      limit: 50,
+    })
     expect(getStudentIdsByTeacher).not.toHaveBeenCalled()
   })
 
-  it('renders IncidentsClient for secretary with all incidents and canEdit=false', async () => {
+  it('filters by the type search param', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
+    vi.mocked(getIncidents).mockResolvedValue([])
+
+    await renderPage({ type: 'behaviour' })
+
+    expect(getIncidents).toHaveBeenCalledWith({
+      type: 'behaviour',
+      studentIds: undefined,
+      createdBy: undefined,
+      limit: 50,
+    })
+  })
+
+  it('shows a disabled edit link for a secretary', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'secretary', staffId: 'staff-4' },
     } as any)
     vi.mocked(getIncidents).mockResolvedValue([mockIncident] as any)
 
-    render(await IncidentsPage())
-    expect(screen.getByText(/IncidentsClient/)).toBeTruthy()
-    expect(screen.getByText(/canEdit=false/)).toBeTruthy()
-  })
+    await renderPage()
 
-  it('fetches all incidents for secretary without scoping', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { role: 'secretary', staffId: 'staff-4' },
-    } as any)
-    vi.mocked(getIncidents).mockResolvedValue([])
-
-    await IncidentsPage()
-    expect(getIncidents).toHaveBeenCalledWith({ limit: 50 })
     expect(getStudentIdsByTeacher).not.toHaveBeenCalled()
+    expect(screen.getAllByText('Edit').length).toBeGreaterThan(0)
   })
 })

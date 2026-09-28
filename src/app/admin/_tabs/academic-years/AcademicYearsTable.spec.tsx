@@ -1,10 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 
-vi.mock('./AcademicYearForm', () => ({
-  default: ({ defaultValues }: { defaultValues: { code: string } }) => (
-    <div data-testid="year-form">{defaultValues.code}</div>
-  ),
+vi.mock('next/link', () => ({
+  default: ({
+    children,
+    href,
+  }: {
+    children: React.ReactNode
+    href: string
+  }) => <a href={href}>{children}</a>,
 }))
 vi.mock('./MakeCurrentButton', () => ({
   default: ({
@@ -52,7 +56,6 @@ const years: AcademicYearTableRow[] = [
   },
 ]
 
-const updateAction = vi.fn()
 const makeCurrentAction = vi.fn()
 
 beforeEach(() => {
@@ -64,7 +67,6 @@ describe('AcademicYearsTable', () => {
     render(
       <AcademicYearsTable
         years={years}
-        updateAction={updateAction}
         makeCurrentAction={makeCurrentAction}
       />,
     )
@@ -79,7 +81,6 @@ describe('AcademicYearsTable', () => {
     render(
       <AcademicYearsTable
         years={years}
-        updateAction={updateAction}
         makeCurrentAction={makeCurrentAction}
       />,
     )
@@ -99,7 +100,6 @@ describe('AcademicYearsTable', () => {
     render(
       <AcademicYearsTable
         years={years.map((y) => ({ ...y, is_current: false }))}
-        updateAction={updateAction}
         makeCurrentAction={makeCurrentAction}
       />,
     )
@@ -117,7 +117,6 @@ describe('AcademicYearsTable', () => {
     render(
       <AcademicYearsTable
         years={years}
-        updateAction={updateAction}
         makeCurrentAction={makeCurrentAction}
       />,
     )
@@ -126,16 +125,17 @@ describe('AcademicYearsTable', () => {
     expect(screen.getByText('Make current (2025-26)')).toBeTruthy()
   })
 
-  it('shows the edit form for a row when Edit is clicked', () => {
+  it("links Edit to the year's edit page", () => {
     render(
       <AcademicYearsTable
         years={years}
-        updateAction={updateAction}
         makeCurrentAction={makeCurrentAction}
       />,
     )
 
-    fireEvent.click(screen.getAllByText('Edit')[1])
-    expect(screen.getByTestId('year-form').textContent).toBe('2025-26')
+    const editLinks = screen.getAllByRole('link', { name: 'Edit' })
+    expect(editLinks[1].getAttribute('href')).toBe(
+      '/admin/academic-years/year-1/edit',
+    )
   })
 })

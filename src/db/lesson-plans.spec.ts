@@ -90,6 +90,20 @@ describe('getLessonPlans', () => {
     expect(inFn).toHaveBeenCalledWith('class_id', ['class-1'])
   })
 
+  it('filters by classId when provided', async () => {
+    const eqFn = vi.fn().mockResolvedValue({ data: [mockPlan], error: null })
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        order: vi.fn().mockReturnValue({
+          eq: eqFn,
+        }),
+      }),
+    })
+
+    await getLessonPlans({ classId: 'class-1' })
+    expect(eqFn).toHaveBeenCalledWith('class_id', 'class-1')
+  })
+
   it('throws on database error', async () => {
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({

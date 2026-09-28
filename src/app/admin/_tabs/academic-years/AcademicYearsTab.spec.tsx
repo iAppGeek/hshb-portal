@@ -11,15 +11,17 @@ vi.mock('./AcademicYearsTable', () => ({
     <div data-testid="years-table">{years.length}</div>
   ),
 }))
-vi.mock('./AcademicYearForm', () => ({
-  default: ({ defaultValues }: { defaultValues: { code: string } }) => (
-    <div data-testid="add-form">{defaultValues.code}</div>
-  ),
-}))
-vi.mock('./actions', () => ({
-  createAcademicYearAction: vi.fn(),
-  updateAcademicYearAction: vi.fn(),
+vi.mock('../../academic-years/actions', () => ({
   setCurrentAcademicYearAction: vi.fn(),
+}))
+vi.mock('next/link', () => ({
+  default: ({
+    children,
+    href,
+  }: {
+    children: React.ReactNode
+    href: string
+  }) => <a href={href}>{children}</a>,
 }))
 
 import { getAcademicYears, getClassesByAcademicYear, getFeePlans } from '@/db'
@@ -50,41 +52,21 @@ beforeEach(() => {
 })
 
 describe('AcademicYearsTab', () => {
-  it('renders the years table and suggests the next code for a new year', async () => {
+  it('renders the years table and an "Add academic year" link', async () => {
     vi.mocked(getAcademicYears).mockResolvedValue(years as any)
 
     render(await AcademicYearsTab())
 
     expect(screen.getByTestId('years-table').textContent).toBe('2')
-    expect(screen.getByTestId('add-form').textContent).toBe('2027-28')
+    const addLink = screen.getByRole('link', { name: 'Add academic year' })
+    expect(addLink.getAttribute('href')).toBe('/admin/academic-years/new')
   })
 
-  it('leaves the no-current warning to the table, which can clear it', async () => {
-    vi.mocked(getAcademicYears).mockResolvedValue(
-      years.map((y) => ({ ...y, is_current: false })) as any,
-    )
-
-    render(await AcademicYearsTab())
-
-    // The table is mocked here; AcademicYearsTable.spec covers the warning.
-    expect(screen.getByTestId('years-table')).toBeTruthy()
-    expect(screen.queryByText(/no academic year is marked current/i)).toBeNull()
-  })
-
-  it('does not warn when a year is current', async () => {
-    vi.mocked(getAcademicYears).mockResolvedValue(years as any)
-
-    render(await AcademicYearsTab())
-
-    expect(screen.queryByText(/no academic year is marked current/i)).toBeNull()
-  })
-
-  it('does not render the table or warning when there are no years yet', async () => {
+  it('renders the table with an empty list when there are no years yet', async () => {
     vi.mocked(getAcademicYears).mockResolvedValue([])
 
     render(await AcademicYearsTab())
 
-    expect(screen.queryByTestId('years-table')).toBeNull()
-    expect(screen.queryByText(/no academic year is marked current/i)).toBeNull()
+    expect(screen.getByTestId('years-table').textContent).toBe('0')
   })
 })

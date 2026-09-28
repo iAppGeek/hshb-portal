@@ -4,11 +4,10 @@ import { useOptimistic, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 
 import type { StaffAttendanceRow } from '@/db'
-import Table from '@/components/grid/Table'
-import TableCard from '@/components/grid/TableCard'
-import Th from '@/components/grid/Th'
+import FunctionalGrid, {
+  type FunctionalGridColumn,
+} from '@/clientComponents/grid/FunctionalGrid'
 import Tooltip from '@/components/Tooltip'
-import Tr from '@/components/grid/Tr'
 import { useServerForm } from '@/components/form'
 import {
   formatTimeInSchoolTz,
@@ -17,7 +16,7 @@ import {
   todayInSchoolTz,
 } from '@/lib/datetime'
 import { personName } from '@/lib/format'
-import { tbody, theadStacked } from '@/lib/grid/styles'
+import type { StackedRowSpec } from '@/lib/grid/columns'
 import { canManageStaffAttendance } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -140,7 +139,13 @@ function SignTimeField({
   )
 }
 
-function StaffRowInteractive({
+/**
+ * The status badge and the sign-in/out form for one row, as a single
+ * component so the optimistic record is shared between them — TanStack
+ * cells are plain functions, not components, so hooks can only live in a
+ * genuine child component like this one.
+ */
+function SignInOutCell({
   staff,
   record: saved,
   onSaved,
@@ -170,7 +175,6 @@ function StaffRowInteractive({
   const [record, setOptimisticRecord] = useOptimistic(saved)
   const [editing, setEditing] = useState(isHistorical)
   const isSignedIn = !!record && !record.signed_out_at
-  const name = personName(staff)
   const canManageOthers = canManageStaffAttendance(role)
   const isSelf = staff.id === currentStaffId
   const disabled = !canManageOthers && !isSelf
@@ -238,48 +242,13 @@ function StaffRowInteractive({
   )
 
   return (
-    <Tr stacked>
-      {/* Name cell — on mobile also shows status (top-right) and room/class (second line) */}
-      <td className="block px-4 pt-4 pb-0 sm:table-cell sm:px-6 sm:py-3 sm:align-top">
-        <div className="flex items-start justify-between gap-2 sm:block">
-          <span className="text-sm font-medium text-gray-900">{name}</span>
-          <span className="shrink-0 sm:hidden">
-            <StatusBadge record={record} />
-          </span>
-        </div>
-        {(staff.room_number || staff.class_name) && (
-          <p className="mt-0.5 text-xs text-gray-500 sm:hidden">
-            {[
-              staff.room_number && `Room ${staff.room_number}`,
-              staff.class_name,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </p>
-        )}
-      </td>
-
-      {/* Action cell */}
-      <td className="block px-4 pt-2 pb-4 sm:table-cell sm:px-6 sm:py-3 sm:align-top">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <StatusBadge record={record} />
+      <div>
         {error && <p className="mb-1 text-xs text-red-600">{error}</p>}
         {actionForm}
-      </td>
-
-      {/* Status — hidden on mobile (rendered inside Name cell), visible on desktop */}
-      <td className="hidden sm:table-cell sm:px-6 sm:py-3 sm:align-top">
-        <StatusBadge record={record} />
-      </td>
-
-      {/* Room — hidden on mobile (rendered inside Name cell), visible on desktop */}
-      <td className="hidden text-sm text-gray-600 sm:table-cell sm:px-6 sm:py-3 sm:align-top">
-        {staff.room_number ?? '—'}
-      </td>
-
-      {/* Class — hidden on mobile (rendered inside Name cell), visible on desktop */}
-      <td className="hidden text-sm text-gray-600 sm:table-cell sm:px-6 sm:py-3 sm:align-top">
-        {staff.class_name ?? '—'}
-      </td>
-    </Tr>
+      </div>
+    </div>
   )
 }
 
@@ -348,34 +317,71 @@ export default function StaffAttendanceTable({
     setSavedById((prev) => ({ ...prev, [staffId]: { record, basis } }))
   }
 
+  const isHistorical = date < today
+
+  function renderSignInOut(row: TableRow): React.ReactNode {
+    return (
+      <SignInOutCell
+        staff={row.staff}
+        record={row.record}
+        onSaved={handleSaved}
+        time={time}
+        live={live}
+        isHistorical={isHistorical}
+        date={date}
+        role={role}
+        currentStaffId={currentStaffId}
+      />
+    )
+  }
+
+  const columns: FunctionalGridColumn<TableRow>[] = [
+    {
+      id: 'name',
+      header: 'Name',
+      cell: (info) => personName(info.row.original.staff),
+      enableSorting: false,
+      meta: { primary: true },
+    },
+    {
+      id: 'sign_in_out',
+      header: 'Sign in / out',
+      cell: (info) => renderSignInOut(info.row.original),
+      enableSorting: false,
+    },
+    {
+      id: 'room',
+      header: 'Room',
+      cell: (info) => info.row.original.staff.room_number ?? '—',
+      enableSorting: false,
+    },
+    {
+      id: 'class',
+      header: 'Class',
+      cell: (info) => info.row.original.staff.class_name ?? '—',
+      enableSorting: false,
+    },
+  ]
+
+  const stacked: StackedRowSpec<TableRow> = {
+    title: (row) => personName(row.staff),
+    details: (row) =>
+      [
+        row.staff.room_number ? `Room ${row.staff.room_number}` : null,
+        row.staff.class_name,
+      ].filter((detail): detail is string => Boolean(detail)),
+    detailsAside: (row) => renderSignInOut(row),
+  }
+
   const table = (
-    <TableCard>
-      <Table>
-        <thead className={theadStacked}>
-          <tr>
-            {['Name', 'Action', 'Status', 'Room', 'Class'].map((h) => (
-              <Th key={h}>{h}</Th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className={tbody}>
-          {current.map(({ staff, record }) => (
-            <StaffRowInteractive
-              key={staff.id}
-              staff={staff}
-              record={record}
-              onSaved={handleSaved}
-              time={time}
-              live={live}
-              isHistorical={date < today}
-              date={date}
-              role={role}
-              currentStaffId={currentStaffId}
-            />
-          ))}
-        </tbody>
-      </Table>
-    </TableCard>
+    <FunctionalGrid
+      data={current}
+      columns={columns}
+      getRowId={(row) => row.staff.id}
+      mobile="stacked"
+      stacked={stacked}
+      emptyMessage="No staff found."
+    />
   )
 
   if (!withPrintSheet) return table
