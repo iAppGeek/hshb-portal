@@ -3,7 +3,7 @@
 
 BeforeAll {
     $root = Split-Path -Parent $PSScriptRoot
-    . (Join-Path $root 'lib/Common.ps1')
+    . (Join-Path $root '../shared/Common.ps1')
     . (Join-Path $root 'lib/ContactData.ps1')
     . (Join-Path $root 'lib/Exchange.ps1')
 
