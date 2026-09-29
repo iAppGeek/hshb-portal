@@ -39,6 +39,7 @@ BeforeAll {
             ConfigPath      = $script:ConfigPath
             ReportDirectory = (Join-Path $TestDrive 'reports')
             LogDirectory    = (Join-Path $TestDrive 'logs')
+            EnvPath         = (Join-Path $TestDrive 'no.env')
         }
         foreach ($k in $Arguments.Keys) { $params[$k] = $Arguments[$k] }
         & $script:SyncScript @params *> $null
@@ -52,6 +53,7 @@ BeforeAll {
         $global:FakeTenant = $Tenant
         $global:FakeGrantedScopes = $Scopes
         $global:FakeAccount = $null
+        Remove-Item Env:M365_STUDENT_INITIAL_PASSWORD -ErrorAction SilentlyContinue
         Mock Get-Module { @{ Name = 'Microsoft.Graph.Authentication' } } -ParameterFilter { $ListAvailable }
         Mock Import-Module { } -ParameterFilter { $Name -eq 'Microsoft.Graph.Authentication' }
         Mock Get-MgContext { [pscustomobject]@{ Scopes = $global:FakeGrantedScopes; Account = $global:FakeAccount } }
@@ -63,6 +65,7 @@ BeforeAll {
 
 AfterAll {
     Remove-Variable -Name FakeTenant, FakeGrantedScopes, FakeAccount -Scope Global -ErrorAction SilentlyContinue
+    Remove-Item Env:M365_STUDENT_INITIAL_PASSWORD -ErrorAction SilentlyContinue
 }
 
 Describe 'sync-students.ps1 dry run' {
@@ -148,6 +151,17 @@ Describe 'sync-students.ps1 -Apply' {
         $rows[0].Upn | Should -Be 'alice.smith@school.example'
         $rows[0].InitialPassword.Length | Should -Be 14
         if ($IsMacOS -or $IsLinux) { $file.UnixMode | Should -Be '-rw-------' }
+    }
+
+    It 'uses the shared initial password from .env when set' {
+        $envFile = Join-Path $TestDrive 'shared.env'
+        Set-Content -LiteralPath $envFile -Value 'M365_STUDENT_INITIAL_PASSWORD=Example-Start-99'
+        Invoke-SyncScript @{ Apply = $true; EnvPath = $envFile } | Should -Be 0
+        $post = @($global:FakeTenant.Calls | Where-Object { $_.Method -eq 'POST' -and $_.Uri -eq 'v1.0/users' })[0].Body
+        $post.passwordProfile.password | Should -Be 'Example-Start-99'
+        $post.passwordProfile.forceChangePasswordNextSignIn | Should -BeTrue
+        (Import-Csv (Get-ChildItem (Join-Path $TestDrive 'reports') -Filter 'new-accounts-*.csv').FullName).InitialPassword | Should -Be 'Example-Start-99'
+        Get-ChildItem (Join-Path $TestDrive 'logs') | Get-Content | Should -Not -Match 'Example-Start-99'
     }
 
     It 'only changes the -Only student' {
@@ -245,7 +259,7 @@ Describe 'setup-teams.ps1' {
         Use-FakeGraph -Tenant (New-FakeTenant -Users $owners)
         $script:SetupScript = Join-Path $script:Root 'setup-teams.ps1'
         $global:FakeAccount = 'T4@school.example'
-        $common = @{ DataPath = $script:DataPath; ConfigPath = $script:ConfigPath; LogDirectory = (Join-Path $TestDrive 'logs') }
+        $common = @{ DataPath = $script:DataPath; ConfigPath = $script:ConfigPath; LogDirectory = (Join-Path $TestDrive 'logs'); EnvPath = (Join-Path $TestDrive 'no.env') }
 
         & $script:SetupScript @common *> $null
         $LASTEXITCODE | Should -Be 0
@@ -270,7 +284,7 @@ Describe 'inventory-m365.ps1' {
     It 'writes three reports and sends only GET requests' {
         $script:ConfigPath = Save-TestConfig
         Use-FakeGraph -Tenant (New-FakeTenant -Users @(New-GraphUser -Upn 'a.b@school.example' -Given 'A' -Surname 'B') -Groups (New-CurrentTeams))
-        & $script:InventoryScript -ConfigPath $script:ConfigPath -ReportDirectory (Join-Path $TestDrive 'inventory') -LogDirectory (Join-Path $TestDrive 'logs') *> $null
+        & $script:InventoryScript -ConfigPath $script:ConfigPath -ReportDirectory (Join-Path $TestDrive 'inventory') -LogDirectory (Join-Path $TestDrive 'logs') -EnvPath (Join-Path $TestDrive 'no.env') *> $null
         $LASTEXITCODE | Should -Be 0
         @(Get-ChildItem (Join-Path $TestDrive 'inventory') -Filter 'inventory-*.csv').Count | Should -Be 3
         Get-WriteCalls -Tenant $global:FakeTenant | Should -BeNullOrEmpty

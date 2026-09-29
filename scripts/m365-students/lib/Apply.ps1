@@ -106,18 +106,26 @@ function Invoke-AccountPlan {
       Applies Creates, Links, Updates and Licenses. Each item has its own
       try/catch so one failure doesn't stop the run. Returns counts and the
       new accounts' initial passwords (for the owner-only hand-out file).
+      With -InitialPassword every new account gets that password; otherwise
+      each gets its own random one. Either way it must be changed at first
+      sign-in.
     #>
     [OutputType([hashtable])]
     param(
         [Parameter(Mandatory)][hashtable]$Plan,
+        [AllowEmptyString()][string]$InitialPassword,
         [int]$RetryDelaySeconds = 10
     )
+
+    if ($InitialPassword -and ($InitialPassword.Length -lt 8 -or $InitialPassword.Length -gt 256)) {
+        throw 'The initial password must be 8 to 256 characters.'
+    }
 
     $result = @{ Created = 0; Linked = 0; Updated = 0; Licensed = 0; Failed = 0 }
     $newAccounts = [System.Collections.Generic.List[object]]::new()
 
     foreach ($item in $Plan.Creates) {
-        $password = New-InitialPassword
+        $password = if ($InitialPassword) { $InitialPassword } else { New-InitialPassword }
         try {
             $created = Invoke-StudentGraph -Method POST -Uri 'v1.0/users' -Body (ConvertTo-GraphNewUser -Create $item -Password $password)
         }

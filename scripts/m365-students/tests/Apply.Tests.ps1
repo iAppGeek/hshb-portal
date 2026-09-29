@@ -107,6 +107,19 @@ Describe 'Invoke-AccountPlan' {
         @($tenant.Calls | Where-Object { $_.Uri -match 'groups' }) | Should -BeNullOrEmpty
     }
 
+    It 'gives every new account the shared initial password when one is set' {
+        $result = Invoke-AccountPlan -Plan $plan -InitialPassword 'Example-Start-99' -RetryDelaySeconds 0
+        $post = @($tenant.Calls | Where-Object { $_.Method -eq 'POST' -and $_.Uri -eq 'v1.0/users' })[0].Body
+        $post.passwordProfile.password | Should -Be 'Example-Start-99'
+        $post.passwordProfile.forceChangePasswordNextSignIn | Should -BeTrue
+        $result.NewAccounts[0].InitialPassword | Should -Be 'Example-Start-99'
+    }
+
+    It 'refuses an initial password shorter than 8 characters' {
+        { Invoke-AccountPlan -Plan $plan -InitialPassword 'short' -RetryDelaySeconds 0 } | Should -Throw '*8 to 256*'
+        Get-WriteCalls -Tenant $tenant | Should -BeNullOrEmpty
+    }
+
     It 'keeps the password when the licence fails, and carries on after a failure' {
         Mock Invoke-MgGraphRequest {
             if ($Uri -match 'assignLicense') { throw 'licence unavailable' }

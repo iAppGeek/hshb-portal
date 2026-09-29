@@ -141,12 +141,20 @@ explained in the file. The ones to check first are `Domain` and
 `LicenseSkuPartNumber`; the [inventory](#inventory-see-the-current-microsoft-365-setup)
 shows the licence names available in your tenant.
 
-Optionally, to be reminded which account to sign in with:
+Local settings go in `.env`, which is gitignored. The committed
+`.env.example` lists them all; every one is optional:
 
 ```bash
 cd scripts/m365-students
-cp .env.example .env   # then set M365_ADMIN_UPN (gitignored)
+cp .env.example .env   # then edit .env
 ```
+
+| Setting                         | Purpose                                                                   |
+| ------------------------------- | ------------------------------------------------------------------------- |
+| `M365_ADMIN_UPN`                | Account to sign in with; printed as a reminder before signing in          |
+| `M365_STUDENT_INITIAL_PASSWORD` | Starting password for new student accounts; random per account if unset   |
+| `SUPABASE_ACCESS_TOKEN`         | Supabase CLI token, if you haven't run `supabase login`                   |
+| `SUPABASE_WORKDIR`              | Folder with the linked Supabase project (defaults to the repository root) |
 
 ### 3. Check your Microsoft 365 role
 
@@ -367,8 +375,8 @@ This signs in with write access and makes the **account** changes only:
 - `CREATE`: new account with `firstname.lastname@<Domain>`, first name,
   surname, display name, Employee ID, `CustomAttribute1` and
   `CustomAttribute4`, usage location and the configured licence. Sign-in is
-  enabled with a random 14-character initial password that must be changed
-  at first sign-in.
+  enabled with an initial password (see below) that must be changed at
+  first sign-in.
 - `LINK` and `UPDATE`: only first name, surname, display name, Employee ID,
   usage location and custom attributes can be set. Any other field
   (username, email addresses, aliases, sign-in status, Department) is
@@ -384,10 +392,26 @@ exceed `MaxTeamRemovalPercent` unless you pass `-Force`. Each change is
 tried on its own, so one failure doesn't stop the rest; re-running is safe
 and only retries what is still out of sync.
 
-**Initial passwords** for new accounts are saved to
-`reports/new-accounts-<stamp>.csv` (student code, name, username, initial
-password), readable only by you, and are never shown on screen or logged.
-Hand them out securely, then delete the file.
+**Initial passwords.** If `M365_STUDENT_INITIAL_PASSWORD` is set in `.env`,
+every new account gets that password; otherwise each gets its own random
+14-character password. Either way the student must change it at first
+sign-in. The password is never put in `config.psd1` or anything committed.
+
+```bash
+# .env (gitignored)
+M365_STUDENT_INITIAL_PASSWORD=YourStartingPassword
+```
+
+A shared starting password means anyone who knows it can sign in to a new
+account before its student does, so hand out new accounts promptly. Microsoft
+may also refuse very common passwords (its banned password list): the
+create then fails for that account with an error, and nothing else is
+affected. Try it on one student first with `-Only <code> -Apply`.
+
+The initial passwords are saved to `reports/new-accounts-<stamp>.csv`
+(student code, name, username, initial password), readable only by you,
+and are never shown on screen or logged. Hand them out securely, then
+delete the file.
 
 To try it on one student first:
 

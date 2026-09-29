@@ -15,6 +15,10 @@
   -Apply makes the account changes only (create, link, update, licence).
   It never changes Team membership, usernames or email addresses.
 
+  New accounts get the password in M365_STUDENT_INITIAL_PASSWORD (.env) if
+  set, otherwise a random one each; either way it must be changed at first
+  sign-in.
+
 .PARAMETER Apply
   Make the planned account changes. New accounts' initial passwords are
   saved to reports/new-accounts-<stamp>.csv (owner-only).
@@ -60,6 +64,7 @@ param(
     [string]$DataPath = (Join-Path $PSScriptRoot 'data/students.json'),
     [string]$ReportDirectory = (Join-Path $PSScriptRoot 'reports'),
     [string]$LogDirectory = (Join-Path $PSScriptRoot 'logs'),
+    [string]$EnvPath = (Join-Path $PSScriptRoot '.env'),
     [string]$ConfigPath = (Join-Path $PSScriptRoot 'config.psd1')
 )
 
@@ -211,7 +216,7 @@ function Invoke-ApprovedTeamChangeStep {
 }
 
 $Config = Import-StudentConfig -Path $ConfigPath -ContactSyncConfigPath (Join-Path $PSScriptRoot '../m365-sync/config.psd1')
-Import-DotEnv -Path (Join-Path $PSScriptRoot '.env')
+Import-DotEnv -Path $EnvPath
 $retention = if ($Config.ContainsKey('LogRetentionDays')) { [int]$Config.LogRetentionDays } else { 30 }
 $logPath = Start-SyncLog -Directory $LogDirectory -Prefix 'sync-students' -RetentionDays $retention
 if ($Apply -and $ApplyTeamChanges) { Write-SyncLog -Level ERROR 'Use either -Apply (accounts) or -ApplyTeamChanges (Teams), not both.'; exit 1 }
@@ -279,7 +284,11 @@ try {
         Write-SyncLog 'No account changes needed.'
     }
     else {
-        $result = Invoke-AccountPlan -Plan $plan
+        $initialPassword = [string]$env:M365_STUDENT_INITIAL_PASSWORD
+        if ($plan.Creates.Count -gt 0) {
+            Write-SyncLog "Initial password for new accounts: $(if ($initialPassword) { 'the shared one from M365_STUDENT_INITIAL_PASSWORD' } else { 'random, one per account' }) (must be changed at first sign-in)"
+        }
+        $result = Invoke-AccountPlan -Plan $plan -InitialPassword $initialPassword
         Write-SyncLog '--- Applied (counts only) ---'
         Write-SyncLog "Created: $($result.Created)  Linked: $($result.Linked)  Updated: $($result.Updated)  Licensed: $($result.Licensed)  Failed: $($result.Failed)"
         if ($result.NewAccounts.Count -gt 0) {

@@ -37,6 +37,7 @@ param(
     [switch]$Device,
     [string]$DataPath = (Join-Path $PSScriptRoot 'data/students.json'),
     [string]$LogDirectory = (Join-Path $PSScriptRoot 'logs'),
+    [string]$EnvPath = (Join-Path $PSScriptRoot '.env'),
     [string]$ConfigPath = (Join-Path $PSScriptRoot 'config.psd1')
 )
 
@@ -51,7 +52,7 @@ Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'lib/TeamSetup.ps1')
 
 $config = Import-StudentConfig -Path $ConfigPath -ContactSyncConfigPath (Join-Path $PSScriptRoot '../m365-sync/config.psd1')
-Import-DotEnv -Path (Join-Path $PSScriptRoot '.env')
+Import-DotEnv -Path $EnvPath
 $retention = if ($config.ContainsKey('LogRetentionDays')) { [int]$config.LogRetentionDays } else { 30 }
 $logPath = Start-SyncLog -Directory $LogDirectory -Prefix 'setup-teams' -RetentionDays $retention
 Write-SyncLog "Mode: $(if ($Apply) { 'APPLY' } else { 'DRY RUN' }). Log: $logPath"
