@@ -48,7 +48,7 @@ function New-TeamSetupPlan {
     $wanted.Add([pscustomobject]@{
             Nickname    = $Desired.YearTeam.Nickname
             DisplayName = $Desired.YearTeam.DisplayName
-            Description = "All Year 3+ students, $($Desired.AcademicYear.Code). Managed by scripts/m365-students."
+            Description = "All Year 3+ students, $($Desired.AcademicYear.Code). Managed by scripts/m365/students."
             OwnerEmails = $defaultOwners
             # Only when creating: whoever runs it later isn't added again.
             CreatorEmails = @($creator | Where-Object { $_ })
@@ -58,7 +58,7 @@ function New-TeamSetupPlan {
         $wanted.Add([pscustomobject]@{
                 Nickname    = $c.Nickname
                 DisplayName = $c.DisplayName
-                Description = "Class $($c.Name), $($Desired.AcademicYear.Code). Managed by scripts/m365-students."
+                Description = "Class $($c.Name), $($Desired.AcademicYear.Code). Managed by scripts/m365/students."
                 OwnerEmails = @(@($c.TeacherEmail) + $defaultOwners | Where-Object { $_ } | Select-Object -Unique)
                 CreatorEmails = @()
                 IsTeam      = $true

@@ -15,7 +15,7 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
   . "$SCRIPT_DIR/.env"
   set +a
 fi
-WORKDIR="${SUPABASE_WORKDIR:-$SCRIPT_DIR/../..}"
+WORKDIR="${SUPABASE_WORKDIR:-$SCRIPT_DIR/../../..}"
 
 fail() {
   echo "ERROR: $*" >&2

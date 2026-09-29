@@ -6,25 +6,26 @@ Teams. They run locally on a Mac, by hand, and **change nothing unless you
 ask them to**.
 
 These scripts are separate from the contact and distribution list sync in
-[`../m365-sync`](../m365-sync/README.md). They share its logging helpers
-(`../m365-sync/lib/Common.ps1`) and read its `config.psd1` to make sure the
-two never clash, but they never change anything there.
+[`../contacts`](../contacts/README.md) (see [`../README.md`](../README.md)
+for how the folders fit together). Both use the helpers in
+`../shared/Common.ps1`, and these scripts read `../contacts/config.psd1` to
+make sure the two never clash, but they never change anything there.
 
 ## Prerequisites
 
 ### Software
 
-| Software                                | Version                          | Needed for                                                                   | Install                                                                      |
-| --------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| macOS (or Linux) with `bash`            | any recent                       | Running the scripts                                                          | built in                                                                     |
-| [Homebrew](https://brew.sh)             | any                              | Installing the tools below on a Mac                                          | see [brew.sh](https://brew.sh)                                               |
-| PowerShell (`pwsh`)                     | **7.2+**                         | All `.ps1` scripts                                                           | `brew install --cask powershell`                                             |
-| `Microsoft.Graph.Authentication` module | 2.x                              | Signing in to and calling Microsoft 365 (Microsoft Graph)                    | `pwsh -c "Install-Module Microsoft.Graph.Authentication -Scope CurrentUser"` |
-| Supabase CLI (`supabase`)               | 2.117+ (has `supabase db query`) | `fetch-students.sh` reads the portal database                                | `brew install supabase/tap/supabase` (or `npx supabase`)                     |
-| `jq`                                    | 1.6+                             | `fetch-students.sh` checks and summarises the data                           | built into macOS; otherwise `brew install jq`                                |
-| A copy of this repository               | —                                | The scripts use `../m365-sync/lib/Common.ps1` and `../m365-sync/config.psd1` | `git clone`                                                                  |
-| Pester module                           | 5.0+                             | Running the tests only                                                       | `pwsh -c "Install-Module Pester -Scope CurrentUser -MinimumVersion 5.0"`     |
-| Excel, Numbers or any CSV editor        | —                                | Reading reports and approving Team changes                                   | —                                                                            |
+| Software                                | Version                          | Needed for                                                           | Install                                                                      |
+| --------------------------------------- | -------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| macOS (or Linux) with `bash`            | any recent                       | Running the scripts                                                  | built in                                                                     |
+| [Homebrew](https://brew.sh)             | any                              | Installing the tools below on a Mac                                  | see [brew.sh](https://brew.sh)                                               |
+| PowerShell (`pwsh`)                     | **7.2+**                         | All `.ps1` scripts                                                   | `brew install --cask powershell`                                             |
+| `Microsoft.Graph.Authentication` module | 2.x                              | Signing in to and calling Microsoft 365 (Microsoft Graph)            | `pwsh -c "Install-Module Microsoft.Graph.Authentication -Scope CurrentUser"` |
+| Supabase CLI (`supabase`)               | 2.117+ (has `supabase db query`) | `fetch-students.sh` reads the portal database                        | `brew install supabase/tap/supabase` (or `npx supabase`)                     |
+| `jq`                                    | 1.6+                             | `fetch-students.sh` checks and summarises the data                   | built into macOS; otherwise `brew install jq`                                |
+| A copy of this repository               | —                                | The scripts use `../shared/Common.ps1` and `../contacts/config.psd1` | `git clone`                                                                  |
+| Pester module                           | 5.0+                             | Running the tests only                                               | `pwsh -c "Install-Module Pester -Scope CurrentUser -MinimumVersion 5.0"`     |
+| Excel, Numbers or any CSV editor        | —                                | Reading reports and approving Team changes                           | —                                                                            |
 
 Only the `Microsoft.Graph.Authentication` module is needed, not the whole
 Microsoft Graph SDK: the scripts call the Graph API directly with
@@ -106,7 +107,7 @@ names:
 - The Employee ID is the link. A student without a `student_code` can't be
   linked, so the scripts report them and ask you to add a code in the portal.
 - `CustomAttribute1 = Student` marks the account as managed by these scripts,
-  the same convention `../m365-sync` uses for `Teacher` and `Parent`.
+  the same convention `../contacts` uses for `Teacher` and `Parent`.
   Exchange custom attributes 1-15 are the same fields that Microsoft Graph
   calls `onPremisesExtensionAttributes` 1-15.
 - `CustomAttribute4 = Student` is the membership attribute. It makes an
@@ -116,7 +117,7 @@ names:
   alone). Class membership is recorded by the class Teams, and the reports
   show each student's year group.
 
-> **Don't add `Student` to `Tags` in `../m365-sync/config.psd1`.** The
+> **Don't add `Student` to `Tags` in `../contacts/config.psd1`.** The
 > contact sync would treat every student account as a teacher/parent
 > account it no longer wants and clear its attributes. Every script here
 > checks this at start-up, and also that no contact sync tag uses
@@ -145,7 +146,7 @@ Local settings go in `.env`, which is gitignored. The committed
 `.env.example` lists them all; every one is optional:
 
 ```bash
-cd scripts/m365-students
+cd scripts/m365/students
 cp .env.example .env   # then edit .env
 ```
 
@@ -174,7 +175,7 @@ Run this first, and whenever you want a snapshot of the tenant. It needs no
 database access and changes nothing.
 
 ```bash
-cd scripts/m365-students
+cd scripts/m365/students
 pwsh ./inventory-m365.ps1          # add -Device to sign in with a code
 ```
 
@@ -202,7 +203,7 @@ The scripts compare Microsoft 365 with a snapshot of the portal database.
 Take the snapshot with:
 
 ```bash
-cd scripts/m365-students
+cd scripts/m365/students
 ./fetch-students.sh
 ```
 
@@ -229,7 +230,7 @@ old, so fetch again before each session.
 ## Dry run: compare with Microsoft 365
 
 ```bash
-cd scripts/m365-students
+cd scripts/m365/students
 ./fetch-students.sh
 pwsh ./sync-students.ps1          # dry run: changes nothing
 ```
@@ -596,7 +597,7 @@ never removed. Leavers are reported, not removed.
 
 ## First run
 
-Run everything from `scripts/m365-students`.
+Run everything from `scripts/m365/students`.
 
 1. **Inventory** the tenant and set `LicenseSkuPartNumber` and
    `LegacyStudentTeamIds` in `config.psd1`:
@@ -658,7 +659,7 @@ Whenever students have changed in the portal (new students, class changes,
 leavers), and at the start of each academic year:
 
 ```bash
-cd scripts/m365-students
+cd scripts/m365/students
 ./fetch-students.sh
 pwsh ./setup-teams.ps1                  # new year or new classes: then -Apply
 pwsh ./sync-students.ps1                # review the screen and reports

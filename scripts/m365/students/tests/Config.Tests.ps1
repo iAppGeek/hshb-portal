@@ -52,7 +52,7 @@ Describe 'Assert-StudentConfig' {
 
 Describe 'Assert-NoContactSyncClash' {
     It 'passes against the committed contact sync config' {
-        $contact = Import-PowerShellDataFile (Join-Path $script:Root '../m365-sync/config.psd1')
+        $contact = Import-PowerShellDataFile (Join-Path $script:Root '../contacts/config.psd1')
         { Assert-NoContactSyncClash -Config (New-TestConfig) -ContactConfig $contact } | Should -Not -Throw
     }
 
@@ -70,7 +70,7 @@ Describe 'Assert-NoContactSyncClash' {
 Describe 'Import-StudentConfig' {
     It 'loads the committed config and checks it against the contact sync' {
         $config = Import-StudentConfig -Path (Join-Path $script:Root 'config.psd1') `
-            -ContactSyncConfigPath (Join-Path $script:Root '../m365-sync/config.psd1')
+            -ContactSyncConfigPath (Join-Path $script:Root '../contacts/config.psd1')
         $config.Tag | Should -Be 'Student'
     }
 

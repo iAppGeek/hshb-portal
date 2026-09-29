@@ -13,9 +13,9 @@
     UsageLocation         = 'GB'
 
     # CustomAttribute1 = Tag marks an account as managed by these scripts
-    # (same convention as ../m365-sync). MembershipAttribute also holds the
+    # (same convention as ../contacts). MembershipAttribute also holds the
     # tag, for a future "All Students" dynamic list. Must not clash with the
-    # attributes used in ../m365-sync/config.psd1.
+    # attributes used in ../contacts/config.psd1.
     Tag                   = 'Student'
     MembershipAttribute   = 'CustomAttribute4'
 

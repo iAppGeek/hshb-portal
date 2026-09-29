@@ -77,7 +77,7 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-. (Join-Path $PSScriptRoot '../m365-sync/lib/Common.ps1')
+. (Join-Path $PSScriptRoot '../shared/Common.ps1')
 . (Join-Path $PSScriptRoot 'lib/StudentConfig.ps1')
 . (Join-Path $PSScriptRoot 'lib/StudentData.ps1')
 . (Join-Path $PSScriptRoot 'lib/Graph.ps1')
@@ -260,7 +260,7 @@ function Invoke-ApprovedTeamChangeStep {
     return 0
 }
 
-$Config = Import-StudentConfig -Path $ConfigPath -ContactSyncConfigPath (Join-Path $PSScriptRoot '../m365-sync/config.psd1')
+$Config = Import-StudentConfig -Path $ConfigPath -ContactSyncConfigPath (Join-Path $PSScriptRoot '../contacts/config.psd1')
 Import-DotEnv -Path $EnvPath
 $retention = if ($Config.ContainsKey('LogRetentionDays')) { [int]$Config.LogRetentionDays } else { 30 }
 $logPath = Start-SyncLog -Directory $LogDirectory -Prefix 'sync-students' -RetentionDays $retention

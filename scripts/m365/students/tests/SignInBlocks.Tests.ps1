@@ -3,7 +3,7 @@
 
 BeforeAll {
     . (Join-Path $PSScriptRoot 'TestHelpers.ps1')
-    . (Join-Path $script:Root '../m365-sync/lib/Common.ps1')
+    . (Join-Path $script:Root '../shared/Common.ps1')
     . (Join-Path $script:Root 'lib/StudentConfig.ps1')
     . (Join-Path $script:Root 'lib/StudentData.ps1')
     . (Join-Path $script:Root 'lib/Graph.ps1')

@@ -32,13 +32,13 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-. (Join-Path $PSScriptRoot '../m365-sync/lib/Common.ps1')
+. (Join-Path $PSScriptRoot '../shared/Common.ps1')
 . (Join-Path $PSScriptRoot 'lib/StudentConfig.ps1')
 . (Join-Path $PSScriptRoot 'lib/Graph.ps1')
 . (Join-Path $PSScriptRoot 'lib/Reports.ps1')
 . (Join-Path $PSScriptRoot 'lib/Inventory.ps1')
 
-$config = Import-StudentConfig -Path $ConfigPath -ContactSyncConfigPath (Join-Path $PSScriptRoot '../m365-sync/config.psd1')
+$config = Import-StudentConfig -Path $ConfigPath -ContactSyncConfigPath (Join-Path $PSScriptRoot '../contacts/config.psd1')
 Import-DotEnv -Path $EnvPath
 $retention = if ($config.ContainsKey('LogRetentionDays')) { [int]$config.LogRetentionDays } else { 30 }
 $logPath = Start-SyncLog -Directory $LogDirectory -Prefix 'inventory' -RetentionDays $retention

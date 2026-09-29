@@ -671,7 +671,7 @@ stays (E1). `@headlessui/react` is imported by 6 files; E2 and E5 reduce that to
   tests. D3 only moves joins and sums into the query.
 - **Client-side caching of student data for offline use.** Not until G1–G4 have landed and been
   measured on a real phone; the privacy trade-off needs a deliberate decision.
-- **Moving `scripts/m365-sync` out of the repo.** It's ops tooling coupled to this schema; it just
+- **Moving `scripts/m365/contacts` (formerly `scripts/m365-sync`) out of the repo.** It's ops tooling coupled to this schema; it just
   shouldn't be imported by the app (it isn't). Its `contacts.sql` would be the one remaining
   hand-written SQL after D0 — acceptable for a one-off export script.
 

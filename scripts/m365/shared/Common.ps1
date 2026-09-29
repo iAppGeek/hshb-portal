@@ -1,6 +1,7 @@
 #Requires -Version 7.2
 # Shared helpers: configuration, .env loading, email handling and logging.
-# Nothing in here talks to Supabase or Exchange.
+# Used by scripts/m365/contacts and scripts/m365/students.
+# Nothing in here talks to Supabase, Exchange or Microsoft Graph.
 
 Set-StrictMode -Version Latest
 

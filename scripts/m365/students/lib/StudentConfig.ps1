@@ -1,6 +1,6 @@
 #Requires -Version 7.2
 # Loads and checks config.psd1, and guards against clashing with the contact
-# sync in ../m365-sync (which owns CustomAttribute1 values it lists in Tags).
+# sync in ../contacts (which owns CustomAttribute1 values it lists in Tags).
 
 Set-StrictMode -Version Latest
 
@@ -8,7 +8,7 @@ function Import-StudentConfig {
     [OutputType([hashtable])]
     param(
         [Parameter(Mandatory)][string]$Path,
-        # ../m365-sync/config.psd1; checked read-only for clashes.
+        # ../contacts/config.psd1; checked read-only for clashes.
         [string]$ContactSyncConfigPath
     )
 
@@ -99,10 +99,10 @@ function Assert-NoContactSyncClash {
     foreach ($role in @($ContactConfig['Tags'])) {
         if ($null -eq $role) { continue }
         if ([string]$role['Tag'] -ieq [string]$Config.Tag) {
-            throw "Tag '$($Config.Tag)' is also a tag in ../m365-sync/config.psd1. Remove it there: the contact sync would untag every student account."
+            throw "Tag '$($Config.Tag)' is also a tag in ../contacts/config.psd1. Remove it there: the contact sync would untag every student account."
         }
         if ([string]$role['MembershipAttribute'] -ieq [string]$Config.MembershipAttribute) {
-            throw "$($Config.MembershipAttribute) is already used by tag '$($role['Tag'])' in ../m365-sync/config.psd1. Pick an unused attribute."
+            throw "$($Config.MembershipAttribute) is already used by tag '$($role['Tag'])' in ../contacts/config.psd1. Pick an unused attribute."
         }
     }
 }

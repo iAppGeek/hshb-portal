@@ -40,7 +40,7 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-. (Join-Path $PSScriptRoot 'lib/Common.ps1')
+. (Join-Path $PSScriptRoot '../shared/Common.ps1')
 . (Join-Path $PSScriptRoot 'lib/Exchange.ps1')
 
 function Get-ListFilter {

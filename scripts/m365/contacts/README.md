@@ -4,6 +4,10 @@ Keeps Exchange Online **mail contacts** in line with the portal database, so
 dynamic distribution lists such as "All Teachers" and "All Parents" always
 reach the right personal email addresses.
 
+It is one of the Microsoft 365 tools in `scripts/m365` (see
+[`../README.md`](../README.md)); its logging and email helpers are in
+`../shared/Common.ps1`, shared with [`../students`](../students/README.md).
+
 It runs locally on a Mac, by hand, in two steps:
 
 1. **Fetch:** `fetch-contacts.sh` runs `contacts.sql` with the Supabase CLI
@@ -141,7 +145,7 @@ it and commit the change if any of those need to change.
 Optionally, to pre-fill your sign-in account:
 
 ```bash
-cd scripts/m365-sync
+cd scripts/m365/contacts
 cp .env.example .env   # then set M365_ADMIN_UPN (gitignored)
 ```
 
@@ -153,7 +157,7 @@ role (Microsoft 365 admin centre → Roles). **Exchange Administrator** or
 
 ## First run checklist
 
-Run everything from `scripts/m365-sync`.
+Run everything from `scripts/m365/contacts`.
 
 1. **Fetch** the data and check the counts look right:
 
@@ -205,7 +209,7 @@ Whenever people have changed in the portal (for example weekly, before the
 newsletter):
 
 ```bash
-cd scripts/m365-sync
+cd scripts/m365/contacts
 ./fetch-contacts.sh
 pwsh ./sync-contacts.ps1          # review
 pwsh ./sync-contacts.ps1 -Apply
@@ -358,16 +362,16 @@ it. The sync overwrites the role attributes on every contact it manages.
 
 ### Files
 
-| File                  | Purpose                                                       |
-| --------------------- | ------------------------------------------------------------- |
-| `contacts.sql`        | Role → tag config, selection and cleaning                     |
-| `fetch-contacts.sh`   | Runs the SQL and writes `data/contacts.json`                  |
-| `sync-contacts.ps1`   | Plans and applies contact changes                             |
-| `setup-lists.ps1`     | Creates or updates the dynamic distribution lists             |
-| `lib/ContactData.ps1` | Reads and validates the data file                             |
-| `lib/Exchange.ps1`    | Reads Exchange, builds the plan, applies it                   |
-| `lib/Common.ps1`      | Config, email helpers, logging                                |
-| `tests/`              | Pester tests for validation and planning (no Exchange needed) |
+| File                   | Purpose                                                       |
+| ---------------------- | ------------------------------------------------------------- |
+| `contacts.sql`         | Role → tag config, selection and cleaning                     |
+| `fetch-contacts.sh`    | Runs the SQL and writes `data/contacts.json`                  |
+| `sync-contacts.ps1`    | Plans and applies contact changes                             |
+| `setup-lists.ps1`      | Creates or updates the dynamic distribution lists             |
+| `lib/ContactData.ps1`  | Reads and validates the data file                             |
+| `lib/Exchange.ps1`     | Reads Exchange, builds the plan, applies it                   |
+| `../shared/Common.ps1` | Config, email helpers, logging (shared with `../students`)    |
+| `tests/`               | Pester tests for validation and planning (no Exchange needed) |
 
 Run the tests with:
 
