@@ -37,6 +37,11 @@ const blank: Record<string, string> = {
   bank_sort_code: '',
   bank_account_number: '',
   payroll_ref: '',
+  address_line_1: '',
+  address_line_2: '',
+  city: '',
+  postcode: '',
+  national_insurance_number: '',
   id_type: '',
   id_verified_at: '',
   right_to_work_checked_at: '',
@@ -114,7 +119,7 @@ describe('saveStaffPayrollAction', () => {
     })
   })
 
-  it('creates a record, redacts bank details in the audit log and redirects', async () => {
+  it('creates a record, redacts bank details and NI number in the audit log and redirects', async () => {
     await expect(
       saveStaffPayrollAction(
         's1',
@@ -123,6 +128,7 @@ describe('saveStaffPayrollAction', () => {
           bank_account_name: 'Ann Lee',
           bank_sort_code: '12-34-56',
           bank_account_number: '12345678',
+          national_insurance_number: 'AB 12 34 56 C',
           ...verifiedId,
         }),
       ),
@@ -148,9 +154,11 @@ describe('saveStaffPayrollAction', () => {
         bank_sort_code: '[changed]',
         bank_account_number: '[changed]',
         bank_account_name: '[changed]',
+        national_insurance_number: '[changed]',
       },
     })
     expect(JSON.stringify(entry)).not.toContain('12345678')
+    expect(JSON.stringify(entry)).not.toContain('AB123456C')
     expect(redirect).toHaveBeenCalledWith('/hr')
   })
 

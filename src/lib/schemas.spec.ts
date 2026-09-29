@@ -1598,6 +1598,11 @@ describe('staffPayrollSchema', () => {
     bank_sort_code: '',
     bank_account_number: '',
     payroll_ref: '',
+    address_line_1: '',
+    address_line_2: '',
+    city: '',
+    postcode: '',
+    national_insurance_number: '',
     id_type: '',
     id_verified_at: '',
     right_to_work_checked_at: '',
@@ -1640,6 +1645,38 @@ describe('staffPayrollSchema', () => {
       'Enter the account holder name',
       'Enter the account number',
     ])
+  })
+
+  it('requires line 1, city and postcode once any address field is entered', () => {
+    expect(messages({ ...blank, address_line_2: 'Flat 2' })).toEqual([
+      'Enter the first line of the address',
+      'Enter the city',
+      'Enter the postcode',
+    ])
+  })
+
+  it('accepts a complete address and trims it', () => {
+    const result = staffPayrollSchema.parse({
+      ...blank,
+      address_line_1: ' 1 High Street ',
+      city: 'London',
+      postcode: 'N1 1AA',
+    })
+    expect(result).toMatchObject({
+      address_line_1: '1 High Street',
+      address_line_2: null,
+      city: 'London',
+      postcode: 'N1 1AA',
+    })
+  })
+
+  it('stores the National Insurance number as entered, trimmed', () => {
+    const result = staffPayrollSchema.parse({
+      ...blank,
+      national_insurance_number: ' ab 12 34 56 c ',
+    })
+    expect(result.national_insurance_number).toBe('ab 12 34 56 c')
+    expect(staffPayrollSchema.parse(blank).national_insurance_number).toBeNull()
   })
 
   it('requires ID details when ID is verified', () => {

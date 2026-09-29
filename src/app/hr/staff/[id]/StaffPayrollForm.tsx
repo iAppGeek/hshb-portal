@@ -58,6 +58,21 @@ export default function StaffPayrollForm({
     payroll?.right_to_work_checked ?? false,
   )
   const [dbsVerified, setDbsVerified] = useState(payroll?.dbs_verified ?? false)
+  // Any part of the address makes line 1, city and postcode required.
+  const [addressParts, setAddressParts] = useState({
+    line1: payroll?.address_line_1 ?? '',
+    line2: payroll?.address_line_2 ?? '',
+    city: payroll?.city ?? '',
+    postcode: payroll?.postcode ?? '',
+  })
+  const hasAddress = Object.values(addressParts).some((v) => v.trim() !== '')
+
+  function setAddressPart(
+    part: keyof typeof addressParts,
+    value: string,
+  ): void {
+    setAddressParts((prev) => ({ ...prev, [part]: value }))
+  }
 
   function handleDbsIssueDateChange(value: string): void {
     const previousDefault = dbsIssueDate
@@ -93,8 +108,51 @@ export default function StaffPayrollForm({
       </FormSection>
 
       <FormSection
+        title="Home address"
+        description="Optional. Line 1, city and postcode are needed once any part is entered."
+      >
+        <FormGrid>
+          <TextField
+            label="Address line 1"
+            name="address_line_1"
+            required={hasAddress}
+            value={addressParts.line1}
+            onChange={(v) => setAddressPart('line1', v)}
+            autoComplete="address-line1"
+            error={fieldError('address_line_1')}
+          />
+          <TextField
+            label="Address line 2"
+            name="address_line_2"
+            value={addressParts.line2}
+            onChange={(v) => setAddressPart('line2', v)}
+            autoComplete="address-line2"
+            error={fieldError('address_line_2')}
+          />
+          <TextField
+            label="City"
+            name="city"
+            required={hasAddress}
+            value={addressParts.city}
+            onChange={(v) => setAddressPart('city', v)}
+            autoComplete="address-level2"
+            error={fieldError('city')}
+          />
+          <TextField
+            label="Postcode"
+            name="postcode"
+            required={hasAddress}
+            value={addressParts.postcode}
+            onChange={(v) => setAddressPart('postcode', v)}
+            autoComplete="postal-code"
+            error={fieldError('postcode')}
+          />
+        </FormGrid>
+      </FormSection>
+
+      <FormSection
         title="Bank details"
-        description="Hidden by default. Use the eye button to check what was entered."
+        description="Saved details are hidden. Use the eye button to check them."
       >
         <FormGrid>
           <TextField
@@ -158,6 +216,15 @@ export default function StaffPayrollForm({
               onChange={setRightToWorkChecked}
             />
           </div>
+          <TextField
+            label="National Insurance number"
+            name="national_insurance_number"
+            defaultValue={payroll?.national_insurance_number}
+            maxLength={13}
+            autoComplete="off"
+            hint="For example AB 12 34 56 C."
+            error={fieldError('national_insurance_number')}
+          />
           <TextField
             label="Right to work checked on"
             name="right_to_work_checked_at"

@@ -13,7 +13,11 @@ type Props = {
   error?: string
 }
 
-/** Masked input with an eye toggle, for bank details on the payroll form. */
+/**
+ * Input with an eye toggle, for bank details on the payroll form. A saved
+ * value starts masked; an empty field starts visible so it can be checked
+ * while it is first entered.
+ */
 export default function SecretField({
   label,
   name,
@@ -21,7 +25,7 @@ export default function SecretField({
   maxLength,
   error,
 }: Props): React.ReactElement {
-  const [revealed, setRevealed] = useState(false)
+  const [revealed, setRevealed] = useState(!defaultValue)
   const action = revealed ? 'Hide' : 'Show'
 
   return (

@@ -538,6 +538,11 @@ export const staffPayrollSchema = z
     bank_sort_code: optionalSortCode,
     bank_account_number: optionalAccountNumber,
     payroll_ref: optionalShortText,
+    address_line_1: optionalAddressText,
+    address_line_2: optionalAddressText,
+    city: optionalAddressText,
+    postcode: optionalAddressText,
+    national_insurance_number: optionalString,
     id_verified: checkbox,
     id_type: optionalString.pipe(idType.nullable()),
     id_verified_at: optionalIsoDate,
@@ -578,6 +583,18 @@ export const staffPayrollSchema = z
         'bank_account_number',
         'Enter the account number',
       ],
+    ])
+    const hasAnyAddress = Boolean(
+      d.address_line_1 || d.address_line_2 || d.city || d.postcode,
+    )
+    requireDetails(ctx, hasAnyAddress, [
+      [
+        d.address_line_1,
+        'address_line_1',
+        'Enter the first line of the address',
+      ],
+      [d.city, 'city', 'Enter the city'],
+      [d.postcode, 'postcode', 'Enter the postcode'],
     ])
     requireDetails(ctx, d.id_verified, [
       [d.id_type, 'id_type', 'Select the ID type that was verified'],

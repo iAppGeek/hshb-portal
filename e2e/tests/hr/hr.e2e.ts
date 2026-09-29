@@ -40,7 +40,7 @@ test.describe('HR', () => {
     await deleteStaffByEmail(staffEmail)
   })
 
-  test('creates a staff payroll record with masked bank details', async ({
+  test('creates a staff payroll record with NI number, address and bank details', async ({
     page,
   }) => {
     const row = page.getByTestId(`payroll-row-${staffId}`)
@@ -53,17 +53,41 @@ test.describe('HR', () => {
 
     await page.getByLabel('Payment funding').selectOption('school')
     await page.getByLabel('Account holder name').fill('Dr Hr')
+    // Empty bank fields are visible while first entered
     const sortCode = page.getByLabel('Sort code', { exact: true })
-    await sortCode.fill('12-34-56')
-    await expect(sortCode).toHaveAttribute('type', 'password')
-    await page.getByRole('button', { name: 'Show sort code' }).click()
     await expect(sortCode).toHaveAttribute('type', 'text')
+    await sortCode.fill('12-34-56')
+    await page.getByRole('button', { name: 'Hide sort code' }).click()
+    await expect(sortCode).toHaveAttribute('type', 'password')
     await page.getByLabel('Account number', { exact: true }).fill('12345678')
+    await page.getByLabel('Address line 1').fill('1 High Street')
+    await page.getByLabel('City').fill('London')
+    await page.getByLabel('Postcode').fill('N1 1AA')
+    await page.getByLabel('National Insurance number').fill('AB 12 34 56 C')
     await page.getByRole('button', { name: 'Save payroll record' }).click()
 
     await expect(page).toHaveURL('/hr')
     await expect(row).toContainText('School')
     await expect(row).toContainText('••••5678')
     await expect(row).not.toContainText('12345678')
+
+    const { data: payroll } = await db
+      .from('staff_payroll')
+      .select('national_insurance_number, address_line_1, city, postcode')
+      .eq('staff_id', staffId)
+      .single()
+    expect(payroll).toEqual({
+      national_insurance_number: 'AB 12 34 56 C',
+      address_line_1: '1 High Street',
+      city: 'London',
+      postcode: 'N1 1AA',
+    })
+
+    // Saved bank details are masked when the record is reopened
+    await row.getByRole('link', { name: 'Edit' }).click()
+    await expect(page.getByLabel('Sort code', { exact: true })).toHaveAttribute(
+      'type',
+      'password',
+    )
   })
 })

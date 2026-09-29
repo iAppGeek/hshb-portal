@@ -4,9 +4,15 @@ export const BANK_DETAIL_FIELDS = [
   'bank_account_number',
 ]
 
+/** Bank details plus the National Insurance number: never written to the audit log. */
+export const PAYROLL_REDACTED_FIELDS = [
+  ...BANK_DETAIL_FIELDS,
+  'national_insurance_number',
+]
+
 /**
  * Replaces sensitive values with whether they changed, so the audit log
- * records that bank details were edited without ever storing them.
+ * records that bank details (or other sensitive fields) were edited without ever storing them.
  */
 export function redactChanges(
   next: Record<string, unknown>,
