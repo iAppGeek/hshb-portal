@@ -12,11 +12,37 @@ two never clash, but they never change anything there.
 
 ## Contents
 
+- [Who needs an account](#who-needs-an-account)
 - [How accounts are linked](#how-accounts-are-linked)
 - [One-off setup](#one-off-setup)
 - [Inventory: see the current Microsoft 365 setup](#inventory-see-the-current-microsoft-365-setup)
+- [Fetching student data](#fetching-student-data)
 - [Data protection](#data-protection)
 - [Reference](#reference)
+
+## Who needs an account
+
+Only students in **Year 3 and above** need an account. Which year groups
+count is set in `config.psd1`, matched against `classes.year_group` (free
+text in the portal), ignoring case and surrounding spaces:
+
+```powershell
+EligibleYearGroups = @('3', '4', '5', '6', 'GCSE', 'A Level')   # need an account and class Teams
+IgnoredYearGroups  = @('pre-school', '1', '2', 'All', 'Test')    # no account, no Team
+```
+
+- A student needs an account if **any** of their current classes (in the
+  current academic year) is in an eligible year group. A student in Dance
+  (`All`) and Year 4 needs one; a student only in Dance doesn't.
+- Only classes in eligible year groups get a class Team.
+- A year group in **neither** list is reported as an unknown year group,
+  and the scripts refuse to make changes until you add it to one list. This
+  stops a new class from silently leaving students out, or giving accounts
+  to young children.
+- Students with no current class, and students in Year 3+ with no student
+  code, are reported so you can fix them in the portal.
+- When a student moves up from Year 2 to Year 3 in the portal, the next run
+  picks them up.
 
 ## How accounts are linked
 
@@ -119,8 +145,41 @@ Use it to decide:
 - whether existing student accounts follow the `firstname.lastname`
   convention and already have an Employee ID
 
+## Fetching student data
+
+The scripts compare Microsoft 365 with a snapshot of the portal database.
+Take the snapshot with:
+
+```bash
+cd scripts/m365-students
+./fetch-students.sh
+```
+
+This needs the Supabase CLI, logged in and linked to the production project
+(`supabase login`, `supabase link` from the repository root), and `jq`.
+
+It runs `students.sql` (read-only) and saves `data/students.json`. It takes:
+
+- the current academic year (there must be exactly one)
+- active classes in that year, with year group and class teacher's school
+  email (used as the Team owner)
+- active students with id, student code, first and last name, and their
+  current classes (enrolments where `start_date <= today < end_date`, or no
+  end date, the same rule as the portal)
+- the codes of inactive students (to recognise leavers' accounts)
+
+The screen shows counts only: students, how many have no code or no class,
+students per year group. It stops without saving if there isn't exactly one
+current academic year or there are no active students. The data file is
+refused by the other scripts once it is more than `MaxDataAgeHours` (24)
+old, so fetch again before each session.
+
 ## Data protection
 
+- Only student ids, codes, names and classes leave the database, plus class
+  teachers' school email addresses. `students.sql` selects nothing else.
+- `data/students.json` holds personal data. It is gitignored and readable
+  only by you. Don't copy it anywhere else.
 - The CSV reports contain personal data. They are saved in `reports/`,
   which is gitignored, and both the folder and the files are readable only
   by you. Don't email or share them; delete them when you're done.
@@ -134,6 +193,9 @@ Use it to decide:
 | File                    | Purpose                                                                     |
 | ----------------------- | --------------------------------------------------------------------------- |
 | `inventory-m365.ps1`    | Read-only export of users, Teams and licences                               |
+| `students.sql`          | Selects the current year's classes and active students                      |
+| `fetch-students.sh`     | Runs the SQL and writes `data/students.json`                                |
+| `lib/StudentData.ps1`   | Reads and checks the data file; who needs an account and which Teams        |
 | `config.psd1`           | Settings (committed, no personal data)                                      |
 | `lib/StudentConfig.ps1` | Loads and checks the config; the contact sync clash check; year group rules |
 | `lib/Graph.ps1`         | Microsoft Graph sign-in and reading the tenant                              |
@@ -148,3 +210,37 @@ pwsh -c "Invoke-Pester ./tests"
 ```
 
 Exit codes: `0` success, `1` fatal error.
+
+### Data file format
+
+`data/students.json` is the only link between the database and the
+Microsoft 365 side. To run from a scheduled job later, produce the same JSON
+another way.
+
+```json
+{
+  "version": 1,
+  "generatedAt": "2026-09-29T10:00:00+01:00",
+  "currentYearCount": 1,
+  "academicYear": { "id": "…", "code": "2026-27" },
+  "classes": [
+    {
+      "id": "…",
+      "name": "Year 3",
+      "yearGroup": "3",
+      "teacherEmail": "teacher@school.example"
+    }
+  ],
+  "students": [
+    {
+      "id": "…",
+      "code": "S001",
+      "firstName": "Jane",
+      "lastName": "Doe",
+      "classIds": ["…"]
+    }
+  ],
+  "inactiveCodes": ["S000"],
+  "skipped": [{ "reason": "missing first or last name", "count": 1 }]
+}
+```

@@ -225,3 +225,57 @@ function Get-WriteCalls {
     param([hashtable]$Tenant)
     return @($Tenant.Calls | Where-Object { $_.Method -ne 'GET' })
 }
+
+# --- Student data -----------------------------------------------------------
+
+$script:ClassIds = @{
+    Nursery = '10000000-0000-0000-0000-000000000000'
+    Y2      = '20000000-0000-0000-0000-000000000000'
+    Y3      = '30000000-0000-0000-0000-000000000000'
+    Y4      = '40000000-0000-0000-0000-000000000000'
+    Gcse    = '50000000-0000-0000-0000-000000000000'
+    Dance   = '60000000-0000-0000-0000-000000000000'
+}
+
+function New-TestClasses {
+    return @(
+        @{ id = $script:ClassIds.Nursery; name = 'Nursery'; yearGroup = 'pre-school'; teacherEmail = 'nt@school.example' }
+        @{ id = $script:ClassIds.Y2; name = 'Year 2'; yearGroup = '2'; teacherEmail = 't2@school.example' }
+        @{ id = $script:ClassIds.Y3; name = 'Year 3'; yearGroup = '3'; teacherEmail = 't3@school.example' }
+        @{ id = $script:ClassIds.Y4; name = 'Year 4'; yearGroup = '4'; teacherEmail = 't4@school.example' }
+        @{ id = $script:ClassIds.Gcse; name = 'GCSE I'; yearGroup = 'GCSE'; teacherEmail = $null }
+        @{ id = $script:ClassIds.Dance; name = 'Dance'; yearGroup = 'All'; teacherEmail = 'td@school.example' }
+    )
+}
+
+function New-TestStudent {
+    param([string]$Code, [string]$First, [string]$Last, [string[]]$Classes = @('Y3'), [string]$Id = ([guid]::NewGuid().ToString()))
+    return @{
+        id = $Id; code = $Code; firstName = $First; lastName = $Last
+        classIds = @($Classes | ForEach-Object { $script:ClassIds[$_] })
+    }
+}
+
+function New-TestStudentData {
+    param(
+        [object[]]$Students,
+        [object[]]$Classes = (New-TestClasses),
+        [string[]]$InactiveCodes = @(),
+        [string]$GeneratedAt = '2026-09-29T10:00:00+00:00'
+    )
+    return @{
+        version          = 1
+        generatedAt      = $GeneratedAt
+        currentYearCount = 1
+        academicYear     = @{ id = 'year-id'; code = '2026-27' }
+        classes          = $Classes
+        students         = $Students
+        inactiveCodes    = $InactiveCodes
+        skipped          = @()
+    }
+}
+
+function Get-TestDesired {
+    param([object[]]$Students, [hashtable]$Config = (New-TestConfig), [string[]]$InactiveCodes = @(), [object[]]$Classes = (New-TestClasses))
+    return ConvertTo-DesiredStudentState -Data (New-TestStudentData -Students $Students -InactiveCodes $InactiveCodes -Classes $Classes) -Config $Config
+}
