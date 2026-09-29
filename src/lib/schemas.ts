@@ -474,22 +474,6 @@ export const optionalAccountNumber = digitsOrNull.pipe(
     .nullable(),
 )
 
-// Stored uppercase without spaces, e.g. AB123456C. The prefix letters
-// exclude those HMRC never issues (D, F, I, Q, U, V; O second).
-export const optionalNationalInsuranceNumber = z
-  .string()
-  .transform((v) => v.replace(/[\s-]/g, '').toUpperCase() || null)
-  .nullable()
-  .pipe(
-    z
-      .string()
-      .regex(
-        /^[A-CEGHJ-PR-TW-Z][A-CEGHJ-NPR-TW-Z]\d{6}[A-D]$/,
-        'Enter a National Insurance number like AB 12 34 56 C',
-      )
-      .nullable(),
-  )
-
 const MONEY_PATTERN = /^\d{1,8}(\.\d{1,2})?$/
 const MONEY_MESSAGE = 'Enter an amount like 100 or 99.50'
 
@@ -558,7 +542,7 @@ export const staffPayrollSchema = z
     address_line_2: optionalAddressText,
     city: optionalAddressText,
     postcode: optionalAddressText,
-    national_insurance_number: optionalNationalInsuranceNumber,
+    national_insurance_number: optionalString,
     id_verified: checkbox,
     id_type: optionalString.pipe(idType.nullable()),
     id_verified_at: optionalIsoDate,

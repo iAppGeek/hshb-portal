@@ -1670,23 +1670,14 @@ describe('staffPayrollSchema', () => {
     })
   })
 
-  it('normalises a National Insurance number to uppercase without spaces', () => {
+  it('stores the National Insurance number as entered, trimmed', () => {
     const result = staffPayrollSchema.parse({
       ...blank,
-      national_insurance_number: 'ab 12 34 56 c',
+      national_insurance_number: ' ab 12 34 56 c ',
     })
-    expect(result.national_insurance_number).toBe('AB123456C')
+    expect(result.national_insurance_number).toBe('ab 12 34 56 c')
     expect(staffPayrollSchema.parse(blank).national_insurance_number).toBeNull()
   })
-
-  it.each(['AB12345C', 'AB123456E', 'DA123456A', 'AO123456A', '12345678A'])(
-    'rejects the invalid National Insurance number %s',
-    (value) => {
-      expect(messages({ ...blank, national_insurance_number: value })).toEqual([
-        'Enter a National Insurance number like AB 12 34 56 C',
-      ])
-    },
-  )
 
   it('requires ID details when ID is verified', () => {
     expect(messages({ ...blank, id_verified: 'on' })).toEqual([

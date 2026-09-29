@@ -1110,7 +1110,6 @@ CREATE TABLE IF NOT EXISTS "public"."staff_payroll" (
     CONSTRAINT "staff_payroll_first_aid_details_check" CHECK (((NOT "first_aid_certified") OR (("first_aid_reference" IS NOT NULL) AND ("first_aid_issue_date" IS NOT NULL) AND ("first_aid_verified_at" IS NOT NULL)))),
     CONSTRAINT "staff_payroll_id_type_check" CHECK ((("id_type" IS NULL) OR ("id_type" = ANY (ARRAY['passport'::"text", 'driving_licence'::"text", 'brp'::"text", 'birth_certificate'::"text", 'other'::"text"])))),
     CONSTRAINT "staff_payroll_id_verified_details_check" CHECK (((NOT "id_verified") OR (("id_verified_at" IS NOT NULL) AND ("id_type" IS NOT NULL)))),
-    CONSTRAINT "staff_payroll_national_insurance_number_check" CHECK ((("national_insurance_number" IS NULL) OR ("national_insurance_number" ~ '^[A-CEGHJ-PR-TW-Z][A-CEGHJ-NPR-TW-Z][0-9]{6}[A-D]$'::"text"))),
     CONSTRAINT "staff_payroll_payment_funding_check" CHECK (("payment_funding" = ANY (ARRAY['kea'::"text", 'school'::"text"])))
 );
 

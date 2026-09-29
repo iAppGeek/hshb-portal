@@ -63,7 +63,7 @@ test.describe('HR', () => {
     await page.getByLabel('Address line 1').fill('1 High Street')
     await page.getByLabel('City').fill('London')
     await page.getByLabel('Postcode').fill('N1 1AA')
-    await page.getByLabel('National Insurance number').fill('ab 12 34 56 c')
+    await page.getByLabel('National Insurance number').fill('AB 12 34 56 C')
     await page.getByRole('button', { name: 'Save payroll record' }).click()
 
     await expect(page).toHaveURL('/hr')
@@ -77,7 +77,7 @@ test.describe('HR', () => {
       .eq('staff_id', staffId)
       .single()
     expect(payroll).toEqual({
-      national_insurance_number: 'AB123456C',
+      national_insurance_number: 'AB 12 34 56 C',
       address_line_1: '1 High Street',
       city: 'London',
       postcode: 'N1 1AA',
