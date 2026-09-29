@@ -10,8 +10,49 @@ These scripts are separate from the contact and distribution list sync in
 (`../m365-sync/lib/Common.ps1`) and read its `config.psd1` to make sure the
 two never clash, but they never change anything there.
 
+## Prerequisites
+
+### Software
+
+| Software                                | Version                          | Needed for                                                                   | Install                                                                      |
+| --------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| macOS (or Linux) with `bash`            | any recent                       | Running the scripts                                                          | built in                                                                     |
+| [Homebrew](https://brew.sh)             | any                              | Installing the tools below on a Mac                                          | see [brew.sh](https://brew.sh)                                               |
+| PowerShell (`pwsh`)                     | **7.2+**                         | All `.ps1` scripts                                                           | `brew install --cask powershell`                                             |
+| `Microsoft.Graph.Authentication` module | 2.x                              | Signing in to and calling Microsoft 365 (Microsoft Graph)                    | `pwsh -c "Install-Module Microsoft.Graph.Authentication -Scope CurrentUser"` |
+| Supabase CLI (`supabase`)               | 2.117+ (has `supabase db query`) | `fetch-students.sh` reads the portal database                                | `brew install supabase/tap/supabase` (or `npx supabase`)                     |
+| `jq`                                    | 1.6+                             | `fetch-students.sh` checks and summarises the data                           | built into macOS; otherwise `brew install jq`                                |
+| A copy of this repository               | —                                | The scripts use `../m365-sync/lib/Common.ps1` and `../m365-sync/config.psd1` | `git clone`                                                                  |
+| Pester module                           | 5.0+                             | Running the tests only                                                       | `pwsh -c "Install-Module Pester -Scope CurrentUser -MinimumVersion 5.0"`     |
+| Excel, Numbers or any CSV editor        | —                                | Reading reports and approving Team changes                                   | —                                                                            |
+
+Only the `Microsoft.Graph.Authentication` module is needed, not the whole
+Microsoft Graph SDK: the scripts call the Graph API directly with
+`Invoke-MgGraphRequest`.
+
+Check everything is installed:
+
+```bash
+pwsh --version                     # PowerShell 7.2 or later
+pwsh -c "Get-Module -ListAvailable Microsoft.Graph.Authentication, Pester | Select Name, Version"
+supabase --version
+jq --version
+```
+
+### Access
+
+| Access                                                                           | Needed for                                                                               |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| The portal's **production Supabase project**                                     | `fetch-students.sh`: run `supabase login`, then `supabase link` from the repository root |
+| A Microsoft 365 account with **Global Reader**                                   | Inventory and dry runs (read-only)                                                       |
+| A Microsoft 365 account with **User Administrator** and **Groups Administrator** | `-Apply`, `-ApplyTeamChanges`, `setup-teams.ps1 -Apply`                                  |
+| Consent to the **Microsoft Graph PowerShell** app's permissions                  | Asked for at first sign-in; a Global Administrator may need to approve it                |
+
+See [One-off setup](#one-off-setup) for the first-time steps.
+
 ## Contents
 
+- [Prerequisites](#prerequisites)
 - [Who needs an account](#who-needs-an-account)
 - [How accounts are linked](#how-accounts-are-linked)
 - [One-off setup](#one-off-setup)
@@ -80,22 +121,15 @@ names:
 
 ## One-off setup
 
-### 1. Install tools
+### 1. Install the prerequisites
+
+Install everything in [Prerequisites](#prerequisites), then connect the
+Supabase CLI to the production project, from the repository root:
 
 ```bash
-brew install --cask powershell   # PowerShell 7 (pwsh)
+supabase login
+supabase link   # choose the production project, if not already linked
 ```
-
-Install the Microsoft Graph sign-in module (and Pester, only needed to run
-the tests):
-
-```bash
-pwsh -c "Install-Module Microsoft.Graph.Authentication -Scope CurrentUser"
-pwsh -c "Install-Module Pester -Scope CurrentUser -MinimumVersion 5.0"
-```
-
-Only `Microsoft.Graph.Authentication` is needed: the scripts call the Graph
-API directly with `Invoke-MgGraphRequest`.
 
 ### 2. Check the config
 
