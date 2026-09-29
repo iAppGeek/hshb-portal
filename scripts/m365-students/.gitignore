@@ -1,0 +1,6 @@
+# Personal data and local settings - never commit.
+data/
+logs/
+reports/
+.env
+!.env.example
