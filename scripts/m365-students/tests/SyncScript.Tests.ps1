@@ -170,6 +170,95 @@ Describe 'sync-students.ps1 -Apply' {
     }
 }
 
+Describe 'sync-students.ps1 -ApplyTeamChanges' {
+    BeforeEach {
+        Remove-Item -Recurse -Force (Join-Path $TestDrive 'reports') -ErrorAction SilentlyContinue
+        $script:ConfigPath = Save-TestConfig
+        $script:DataPath = Save-TestData -Students @(
+            (New-TestStudent 'S001' 'Alice' 'Smith' @('Y3')),
+            (New-TestStudent 'S002' 'Bob' 'Jones' @('Y4'))
+        )
+        $script:alice = New-StudentAccount 'alice.smith@school.example' 'Alice' 'Smith' 'S001'
+        $script:bob = New-StudentAccount 'bob.jones@school.example' 'Bob' 'Jones' 'S002' -Department 'Year 4'
+        # Bob moved from Year 3 to Year 4; Alice is in no Teams yet.
+        $groups = New-CurrentTeams -Members @{ Year = @($bob.id); Y3 = @($bob.id) }
+        Use-FakeGraph -Tenant (New-FakeTenant -Users @($alice, $bob) -Groups $groups) -Scopes @('User.ReadWrite.All', 'Group.ReadWrite.All', 'Directory.Read.All')
+        $script:ConfigPath = Save-TestConfig @{ MaxTeamRemovalPercent = 100 }
+    }
+
+    It 'applies only the approved rows, then a dry run shows only the rest' {
+        Invoke-SyncScript | Should -Be 0
+        $file = (Get-ChildItem (Join-Path $TestDrive 'reports') -Filter 'team-changes-*.csv').FullName
+        $rows = @(Import-Csv $file)
+        @($rows | ForEach-Object { "$($_.Action) $($_.StudentCode) $($_.TeamNickname)" } | Sort-Object) | Should -Be @(
+            'ADD S001 stu-class-30000000', 'ADD S001 stu-year-2026-27', 'ADD S002 stu-class-40000000', 'REMOVE S002 stu-class-30000000')
+        foreach ($r in $rows) { if ($r.StudentCode -eq 'S002') { $r.Approved = 'yes' } }
+        $rows | Export-Csv -LiteralPath $file
+
+        $global:FakeTenant.Calls.Clear()
+        Invoke-SyncScript @{ ApplyTeamChanges = $file; KeepData = $true } | Should -Be 0
+        $writes = @(Get-WriteCalls -Tenant $global:FakeTenant)
+        $writes.Count | Should -Be 2
+        @($writes | Where-Object { $_.Uri -match '^v1\.0/users' }) | Should -BeNullOrEmpty
+
+        Remove-Item -Recurse -Force (Join-Path $TestDrive 'reports')
+        Invoke-SyncScript | Should -Be 0
+        $left = @(Import-Csv (Get-ChildItem (Join-Path $TestDrive 'reports') -Filter 'team-changes-*.csv').FullName)
+        @($left | ForEach-Object StudentCode | Select-Object -Unique) | Should -Be @('S001')
+    }
+
+    It 'makes no changes when nothing is approved, and deletes the data file only after success' {
+        Invoke-SyncScript | Should -Be 0
+        $file = (Get-ChildItem (Join-Path $TestDrive 'reports') -Filter 'team-changes-*.csv').FullName
+        $global:FakeTenant.Calls.Clear()
+        Invoke-SyncScript @{ ApplyTeamChanges = $file } | Should -Be 0
+        Get-WriteCalls -Tenant $global:FakeTenant | Should -BeNullOrEmpty
+        Test-Path $script:DataPath | Should -BeTrue
+
+        $rows = @(Import-Csv $file); $rows[0].Approved = 'yes'; $rows | Export-Csv -LiteralPath $file
+        Invoke-SyncScript @{ ApplyTeamChanges = $file } | Should -Be 0
+        Test-Path $script:DataPath | Should -BeFalse
+    }
+
+    It 'refuses a stale review file' {
+        $file = Join-Path $TestDrive 'old.csv'
+        @([pscustomobject]@{ ChangeId = 'x'; Action = 'ADD'; Team = 't'; TeamNickname = 'n'; StudentCode = 'S001'; StudentName = 'A'
+                Reason = 'r'; GeneratedAt = (Get-Date).AddDays(-3).ToString('o'); Approved = 'yes' }) | Export-Csv -LiteralPath $file
+        Invoke-SyncScript @{ ApplyTeamChanges = $file } | Should -Be 1
+        Get-WriteCalls -Tenant $global:FakeTenant | Should -BeNullOrEmpty
+    }
+
+    It 'refuses -Apply and -ApplyTeamChanges together' {
+        Invoke-SyncScript @{ Apply = $true; ApplyTeamChanges = 'x.csv' } | Should -Be 1
+        $global:FakeTenant.Calls | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'setup-teams.ps1' {
+    It 'dry run changes nothing; -Apply creates the Teams; a second run has nothing to do' {
+        $script:ConfigPath = Save-TestConfig
+        $script:DataPath = Save-TestData -Students @(New-TestStudent 'S001' 'Alice' 'Smith' @('Y3'))
+        $owners = @('t3@school.example', 't4@school.example', 'head@school.example') | ForEach-Object { New-GraphUser -Upn $_ -Given 'T' -Surname 'Eacher' }
+        Use-FakeGraph -Tenant (New-FakeTenant -Users $owners)
+        $script:SetupScript = Join-Path $script:Root 'setup-teams.ps1'
+        $common = @{ DataPath = $script:DataPath; ConfigPath = $script:ConfigPath; LogDirectory = (Join-Path $TestDrive 'logs') }
+
+        & $script:SetupScript @common *> $null
+        $LASTEXITCODE | Should -Be 0
+        Get-WriteCalls -Tenant $global:FakeTenant | Should -BeNullOrEmpty
+
+        & $script:SetupScript @common -Apply *> $null
+        $LASTEXITCODE | Should -Be 0
+        @($global:FakeTenant.Groups | ForEach-Object { $_['displayName'] } | Sort-Object) |
+            Should -Be @('GCSE I 2026-27', 'Students 2026-27', 'Year 3 2026-27', 'Year 4 2026-27')
+
+        $global:FakeTenant.Calls.Clear()
+        & $script:SetupScript @common -Apply *> $null
+        $LASTEXITCODE | Should -Be 0
+        Get-WriteCalls -Tenant $global:FakeTenant | Should -BeNullOrEmpty
+    }
+}
+
 Describe 'inventory-m365.ps1' {
     It 'writes three reports and sends only GET requests' {
         $script:ConfigPath = Save-TestConfig

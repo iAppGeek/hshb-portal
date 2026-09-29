@@ -186,7 +186,8 @@ function Invoke-FakeGraph {
             }
             if ($Method -eq 'POST') {
                 $group = New-GraphGroup -Name $parsed['displayName'] -Nickname $parsed['mailNickname'] -IsTeam $false `
-                    -OwnerIds @($parsed['owners@odata.bind'] | ForEach-Object { ($_ -split '/')[-1] })
+                    -OwnerIds @($parsed['owners@odata.bind'] | ForEach-Object { ($_ -split '/')[-1] }) `
+                    -MemberIds @($parsed['members@odata.bind'] | Where-Object { $_ } | ForEach-Object { ($_ -split '/')[-1] })
                 $group['description'] = $parsed['description']
                 $Tenant.Groups.Add($group)
                 return @{ id = $group['id'] }

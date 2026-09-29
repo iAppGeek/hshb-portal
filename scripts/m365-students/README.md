@@ -20,6 +20,9 @@ two never clash, but they never change anything there.
 - [Dry run: compare with Microsoft 365](#dry-run-compare-with-microsoft-365)
 - [Reading the reports](#reading-the-reports)
 - [Apply: create and update accounts](#apply-create-and-update-accounts)
+- [Teams](#teams)
+- [First run](#first-run)
+- [Everyday use](#everyday-use)
 - [Data protection](#data-protection)
 - [Reference](#reference)
 
@@ -235,15 +238,17 @@ never linked to a student.
 
 ### Options
 
-| `sync-students.ps1` | Effect                                                   |
-| ------------------- | -------------------------------------------------------- |
-| _(none)_            | Dry run                                                  |
-| `-Apply`            | Make the account changes (never Teams)                   |
-| `-Force`            | Allow Team removals above `MaxTeamRemovalPercent`        |
-| `-Only <code>`      | Plan for one student only (useful for a first test)      |
-| `-Device`           | Sign in with a device code                               |
-| `-ShowEmails`       | Show full usernames on screen (never written to the log) |
-| `-DataPath <file>`  | Use a different data file                                |
+| `sync-students.ps1`        | Effect                                                   |
+| -------------------------- | -------------------------------------------------------- |
+| _(none)_                   | Dry run                                                  |
+| `-Apply`                   | Make the account changes (never Teams)                   |
+| `-ApplyTeamChanges <file>` | Apply the approved rows of a reviewed Team change file   |
+| `-Force`                   | Allow Team removals above `MaxTeamRemovalPercent`        |
+| `-KeepData`                | Keep `data/students.json` after `-ApplyTeamChanges`      |
+| `-Only <code>`             | Plan for one student only (useful for a first test)      |
+| `-Device`                  | Sign in with a device code                               |
+| `-ShowEmails`              | Show full usernames on screen (never written to the log) |
+| `-DataPath <file>`         | Use a different data file                                |
 
 Exit codes: `0` success, `1` fatal error or refused (nothing changed), `2`
 Team removals exceed `MaxTeamRemovalPercent` (check the data), `3` some
@@ -275,7 +280,17 @@ no longer match a student (leavers, orphans) get a row too.
 ### `team-changes-<stamp>.csv`: Team changes to review
 
 One row per proposed Team change, with an empty `Approved` column. Nothing
-changes in Teams from a dry run.
+changes in Teams until you approve rows; see [Teams](#teams).
+
+| Column                       | Contents                                                      |
+| ---------------------------- | ------------------------------------------------------------- |
+| `ChangeId`                   | Identifies the change (don't edit)                            |
+| `Action`                     | `ADD` or `REMOVE`                                             |
+| `Team`, `TeamNickname`       | The Team                                                      |
+| `StudentCode`, `StudentName` | The student                                                   |
+| `Reason`                     | Why (e.g. "no longer in this class in the portal")            |
+| `GeneratedAt`                | When the file was written                                     |
+| `Approved`                   | Type `yes` to approve; leave empty (or anything else) to skip |
 
 ### Issues
 
@@ -345,6 +360,174 @@ pwsh ./sync-students.ps1 -Only S001 -Apply
 Then check the account in the Entra admin centre, and run a dry run again:
 it should plan no account changes for that student.
 
+## Teams
+
+Each student belongs in:
+
+- the **year Team** for the current academic year, e.g. `Students 2026-27`
+- a **class Team** for each of their current classes in an eligible year
+  group, e.g. `Year 3 2026-27`
+
+Teams are found by their mail nickname, not their name, so renaming a class
+(or a Team) doesn't break anything:
+
+| Team  | Mail nickname                                    | Display name (`config.psd1`)                             |
+| ----- | ------------------------------------------------ | -------------------------------------------------------- |
+| Year  | `stu-year-<year code>`, e.g. `stu-year-2026-27`  | `YearTeamNameFormat`, e.g. `Students {0}`                |
+| Class | `stu-class-<first 8 characters of the class id>` | `ClassTeamNameFormat`, e.g. `{0} {1}` (class name, year) |
+
+A new academic year has new classes (new ids) and a new year code, so it
+gets new Teams; last year's are left alone.
+
+### Create this year's Teams
+
+```bash
+./fetch-students.sh
+pwsh ./setup-teams.ps1          # dry run
+pwsh ./setup-teams.ps1 -Apply
+```
+
+For the year Team and each eligible class it:
+
+- **creates** the Team if it doesn't exist: a private Microsoft 365 group
+  (welcome emails off) turned into a Team, with the class teacher
+  (`classes.teacher_id` → their school email) and everyone in
+  `DefaultTeamOwners` as owners. A Team must have an owner: if none can be
+  found, it is reported (`NO OWNER`) and skipped.
+- turns an existing group with the right nickname into a Team
+- updates the display name if the class was renamed
+- adds missing owners
+
+It **never** deletes a Team, removes an owner or changes student
+membership. Managed Teams that aren't this year's (e.g. last year's class
+Teams) are listed as `PAST TEAM` so you can archive them in Teams when
+you're ready.
+
+Last year's student Team was made by hand, so it isn't managed. Put its id
+(from the inventory's `inventory-teams-*.csv`) in `LegacyStudentTeamIds`:
+it is then used only to help match existing accounts by name, and is never
+changed.
+
+New Teams can take a few minutes to appear in the Teams app.
+
+### Review and apply membership changes
+
+Membership changes are never made without a person approving them:
+
+1. Run a dry run (or `-Apply`); it writes `reports/team-changes-<stamp>.csv`.
+2. Open it (e.g. in Excel), check each row and type `yes` in `Approved` for
+   the ones to make. Save it as CSV.
+3. Apply the approved rows:
+
+   ```bash
+   pwsh ./sync-students.ps1 -ApplyTeamChanges reports/team-changes-<stamp>.csv
+   ```
+
+This run:
+
+- signs in with write access, reads Microsoft 365 again and works out the
+  changes afresh
+- applies a row only if it is approved **and** still needed now, using the
+  current ids from Microsoft 365 (never ids from the file). Rows that are
+  already done, no longer needed, or whose `Action`, `TeamNickname` or
+  `StudentCode` was edited are skipped and listed
+- skips rows for students whose account doesn't exist yet (run `-Apply`
+  first)
+- refuses a file older than `MaxDataAgeHours`, and stops if approved
+  removals exceed `MaxTeamRemovalPercent` unless you pass `-Force`
+- makes no account changes
+- deletes `data/students.json` when it finishes without errors (unless
+  `-KeepData`)
+
+**What can be removed:** only members tagged `CustomAttribute1 = Student`,
+only from this year's managed Teams, and only when the portal says the
+student is no longer in that class. Teachers, owners and anyone else are
+never removed. Leavers are reported, not removed.
+
+## First run
+
+Run everything from `scripts/m365-students`.
+
+1. **Inventory** the tenant and set `LicenseSkuPartNumber`,
+   `DefaultTeamOwners` and `LegacyStudentTeamIds` in `config.psd1`:
+
+   ```bash
+   pwsh ./inventory-m365.ps1
+   ```
+
+2. **Fetch** the student data. Fix any students with no code or no class in
+   the portal, then fetch again:
+
+   ```bash
+   ./fetch-students.sh
+   ```
+
+3. **Create this year's Teams** (dry run, then apply):
+
+   ```bash
+   pwsh ./setup-teams.ps1
+   pwsh ./setup-teams.ps1 -Apply
+   ```
+
+4. **Dry run** the account sync and read `reports/students-*.csv`:
+
+   ```bash
+   pwsh ./sync-students.ps1
+   ```
+
+   Expect `LINK` for students who already have an account with their name,
+   and `CREATE` for the rest. Resolve every `AMBIGUOUS` by setting the
+   right account's Employee ID by hand, then run the dry run again.
+
+5. **Try one student**, then check the account in the Entra admin centre:
+
+   ```bash
+   pwsh ./sync-students.ps1 -Only S001 -Apply
+   ```
+
+6. **Apply** the account changes, then hand out the passwords from
+   `reports/new-accounts-*.csv` and delete that file:
+
+   ```bash
+   pwsh ./sync-students.ps1 -Apply
+   ```
+
+7. **Review Team changes** in the newest `reports/team-changes-*.csv` and
+   apply the approved rows:
+
+   ```bash
+   pwsh ./sync-students.ps1 -ApplyTeamChanges reports/team-changes-<stamp>.csv
+   ```
+
+8. **Check idempotency**: fetch and dry run again. It should plan no
+   account or Team changes, leaving only report-only items.
+
+## Everyday use
+
+Whenever students have changed in the portal (new students, class changes,
+leavers), and at the start of each academic year:
+
+```bash
+cd scripts/m365-students
+./fetch-students.sh
+pwsh ./setup-teams.ps1                  # new year or new classes: then -Apply
+pwsh ./sync-students.ps1                # review the screen and reports
+pwsh ./sync-students.ps1 -Apply         # accounts
+# review reports/team-changes-<stamp>.csv, mark Approved = yes
+pwsh ./sync-students.ps1 -ApplyTeamChanges reports/team-changes-<stamp>.csv
+```
+
+Then deal with the report-only items by hand: leavers (disable or delete
+when appropriate), ambiguous matches, missing codes.
+
+### New academic year
+
+1. Roll the year over in the portal (new classes, `is_current`).
+2. Fetch, then `setup-teams.ps1 -Apply` to create the new year's Teams.
+3. Dry run, `-Apply`, review and `-ApplyTeamChanges` as usual. Students are
+   added to the new Teams; last year's Teams are listed as `PAST TEAM` and
+   never changed.
+
 ## Data protection
 
 - Only student ids, codes, names and classes leave the database, plus class
@@ -373,6 +556,8 @@ it should plan no account changes for that student.
 | `lib/StudentPlan.ps1`   | Works out the changes (pure, fully tested)                                  |
 | `lib/TeamChanges.ps1`   | The Team change review file                                                 |
 | `lib/Apply.ps1`         | Makes the account changes                                                   |
+| `setup-teams.ps1`       | Creates or fixes this year's Teams                                          |
+| `lib/TeamSetup.ps1`     | Works out and makes the Team setup changes                                  |
 | `config.psd1`           | Settings (committed, no personal data)                                      |
 | `lib/StudentConfig.ps1` | Loads and checks the config; the contact sync clash check; year group rules |
 | `lib/Graph.ps1`         | Microsoft Graph sign-in and reading the tenant                              |
@@ -386,7 +571,8 @@ Run the tests with:
 pwsh -c "Invoke-Pester ./tests"
 ```
 
-`inventory-m365.ps1` exit codes: `0` success, `1` fatal error.
+`inventory-m365.ps1` and `setup-teams.ps1` exit codes: `0` success, `1`
+fatal error, `3` (setup) some changes failed.
 
 ### Data file format
 
@@ -421,3 +607,14 @@ another way.
   "skipped": [{ "reason": "missing first or last name", "count": 1 }]
 }
 ```
+
+### Moving to an unattended job later
+
+- Swap the interactive sign-in in `Connect-SyncGraph` (`lib/Graph.ps1`) for
+  app-only authentication (`Connect-MgGraph -ClientId … -CertificateThumbprint … -TenantId …`)
+  with an app registration granted the same Graph permissions.
+- Replace `fetch-students.sh` with anything that writes the same JSON.
+- Keep the dry run and the exit codes. A job can run the dry run on a
+  schedule and alert on exit codes `2` and `3`, or when the reports show
+  changes. Keep `-Apply` and Team approval as deliberate, human steps unless
+  you decide otherwise.

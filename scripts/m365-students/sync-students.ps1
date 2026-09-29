@@ -19,8 +19,16 @@
   Make the planned account changes. New accounts' initial passwords are
   saved to reports/new-accounts-<stamp>.csv (owner-only).
 
+.PARAMETER ApplyTeamChanges
+  A reviewed reports/team-changes-<stamp>.csv. Applies only rows with
+  Approved = yes that are still needed now; makes no account changes.
+  Deletes the student data file afterwards unless -KeepData.
+
 .PARAMETER Force
   Proceed even if Team removals exceed MaxTeamRemovalPercent.
+
+.PARAMETER KeepData
+  Don't delete data/students.json after a successful -ApplyTeamChanges.
 
 .PARAMETER DataPath
   Student data written by fetch-students.sh.
@@ -38,11 +46,14 @@
   ./fetch-students.sh
   pwsh ./sync-students.ps1
   pwsh ./sync-students.ps1 -Apply
+  pwsh ./sync-students.ps1 -ApplyTeamChanges reports/team-changes-20260929-101500.csv
 #>
 [CmdletBinding()]
 param(
     [switch]$Apply,
+    [string]$ApplyTeamChanges,
     [switch]$Force,
+    [switch]$KeepData,
     [string]$Only,
     [switch]$Device,
     [switch]$ShowEmails,
@@ -151,11 +162,62 @@ function Write-CountSummary {
     }
 }
 
+function Invoke-ApprovedTeamChangeStep {
+    <# -ApplyTeamChanges: apply approved rows still in the current plan. Returns the exit code. #>
+    [OutputType([int])]
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][hashtable]$Plan,
+        [double]$MaxAgeHours
+    )
+
+    $rows = Read-TeamChangeFile -Path $Path -MaxAgeHours $MaxAgeHours
+    $selection = Select-ApprovedTeamChanges -Rows $rows -TeamChanges $Plan.TeamChanges
+
+    Write-Host ''
+    foreach ($s in $selection.Skipped) {
+        Write-SyncLog -Level WARN "SKIPPED team $($s.Row.Action) [$($s.Row.StudentCode)] $($s.Row.TeamNickname): $($s.Reason)" `
+            -ConsoleMessage "  - SKIPPED  $($s.Row.Action) $($s.Row.StudentName) [$($s.Row.StudentCode)] $($s.Row.Team): $($s.Reason)"
+    }
+    foreach ($c in $selection.ToApply) {
+        Write-Host "  $(if ($c.Action -eq 'ADD') { '>' } else { '<' }) $($c.Action.PadRight(6)) $($c.StudentName) [$($c.StudentCode)] $(if ($c.Action -eq 'ADD') { 'to' } else { 'from' }) $($c.Team)"
+    }
+    Write-SyncLog "Rows in file: $($rows.Count)  approved and still needed: $($selection.ToApply.Count)  skipped: $($selection.Skipped.Count)  not approved: $($selection.NotApproved)"
+
+    $removals = @($selection.ToApply | Where-Object Action -eq 'REMOVE').Count
+    $percent = if ($Plan.ManagedMembershipCount -gt 0) { 100.0 * $removals / $Plan.ManagedMembershipCount } else { 0 }
+    if ($percent -gt [double]$Config.MaxTeamRemovalPercent -and -not $Force) {
+        Write-SyncLog -Level ERROR ("ABORTED: approved removals are {0:N1}% of managed Team memberships (limit {1}%). Re-run with -Force if this is expected." -f $percent, $Config.MaxTeamRemovalPercent)
+        return 2
+    }
+    if ($selection.ToApply.Count -eq 0) {
+        Write-SyncLog 'No approved Team changes to make.'
+        return 0
+    }
+
+    $result = Invoke-TeamChanges -Changes $selection.ToApply
+    Write-SyncLog '--- Applied (counts only) ---'
+    Write-SyncLog "Team members added: $($result.Added)  removed: $($result.Removed)  failed: $($result.Failed)"
+    if ($result.Failed -gt 0) {
+        Write-SyncLog -Level WARN 'Some Team changes failed (see errors above). Re-running with the same file is safe: done rows are skipped.'
+        return 3
+    }
+    if (-not $KeepData) {
+        Remove-Item -LiteralPath $DataPath -Force
+        Write-SyncLog 'Deleted the local student data file.'
+    }
+    Write-SyncLog 'Done. Teams can take a few minutes to show membership changes.'
+    return 0
+}
+
 $Config = Import-StudentConfig -Path $ConfigPath -ContactSyncConfigPath (Join-Path $PSScriptRoot '../m365-sync/config.psd1')
 Import-DotEnv -Path (Join-Path $PSScriptRoot '.env')
 $retention = if ($Config.ContainsKey('LogRetentionDays')) { [int]$Config.LogRetentionDays } else { 30 }
 $logPath = Start-SyncLog -Directory $LogDirectory -Prefix 'sync-students' -RetentionDays $retention
-$mode = if ($Apply) { 'APPLY (accounts only)' } else { 'DRY RUN' }
+if ($Apply -and $ApplyTeamChanges) { Write-SyncLog -Level ERROR 'Use either -Apply (accounts) or -ApplyTeamChanges (Teams), not both.'; exit 1 }
+if ($Only -and $ApplyTeamChanges) { Write-SyncLog -Level ERROR '-Only cannot be combined with -ApplyTeamChanges.'; exit 1 }
+$write = $Apply -or [bool]$ApplyTeamChanges
+$mode = if ($Apply) { 'APPLY (accounts only)' } elseif ($ApplyTeamChanges) { 'APPLY APPROVED TEAM CHANGES' } else { 'DRY RUN' }
 Write-SyncLog "Mode: $mode. Log: $logPath"
 if ($Only) { Write-SyncLog "Only student: $Only" }
 
@@ -168,11 +230,15 @@ try {
     }
 
     # 2. Compare with Microsoft 365. A dry run signs in read-only.
-    Write-SyncLog "Connecting to Microsoft Graph ($(if ($Apply) { 'read/write' } else { 'read-only' }))..."
-    Connect-SyncGraph -Write:$Apply -Device:$Device
+    Write-SyncLog "Connecting to Microsoft Graph ($(if ($write) { 'read/write' } else { 'read-only' }))..."
+    Connect-SyncGraph -Write:$write -Device:$Device
     Write-SyncLog 'Reading users, groups and licences...'
     $state = Get-GraphTenantState
     $plan = New-StudentPlan -Desired $desired -State $state -Config $Config -OnlyCode $Only
+
+    if ($ApplyTeamChanges) {
+        exit (Invoke-ApprovedTeamChangeStep -Path $ApplyTeamChanges -Plan $plan -MaxAgeHours $maxAge)
+    }
 
     Write-PlanDetails -Plan $plan
     Write-CountSummary -Desired $desired -Plan $plan
@@ -180,7 +246,7 @@ try {
     # 3. Reports.
     $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     $studentsPath = Save-PrivateCsv -Path (Get-ReportPath -Directory $ReportDirectory -Prefix 'students' -Stamp $stamp) -Rows $plan.Rows
-    $teamRows = ConvertTo-TeamChangeRows -TeamChanges $plan.TeamChanges -GeneratedAt ((Get-Date).ToString('o'))
+    $teamRows = @(ConvertTo-TeamChangeRows -TeamChanges $plan.TeamChanges -GeneratedAt ((Get-Date).ToString('o')))
     $teamPath = Save-PrivateCsv -Path (Get-ReportPath -Directory $ReportDirectory -Prefix 'team-changes' -Stamp $stamp) `
         -Rows $teamRows -Columns $script:TeamChangeColumns
     Write-Host ''
