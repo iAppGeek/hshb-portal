@@ -54,7 +54,7 @@ Describe 'ConvertTo-GraphUserPatch' {
 
 Describe 'Invoke-AccountPlan' {
     BeforeEach {
-        $script:bob = New-GraphUser -Upn 'bjones@school.example' -Given 'Bob' -Surname 'Jones' -UsageLocation ''
+        $script:bob = New-GraphUser -Upn 'bjones@school.example' -Given 'Bob' -Surname 'Jones' -UsageLocation '' -SkuIds @('sku-student')
         $script:cara = New-StudentAccount 'cara.lee@school.example' 'Kara' 'Lee' 'S003'
         $cara.assignedLicenses = @()
         $script:tenant = New-FakeTenant -Users @($bob, $cara) -Groups (New-CurrentTeams)
@@ -73,7 +73,7 @@ Describe 'Invoke-AccountPlan' {
         $result.Created | Should -Be 1
         $result.Linked | Should -Be 1
         $result.Updated | Should -Be 1
-        $result.Licensed | Should -Be 3
+        $result.Licensed | Should -Be 2
         $result.Failed | Should -Be 0
 
         $again = New-StudentPlan -Desired $desired -State (Get-GraphTenantState) -Config (New-TestConfig)
@@ -131,6 +131,6 @@ Describe 'Invoke-AccountPlan' {
         $result.Created | Should -Be 1
         $result.NewAccounts.Count | Should -Be 1
         $result.Updated | Should -Be 1
-        $result.Failed | Should -Be 4   # 3 licences + 1 link
+        $result.Failed | Should -Be 3   # 2 licences + 1 link
     }
 }

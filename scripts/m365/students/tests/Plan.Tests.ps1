@@ -10,8 +10,8 @@ BeforeAll {
 
     function Get-Plan {
         param([object[]]$Students, [object[]]$Users = @(), [object[]]$Groups = (New-CurrentTeams), [hashtable]$Config = (New-TestConfig),
-            [string[]]$InactiveCodes = @(), [string]$OnlyCode, [object[]]$Skus, [object[]]$InactiveStudents = @())
-        $desired = Get-TestDesired -Students $Students -Config $Config -InactiveCodes $InactiveCodes -InactiveStudents $InactiveStudents
+            [string[]]$InactiveCodes = @(), [string]$OnlyCode, [object[]]$Skus, [object[]]$InactiveStudents = @(), [string[]]$SkippedCodes = @())
+        $desired = Get-TestDesired -Students $Students -Config $Config -InactiveCodes $InactiveCodes -InactiveStudents $InactiveStudents -SkippedCodes $SkippedCodes
         $stateArgs = @{ Users = $Users; Groups = $Groups }
         if ($PSBoundParameters.ContainsKey('Skus')) { $stateArgs.Skus = $Skus }
         $state = New-TestState @stateArgs
@@ -82,7 +82,7 @@ Describe 'Matching students to accounts' {
     }
 
     It 'LINKs an unlinked account whose Office holds the student code, before trying names' {
-        $byOffice = New-GraphUser -Upn 'asmith@school.example' -Given 'Ally' -Surname 'Smyth' -Office 's001'
+        $byOffice = New-GraphUser -Upn 'asmith@school.example' -Given 'Ally' -Surname 'Smyth' -Office 's001' -SkuIds @('sku-student')
         $byName = New-GraphUser -Upn 'alice.smith@school.example' -Given 'Alice' -Surname 'Smith'
         $plan = Get-Plan -Students @(New-TestStudent 'S001' 'Alice' 'Smith') -Users @($byOffice, $byName)
         $plan.Links.Count | Should -Be 1
@@ -111,7 +111,7 @@ Describe 'Matching students to accounts' {
     }
 
     It 'LINKs exactly one unlinked account with the same name and stamps the link fields' {
-        $account = New-GraphUser -Upn 'asmith@school.example' -Given 'Alice' -Surname 'Smith' -UsageLocation ''
+        $account = New-GraphUser -Upn 'asmith@school.example' -Given 'Alice' -Surname 'Smith' -UsageLocation '' -SkuIds @('sku-student')
         $plan = Get-Plan -Students @(New-TestStudent 'S001' 'Alice' 'Smith') -Users @($account)
         $plan.Creates | Should -BeNullOrEmpty
         $plan.Links.Count | Should -Be 1
@@ -124,7 +124,7 @@ Describe 'Matching students to accounts' {
     }
 
     It 'matches a name with accents or different case' {
-        $account = New-GraphUser -Upn 'zoe.obrien@school.example' -Given 'ZOE' -Surname 'OBrien'
+        $account = New-GraphUser -Upn 'zoe.obrien@school.example' -Given 'ZOE' -Surname 'OBrien' -SkuIds @('sku-student')
         $plan = Get-Plan -Students @(New-TestStudent 'S001' 'Zoë' "O'Brien") -Users @($account)
         $plan.Links.Count | Should -Be 1
     }
@@ -157,8 +157,43 @@ Describe 'Matching students to accounts' {
         $plan.Links[0].Upn | Should -Be 'asmith@school.example'
     }
 
+    It 'never links a name match that does not look like a student account (e.g. untagged staff)' {
+        $staff = New-GraphUser -Upn 'alice.smith@school.example' -Given 'Alice' -Surname 'Smith' -SkuIds @('sku-faculty')
+        $plan = Get-Plan -Students @(New-TestStudent 'S001' 'Alice' 'Smith') -Users @($staff)
+        $plan.Links + $plan.Creates + $plan.Updates + $plan.Licenses + $plan.TeamChanges + $plan.SignInBlocks | Should -BeNullOrEmpty
+        Get-IssueTypes $plan | Should -Be @('UNCONFIRMED MATCH')
+        $plan.Issues[0].Upn | Should -Be 'alice.smith@school.example'
+        $plan.Issues[0].Detail | Should -Match 'matched by name'
+        $plan.Rows[0].Status | Should -Be 'UNCONFIRMED MATCH'
+    }
+
+    It 'never links an Office match that does not look like a student account' {
+        $staff = New-GraphUser -Upn 'office@school.example' -Given 'Front' -Surname 'Desk' -Office 'S001'
+        $plan = Get-Plan -Students @(New-TestStudent 'S001' 'Alice' 'Smith') -Users @($staff)
+        $plan.Links + $plan.Creates | Should -BeNullOrEmpty
+        Get-IssueTypes $plan | Should -Be @('UNCONFIRMED MATCH')
+        $plan.Issues[0].Detail | Should -Match 'matched by Office'
+    }
+
+    It 'links a name match in last year''s student Team without the licence' {
+        $old = New-GraphUser -Upn 'asmith@school.example' -Given 'Alice' -Surname 'Smith'
+        $legacy = New-GraphGroup -Name 'Students 2025-26' -Nickname 'students2526' -MemberIds @($old.id)
+        $config = New-TestConfig @{ LegacyStudentTeamIds = @($legacy.id) }
+        $plan = Get-Plan -Students @(New-TestStudent 'S001' 'Alice' 'Smith') -Users @($old) -Groups (@(New-CurrentTeams) + $legacy) -Config $config
+        $plan.Links.Count | Should -Be 1
+        $plan.Licenses.Count | Should -Be 1
+    }
+
+    It 'prefers the student account when a staff account has the same name' {
+        $staff = New-GraphUser -Upn 'alice.smith@school.example' -Given 'Alice' -Surname 'Smith'
+        $kid = New-GraphUser -Upn 'asmith@school.example' -Given 'Alice' -Surname 'Smith' -SkuIds @('sku-student')
+        $plan = Get-Plan -Students @(New-TestStudent 'S001' 'Alice' 'Smith') -Users @($staff, $kid)
+        $plan.Links.Count | Should -Be 1
+        $plan.Links[0].Upn | Should -Be 'asmith@school.example'
+    }
+
     It 'never links one account to two students with the same name' {
-        $account = New-GraphUser -Upn 'asmith@school.example' -Given 'Alice' -Surname 'Smith'
+        $account = New-GraphUser -Upn 'asmith@school.example' -Given 'Alice' -Surname 'Smith' -SkuIds @('sku-student')
         $plan = Get-Plan -Students @((New-TestStudent 'S001' 'Alice' 'Smith'), (New-TestStudent 'S002' 'Alice' 'Smith')) -Users @($account)
         $plan.Links | Should -BeNullOrEmpty
         @(Get-IssueTypes $plan) | Should -Be @('AMBIGUOUS', 'AMBIGUOUS')
@@ -326,6 +361,22 @@ Describe 'Reports' {
         @($plan.Rows | ForEach-Object Status | Sort-Object) | Should -Be @('CREATE', 'LEAVER', 'NOT ELIGIBLE', 'ORPHAN', 'ORPHAN')
     }
 
+    It 'never offers to block an active student''s account when they have no class or were left out of the data' {
+        $users = @(
+            (New-StudentAccount 'noclass@school.example' 'No' 'Class' 'S010'),
+            (New-StudentAccount 'noname@school.example' 'No' 'Name' 'S011')
+        )
+        $plan = Get-Plan -Students @((New-TestStudent 'S001' 'Alice' 'Smith'), (New-TestStudent 'S010' 'No' 'Class' @())) -Users $users -SkippedCodes @('s011')
+        $plan.SignInBlocks | Should -BeNullOrEmpty
+        $byUpn = @{}; foreach ($i in $plan.Issues) { if ($i.Upn) { $byUpn[$i.Upn] = $i } }
+        $byUpn['noclass@school.example'].Type | Should -Be 'ACTIVE, NOT IN SYNC'
+        $byUpn['noclass@school.example'].Detail | Should -Match 'no current class'
+        $byUpn['noname@school.example'].Type | Should -Be 'ACTIVE, NOT IN SYNC'
+        $byUpn['noname@school.example'].Detail | Should -Match 'missing first or last name'
+        Get-IssueTypes $plan | Should -Not -Contain 'ORPHAN'
+        @($plan.Rows | Where-Object Upn -eq 'noclass@school.example').Issues | Should -Match 'not offered for blocking'
+    }
+
     It 'accepts firstlast and first.last usernames as matching the name' {
         $a = New-StudentAccount 'alicesmith@school.example' 'Alice' 'Smith' 'S001'
         $b = New-StudentAccount 'bob.jones2@school.example' 'Bob' 'Jones' 'S002'
@@ -402,6 +453,19 @@ Describe 'Unlinked student accounts' {
         $config = New-TestConfig @{ LegacyStudentTeamIds = @($legacy.id) }
         $plan = Get-Plan -Students $students -Users @($staff, $teacher, $old) -Groups (@(New-CurrentTeams) + $legacy) -Config $config
         @($plan.Issues | Where-Object { $_.Type -like 'UNLINKED*' } | ForEach-Object Upn) | Should -Be @('oldkid@school.example')
+    }
+
+    It 'reports an unlinked account of an active student with no class, without offering a block' {
+        $withNoClass = @($students) + @(New-TestStudent 'S010' 'Nora' 'Class' @())
+        $users = @(
+            (New-OldAccount 'noraclass@school.example' 'Nora' 'Class'),
+            (New-GraphUser -Upn 'office010@school.example' -Given 'X' -Surname 'Y' -SkuIds @('sku-student') -Office 'S010'),
+            (New-GraphUser -Upn 'office011@school.example' -Given 'X' -Surname 'Z' -SkuIds @('sku-student') -Office 'S011')
+        )
+        $plan = Get-Plan -Students $withNoClass -Users $users -SkippedCodes @('S011')
+        @($plan.Issues | Where-Object Upn | ForEach-Object Type | Select-Object -Unique) | Should -Be @('UNLINKED: ACTIVE STUDENT')
+        @($plan.Issues | Where-Object Upn).Count | Should -Be 3
+        $plan.SignInBlocks | Should -BeNullOrEmpty
     }
 
     It 'does not report accounts that are waiting on an AMBIGUOUS decision' {

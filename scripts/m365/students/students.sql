@@ -85,5 +85,12 @@ select json_build_object(
     select json_agg(json_build_object('reason', 'missing first or last name', 'count', n))
     from (select count(*) as n from active_students where first_name = '' or last_name = '') t
     where n > 0
+  ), '[]'::json),
+  -- Codes of the active students skipped above, so their accounts aren't
+  -- mistaken for orphans.
+  'skippedCodes', coalesce((
+    select json_agg(code order by code)
+    from active_students
+    where (first_name = '' or last_name = '') and code is not null
   ), '[]'::json)
 ) as data;

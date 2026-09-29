@@ -268,6 +268,7 @@ function New-TestStudentData {
         [object[]]$Classes = (New-TestClasses),
         [string[]]$InactiveCodes = @(),
         [object[]]$InactiveStudents = @(),
+        [string[]]$SkippedCodes = @(),
         [string]$GeneratedAt = '2026-09-29T10:00:00+00:00'
     )
     return @{
@@ -280,13 +281,14 @@ function New-TestStudentData {
         inactiveCodes    = $InactiveCodes
         inactiveStudents = $InactiveStudents
         skipped          = @()
+        skippedCodes     = $SkippedCodes
     }
 }
 
 function Get-TestDesired {
     param([object[]]$Students, [hashtable]$Config = (New-TestConfig), [string[]]$InactiveCodes = @(), [object[]]$Classes = (New-TestClasses),
-        [object[]]$InactiveStudents = @())
-    return ConvertTo-DesiredStudentState -Data (New-TestStudentData -Students $Students -InactiveCodes $InactiveCodes -Classes $Classes -InactiveStudents $InactiveStudents) -Config $Config
+        [object[]]$InactiveStudents = @(), [string[]]$SkippedCodes = @())
+    return ConvertTo-DesiredStudentState -Data (New-TestStudentData -Students $Students -InactiveCodes $InactiveCodes -Classes $Classes -InactiveStudents $InactiveStudents -SkippedCodes $SkippedCodes) -Config $Config
 }
 
 function New-TestState {

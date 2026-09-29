@@ -286,11 +286,20 @@ used by any user, group or email alias, a number is added:
 3. Otherwise, an account with no Employee ID and no `CustomAttribute1` whose
    first name and surname (or display name) match the student's, ignoring
    case and accents, is **linked**, if it is the only one. If several
-   match, the one in last year's Team (`LegacyStudentTeamIds`) is preferred;
-   if that doesn't settle it, the student is reported as `AMBIGUOUS` and
-   nothing is done. Set the right account's Employee ID by hand (Entra admin
-   centre → user → Properties → Job information) and run again.
+   match, the one in last year's Team (`LegacyStudentTeamIds`) is preferred,
+   then the one that looks like a student account (below); if that doesn't
+   settle it, the student is reported as `AMBIGUOUS` and nothing is done.
+   Set the right account's Employee ID by hand (Entra admin centre → user →
+   Properties → Job information) and run again.
 4. Otherwise a new account is created.
+
+An Office or name match is only linked if it looks like a student account:
+it has the student licence (`LicenseSkuPartNumber`) or is in last year's
+student Team (`LegacyStudentTeamIds`). Otherwise (e.g. an untagged admin
+account with the same name as a student) the student is reported as
+`UNCONFIRMED MATCH` and nothing is done: set the account's Employee ID by
+hand if it is the student's, or set its `CustomAttribute1` (e.g. `Staff`) if
+it isn't, and the next run creates the student's account.
 
 Accounts tagged for anything else (e.g. `CustomAttribute1 = Teacher`) are
 never linked to a student.
@@ -378,14 +387,16 @@ student licence (`LicenseSkuPartNumber`) or is in last year's student group
 and accounts waiting on an `AMBIGUOUS` decision are left out. Each one is
 reported with the reason it isn't linked:
 
-| Issue                        | Meaning                                                                                                             |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `UNLINKED: DUPLICATE`        | Has the name of a Year 3+ student who is linked to (or will get) a different account                                |
-| `UNLINKED: BELOW YEAR 3`     | Its name (or the code in Employee ID or Office) matches an active student below Year 3, e.g. an account from before |
-| `UNLINKED: INACTIVE STUDENT` | Its name (or the code in Employee ID or Office) matches a student who has left                                      |
-| `UNLINKED: NOT IN DATABASE`  | No student in the portal has this name: a test account, a typo, or someone never recorded                           |
+| Issue                        | Meaning                                                                                                                                |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `UNLINKED: ACTIVE STUDENT`   | Its name (or the code in Employee ID or Office) matches an active student with no current class or no name. Never offered for blocking |
+| `UNLINKED: DUPLICATE`        | Has the name of a Year 3+ student who is linked to (or will get) a different account                                                   |
+| `UNLINKED: BELOW YEAR 3`     | Its name (or the code in Employee ID or Office) matches an active student below Year 3, e.g. an account from before                    |
+| `UNLINKED: INACTIVE STUDENT` | Its name (or the code in Employee ID or Office) matches a student who has left                                                         |
+| `UNLINKED: NOT IN DATABASE`  | No student in the portal has this name: a test account, a typo, or someone never recorded                                              |
 
 These are report only: nothing is changed unless you approve blocking them.
+`UNLINKED: ACTIVE STUDENT` accounts are never offered for blocking.
 
 ### Blocking sign-in
 
@@ -412,25 +423,27 @@ block, unblock sign-in for the account in the Microsoft 365 admin centre.
 
 Report only. Nothing is changed for these unless noted.
 
-| Issue                                   | Meaning and what to do                                                                                                         |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `NO CODE`                               | Year 3+ student with no student code. Add one in the portal.                                                                   |
-| `UNKNOWN YEAR GROUP`                    | A class year group isn't in either list in `config.psd1`. Add it to one.                                                       |
-| `NO CLASS`                              | Active student with no current class. Check their enrolment.                                                                   |
-| `AMBIGUOUS`                             | Several unlinked accounts have the student's name, or one account matches several students. Set the Employee ID by hand.       |
-| `CONFLICT`                              | The account with this Employee ID is tagged for something else (e.g. `Teacher`). Check it.                                     |
-| `DUPLICATE EMPLOYEE ID`                 | Several accounts have the same Employee ID. Clear it on the wrong one.                                                         |
-| `SYNCED ACCOUNT`                        | The account comes from on-premises Active Directory, so it must be changed there.                                              |
-| `INVALID NAME`                          | The name has no letters usable in a username. Create the account by hand and set its Employee ID.                              |
-| `NAME/UPN MISMATCH`                     | The username doesn't follow the name (e.g. after a name change). Usernames are never changed automatically.                    |
-| `DISABLED`                              | An active student's account has sign-in blocked.                                                                               |
-| `LEAVER`                                | Managed account of a student who is no longer active. Sign-in can be blocked after review.                                     |
-| `NOT ELIGIBLE`                          | Managed account of a student below Year 3.                                                                                     |
-| `ORPHAN`                                | Account tagged `Student` whose Employee ID matches no active student (or is empty). Sign-in can be blocked after review.       |
-| `UNLINKED: …`                           | Student account not linked to anyone; see [above](#student-accounts-not-in-the-database). Sign-in can be blocked after review. |
-| `MISSING TEAM`                          | This year's class or year Team doesn't exist yet.                                                                              |
-| `LICENCE NOT SET` / `LICENCE NOT FOUND` | `LicenseSkuPartNumber` is empty, or not a licence in this tenant.                                                              |
-| `LEGACY TEAM NOT FOUND`                 | An id in `LegacyStudentTeamIds` isn't a Microsoft 365 group.                                                                   |
+| Issue                                   | Meaning and what to do                                                                                                                                                         |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `NO CODE`                               | Year 3+ student with no student code. Add one in the portal.                                                                                                                   |
+| `UNKNOWN YEAR GROUP`                    | A class year group isn't in either list in `config.psd1`. Add it to one.                                                                                                       |
+| `NO CLASS`                              | Active student with no current class. Check their enrolment.                                                                                                                   |
+| `AMBIGUOUS`                             | Several unlinked accounts have the student's name, or one account matches several students. Set the Employee ID by hand.                                                       |
+| `UNCONFIRMED MATCH`                     | The only Office or name match isn't a student account (no student licence, not in last year's Team). See [Matching existing accounts](#matching-existing-accounts).            |
+| `CONFLICT`                              | The account with this Employee ID is tagged for something else (e.g. `Teacher`). Check it.                                                                                     |
+| `DUPLICATE EMPLOYEE ID`                 | Several accounts have the same Employee ID. Clear it on the wrong one.                                                                                                         |
+| `SYNCED ACCOUNT`                        | The account comes from on-premises Active Directory, so it must be changed there.                                                                                              |
+| `INVALID NAME`                          | The name has no letters usable in a username. Create the account by hand and set its Employee ID.                                                                              |
+| `NAME/UPN MISMATCH`                     | The username doesn't follow the name (e.g. after a name change). Usernames are never changed automatically.                                                                    |
+| `DISABLED`                              | An active student's account has sign-in blocked.                                                                                                                               |
+| `LEAVER`                                | Managed account of a student who is no longer active. Sign-in can be blocked after review.                                                                                     |
+| `NOT ELIGIBLE`                          | Managed account of a student below Year 3.                                                                                                                                     |
+| `ORPHAN`                                | Account tagged `Student` whose Employee ID matches no active student (or is empty). Sign-in can be blocked after review.                                                       |
+| `ACTIVE, NOT IN SYNC`                   | Account tagged `Student` of an active student who has no current class, or has no first or last name in the portal. Never offered for blocking: fix the student in the portal. |
+| `UNLINKED: …`                           | Student account not linked to anyone; see [above](#student-accounts-not-in-the-database). Sign-in can be blocked after review.                                                 |
+| `MISSING TEAM`                          | This year's class or year Team doesn't exist yet.                                                                                                                              |
+| `LICENCE NOT SET` / `LICENCE NOT FOUND` | `LicenseSkuPartNumber` is empty, or not a licence in this tenant.                                                                                                              |
+| `LEGACY TEAM NOT FOUND`                 | An id in `LegacyStudentTeamIds` isn't a Microsoft 365 group.                                                                                                                   |
 
 ## Apply: create and update accounts
 
@@ -773,7 +786,8 @@ another way.
   "inactiveStudents": [
     { "code": "S000", "firstName": "Sam", "lastName": "Old" }
   ],
-  "skipped": [{ "reason": "missing first or last name", "count": 1 }]
+  "skipped": [{ "reason": "missing first or last name", "count": 1 }],
+  "skippedCodes": ["S050"]
 }
 ```
 

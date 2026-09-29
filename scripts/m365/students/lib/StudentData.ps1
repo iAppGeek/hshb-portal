@@ -90,6 +90,8 @@ function ConvertTo-DesiredStudentState {
         NotEligible    : active students below Year 3 (names, for reports)
         Inactive       : inactive students (names, for reports; may be empty)
         NotEligibleCodes / InactiveCodes : sets of CODE
+        NoClassCodes   : set of CODE of NoClass students
+        SkippedCodes   : set of CODE of active students left out of the data (e.g. no name)
         UnknownYearGroups : year group values in neither config list
         Skipped, Counts
       Throws on anything that could make the sync act on bad data.
@@ -232,6 +234,15 @@ function ConvertTo-DesiredStudentState {
     }
 
     $skipped = @(@($Data['skipped']) | Where-Object { $_ } | ForEach-Object { [pscustomobject]$_ })
+    # Active students skipped for a missing name: their accounts must never
+    # look like orphans. Older data files don't have this list.
+    $skippedCodes = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($code in @($Data['skippedCodes'])) {
+        $key = Get-CodeKey ([string]$code)
+        if ($key) { [void]$skippedCodes.Add($key) }
+    }
+    $noClassCodes = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($s in $noClass) { if ($s.Code) { [void]$noClassCodes.Add((Get-CodeKey $s.Code)) } }
 
     return @{
         AcademicYear      = [pscustomobject]@{ Id = [string]$Data['academicYear']['id']; Code = $yearCode }
@@ -245,6 +256,8 @@ function ConvertTo-DesiredStudentState {
         Inactive          = @($inactiveStudents)
         NotEligibleCodes  = $notEligible
         InactiveCodes     = $inactive
+        NoClassCodes      = $noClassCodes
+        SkippedCodes      = $skippedCodes
         UnknownYearGroups = @($unknownYearGroups)
         Skipped           = $skipped
         Counts            = [pscustomobject]@{

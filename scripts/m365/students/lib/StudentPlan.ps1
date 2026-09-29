@@ -245,6 +245,20 @@ function New-StudentPlan {
         }
         else { $skuId = $sku[0].SkuId }
     }
+    # A student account has the student licence or was in last year's student
+    # Team. Untagged staff accounts (e.g. admin) have neither.
+    $looksLikeStudent = {
+        param([object]$Account)
+        return [bool](($skuId -and @($Account.SkuIds) -contains $skuId) -or $legacyMembers.Contains($Account.Id))
+    }
+    $unconfirmed = {
+        param([object]$Student, [object]$Account, [string]$By)
+        [void]$pendingIds.Add($Account.Id)
+        return [pscustomobject]@{
+            Student = $Student; Kind = 'UNCONFIRMED'; User = $Account
+            Detail = "matched by $By to $($Account.Upn), which has no student licence and isn't in last year's student Team: set its Employee ID to link it, or set its CustomAttribute1 (e.g. Staff) if it isn't this student's"
+        }
+    }
 
     # --- Pass 1: find each student's account ---------------------------------
     # Accounts waiting on a decision (AMBIGUOUS) aren't reported as unlinked.
@@ -280,6 +294,7 @@ function New-StudentPlan {
             if ($byCode[0].Synced) {
                 [pscustomobject]@{ Student = $s; Kind = 'SYNCED'; User = $byCode[0]; Detail = 'matching account is synced from on-premises AD; change it there' }
             }
+            elseif (-not (& $looksLikeStudent $byCode[0])) { & $unconfirmed $s $byCode[0] 'Office' }
             else { [pscustomobject]@{ Student = $s; Kind = 'LINK'; User = $byCode[0]; Detail = 'matched by Office' } }
             continue
         }
@@ -289,12 +304,14 @@ function New-StudentPlan {
         }
         if ($candidates.Count -gt 1) {
             $preferred = @($candidates | Where-Object { $legacyMembers.Contains($_.Id) })
+            if ($preferred.Count -ne 1) { $preferred = @($candidates | Where-Object { & $looksLikeStudent $_ }) }
             if ($preferred.Count -eq 1) { $candidates = [System.Collections.Generic.List[object]]@($preferred) }
         }
         if ($candidates.Count -eq 1) {
             if ($candidates[0].Synced) {
                 [pscustomobject]@{ Student = $s; Kind = 'SYNCED'; User = $candidates[0]; Detail = 'matching account is synced from on-premises AD; change it there' }
             }
+            elseif (-not (& $looksLikeStudent $candidates[0])) { & $unconfirmed $s $candidates[0] 'name' }
             else { [pscustomobject]@{ Student = $s; Kind = 'LINK'; User = $candidates[0]; Detail = '' } }
         }
         elseif ($candidates.Count -gt 1) {
@@ -333,8 +350,8 @@ function New-StudentPlan {
         $status = $r.Kind
 
         switch ($r.Kind) {
-            { $_ -in 'DUPLICATE', 'CONFLICT', 'SYNCED', 'AMBIGUOUS' } {
-                $type = @{ DUPLICATE = 'DUPLICATE EMPLOYEE ID'; CONFLICT = 'CONFLICT'; SYNCED = 'SYNCED ACCOUNT'; AMBIGUOUS = 'AMBIGUOUS' }[$r.Kind]
+            { $_ -in 'DUPLICATE', 'CONFLICT', 'SYNCED', 'AMBIGUOUS', 'UNCONFIRMED' } {
+                $type = @{ DUPLICATE = 'DUPLICATE EMPLOYEE ID'; CONFLICT = 'CONFLICT'; SYNCED = 'SYNCED ACCOUNT'; AMBIGUOUS = 'AMBIGUOUS'; UNCONFIRMED = 'UNCONFIRMED MATCH' }[$r.Kind]
                 & $addIssue $type $s.Code $s.DisplayName $(if ($u) { $u.Upn } else { '' }) $r.Detail
                 $status = $type
                 $notes.Add($r.Detail)
@@ -492,15 +509,26 @@ function New-StudentPlan {
             & $addIssue 'UNKNOWN YEAR GROUP' $s.Code $s.DisplayName '' 'only in classes with an unknown year group'
         }
         $undeterminedCodes = @($Desired.Undetermined | ForEach-Object { Get-CodeKey $_.Code })
+        # An active student's account (e.g. no class yet) is reported but
+        # never offered for blocking.
+        $isActiveCode = {
+            param([string]$Key)
+            return [bool]$Key -and ($Desired.NoClassCodes.Contains($Key) -or $Desired.SkippedCodes.Contains($Key))
+        }
+        $activeDetail = {
+            param([string]$Key)
+            if ($Desired.NoClassCodes.Contains($Key)) { return 'student is active but has no current class: check their enrolment' }
+            return 'student is active but left out of the data (missing first or last name): fix the name in the portal'
+        }
         $addAccountReport = {
-            param([object]$Account, [string]$Type, [string]$Detail)
+            param([object]$Account, [string]$Type, [string]$Detail, [bool]$ActiveStudent = $false)
             & $addIssue $Type $Account.EmployeeId $Account.DisplayName $Account.Upn $Detail
-            $blockable = [bool]$Account.Enabled
+            $blockable = [bool]$Account.Enabled -and -not $ActiveStudent
             $rows.Add([pscustomobject][ordered]@{
                     Status = $Type; StudentCode = $Account.EmployeeId; DbFirstName = ''; DbLastName = ''; YearGroups = ''; Upn = $Account.Upn
                     AccountFirstName = $Account.GivenName; AccountSurname = $Account.Surname; AccountEnabled = $Account.Enabled; AccountOffice = $Account.Office; ExpectedTeams = ''
                     ActualTeams = if ($groupNamesByUser.ContainsKey($Account.Id)) { (@($groupNamesByUser[$Account.Id]) | Sort-Object) -join '; ' } else { '' }
-                    Issues = "$Detail ($(if ($blockable) { 'sign-in can be blocked after review' } else { 'sign-in already blocked' }))"
+                    Issues = "$Detail ($(if ($ActiveStudent) { 'active student: not offered for blocking' } elseif ($blockable) { 'sign-in can be blocked after review' } else { 'sign-in already blocked' }))"
                 })
             if ($blockable) {
                 $signInBlocks.Add([pscustomobject]@{
@@ -513,6 +541,10 @@ function New-StudentPlan {
             if ($claimedIds.Contains($u.Id)) { continue }
             $key = Get-CodeKey $u.EmployeeId
             if ($key -and $Desired.Students.Contains($key)) { continue } # reported above (e.g. duplicate)
+            if (& $isActiveCode $key) {
+                & $addAccountReport $u 'ACTIVE, NOT IN SYNC' (& $activeDetail $key) $true
+                continue
+            }
             $type, $detail = if ($key -and $Desired.InactiveCodes.Contains($key)) { 'LEAVER', 'student is no longer active in the portal' }
             elseif ($key -and $Desired.NotEligibleCodes.Contains($key)) { 'NOT ELIGIBLE', 'student is below Year 3 (not in an eligible year group)' }
             elseif ($key -and $undeterminedCodes -contains $key) { 'UNKNOWN YEAR GROUP', 'student is only in classes with an unknown year group' }
@@ -535,7 +567,8 @@ function New-StudentPlan {
         }
         & $addPeople @($Desired.Students.Values) 'YEAR3'
         & $addPeople @($Desired.NoCode) 'YEAR3'
-        & $addPeople (@($Desired['NotEligible']) + @($Desired.NoClass) + @($Desired.Undetermined) | Where-Object { $_ }) 'BELOW'
+        & $addPeople (@($Desired['NotEligible']) + @($Desired.Undetermined) | Where-Object { $_ }) 'BELOW'
+        & $addPeople @($Desired.NoClass) 'NOCLASS'
         & $addPeople @($Desired['Inactive'] | Where-Object { $_ }) 'INACTIVE'
 
         foreach ($u in @($State.Users)) {
@@ -547,6 +580,14 @@ function New-StudentPlan {
             if (-not $key) { $key = Get-CodeKey $u.Office }
             $kinds = @(Get-PersonNameKeys -FirstName $u.GivenName -LastName $u.Surname -DisplayName $u.DisplayName |
                     Where-Object { $people.ContainsKey($_) } | ForEach-Object { $people[$_] } | Select-Object -Unique)
+            if (& $isActiveCode $key) {
+                & $addAccountReport $u 'UNLINKED: ACTIVE STUDENT' "student code $key is an $(& $activeDetail $key)" $true
+                continue
+            }
+            if ($kinds -contains 'NOCLASS' -and $kinds -notcontains 'YEAR3') {
+                & $addAccountReport $u 'UNLINKED: ACTIVE STUDENT' 'name matches an active student with no current class: check their enrolment' $true
+                continue
+            }
             $type, $detail = if ($key -and $Desired.InactiveCodes.Contains($key)) { 'UNLINKED: INACTIVE STUDENT', "student code $key is a student who is no longer active" }
             elseif ($key -and $Desired.NotEligibleCodes.Contains($key)) { 'UNLINKED: BELOW YEAR 3', "student code $key is a student below Year 3" }
             elseif ($key -and $Desired.Students.Contains($key)) { 'UNLINKED: DUPLICATE', "Office has the code of Year 3+ student $key, who is linked to another account" }

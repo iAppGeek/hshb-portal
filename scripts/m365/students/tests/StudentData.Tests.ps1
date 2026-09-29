@@ -45,6 +45,15 @@ Describe 'ConvertTo-DesiredStudentState: eligibility (Year 3 and up)' {
     It 'flags an active student with no current class' {
         $desired.NoClass.Count | Should -Be 1
         $desired.NoClass[0].Code | Should -Be 'S008'
+        $desired.NoClassCodes.Contains('S008') | Should -BeTrue
+    }
+
+    It 'reads the codes of active students left out of the data, and allows files without them' {
+        $students = @(New-TestStudent 'S001' 'Alice' 'Smith')
+        (Get-TestDesired -Students $students -SkippedCodes @(' s050 ')).SkippedCodes.Contains('S050') | Should -BeTrue
+        $data = New-TestStudentData -Students $students
+        $data.Remove('skippedCodes')
+        (ConvertTo-DesiredStudentState -Data $data -Config (New-TestConfig)).SkippedCodes.Count | Should -Be 0
     }
 
     It 'puts each student in the year Team and their eligible class Teams only' {

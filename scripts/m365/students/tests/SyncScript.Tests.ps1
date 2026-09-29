@@ -77,7 +77,7 @@ Describe 'sync-students.ps1 dry run' {
             (New-TestStudent 'S002' 'Bob' 'Jones' @('Y4')),
             (New-TestStudent 'S003' 'Cara' 'Lee' @('Y2'))
         )
-        $bob = New-GraphUser -Upn 'bjones@school.example' -Given 'Bob' -Surname 'Jones'
+        $bob = New-GraphUser -Upn 'bjones@school.example' -Given 'Bob' -Surname 'Jones' -SkuIds @('sku-student')
         Use-FakeGraph -Tenant (New-FakeTenant -Users @($bob) -Groups (New-CurrentTeams))
     }
 
@@ -125,7 +125,7 @@ Describe 'sync-students.ps1 -Apply' {
             (New-TestStudent 'S001' 'Alice' 'Smith' @('Y3')),
             (New-TestStudent 'S002' 'Bob' 'Jones' @('Y4'))
         )
-        $bob = New-GraphUser -Upn 'bjones@school.example' -Given 'Bob' -Surname 'Jones'
+        $bob = New-GraphUser -Upn 'bjones@school.example' -Given 'Bob' -Surname 'Jones' -SkuIds @('sku-student')
         Use-FakeGraph -Tenant (New-FakeTenant -Users @($bob) -Groups (New-CurrentTeams))
     }
 
@@ -167,7 +167,7 @@ Describe 'sync-students.ps1 -Apply' {
     It 'only changes the -Only student' {
         Invoke-SyncScript @{ Apply = $true; Only = 'S002' } | Should -Be 0
         @($global:FakeTenant.Users | ForEach-Object { $_['userPrincipalName'] }) | Should -Be @('bjones@school.example')
-        @(Get-WriteCalls -Tenant $global:FakeTenant).Count | Should -Be 2   # link + licence
+        @(Get-WriteCalls -Tenant $global:FakeTenant).Count | Should -Be 1   # link (the account already has the licence)
     }
 
     It 'refuses to apply with an unknown year group and changes nothing' {
