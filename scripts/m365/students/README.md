@@ -98,14 +98,20 @@ Each student account carries the student's details from the portal, so the
 scripts can match accounts to students exactly, never by guessing from
 names:
 
-| Microsoft 365 field  | Value                   | Where you can see it                                             |
-| -------------------- | ----------------------- | ---------------------------------------------------------------- |
-| **Employee ID**      | `students.student_code` | Entra admin centre → Users → user → Properties → Job information |
-| **CustomAttribute1** | `Student`               | Exchange admin centre → mailbox → Custom attributes              |
-| **CustomAttribute4** | `Student`               | as above                                                         |
+| Microsoft 365 field  | Value                   | Where you can see it                                                               |
+| -------------------- | ----------------------- | ---------------------------------------------------------------------------------- |
+| **Employee ID**      | `students.student_code` | Entra admin centre → Users → user → Properties → Job information                   |
+| **Office**           | `students.student_code` | Microsoft 365 admin centre → Active users (add the Office column) and user details |
+| **CustomAttribute1** | `Student`               | Exchange admin centre → mailbox → Custom attributes                                |
+| **CustomAttribute4** | `Student`               | as above                                                                           |
 
 - The Employee ID is the link. A student without a `student_code` can't be
   linked, so the scripts report them and ask you to add a code in the portal.
+- **Office** holds the same code, so it's easy to see in the Microsoft 365
+  admin centre. The scripts keep it equal to the code (an `UPDATE` puts it
+  back if someone changes it), but match on Employee ID, so the link
+  survives an edited Office. Office also helps link accounts that aren't
+  linked yet (see [Matching existing accounts](#matching-existing-accounts)).
 - `CustomAttribute1 = Student` marks the account as managed by these scripts,
   the same convention `../contacts` uses for `Teacher` and `Parent`.
   Exchange custom attributes 1-15 are the same fields that Microsoft Graph
@@ -183,11 +189,11 @@ It prints counts only (users, how many have an Employee ID, how many look
 like `firstname.lastname`, values of CustomAttribute1, Teams, licences
 used/available) and saves three CSV files in `reports/`:
 
-| File                             | One row per                | Columns                                                                                                                                                   |
-| -------------------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `inventory-users-<stamp>.csv`    | user                       | username, given name, surname, display name, enabled, Employee ID, Employee type, Department, synced from AD, licences, groups/Teams, CustomAttribute1-15 |
-| `inventory-teams-<stamp>.csv`    | Microsoft 365 group / Team | id, name, mail nickname, is a Team, named like a class/year Team, owner and member counts, owners' usernames, description                                 |
-| `inventory-licences-<stamp>.csv` | licence (SKU)              | part number, id, total, used, available                                                                                                                   |
+| File                             | One row per                | Columns                                                                                                                                                           |
+| -------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `inventory-users-<stamp>.csv`    | user                       | username, given name, surname, display name, enabled, Employee ID, Employee type, Department, Office, synced from AD, licences, groups/Teams, CustomAttribute1-15 |
+| `inventory-teams-<stamp>.csv`    | Microsoft 365 group / Team | id, name, mail nickname, is a Team, named like a class/year Team, owner and member counts, owners' usernames, description                                         |
+| `inventory-licences-<stamp>.csv` | licence (SKU)              | part number, id, total, used, available                                                                                                                           |
 
 Use it to decide:
 
@@ -274,13 +280,17 @@ used by any user, group or email alias, a number is added:
 
 1. An account whose **Employee ID** is the student's code is theirs.
 2. Otherwise, an account with no Employee ID and no `CustomAttribute1` whose
+   **Office** is the student's code is **linked** (matched by Office). If
+   several unlinked accounts have that code in Office, the student is
+   reported as `AMBIGUOUS`.
+3. Otherwise, an account with no Employee ID and no `CustomAttribute1` whose
    first name and surname (or display name) match the student's, ignoring
    case and accents, is **linked**, if it is the only one. If several
    match, the one in last year's Team (`LegacyStudentTeamIds`) is preferred;
    if that doesn't settle it, the student is reported as `AMBIGUOUS` and
    nothing is done. Set the right account's Employee ID by hand (Entra admin
    centre → user → Properties → Job information) and run again.
-3. Otherwise a new account is created.
+4. Otherwise a new account is created.
 
 Accounts tagged for anything else (e.g. `CustomAttribute1 = Teacher`) are
 never linked to a student.
@@ -316,17 +326,17 @@ details next to their Microsoft 365 account and Teams. Student accounts in
 Microsoft 365 that don't belong to a current Year 3+ student get a row too:
 leavers, orphans, and [unlinked student accounts](#student-accounts-not-in-the-database).
 
-| Column                                                 | Contents                                                        |
-| ------------------------------------------------------ | --------------------------------------------------------------- |
-| `Status`                                               | `OK`, `CREATE`, `LINK`, `UPDATE`, or an issue type              |
-| `StudentCode`                                          | Student code (= Employee ID)                                    |
-| `DbFirstName`, `DbLastName`                            | Name in the portal                                              |
-| `YearGroups`                                           | Year group(s) from their current classes                        |
-| `Upn`                                                  | Username (for `CREATE`: the one that would be created)          |
-| `AccountFirstName`, `AccountSurname`, `AccountEnabled` | The Microsoft 365 account as it is now                          |
-| `ExpectedTeams`                                        | The year Team and their class Teams                             |
-| `ActualTeams`                                          | Every Microsoft 365 group/Team the account is in now            |
-| `Issues`                                               | Anything else: licence missing, sign-in blocked, Team to add, … |
+| Column                                                                  | Contents                                                        |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `Status`                                                                | `OK`, `CREATE`, `LINK`, `UPDATE`, or an issue type              |
+| `StudentCode`                                                           | Student code (= Employee ID)                                    |
+| `DbFirstName`, `DbLastName`                                             | Name in the portal                                              |
+| `YearGroups`                                                            | Year group(s) from their current classes                        |
+| `Upn`                                                                   | Username (for `CREATE`: the one that would be created)          |
+| `AccountFirstName`, `AccountSurname`, `AccountEnabled`, `AccountOffice` | The Microsoft 365 account as it is now                          |
+| `ExpectedTeams`                                                         | The year Team and their class Teams                             |
+| `ActualTeams`                                                           | Every Microsoft 365 group/Team the account is in now            |
+| `Issues`                                                                | Anything else: licence missing, sign-in blocked, Team to add, … |
 
 ### `team-changes-<stamp>.csv`: Team changes to review
 
@@ -368,12 +378,12 @@ student licence (`LicenseSkuPartNumber`) or is in last year's student group
 and accounts waiting on an `AMBIGUOUS` decision are left out. Each one is
 reported with the reason it isn't linked:
 
-| Issue                        | Meaning                                                                                       |
-| ---------------------------- | --------------------------------------------------------------------------------------------- |
-| `UNLINKED: DUPLICATE`        | Has the name of a Year 3+ student who is linked to (or will get) a different account          |
-| `UNLINKED: BELOW YEAR 3`     | Its name (or Employee ID) matches an active student below Year 3, e.g. an account from before |
-| `UNLINKED: INACTIVE STUDENT` | Its name (or Employee ID) matches a student who has left                                      |
-| `UNLINKED: NOT IN DATABASE`  | No student in the portal has this name: a test account, a typo, or someone never recorded     |
+| Issue                        | Meaning                                                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `UNLINKED: DUPLICATE`        | Has the name of a Year 3+ student who is linked to (or will get) a different account                                |
+| `UNLINKED: BELOW YEAR 3`     | Its name (or the code in Employee ID or Office) matches an active student below Year 3, e.g. an account from before |
+| `UNLINKED: INACTIVE STUDENT` | Its name (or the code in Employee ID or Office) matches a student who has left                                      |
+| `UNLINKED: NOT IN DATABASE`  | No student in the portal has this name: a test account, a typo, or someone never recorded                           |
 
 These are report only: nothing is changed unless you approve blocking them.
 
@@ -433,12 +443,12 @@ pwsh ./sync-students.ps1 -Apply
 This signs in with write access and makes the **account** changes only:
 
 - `CREATE`: new account with `firstname.lastname@<Domain>`, first name,
-  surname, display name, Employee ID, `CustomAttribute1` and
+  surname, display name, Employee ID, Office, `CustomAttribute1` and
   `CustomAttribute4`, usage location and the configured licence. Sign-in is
   enabled with an initial password (see below) that must be changed at
   first sign-in.
 - `LINK` and `UPDATE`: only first name, surname, display name, Employee ID,
-  usage location and custom attributes can be set. Any other field
+  Office, usage location and custom attributes can be set. Any other field
   (username, email addresses, aliases, sign-in status, Department) is
   refused in code.
 - `LICENCE`: assigns the configured licence.
@@ -626,7 +636,8 @@ Run everything from `scripts/m365/students`.
    pwsh ./sync-students.ps1
    ```
 
-   Expect `LINK` for students who already have an account with their name,
+   Expect `LINK` for students who already have an account with their code in
+   Office or their name,
    and `CREATE` for the rest. Resolve every `AMBIGUOUS` by setting the
    right account's Employee ID by hand, then run the dry run again.
 

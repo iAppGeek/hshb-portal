@@ -13,7 +13,7 @@ $script:GraphWriteScopes = @('User.ReadWrite.All', 'Group.ReadWrite.All', 'Direc
 
 $script:UserSelect = @(
     'id', 'userPrincipalName', 'givenName', 'surname', 'displayName', 'accountEnabled', 'employeeId',
-    'employeeType', 'department', 'mail', 'mailNickname', 'proxyAddresses', 'usageLocation',
+    'employeeType', 'department', 'officeLocation', 'mail', 'mailNickname', 'proxyAddresses', 'usageLocation',
     'onPremisesExtensionAttributes', 'onPremisesSyncEnabled', 'assignedLicenses'
 ) -join ','
 $script:GroupSelect = 'id,displayName,mailNickname,mail,proxyAddresses,resourceProvisioningOptions,description'
@@ -118,6 +118,7 @@ function ConvertFrom-GraphUser {
         EmployeeId    = ConvertTo-CleanValue $User['employeeId']
         EmployeeType  = ConvertTo-CleanValue $User['employeeType']
         Department    = ConvertTo-CleanValue $User['department']
+        Office        = ConvertTo-CleanValue $User['officeLocation']
         Mail          = (ConvertTo-CleanValue $User['mail']).ToLowerInvariant()
         MailNickname  = (ConvertTo-CleanValue $User['mailNickname']).ToLowerInvariant()
         Addresses     = $addresses

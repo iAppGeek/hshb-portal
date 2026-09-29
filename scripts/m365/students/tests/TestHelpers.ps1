@@ -50,6 +50,7 @@ function New-GraphUser {
         [bool]$Enabled = $true,
         [string[]]$SkuIds = @(),
         [string]$Department,
+        [string]$Office,
         [string]$UsageLocation = 'GB',
         [string]$Id = ([guid]::NewGuid().ToString())
     )
@@ -66,6 +67,7 @@ function New-GraphUser {
         employeeId                    = $EmployeeId
         employeeType                  = $null
         department                    = $Department
+        officeLocation                = $Office
         mail                          = $Upn
         mailNickname                  = ($Upn -split '@')[0]
         proxyAddresses                = @("SMTP:$Upn")
@@ -306,8 +308,8 @@ function New-TestState {
 
 function New-StudentAccount {
     <# A fake Graph user already linked to a student. #>
-    param([string]$Upn, [string]$Given, [string]$Surname, [string]$Code, [string]$Department = 'Year 3', [bool]$Enabled = $true)
-    return New-GraphUser -Upn $Upn -Given $Given -Surname $Surname -EmployeeId $Code -Department $Department -Enabled $Enabled `
+    param([string]$Upn, [string]$Given, [string]$Surname, [string]$Code, [string]$Department = 'Year 3', [bool]$Enabled = $true, [string]$Office = $Code)
+    return New-GraphUser -Upn $Upn -Given $Given -Surname $Surname -EmployeeId $Code -Department $Department -Enabled $Enabled -Office $Office `
         -Attributes @{ CustomAttribute1 = 'Student'; CustomAttribute4 = 'Student' } -SkuIds @('sku-student')
 }
 

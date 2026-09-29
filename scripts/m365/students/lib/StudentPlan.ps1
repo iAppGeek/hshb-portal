@@ -10,7 +10,7 @@
 Set-StrictMode -Version Latest
 
 $script:UserWritableFields = @(
-    'givenName', 'surname', 'displayName', 'employeeId', 'usageLocation'
+    'givenName', 'surname', 'displayName', 'employeeId', 'officeLocation', 'usageLocation'
 ) + @(1..15 | ForEach-Object { "CustomAttribute$_" })
 
 $script:SpecialLetters = @{ 'ß' = 'ss'; 'æ' = 'ae'; 'œ' = 'oe'; 'ø' = 'o'; 'ł' = 'l'; 'đ' = 'd'; 'ð' = 'd'; 'þ' = 'th'; 'ı' = 'i' }
@@ -130,6 +130,7 @@ function Get-UserFieldValue {
         '^surname$' { return $User.Surname }
         '^displayName$' { return $User.DisplayName }
         '^employeeId$' { return $User.EmployeeId }
+        '^officeLocation$' { return $User.Office }
         '^usageLocation$' { return $User.UsageLocation }
         '^CustomAttribute\d+$' { return $User.Attributes[$Field] }
     }
@@ -180,6 +181,7 @@ function New-StudentPlan {
     $usersById = @{}
     $byEmployeeId = @{}
     $byName = @{}
+    $byOffice = @{}
     foreach ($u in @($State.Users)) {
         $usersById[$u.Id] = $u
         $key = Get-CodeKey $u.EmployeeId
@@ -187,8 +189,13 @@ function New-StudentPlan {
             if (-not $byEmployeeId.ContainsKey($key)) { $byEmployeeId[$key] = [System.Collections.Generic.List[object]]::new() }
             $byEmployeeId[$key].Add($u)
         }
-        # Name-match candidates: accounts nothing has claimed yet.
+        # Office- and name-match candidates: accounts nothing has claimed yet.
         if (-not $key -and -not $u.Attributes.CustomAttribute1) {
+            $officeKey = Get-CodeKey $u.Office
+            if ($officeKey) {
+                if (-not $byOffice.ContainsKey($officeKey)) { $byOffice[$officeKey] = [System.Collections.Generic.List[object]]::new() }
+                $byOffice[$officeKey].Add($u)
+            }
             $nameKeys = @(
                 $(if ($u.GivenName -and $u.Surname) { (ConvertTo-UpnPart $u.GivenName) + '|' + (ConvertTo-UpnPart $u.Surname) })
                 $(if ($u.DisplayName) { ConvertTo-UpnPart $u.DisplayName })
@@ -260,6 +267,20 @@ function New-StudentPlan {
                 [pscustomobject]@{ Student = $s; Kind = 'SYNCED'; User = $u; Detail = 'account is synced from on-premises AD; change it there' }
             }
             else { [pscustomobject]@{ Student = $s; Kind = 'MATCHED'; User = $u; Detail = '' } }
+            continue
+        }
+        # Next: an unlinked account whose Office holds the student code.
+        $byCode = @(if ($byOffice.ContainsKey($key)) { $byOffice[$key] })
+        if ($byCode.Count -gt 1) {
+            foreach ($c in $byCode) { [void]$pendingIds.Add($c.Id) }
+            [pscustomobject]@{ Student = $s; Kind = 'AMBIGUOUS'; User = $null; Detail = "$($byCode.Count) unlinked accounts have Office = $($s.Code): $((@($byCode | ForEach-Object Upn) | Sort-Object) -join ', ')" }
+            continue
+        }
+        if ($byCode.Count -eq 1) {
+            if ($byCode[0].Synced) {
+                [pscustomobject]@{ Student = $s; Kind = 'SYNCED'; User = $byCode[0]; Detail = 'matching account is synced from on-premises AD; change it there' }
+            }
+            else { [pscustomobject]@{ Student = $s; Kind = 'LINK'; User = $byCode[0]; Detail = 'matched by Office' } }
             continue
         }
         $candidates = [System.Collections.Generic.List[object]]::new()
@@ -345,7 +366,7 @@ function New-StudentPlan {
             { $_ -in 'MATCHED', 'LINK' } {
                 $wanted = [ordered]@{
                     givenName = $s.FirstName; surname = $s.LastName; displayName = $s.DisplayName
-                    employeeId = $s.Code; CustomAttribute1 = $tag
+                    employeeId = $s.Code; officeLocation = $s.Code; CustomAttribute1 = $tag
                 }
                 $wanted[$memberAttribute] = $tag
                 if (-not $u.UsageLocation) { $wanted['usageLocation'] = [string]$Config.UsageLocation }
@@ -354,7 +375,7 @@ function New-StudentPlan {
                     $from = Get-UserFieldValue -User $u -Field $field
                     if ($from -cne $wanted[$field]) { $changes[$field] = @{ From = $from; To = $wanted[$field] } }
                 }
-                $item = [pscustomobject]@{ UserId = $u.Id; Upn = $u.Upn; Code = $s.Code; DisplayName = $s.DisplayName; Changes = $changes }
+                $item = [pscustomobject]@{ UserId = $u.Id; Upn = $u.Upn; Code = $s.Code; DisplayName = $s.DisplayName; Changes = $changes; MatchedBy = $r.Detail }
                 if ($r.Kind -eq 'LINK') { $links.Add($item) }
                 elseif ($changes.Count -gt 0) { $updates.Add($item); $status = 'UPDATE' }
                 else { $status = 'OK' }
@@ -413,6 +434,7 @@ function New-StudentPlan {
                 AccountFirstName = if ($u) { $u.GivenName } else { '' }
                 AccountSurname   = if ($u) { $u.Surname } else { '' }
                 AccountEnabled   = if ($u -and $u.Id) { $u.Enabled } else { '' }
+                AccountOffice    = if ($u -and $u.Id) { $u.Office } else { '' }
                 ExpectedTeams    = $expected -join '; '
                 ActualTeams      = $actual
                 Issues           = $notes -join '; '
@@ -458,7 +480,7 @@ function New-StudentPlan {
     if (-not $onlyKey) {
         foreach ($s in @($Desired.NoCode)) {
             & $addIssue 'NO CODE' '' $s.DisplayName '' 'Year 3+ student has no student code: add one in the portal'
-            $rows.Add([pscustomobject][ordered]@{ Status = 'NO CODE'; StudentCode = ''; DbFirstName = $s.FirstName; DbLastName = $s.LastName; YearGroups = ''; Upn = ''; AccountFirstName = ''; AccountSurname = ''; AccountEnabled = ''; ExpectedTeams = ''; ActualTeams = ''; Issues = 'add a student code in the portal' })
+            $rows.Add([pscustomobject][ordered]@{ Status = 'NO CODE'; StudentCode = ''; DbFirstName = $s.FirstName; DbLastName = $s.LastName; YearGroups = ''; Upn = ''; AccountFirstName = ''; AccountSurname = ''; AccountEnabled = ''; AccountOffice = ''; ExpectedTeams = ''; ActualTeams = ''; Issues = 'add a student code in the portal' })
         }
         foreach ($s in @($Desired.NoClass)) {
             & $addIssue 'NO CLASS' $s.Code $s.DisplayName '' 'active student with no current class'
@@ -476,7 +498,7 @@ function New-StudentPlan {
             $blockable = [bool]$Account.Enabled
             $rows.Add([pscustomobject][ordered]@{
                     Status = $Type; StudentCode = $Account.EmployeeId; DbFirstName = ''; DbLastName = ''; YearGroups = ''; Upn = $Account.Upn
-                    AccountFirstName = $Account.GivenName; AccountSurname = $Account.Surname; AccountEnabled = $Account.Enabled; ExpectedTeams = ''
+                    AccountFirstName = $Account.GivenName; AccountSurname = $Account.Surname; AccountEnabled = $Account.Enabled; AccountOffice = $Account.Office; ExpectedTeams = ''
                     ActualTeams = if ($groupNamesByUser.ContainsKey($Account.Id)) { (@($groupNamesByUser[$Account.Id]) | Sort-Object) -join '; ' } else { '' }
                     Issues = "$Detail ($(if ($blockable) { 'sign-in can be blocked after review' } else { 'sign-in already blocked' }))"
                 })
@@ -522,10 +544,12 @@ function New-StudentPlan {
             if (-not $looksLikeStudent) { continue }
             $key = Get-CodeKey $u.EmployeeId
             if ($key -and $Desired.Students.Contains($key)) { continue } # reported above (duplicate / conflict)
+            if (-not $key) { $key = Get-CodeKey $u.Office }
             $kinds = @(Get-PersonNameKeys -FirstName $u.GivenName -LastName $u.Surname -DisplayName $u.DisplayName |
                     Where-Object { $people.ContainsKey($_) } | ForEach-Object { $people[$_] } | Select-Object -Unique)
-            $type, $detail = if ($key -and $Desired.InactiveCodes.Contains($key)) { 'UNLINKED: INACTIVE STUDENT', 'Employee ID is a student who is no longer active' }
-            elseif ($key -and $Desired.NotEligibleCodes.Contains($key)) { 'UNLINKED: BELOW YEAR 3', 'Employee ID is a student below Year 3' }
+            $type, $detail = if ($key -and $Desired.InactiveCodes.Contains($key)) { 'UNLINKED: INACTIVE STUDENT', "student code $key is a student who is no longer active" }
+            elseif ($key -and $Desired.NotEligibleCodes.Contains($key)) { 'UNLINKED: BELOW YEAR 3', "student code $key is a student below Year 3" }
+            elseif ($key -and $Desired.Students.Contains($key)) { 'UNLINKED: DUPLICATE', "Office has the code of Year 3+ student $key, who is linked to another account" }
             elseif ($kinds -contains 'YEAR3') { 'UNLINKED: DUPLICATE', 'has the name of a Year 3+ student who is linked to (or will get) another account' }
             elseif ($kinds -contains 'BELOW') { 'UNLINKED: BELOW YEAR 3', 'name matches an active student below Year 3' }
             elseif ($kinds -contains 'INACTIVE') { 'UNLINKED: INACTIVE STUDENT', 'name matches a student who is no longer active' }

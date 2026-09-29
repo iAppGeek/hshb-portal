@@ -60,7 +60,7 @@ Describe 'Usernames' {
 
 Describe 'Matching students to accounts' {
     It 'matches on Employee ID = student code, ignoring case, and plans nothing when in sync' {
-        $account = New-StudentAccount 'alice.smith@school.example' 'Alice' 'Smith' 's001'
+        $account = New-StudentAccount 'alice.smith@school.example' 'Alice' 'Smith' 's001' -Office 'S001'
         $account.employeeId = 'S001'
         $groups = New-CurrentTeams -Members @{ Year = @($account.id); Y3 = @($account.id) }
         $plan = Get-Plan -Students @(New-TestStudent 'S001' 'Alice' 'Smith') -Users @($account) -Groups $groups
@@ -81,6 +81,35 @@ Describe 'Matching students to accounts' {
         Get-IssueTypes $plan | Should -Contain 'NAME/UPN MISMATCH'
     }
 
+    It 'LINKs an unlinked account whose Office holds the student code, before trying names' {
+        $byOffice = New-GraphUser -Upn 'asmith@school.example' -Given 'Ally' -Surname 'Smyth' -Office 's001'
+        $byName = New-GraphUser -Upn 'alice.smith@school.example' -Given 'Alice' -Surname 'Smith'
+        $plan = Get-Plan -Students @(New-TestStudent 'S001' 'Alice' 'Smith') -Users @($byOffice, $byName)
+        $plan.Links.Count | Should -Be 1
+        $plan.Links[0].Upn | Should -Be 'asmith@school.example'
+        $plan.Links[0].MatchedBy | Should -Be 'matched by Office'
+        $plan.Links[0].Changes['officeLocation'].To | Should -Be 'S001'
+        $plan.Links[0].Changes['givenName'].To | Should -Be 'Alice'
+    }
+
+    It 'reports AMBIGUOUS when several unlinked accounts have the code in Office' {
+        $plan = Get-Plan -Students @(New-TestStudent 'S001' 'Alice' 'Smith') -Users @(
+            (New-GraphUser -Upn 'a1@school.example' -Given 'A' -Surname 'One' -Office 'S001'),
+            (New-GraphUser -Upn 'a2@school.example' -Given 'A' -Surname 'Two' -Office 'S001'))
+        $plan.Links + $plan.Creates | Should -BeNullOrEmpty
+        (Get-IssueTypes $plan) | Should -Be @('AMBIGUOUS')
+        $plan.Issues[0].Detail | Should -Match 'Office = S001'
+    }
+
+    It 'keeps Office equal to the student code on linked accounts' {
+        $account = New-StudentAccount 'alice.smith@school.example' 'Alice' 'Smith' 'S001' -Office 'Room 4'
+        $plan = Get-Plan -Students @(New-TestStudent 'S001' 'Alice' 'Smith') -Users @($account)
+        @($plan.Updates[0].Changes.Keys) | Should -Be @('officeLocation')
+        $plan.Updates[0].Changes['officeLocation'].From | Should -Be 'Room 4'
+        $plan.Updates[0].Changes['officeLocation'].To | Should -Be 'S001'
+        $plan.Rows[0].AccountOffice | Should -Be 'Room 4'
+    }
+
     It 'LINKs exactly one unlinked account with the same name and stamps the link fields' {
         $account = New-GraphUser -Upn 'asmith@school.example' -Given 'Alice' -Surname 'Smith' -UsageLocation ''
         $plan = Get-Plan -Students @(New-TestStudent 'S001' 'Alice' 'Smith') -Users @($account)
@@ -88,6 +117,7 @@ Describe 'Matching students to accounts' {
         $plan.Links.Count | Should -Be 1
         $changes = $plan.Links[0].Changes
         $changes['employeeId'].To | Should -Be 'S001'
+        $changes['officeLocation'].To | Should -Be 'S001'
         $changes['CustomAttribute1'].To | Should -Be 'Student'
         $changes['CustomAttribute4'].To | Should -Be 'Student'
         $changes['usageLocation'].To | Should -Be 'GB'
@@ -347,7 +377,9 @@ Describe 'Unlinked student accounts' {
             (New-OldAccount 'beayoung@school.example' 'Bea' 'Young'),
             (New-OldAccount 'leever@school.example' 'Lee' 'Ver'),
             (New-OldAccount 'testkid@school.example' 'Test' 'Kid'),
-            (New-OldAccount 'coded@school.example' 'Some' 'One' -EmployeeId 's900')
+            (New-OldAccount 'coded@school.example' 'Some' 'One' -EmployeeId 's900'),
+            (New-GraphUser -Upn 'office900@school.example' -Given 'X' -Surname 'Y' -SkuIds @('sku-student') -Office 'S900'),
+            (New-GraphUser -Upn 'office002@school.example' -Given 'X' -Surname 'Z' -SkuIds @('sku-student') -Office 's002')
         )
         $plan = Get-Plan -Students $students -Users $users -InactiveStudents $inactive -InactiveCodes @('S900')
         $byUpn = @{}; foreach ($i in $plan.Issues) { if ($i.Upn) { $byUpn[$i.Upn] = $i.Type } }
@@ -356,6 +388,8 @@ Describe 'Unlinked student accounts' {
         $byUpn['leever@school.example'] | Should -Be 'UNLINKED: INACTIVE STUDENT'
         $byUpn['testkid@school.example'] | Should -Be 'UNLINKED: NOT IN DATABASE'
         $byUpn['coded@school.example'] | Should -Be 'UNLINKED: INACTIVE STUDENT'
+        $byUpn['office900@school.example'] | Should -Be 'UNLINKED: INACTIVE STUDENT'
+        $byUpn['office002@school.example'] | Should -Be 'UNLINKED: BELOW YEAR 3'
         $byUpn.ContainsKey('alice.smith@school.example') | Should -BeFalse
         $plan.Updates + $plan.Links + $plan.Creates | Should -BeNullOrEmpty
     }

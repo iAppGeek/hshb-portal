@@ -122,7 +122,7 @@ function Write-PlanDetails {
     }
     foreach ($i in $Plan.Links) {
         Write-SyncLog "PLAN LINK    [$($i.Code)] $(Protect-Email $i.Upn) fields: $(@($i.Changes.Keys) -join ', ')" `
-            -ConsoleMessage "  = LINK     $($i.DisplayName) [$($i.Code)] <$(Format-Upn $i.Upn)> (existing account, matched by name): $(Format-Changes $i.Changes)"
+            -ConsoleMessage "  = LINK     $($i.DisplayName) [$($i.Code)] <$(Format-Upn $i.Upn)> (existing account, $(if ($i.MatchedBy) { $i.MatchedBy } else { 'matched by name' })): $(Format-Changes $i.Changes)"
     }
     foreach ($i in $Plan.Updates) {
         Write-SyncLog "PLAN UPDATE  [$($i.Code)] $(Protect-Email $i.Upn) fields: $(@($i.Changes.Keys) -join ', ')" `

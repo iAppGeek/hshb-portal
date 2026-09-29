@@ -31,6 +31,7 @@ function Get-InventoryRows {
             EmployeeId   = $u.EmployeeId
             EmployeeType = $u.EmployeeType
             Department   = $u.Department
+            Office       = $u.Office
             Synced       = $u.Synced
             Licences     = (@($u.SkuIds | ForEach-Object { if ($skuNames.ContainsKey($_)) { $skuNames[$_] } else { $_ } }) | Sort-Object) -join '; '
             Groups       = if ($groupsByUser.ContainsKey($u.Id)) { (@($groupsByUser[$u.Id]) | Sort-Object) -join '; ' } else { '' }
@@ -69,6 +70,7 @@ function Get-InventoryRows {
     $summary.Add("  on @${domain}:              $(@($State.Users | Where-Object { $_.Upn.EndsWith("@$domain") }).Count)")
     $summary.Add("  username like first.last:   $(@($State.Users | Where-Object { $_.Upn -match $firstLast }).Count)")
     $summary.Add("  with an Employee ID:        $(@($State.Users | Where-Object EmployeeId).Count)")
+    $summary.Add("  with Office set:            $(@($State.Users | Where-Object Office).Count)")
     $summary.Add("  synced from on-premises AD: $(@($State.Users | Where-Object Synced).Count)")
     $summary.Add("  without a licence:          $(@($State.Users | Where-Object { @($_.SkuIds).Count -eq 0 }).Count)")
     foreach ($group in ($State.Users | Where-Object { $_.Attributes.CustomAttribute1 } |

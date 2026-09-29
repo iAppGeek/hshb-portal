@@ -86,6 +86,7 @@ Describe 'Invoke-AccountPlan' {
         $post.userPrincipalName | Should -Be 'zoe.obrien@school.example'
         $post.mailNickname | Should -Be 'zoe.obrien'
         $post.employeeId | Should -Be 'S001'
+        $post.officeLocation | Should -Be 'S001'
         $post.Keys | Should -Not -Contain 'department'
         $post.usageLocation | Should -Be 'GB'
         $post.accountEnabled | Should -BeTrue

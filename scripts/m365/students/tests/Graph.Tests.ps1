@@ -10,7 +10,7 @@ BeforeAll {
 
 Describe 'Reading the tenant' {
     BeforeEach {
-        $script:alice = New-GraphUser -Upn 'alice.smith@school.example' -Given 'Alice' -Surname 'Smith' -EmployeeId 'S001' `
+        $script:alice = New-GraphUser -Upn 'alice.smith@school.example' -Given 'Alice' -Surname 'Smith' -EmployeeId 'S001' -Office 'S001' `
             -Attributes @{ CustomAttribute1 = 'Student'; CustomAttribute4 = 'Student' } -SkuIds @('sku-student')
         $script:bob = New-GraphUser -Upn 'bob@school.example' -Given 'Bob' -Surname 'Jones' -Attributes @{ CustomAttribute1 = 'Teacher' }
         $script:carol = New-GraphUser -Upn 'carol.white@school.example' -Given 'Carol' -Surname 'White' -Enabled $false
@@ -25,6 +25,7 @@ Describe 'Reading the tenant' {
         $users.Count | Should -Be 3
         $a = $users | Where-Object Upn -eq 'alice.smith@school.example'
         $a.EmployeeId | Should -Be 'S001'
+        $a.Office | Should -Be 'S001'
         $a.Attributes.CustomAttribute1 | Should -Be 'Student'
         $a.Attributes.CustomAttribute4 | Should -Be 'Student'
         $a.Attributes.CustomAttribute2 | Should -Be ''
