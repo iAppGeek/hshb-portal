@@ -29,11 +29,16 @@ describe('SecretField', () => {
     expect(input.type).toBe('password')
   })
 
-  it('renders an empty input when there is no value', () => {
+  it('starts visible when there is no saved value, so it can be checked while typed', () => {
     render(<SecretField label="Account number" name="n" defaultValue={null} />)
-    expect(
-      (screen.getByLabelText('Account number') as HTMLInputElement).value,
-    ).toBe('')
+    const input = screen.getByLabelText('Account number') as HTMLInputElement
+    expect(input.value).toBe('')
+    expect(input.type).toBe('text')
+
+    const hide = screen.getByRole('button', { name: 'Hide account number' })
+    expect(hide.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(hide)
+    expect(input.type).toBe('password')
   })
 
   it('shows a field error linked to the input', () => {

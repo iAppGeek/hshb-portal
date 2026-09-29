@@ -30,7 +30,11 @@ describe('StaffPayrollForm', () => {
     renderForm()
 
     expect(input('Payment funding').value).toBe('')
-    expect(input('Sort code').type).toBe('password')
+    // Bank details are visible while first entered
+    expect(input('Sort code').type).toBe('text')
+    expect(input('Account number').type).toBe('text')
+    expect(input('National Insurance number').value).toBe('')
+    expect(input('Address line 1').value).toBe('')
     expect(input('ID verified').checked).toBe(false)
     expect(input('First aid expiry date').name).toBe('first_aid_expiry_date')
     expect(input('Fire warden certified').name).toBe('fire_warden_certified')
@@ -42,6 +46,10 @@ describe('StaffPayrollForm', () => {
       payroll: {
         payment_funding: 'kea',
         bank_sort_code: '123456',
+        national_insurance_number: 'AB123456C',
+        address_line_1: '1 High Street',
+        city: 'London',
+        postcode: 'N1 1AA',
         id_verified: true,
         id_type: 'passport',
         dbs_verified: true,
@@ -57,6 +65,10 @@ describe('StaffPayrollForm', () => {
 
     expect(input('Payment funding').value).toBe('kea')
     expect(input('Sort code').value).toBe('123456')
+    expect(input('Sort code').type).toBe('password')
+    expect(input('National Insurance number').value).toBe('AB123456C')
+    expect(input('Address line 1').value).toBe('1 High Street')
+    expect(input('Postcode').value).toBe('N1 1AA')
     expect(input('ID verified').checked).toBe(true)
     expect(input('Barred list checked').checked).toBe(true)
     expect(screen.getByText('Verified by Ann Admin')).toBeTruthy()
@@ -95,6 +107,44 @@ describe('StaffPayrollForm', () => {
     expect(input('Fire warden verified on').required).toBe(true)
     expect(input('Fire warden expiry date').required).toBe(false)
     expect(input('First aid certificate reference').required).toBe(false)
+  })
+
+  it('makes line 1, city and postcode required once any address part is entered', () => {
+    renderForm()
+
+    const required = [input('Address line 1'), input('City'), input('Postcode')]
+    expect(required.every((el) => !el.required)).toBe(true)
+    fireEvent.change(input('Address line 2'), { target: { value: 'Flat 2' } })
+    expect(required.every((el) => el.required)).toBe(true)
+    expect(input('Address line 2').required).toBe(false)
+    fireEvent.change(input('Address line 2'), { target: { value: '' } })
+    expect(required.every((el) => !el.required)).toBe(true)
+  })
+
+  it('submits the address and National Insurance number', async () => {
+    const action = vi.fn().mockResolvedValue({ error: 'Nope' })
+    renderForm({ action })
+
+    fireEvent.change(input('Payment funding'), {
+      target: { value: 'school' },
+    })
+    fireEvent.change(input('Address line 1'), {
+      target: { value: '1 High Street' },
+    })
+    fireEvent.change(input('City'), { target: { value: 'London' } })
+    fireEvent.change(input('Postcode'), { target: { value: 'N1 1AA' } })
+    fireEvent.change(input('National Insurance number'), {
+      target: { value: 'AB 12 34 56 C' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save payroll record' }))
+
+    await waitFor(() => expect(action).toHaveBeenCalled())
+    const fd = action.mock.calls[0][0] as FormData
+    expect(fd.get('address_line_1')).toBe('1 High Street')
+    expect(fd.get('address_line_2')).toBe('')
+    expect(fd.get('city')).toBe('London')
+    expect(fd.get('postcode')).toBe('N1 1AA')
+    expect(fd.get('national_insurance_number')).toBe('AB 12 34 56 C')
   })
 
   it('starts with details required for checks already on the record', () => {

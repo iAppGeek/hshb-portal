@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest'
 
-import { BANK_DETAIL_FIELDS, redactChanges } from './audit-redaction'
+import {
+  BANK_DETAIL_FIELDS,
+  PAYROLL_REDACTED_FIELDS,
+  redactChanges,
+} from './audit-redaction'
 
 describe('redactChanges', () => {
   const next = {
@@ -43,5 +47,18 @@ describe('redactChanges', () => {
     const json = JSON.stringify(redactChanges(next, null, BANK_DETAIL_FIELDS))
     expect(json).not.toContain('12345678')
     expect(json).not.toContain('123456')
+  })
+
+  it('redacts the National Insurance number with the payroll fields', () => {
+    const json = JSON.stringify(
+      redactChanges(
+        { ...next, national_insurance_number: 'AB123456C' },
+        null,
+        PAYROLL_REDACTED_FIELDS,
+      ),
+    )
+    expect(json).toContain('"national_insurance_number":"[changed]"')
+    expect(json).not.toContain('AB123456C')
+    expect(json).not.toContain('12345678')
   })
 })

@@ -797,9 +797,12 @@ export type Database = {
       }
       staff_payroll: {
         Row: {
+          address_line_1: string | null
+          address_line_2: string | null
           bank_account_name: string | null
           bank_account_number: string | null
           bank_sort_code: string | null
+          city: string | null
           created_at: string
           dbs_barred_list_checked: boolean
           dbs_issue_date: string | null
@@ -825,17 +828,22 @@ export type Database = {
           id_verified: boolean
           id_verified_at: string | null
           id_verified_by: string | null
+          national_insurance_number: string | null
           payment_funding: string
           payroll_ref: string | null
+          postcode: string | null
           right_to_work_checked: boolean
           right_to_work_checked_at: string | null
           staff_id: string
           updated_at: string
         }
         Insert: {
+          address_line_1?: string | null
+          address_line_2?: string | null
           bank_account_name?: string | null
           bank_account_number?: string | null
           bank_sort_code?: string | null
+          city?: string | null
           created_at?: string
           dbs_barred_list_checked?: boolean
           dbs_issue_date?: string | null
@@ -861,17 +869,22 @@ export type Database = {
           id_verified?: boolean
           id_verified_at?: string | null
           id_verified_by?: string | null
+          national_insurance_number?: string | null
           payment_funding: string
           payroll_ref?: string | null
+          postcode?: string | null
           right_to_work_checked?: boolean
           right_to_work_checked_at?: string | null
           staff_id: string
           updated_at?: string
         }
         Update: {
+          address_line_1?: string | null
+          address_line_2?: string | null
           bank_account_name?: string | null
           bank_account_number?: string | null
           bank_sort_code?: string | null
+          city?: string | null
           created_at?: string
           dbs_barred_list_checked?: boolean
           dbs_issue_date?: string | null
@@ -897,8 +910,10 @@ export type Database = {
           id_verified?: boolean
           id_verified_at?: string | null
           id_verified_by?: string | null
+          national_insurance_number?: string | null
           payment_funding?: string
           payroll_ref?: string | null
+          postcode?: string | null
           right_to_work_checked?: boolean
           right_to_work_checked_at?: string | null
           staff_id?: string

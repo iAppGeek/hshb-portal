@@ -474,6 +474,22 @@ export const optionalAccountNumber = digitsOrNull.pipe(
     .nullable(),
 )
 
+// Stored uppercase without spaces, e.g. AB123456C. The prefix letters
+// exclude those HMRC never issues (D, F, I, Q, U, V; O second).
+export const optionalNationalInsuranceNumber = z
+  .string()
+  .transform((v) => v.replace(/[\s-]/g, '').toUpperCase() || null)
+  .nullable()
+  .pipe(
+    z
+      .string()
+      .regex(
+        /^[A-CEGHJ-PR-TW-Z][A-CEGHJ-NPR-TW-Z]\d{6}[A-D]$/,
+        'Enter a National Insurance number like AB 12 34 56 C',
+      )
+      .nullable(),
+  )
+
 const MONEY_PATTERN = /^\d{1,8}(\.\d{1,2})?$/
 const MONEY_MESSAGE = 'Enter an amount like 100 or 99.50'
 
@@ -538,6 +554,11 @@ export const staffPayrollSchema = z
     bank_sort_code: optionalSortCode,
     bank_account_number: optionalAccountNumber,
     payroll_ref: optionalShortText,
+    address_line_1: optionalAddressText,
+    address_line_2: optionalAddressText,
+    city: optionalAddressText,
+    postcode: optionalAddressText,
+    national_insurance_number: optionalNationalInsuranceNumber,
     id_verified: checkbox,
     id_type: optionalString.pipe(idType.nullable()),
     id_verified_at: optionalIsoDate,
@@ -578,6 +599,18 @@ export const staffPayrollSchema = z
         'bank_account_number',
         'Enter the account number',
       ],
+    ])
+    const hasAnyAddress = Boolean(
+      d.address_line_1 || d.address_line_2 || d.city || d.postcode,
+    )
+    requireDetails(ctx, hasAnyAddress, [
+      [
+        d.address_line_1,
+        'address_line_1',
+        'Enter the first line of the address',
+      ],
+      [d.city, 'city', 'Enter the city'],
+      [d.postcode, 'postcode', 'Enter the postcode'],
     ])
     requireDetails(ctx, d.id_verified, [
       [d.id_type, 'id_type', 'Select the ID type that was verified'],

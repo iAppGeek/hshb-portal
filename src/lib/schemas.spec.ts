@@ -1598,6 +1598,11 @@ describe('staffPayrollSchema', () => {
     bank_sort_code: '',
     bank_account_number: '',
     payroll_ref: '',
+    address_line_1: '',
+    address_line_2: '',
+    city: '',
+    postcode: '',
+    national_insurance_number: '',
     id_type: '',
     id_verified_at: '',
     right_to_work_checked_at: '',
@@ -1641,6 +1646,47 @@ describe('staffPayrollSchema', () => {
       'Enter the account number',
     ])
   })
+
+  it('requires line 1, city and postcode once any address field is entered', () => {
+    expect(messages({ ...blank, address_line_2: 'Flat 2' })).toEqual([
+      'Enter the first line of the address',
+      'Enter the city',
+      'Enter the postcode',
+    ])
+  })
+
+  it('accepts a complete address and trims it', () => {
+    const result = staffPayrollSchema.parse({
+      ...blank,
+      address_line_1: ' 1 High Street ',
+      city: 'London',
+      postcode: 'N1 1AA',
+    })
+    expect(result).toMatchObject({
+      address_line_1: '1 High Street',
+      address_line_2: null,
+      city: 'London',
+      postcode: 'N1 1AA',
+    })
+  })
+
+  it('normalises a National Insurance number to uppercase without spaces', () => {
+    const result = staffPayrollSchema.parse({
+      ...blank,
+      national_insurance_number: 'ab 12 34 56 c',
+    })
+    expect(result.national_insurance_number).toBe('AB123456C')
+    expect(staffPayrollSchema.parse(blank).national_insurance_number).toBeNull()
+  })
+
+  it.each(['AB12345C', 'AB123456E', 'DA123456A', 'AO123456A', '12345678A'])(
+    'rejects the invalid National Insurance number %s',
+    (value) => {
+      expect(messages({ ...blank, national_insurance_number: value })).toEqual([
+        'Enter a National Insurance number like AB 12 34 56 C',
+      ])
+    },
+  )
 
   it('requires ID details when ID is verified', () => {
     expect(messages({ ...blank, id_verified: 'on' })).toEqual([

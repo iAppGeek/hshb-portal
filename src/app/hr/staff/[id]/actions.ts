@@ -2,7 +2,7 @@
 
 import { getStaffPayrollByStaffId, upsertStaffPayroll } from '@/db'
 import { runAction, type ActionResult } from '@/lib/action'
-import { BANK_DETAIL_FIELDS, redactChanges } from '@/lib/audit-redaction'
+import { PAYROLL_REDACTED_FIELDS, redactChanges } from '@/lib/audit-redaction'
 import { canManageHr } from '@/lib/permissions'
 import { staffPayrollSchema } from '@/lib/schemas'
 
@@ -41,7 +41,7 @@ export async function saveStaffPayrollAction(
       // redactChanges runs against `existing` rather than against null.
       details: ({ existing, record }) => ({
         staff_id: staffId,
-        ...redactChanges(record, existing, BANK_DETAIL_FIELDS),
+        ...redactChanges(record, existing, PAYROLL_REDACTED_FIELDS),
       }),
     },
     redirectTo: '/hr',
