@@ -32,35 +32,49 @@ function ConvertTo-TeamChangeRows {
     return $rows
 }
 
-function Read-TeamChangeFile {
-    <# Reads a reviewed team-changes CSV. Refuses a file that is malformed or too old. #>
+function Read-ReviewFile {
+    <#
+      Reads a reviewed CSV written by sync-students.ps1 (Team changes or
+      sign-in blocks). Refuses a file that is malformed or too old.
+    #>
     [OutputType([object[]])]
     param(
         [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string[]]$RequiredColumns,
         [double]$MaxAgeHours = 0,
         [AllowNull()][object]$Now
     )
 
-    if (-not (Test-Path -LiteralPath $Path)) { throw "Team change file not found: $Path" }
+    if (-not (Test-Path -LiteralPath $Path)) { throw "Review file not found: $Path" }
     $rows = @(Import-Csv -LiteralPath $Path)
     if ($rows.Count -eq 0) { return , @() }
     $columns = @($rows[0].PSObject.Properties.Name)
-    foreach ($column in @('ChangeId', 'Action', 'TeamNickname', 'StudentCode', 'GeneratedAt', 'Approved')) {
-        if ($columns -notcontains $column) { throw "Team change file is missing the '$column' column. Use a file written by sync-students.ps1." }
+    foreach ($column in @($RequiredColumns) + @('GeneratedAt', 'Approved')) {
+        if ($columns -notcontains $column) { throw "Review file is missing the '$column' column. Use a file written by sync-students.ps1." }
     }
     if ($MaxAgeHours -gt 0) {
         $current = if ($null -ne $Now) { [datetimeoffset]$Now } else { [datetimeoffset]::Now }
         foreach ($row in $rows) {
             $generated = [datetimeoffset]::MinValue
             if (-not [datetimeoffset]::TryParse($row.GeneratedAt, [cultureinfo]::InvariantCulture, [Globalization.DateTimeStyles]::None, [ref]$generated)) {
-                throw 'Team change file has a row with an invalid GeneratedAt. Use a file written by sync-students.ps1.'
+                throw 'Review file has a row with an invalid GeneratedAt. Use a file written by sync-students.ps1.'
             }
             if (($current - $generated).TotalHours -gt $MaxAgeHours) {
-                throw ("Team change file is more than {0} hours old. Run a new dry run and review its team-changes file." -f $MaxAgeHours)
+                throw ("Review file is more than {0} hours old. Run a new dry run and review its file." -f $MaxAgeHours)
             }
         }
     }
     return , $rows
+}
+
+function Read-TeamChangeFile {
+    [OutputType([object[]])]
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [double]$MaxAgeHours = 0,
+        [AllowNull()][object]$Now
+    )
+    return Read-ReviewFile -Path $Path -RequiredColumns @('ChangeId', 'Action', 'TeamNickname', 'StudentCode') -MaxAgeHours $MaxAgeHours -Now $Now
 }
 
 function Select-ApprovedTeamChanges {

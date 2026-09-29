@@ -217,7 +217,8 @@ It runs `students.sql` (read-only) and saves `data/students.json`. It takes:
 - active students with id, student code, first and last name, and their
   current classes (enrolments where `start_date <= today < end_date`, or no
   end date, the same rule as the portal)
-- the codes of inactive students (to recognise leavers' accounts)
+- the codes and names of inactive students (to recognise leavers' accounts,
+  and to explain unlinked ones)
 
 The screen shows counts only: students, how many have no code or no class,
 students per year group. It stops without saving if there isn't exactly one
@@ -285,17 +286,18 @@ never linked to a student.
 
 ### Options
 
-| `sync-students.ps1`        | Effect                                                   |
-| -------------------------- | -------------------------------------------------------- |
-| _(none)_                   | Dry run                                                  |
-| `-Apply`                   | Make the account changes (never Teams)                   |
-| `-ApplyTeamChanges <file>` | Apply the approved rows of a reviewed Team change file   |
-| `-Force`                   | Allow Team removals above `MaxTeamRemovalPercent`        |
-| `-KeepData`                | Keep `data/students.json` after `-ApplyTeamChanges`      |
-| `-Only <code>`             | Plan for one student only (useful for a first test)      |
-| `-Device`                  | Sign in with a device code                               |
-| `-ShowEmails`              | Show full usernames on screen (never written to the log) |
-| `-DataPath <file>`         | Use a different data file                                |
+| `sync-students.ps1`         | Effect                                                               |
+| --------------------------- | -------------------------------------------------------------------- |
+| _(none)_                    | Dry run                                                              |
+| `-Apply`                    | Make the account changes (never Teams)                               |
+| `-ApplyTeamChanges <file>`  | Apply the approved rows of a reviewed Team change file               |
+| `-ApplySignInBlocks <file>` | Block sign-in for the approved rows of a reviewed sign-in block file |
+| `-Force`                    | Allow Team removals above `MaxTeamRemovalPercent`                    |
+| `-KeepData`                 | Keep `data/students.json` after `-ApplyTeamChanges`                  |
+| `-Only <code>`              | Plan for one student only (useful for a first test)                  |
+| `-Device`                   | Sign in with a device code                                           |
+| `-ShowEmails`               | Show full usernames on screen (never written to the log)             |
+| `-DataPath <file>`          | Use a different data file                                            |
 
 Exit codes: `0` success, `1` fatal error or refused (nothing changed), `2`
 Team removals exceed `MaxTeamRemovalPercent` (check the data), `3` some
@@ -304,13 +306,14 @@ changes failed, or some students need fixing (`NO CODE`,
 
 ## Reading the reports
 
-Both are saved in `reports/`, owner-only.
+All three are saved in `reports/`, owner-only.
 
 ### `students-<stamp>.csv`: one row per student
 
 This is the reconciliation view: for every Year 3+ student, their portal
-details next to their Microsoft 365 account and Teams. Managed accounts that
-no longer match a student (leavers, orphans) get a row too.
+details next to their Microsoft 365 account and Teams. Student accounts in
+Microsoft 365 that don't belong to a current Year 3+ student get a row too:
+leavers, orphans, and [unlinked student accounts](#student-accounts-not-in-the-database).
 
 | Column                                                 | Contents                                                        |
 | ------------------------------------------------------ | --------------------------------------------------------------- |
@@ -339,28 +342,84 @@ changes in Teams until you approve rows; see [Teams](#teams).
 | `GeneratedAt`                | When the file was written                                     |
 | `Approved`                   | Type `yes` to approve; leave empty (or anything else) to skip |
 
+### `sign-in-blocks-<stamp>.csv`: accounts to review for blocking
+
+One row per **enabled** account reported as `LEAVER`, `NOT ELIGIBLE`,
+`ORPHAN` or `UNLINKED: …`, with an empty `Approved` column. See
+[Blocking sign-in](#blocking-sign-in).
+
+| Column               | Contents                                                    |
+| -------------------- | ----------------------------------------------------------- |
+| `ChangeId`, `UserId` | Identify the account (don't edit)                           |
+| `Action`             | Always `BLOCK SIGN-IN`                                      |
+| `Upn`, `AccountName` | The account                                                 |
+| `StudentCode`        | Its Employee ID, if any                                     |
+| `Reason`             | The issue type and why                                      |
+| `GeneratedAt`        | When the file was written                                   |
+| `Approved`           | Type `yes` to block; leave empty (or anything else) to skip |
+
+### Student accounts not in the database
+
+Every dry run also checks for student accounts in Microsoft 365 that aren't
+linked to anyone. An account counts as a student account if it has the
+student licence (`LicenseSkuPartNumber`) or is in last year's student group
+(`LegacyStudentTeamIds`). Accounts tagged for anything else (e.g. `Teacher`)
+and accounts waiting on an `AMBIGUOUS` decision are left out. Each one is
+reported with the reason it isn't linked:
+
+| Issue                        | Meaning                                                                                       |
+| ---------------------------- | --------------------------------------------------------------------------------------------- |
+| `UNLINKED: DUPLICATE`        | Has the name of a Year 3+ student who is linked to (or will get) a different account          |
+| `UNLINKED: BELOW YEAR 3`     | Its name (or Employee ID) matches an active student below Year 3, e.g. an account from before |
+| `UNLINKED: INACTIVE STUDENT` | Its name (or Employee ID) matches a student who has left                                      |
+| `UNLINKED: NOT IN DATABASE`  | No student in the portal has this name: a test account, a typo, or someone never recorded     |
+
+These are report only: nothing is changed unless you approve blocking them.
+
+### Blocking sign-in
+
+The only thing the scripts will ever do to a leaver's, orphan's, below-Year-3
+or unlinked account is **block sign-in**, and only when you approve it:
+
+1. Run a dry run (or `-Apply`); it writes `reports/sign-in-blocks-<stamp>.csv`.
+2. Open it, type `yes` in `Approved` for each account to block. Save it as
+   CSV.
+3. Apply it:
+
+   ```bash
+   pwsh ./sync-students.ps1 -ApplySignInBlocks reports/sign-in-blocks-<stamp>.csv
+   ```
+
+This run reads Microsoft 365 again and blocks sign-in only for approved rows
+that are still proposed (rows that are already blocked, now linked, or
+edited are skipped and listed). It sends nothing but "sign-in blocked" for
+each account: it never unblocks, deletes, renames, removes licences or
+changes Teams. It refuses a file older than `MaxDataAgeHours`. To undo a
+block, unblock sign-in for the account in the Microsoft 365 admin centre.
+
 ### Issues
 
-Report only. Nothing is changed for these.
+Report only. Nothing is changed for these unless noted.
 
-| Issue                                   | Meaning and what to do                                                                                                   |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `NO CODE`                               | Year 3+ student with no student code. Add one in the portal.                                                             |
-| `UNKNOWN YEAR GROUP`                    | A class year group isn't in either list in `config.psd1`. Add it to one.                                                 |
-| `NO CLASS`                              | Active student with no current class. Check their enrolment.                                                             |
-| `AMBIGUOUS`                             | Several unlinked accounts have the student's name, or one account matches several students. Set the Employee ID by hand. |
-| `CONFLICT`                              | The account with this Employee ID is tagged for something else (e.g. `Teacher`). Check it.                               |
-| `DUPLICATE EMPLOYEE ID`                 | Several accounts have the same Employee ID. Clear it on the wrong one.                                                   |
-| `SYNCED ACCOUNT`                        | The account comes from on-premises Active Directory, so it must be changed there.                                        |
-| `INVALID NAME`                          | The name has no letters usable in a username. Create the account by hand and set its Employee ID.                        |
-| `NAME/UPN MISMATCH`                     | The username doesn't follow the name (e.g. after a name change). Usernames are never changed automatically.              |
-| `DISABLED`                              | An active student's account has sign-in blocked.                                                                         |
-| `LEAVER`                                | Managed account of a student who is no longer active. Disable or delete it by hand when appropriate.                     |
-| `NOT ELIGIBLE`                          | Managed account of a student below Year 3.                                                                               |
-| `ORPHAN`                                | Account tagged `Student` whose Employee ID matches no active student (or is empty).                                      |
-| `MISSING TEAM`                          | This year's class or year Team doesn't exist yet.                                                                        |
-| `LICENCE NOT SET` / `LICENCE NOT FOUND` | `LicenseSkuPartNumber` is empty, or not a licence in this tenant.                                                        |
-| `LEGACY TEAM NOT FOUND`                 | An id in `LegacyStudentTeamIds` isn't a Microsoft 365 group.                                                             |
+| Issue                                   | Meaning and what to do                                                                                                         |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `NO CODE`                               | Year 3+ student with no student code. Add one in the portal.                                                                   |
+| `UNKNOWN YEAR GROUP`                    | A class year group isn't in either list in `config.psd1`. Add it to one.                                                       |
+| `NO CLASS`                              | Active student with no current class. Check their enrolment.                                                                   |
+| `AMBIGUOUS`                             | Several unlinked accounts have the student's name, or one account matches several students. Set the Employee ID by hand.       |
+| `CONFLICT`                              | The account with this Employee ID is tagged for something else (e.g. `Teacher`). Check it.                                     |
+| `DUPLICATE EMPLOYEE ID`                 | Several accounts have the same Employee ID. Clear it on the wrong one.                                                         |
+| `SYNCED ACCOUNT`                        | The account comes from on-premises Active Directory, so it must be changed there.                                              |
+| `INVALID NAME`                          | The name has no letters usable in a username. Create the account by hand and set its Employee ID.                              |
+| `NAME/UPN MISMATCH`                     | The username doesn't follow the name (e.g. after a name change). Usernames are never changed automatically.                    |
+| `DISABLED`                              | An active student's account has sign-in blocked.                                                                               |
+| `LEAVER`                                | Managed account of a student who is no longer active. Sign-in can be blocked after review.                                     |
+| `NOT ELIGIBLE`                          | Managed account of a student below Year 3.                                                                                     |
+| `ORPHAN`                                | Account tagged `Student` whose Employee ID matches no active student (or is empty). Sign-in can be blocked after review.       |
+| `UNLINKED: …`                           | Student account not linked to anyone; see [above](#student-accounts-not-in-the-database). Sign-in can be blocked after review. |
+| `MISSING TEAM`                          | This year's class or year Team doesn't exist yet.                                                                              |
+| `LICENCE NOT SET` / `LICENCE NOT FOUND` | `LicenseSkuPartNumber` is empty, or not a licence in this tenant.                                                              |
+| `LEGACY TEAM NOT FOUND`                 | An id in `LegacyStudentTeamIds` isn't a Microsoft 365 group.                                                                   |
 
 ## Apply: create and update accounts
 
@@ -384,7 +443,8 @@ This signs in with write access and makes the **account** changes only:
 - `LICENCE`: assigns the configured licence.
 
 It **never** changes Team membership, usernames or email addresses, and
-never disables or deletes an account.
+never blocks or deletes an account (blocking sign-in is a separate step you
+approve; see [Blocking sign-in](#blocking-sign-in)).
 
 It refuses to run if a year group is unknown (see
 [Who needs an account](#who-needs-an-account)), and stops if Team removals
@@ -605,10 +665,12 @@ pwsh ./sync-students.ps1                # review the screen and reports
 pwsh ./sync-students.ps1 -Apply         # accounts
 # review reports/team-changes-<stamp>.csv, mark Approved = yes
 pwsh ./sync-students.ps1 -ApplyTeamChanges reports/team-changes-<stamp>.csv
+# review reports/sign-in-blocks-<stamp>.csv, mark Approved = yes
+pwsh ./sync-students.ps1 -ApplySignInBlocks reports/sign-in-blocks-<stamp>.csv
 ```
 
-Then deal with the report-only items by hand: leavers (disable or delete
-when appropriate), ambiguous matches, missing codes.
+Then deal with the rest by hand: ambiguous matches, missing codes, and
+deleting blocked accounts once you're sure they're no longer needed.
 
 ### New academic year
 
@@ -620,8 +682,9 @@ when appropriate), ambiguous matches, missing codes.
 
 ## Data protection
 
-- Only student ids, codes, names and classes leave the database, plus class
-  teachers' school email addresses. `students.sql` selects nothing else.
+- Only student ids, codes, names and classes leave the database, plus
+  inactive students' codes and names and class teachers' school email
+  addresses. `students.sql` selects nothing else.
 - `data/students.json` holds personal data. It is gitignored and readable
   only by you. Don't copy it anywhere else.
 - `reports/new-accounts-*.csv` holds initial passwords. Delete it once
@@ -644,7 +707,8 @@ when appropriate), ambiguous matches, missing codes.
 | `lib/StudentData.ps1`   | Reads and checks the data file; who needs an account and which Teams        |
 | `sync-students.ps1`     | Compares students with Microsoft 365 and reports (dry run)                  |
 | `lib/StudentPlan.ps1`   | Works out the changes (pure, fully tested)                                  |
-| `lib/TeamChanges.ps1`   | The Team change review file                                                 |
+| `lib/TeamChanges.ps1`   | The Team change review file (and reading review files)                      |
+| `lib/SignInBlocks.ps1`  | The sign-in block review file and blocking                                  |
 | `lib/Apply.ps1`         | Makes the account changes                                                   |
 | `setup-teams.ps1`       | Creates or fixes this year's Teams                                          |
 | `lib/TeamSetup.ps1`     | Works out and makes the Team setup changes                                  |
@@ -694,6 +758,9 @@ another way.
     }
   ],
   "inactiveCodes": ["S000"],
+  "inactiveStudents": [
+    { "code": "S000", "firstName": "Sam", "lastName": "Old" }
+  ],
   "skipped": [{ "reason": "missing first or last name", "count": 1 }]
 }
 ```

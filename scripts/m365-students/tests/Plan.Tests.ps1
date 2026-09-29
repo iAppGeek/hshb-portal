@@ -10,8 +10,8 @@ BeforeAll {
 
     function Get-Plan {
         param([object[]]$Students, [object[]]$Users = @(), [object[]]$Groups = (New-CurrentTeams), [hashtable]$Config = (New-TestConfig),
-            [string[]]$InactiveCodes = @(), [string]$OnlyCode, [object[]]$Skus)
-        $desired = Get-TestDesired -Students $Students -Config $Config -InactiveCodes $InactiveCodes
+            [string[]]$InactiveCodes = @(), [string]$OnlyCode, [object[]]$Skus, [object[]]$InactiveStudents = @())
+        $desired = Get-TestDesired -Students $Students -Config $Config -InactiveCodes $InactiveCodes -InactiveStudents $InactiveStudents
         $stateArgs = @{ Users = $Users; Groups = $Groups }
         if ($PSBoundParameters.ContainsKey('Skus')) { $stateArgs.Skus = $Skus }
         $state = New-TestState @stateArgs
@@ -148,6 +148,7 @@ Describe 'Matching students to accounts' {
         $plan.Updates + $plan.Creates + $plan.TeamChanges | Should -BeNullOrEmpty
         Get-IssueTypes $plan | Should -Contain 'DUPLICATE EMPLOYEE ID'
         Get-IssueTypes $plan | Should -Not -Contain 'ORPHAN'
+        $plan.SignInBlocks | Should -BeNullOrEmpty
     }
 
     It 'plans no account changes for an account synced from on-premises AD' {
@@ -323,6 +324,72 @@ Describe 'Reports' {
 
     It 'does not block -Apply when every year group is known' {
         (Get-Plan -Students @(New-TestStudent 'S001' 'Alice' 'Smith')).BlocksApply | Should -BeFalse
+    }
+}
+
+Describe 'Unlinked student accounts' {
+    BeforeAll {
+        function New-OldAccount {
+            param([string]$Upn, [string]$Given, [string]$Surname, [bool]$Enabled = $true, [string[]]$SkuIds = @('sku-student'), [string]$EmployeeId)
+            return New-GraphUser -Upn $Upn -Given $Given -Surname $Surname -Enabled $Enabled -SkuIds $SkuIds -EmployeeId $EmployeeId
+        }
+        $script:students = @(
+            (New-TestStudent 'S001' 'Alice' 'Smith' @('Y3')),
+            (New-TestStudent 'S002' 'Bea' 'Young' @('Y2'))
+        )
+        $script:inactive = @(@{ code = 'S900'; firstName = 'Lee'; lastName = 'Ver' })
+    }
+
+    It 'explains why each unlinked student account exists' {
+        $users = @(
+            (New-StudentAccount 'alice.smith@school.example' 'Alice' 'Smith' 'S001'),
+            (New-OldAccount 'alicesmith@school.example' 'Alice' 'Smith'),
+            (New-OldAccount 'beayoung@school.example' 'Bea' 'Young'),
+            (New-OldAccount 'leever@school.example' 'Lee' 'Ver'),
+            (New-OldAccount 'testkid@school.example' 'Test' 'Kid'),
+            (New-OldAccount 'coded@school.example' 'Some' 'One' -EmployeeId 's900')
+        )
+        $plan = Get-Plan -Students $students -Users $users -InactiveStudents $inactive -InactiveCodes @('S900')
+        $byUpn = @{}; foreach ($i in $plan.Issues) { if ($i.Upn) { $byUpn[$i.Upn] = $i.Type } }
+        $byUpn['alicesmith@school.example'] | Should -Be 'UNLINKED: DUPLICATE'
+        $byUpn['beayoung@school.example'] | Should -Be 'UNLINKED: BELOW YEAR 3'
+        $byUpn['leever@school.example'] | Should -Be 'UNLINKED: INACTIVE STUDENT'
+        $byUpn['testkid@school.example'] | Should -Be 'UNLINKED: NOT IN DATABASE'
+        $byUpn['coded@school.example'] | Should -Be 'UNLINKED: INACTIVE STUDENT'
+        $byUpn.ContainsKey('alice.smith@school.example') | Should -BeFalse
+        $plan.Updates + $plan.Links + $plan.Creates | Should -BeNullOrEmpty
+    }
+
+    It 'only looks at accounts with the student licence or in last year''s student group' {
+        $staff = New-OldAccount 'staff.member@school.example' 'Staff' 'Member' -SkuIds @('sku-faculty')
+        $teacher = New-GraphUser -Upn 'teach@school.example' -Given 'T' -Surname 'Eacher' -SkuIds @('sku-student') -Attributes @{ CustomAttribute1 = 'Teacher' }
+        $old = New-OldAccount 'oldkid@school.example' 'Old' 'Kid' -SkuIds @()
+        $legacy = New-GraphGroup -Name 'HSHB Student 2025-2026' -Nickname 'students2025' -MemberIds @($old.id) -IsTeam $false
+        $config = New-TestConfig @{ LegacyStudentTeamIds = @($legacy.id) }
+        $plan = Get-Plan -Students $students -Users @($staff, $teacher, $old) -Groups (@(New-CurrentTeams) + $legacy) -Config $config
+        @($plan.Issues | Where-Object { $_.Type -like 'UNLINKED*' } | ForEach-Object Upn) | Should -Be @('oldkid@school.example')
+    }
+
+    It 'does not report accounts that are waiting on an AMBIGUOUS decision' {
+        $plan = Get-Plan -Students $students -Users @((New-OldAccount 'a1@school.example' 'Alice' 'Smith'), (New-OldAccount 'a2@school.example' 'Alice' 'Smith'))
+        @($plan.Issues | ForEach-Object Type) | Should -Be @('AMBIGUOUS')
+    }
+
+    It 'offers sign-in blocks only for enabled accounts it reports' {
+        $users = @(
+            (New-OldAccount 'testkid@school.example' 'Test' 'Kid'),
+            (New-OldAccount 'gone@school.example' 'Gone' 'Kid' -Enabled $false),
+            (New-StudentAccount 'leaver@school.example' 'Lee' 'Ver' 'S900')
+        )
+        $plan = Get-Plan -Students $students -Users $users -InactiveCodes @('S900')
+        @($plan.SignInBlocks | ForEach-Object Upn | Sort-Object) | Should -Be @('leaver@school.example', 'testkid@school.example')
+        $plan.SignInBlocks[0].ChangeId | Should -Be (Get-SignInBlockId -UserId $plan.SignInBlocks[0].UserId)
+        ($plan.Rows | Where-Object Upn -eq 'gone@school.example').Issues | Should -Match 'already blocked'
+    }
+
+    It 'never offers to block a linked student''s account' {
+        $plan = Get-Plan -Students $students -Users @(New-StudentAccount 'alice.smith@school.example' 'Alice' 'Smith' 'S001')
+        $plan.SignInBlocks | Should -BeNullOrEmpty
     }
 }
 

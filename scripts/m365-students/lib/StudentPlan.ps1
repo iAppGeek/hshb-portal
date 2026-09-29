@@ -100,6 +100,27 @@ function Get-TeamChangeId {
     return ([Convert]::ToHexString($hash)).Substring(0, 16).ToLowerInvariant()
 }
 
+function Get-SignInBlockId {
+    <# Stable id for a proposed sign-in block (one per account). #>
+    [OutputType([string])]
+    param([Parameter(Mandatory)][string]$UserId)
+
+    $hash = [System.Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes("BLOCK|$($UserId.ToLowerInvariant())"))
+    return ([Convert]::ToHexString($hash)).Substring(0, 16).ToLowerInvariant()
+}
+
+function Get-PersonNameKeys {
+    <# Keys used to match a person's name: first|last and the whole name. #>
+    [OutputType([string[]])]
+    param([string]$FirstName, [string]$LastName, [string]$DisplayName)
+
+    $keys = @(
+        $(if ($FirstName -and $LastName) { (ConvertTo-UpnPart $FirstName) + '|' + (ConvertTo-UpnPart $LastName) })
+        $(if ($DisplayName) { ConvertTo-UpnPart $DisplayName })
+    )
+    return @($keys | Where-Object { $_ -and $_ -ne '|' } | Select-Object -Unique)
+}
+
 function Get-UserFieldValue {
     [OutputType([string])]
     param([Parameter(Mandatory)][object]$User, [Parameter(Mandatory)][string]$Field)
@@ -120,6 +141,9 @@ function New-StudentPlan {
       Returns:
         Creates, Links, Updates, Licenses : account changes (-Apply)
         TeamChanges : Team ADD/REMOVE rows (-ApplyTeamChanges, after review)
+        SignInBlocks: accounts that could have sign-in blocked (-ApplySignInBlocks,
+                      after review): enabled leavers, orphans, below-Year-3
+                      and unlinked student accounts
         Issues      : report-only items { Type, Code, Name, Upn, Detail }
         Rows        : one reconciliation row per student / managed account
         BlocksApply : true if unknown year groups make eligibility uncertain
@@ -144,6 +168,7 @@ function New-StudentPlan {
     $updates = [System.Collections.Generic.List[object]]::new()
     $licenses = [System.Collections.Generic.List[object]]::new()
     $teamChanges = [System.Collections.Generic.List[object]]::new()
+    $signInBlocks = [System.Collections.Generic.List[object]]::new()
     $issues = [System.Collections.Generic.List[object]]::new()
     $rows = [System.Collections.Generic.List[object]]::new()
     $addIssue = {
@@ -215,6 +240,8 @@ function New-StudentPlan {
     }
 
     # --- Pass 1: find each student's account ---------------------------------
+    # Accounts waiting on a decision (AMBIGUOUS) aren't reported as unlinked.
+    $pendingIds = [System.Collections.Generic.HashSet[string]]::new()
     $students = @($Desired.Students.Values | Where-Object { -not $onlyKey -or (Get-CodeKey $_.Code) -eq $onlyKey })
     $resolutions = foreach ($s in $students) {
         $key = Get-CodeKey $s.Code
@@ -250,6 +277,7 @@ function New-StudentPlan {
             else { [pscustomobject]@{ Student = $s; Kind = 'LINK'; User = $candidates[0]; Detail = '' } }
         }
         elseif ($candidates.Count -gt 1) {
+            foreach ($c in $candidates) { [void]$pendingIds.Add($c.Id) }
             [pscustomobject]@{ Student = $s; Kind = 'AMBIGUOUS'; User = $null; Detail = "$($candidates.Count) unlinked accounts have this name: $((@($candidates | ForEach-Object Upn) | Sort-Object) -join ', ')" }
         }
         else { [pscustomobject]@{ Student = $s; Kind = 'CREATE'; User = $null; Detail = '' } }
@@ -263,6 +291,7 @@ function New-StudentPlan {
     }
     foreach ($r in $resolutions) {
         if ($r.Kind -eq 'LINK' -and $claims[$r.User.Id] -gt 1) {
+            [void]$pendingIds.Add($r.User.Id)
             $r.Detail = "account $($r.User.Upn) matches more than one student by name"
             $r.Kind = 'AMBIGUOUS'
             $r.User = $null
@@ -367,7 +396,7 @@ function New-StudentPlan {
                         UserId       = $u.Id
                         StudentCode  = $s.Code
                         StudentName  = $s.DisplayName
-                        Reason       = if ($u.Id) { 'in this class in the portal' } else { 'in this class in the portal (new account)' }
+                        Reason       = "$(if ($nickname -eq $Desired.YearTeam.Nickname) { "Year 3+ student in $($Desired.AcademicYear.Code)" } else { 'in this class in the portal' })$(if (-not $u.Id) { ' (new account)' })"
                     })
                 $notes.Add("to add to $($group.DisplayName)")
             }
@@ -441,6 +470,23 @@ function New-StudentPlan {
             & $addIssue 'UNKNOWN YEAR GROUP' $s.Code $s.DisplayName '' 'only in classes with an unknown year group'
         }
         $undeterminedCodes = @($Desired.Undetermined | ForEach-Object { Get-CodeKey $_.Code })
+        $addAccountReport = {
+            param([object]$Account, [string]$Type, [string]$Detail)
+            & $addIssue $Type $Account.EmployeeId $Account.DisplayName $Account.Upn $Detail
+            $blockable = [bool]$Account.Enabled
+            $rows.Add([pscustomobject][ordered]@{
+                    Status = $Type; StudentCode = $Account.EmployeeId; DbFirstName = ''; DbLastName = ''; YearGroups = ''; Upn = $Account.Upn
+                    AccountFirstName = $Account.GivenName; AccountSurname = $Account.Surname; AccountEnabled = $Account.Enabled; ExpectedTeams = ''
+                    ActualTeams = if ($groupNamesByUser.ContainsKey($Account.Id)) { (@($groupNamesByUser[$Account.Id]) | Sort-Object) -join '; ' } else { '' }
+                    Issues = "$Detail ($(if ($blockable) { 'sign-in can be blocked after review' } else { 'sign-in already blocked' }))"
+                })
+            if ($blockable) {
+                $signInBlocks.Add([pscustomobject]@{
+                        ChangeId = Get-SignInBlockId -UserId $Account.Id; UserId = $Account.Id; Upn = $Account.Upn
+                        AccountName = $Account.DisplayName; StudentCode = $Account.EmployeeId; Reason = "$Type - $Detail"
+                    })
+            }
+        }
         foreach ($u in @($State.Users | Where-Object { $_.Attributes.CustomAttribute1 -ieq $tag })) {
             if ($claimedIds.Contains($u.Id)) { continue }
             $key = Get-CodeKey $u.EmployeeId
@@ -449,13 +495,42 @@ function New-StudentPlan {
             elseif ($key -and $Desired.NotEligibleCodes.Contains($key)) { 'NOT ELIGIBLE', 'student is below Year 3 (not in an eligible year group)' }
             elseif ($key -and $undeterminedCodes -contains $key) { 'UNKNOWN YEAR GROUP', 'student is only in classes with an unknown year group' }
             else { 'ORPHAN', $(if ($key) { 'Employee ID matches no active student' } else { 'tagged Student but has no Employee ID' }) }
-            & $addIssue $type $u.EmployeeId $u.DisplayName $u.Upn $detail
-            $rows.Add([pscustomobject][ordered]@{
-                    Status = $type; StudentCode = $u.EmployeeId; DbFirstName = ''; DbLastName = ''; YearGroups = ''; Upn = $u.Upn
-                    AccountFirstName = $u.GivenName; AccountSurname = $u.Surname; AccountEnabled = $u.Enabled; ExpectedTeams = ''
-                    ActualTeams = if ($groupNamesByUser.ContainsKey($u.Id)) { (@($groupNamesByUser[$u.Id]) | Sort-Object) -join '; ' } else { '' }
-                    Issues = "$detail (report only: nothing is changed)"
-                })
+            & $addAccountReport $u $type $detail
+        }
+
+        # Unlinked student accounts: student licence or in last year's student
+        # group, not tagged, not matched to any student, not awaiting a
+        # decision. Report only, with the reason they aren't linked.
+        $people = @{}
+        $addPeople = {
+            param([object[]]$List, [string]$Kind)
+            foreach ($p in $List) {
+                foreach ($k in Get-PersonNameKeys -FirstName $p.FirstName -LastName $p.LastName -DisplayName $p.DisplayName) {
+                    if (-not $people.ContainsKey($k)) { $people[$k] = [System.Collections.Generic.List[string]]::new() }
+                    if (-not $people[$k].Contains($Kind)) { $people[$k].Add($Kind) }
+                }
+            }
+        }
+        & $addPeople @($Desired.Students.Values) 'YEAR3'
+        & $addPeople @($Desired.NoCode) 'YEAR3'
+        & $addPeople (@($Desired['NotEligible']) + @($Desired.NoClass) + @($Desired.Undetermined) | Where-Object { $_ }) 'BELOW'
+        & $addPeople @($Desired['Inactive'] | Where-Object { $_ }) 'INACTIVE'
+
+        foreach ($u in @($State.Users)) {
+            if ($claimedIds.Contains($u.Id) -or $pendingIds.Contains($u.Id) -or $u.Attributes.CustomAttribute1) { continue }
+            $looksLikeStudent = ($skuId -and @($u.SkuIds) -contains $skuId) -or $legacyMembers.Contains($u.Id)
+            if (-not $looksLikeStudent) { continue }
+            $key = Get-CodeKey $u.EmployeeId
+            if ($key -and $Desired.Students.Contains($key)) { continue } # reported above (duplicate / conflict)
+            $kinds = @(Get-PersonNameKeys -FirstName $u.GivenName -LastName $u.Surname -DisplayName $u.DisplayName |
+                    Where-Object { $people.ContainsKey($_) } | ForEach-Object { $people[$_] } | Select-Object -Unique)
+            $type, $detail = if ($key -and $Desired.InactiveCodes.Contains($key)) { 'UNLINKED: INACTIVE STUDENT', 'Employee ID is a student who is no longer active' }
+            elseif ($key -and $Desired.NotEligibleCodes.Contains($key)) { 'UNLINKED: BELOW YEAR 3', 'Employee ID is a student below Year 3' }
+            elseif ($kinds -contains 'YEAR3') { 'UNLINKED: DUPLICATE', 'has the name of a Year 3+ student who is linked to (or will get) another account' }
+            elseif ($kinds -contains 'BELOW') { 'UNLINKED: BELOW YEAR 3', 'name matches an active student below Year 3' }
+            elseif ($kinds -contains 'INACTIVE') { 'UNLINKED: INACTIVE STUDENT', 'name matches a student who is no longer active' }
+            else { 'UNLINKED: NOT IN DATABASE', 'no student in the portal has this name' }
+            & $addAccountReport $u $type $detail
         }
     }
 
@@ -468,6 +543,7 @@ function New-StudentPlan {
         Updates                = $updates.ToArray()
         Licenses               = $licenses.ToArray()
         TeamChanges            = $teamChanges.ToArray()
+        SignInBlocks           = $signInBlocks.ToArray()
         Issues                 = $issues.ToArray()
         Rows                   = $rows.ToArray()
         SkuId                  = $skuId

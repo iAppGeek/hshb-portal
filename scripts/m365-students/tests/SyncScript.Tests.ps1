@@ -251,6 +251,48 @@ Describe 'sync-students.ps1 -ApplyTeamChanges' {
     }
 }
 
+Describe 'sync-students.ps1 -ApplySignInBlocks' {
+    BeforeEach {
+        Remove-Item -Recurse -Force (Join-Path $TestDrive 'reports') -ErrorAction SilentlyContinue
+        $script:ConfigPath = Save-TestConfig
+        $script:DataPath = Save-TestData -Students @(New-TestStudent 'S001' 'Alice' 'Smith' @('Y3'))
+        $script:alice = New-StudentAccount 'alice.smith@school.example' 'Alice' 'Smith' 'S001'
+        $script:ghost = New-GraphUser -Upn 'ghost@school.example' -Given 'Gho' -Surname 'St' -SkuIds @('sku-student')
+        $script:other = New-GraphUser -Upn 'other@school.example' -Given 'Oth' -Surname 'Er' -SkuIds @('sku-student')
+        $groups = New-CurrentTeams -Members @{ Year = @($alice.id); Y3 = @($alice.id) }
+        Use-FakeGraph -Tenant (New-FakeTenant -Users @($alice, $ghost, $other) -Groups $groups) -Scopes @('User.ReadWrite.All', 'Group.ReadWrite.All', 'Directory.Read.All')
+    }
+
+    It 'blocks sign-in only for approved rows, and changes nothing else' {
+        Invoke-SyncScript | Should -Be 0
+        $file = (Get-ChildItem (Join-Path $TestDrive 'reports') -Filter 'sign-in-blocks-*.csv').FullName
+        $rows = @(Import-Csv $file)
+        @($rows | ForEach-Object Upn | Sort-Object) | Should -Be @('ghost@school.example', 'other@school.example')
+        ($rows | Where-Object Upn -eq 'ghost@school.example').Approved = 'yes'
+        $rows | Export-Csv -LiteralPath $file
+
+        $global:FakeTenant.Calls.Clear()
+        Invoke-SyncScript @{ ApplySignInBlocks = $file } | Should -Be 0
+        $writes = @(Get-WriteCalls -Tenant $global:FakeTenant)
+        $writes.Count | Should -Be 1
+        $writes[0].Uri | Should -Be "v1.0/users/$($ghost.id)"
+        @($writes[0].Body.Keys) | Should -Be @('accountEnabled')
+        $ghost['accountEnabled'] | Should -BeFalse
+        $other['accountEnabled'] | Should -BeTrue
+        Test-Path $script:DataPath | Should -BeTrue
+
+        Remove-Item -Recurse -Force (Join-Path $TestDrive 'reports')
+        Invoke-SyncScript | Should -Be 0
+        @(Import-Csv (Get-ChildItem (Join-Path $TestDrive 'reports') -Filter 'sign-in-blocks-*.csv').FullName | ForEach-Object Upn) |
+            Should -Be @('other@school.example')
+    }
+
+    It 'refuses to combine with -Apply' {
+        Invoke-SyncScript @{ Apply = $true; ApplySignInBlocks = 'x.csv' } | Should -Be 1
+        $global:FakeTenant.Calls | Should -BeNullOrEmpty
+    }
+}
+
 Describe 'setup-teams.ps1' {
     It 'dry run changes nothing; -Apply creates the Teams; a second run has nothing to do' {
         $script:ConfigPath = Save-TestConfig

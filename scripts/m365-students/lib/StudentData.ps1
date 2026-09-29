@@ -87,6 +87,8 @@ function ConvertTo-DesiredStudentState {
         NoCode         : eligible students with no student code (no account can be linked)
         NoClass        : active students with no current class
         Undetermined   : students whose only classes are in unknown year groups
+        NotEligible    : active students below Year 3 (names, for reports)
+        Inactive       : inactive students (names, for reports; may be empty)
         NotEligibleCodes / InactiveCodes : sets of CODE
         UnknownYearGroups : year group values in neither config list
         Skipped, Counts
@@ -163,6 +165,7 @@ function ConvertTo-DesiredStudentState {
     $noClass = [System.Collections.Generic.List[object]]::new()
     $undetermined = [System.Collections.Generic.List[object]]::new()
     $notEligible = [System.Collections.Generic.HashSet[string]]::new()
+    $notEligibleStudents = [System.Collections.Generic.List[object]]::new()
     $ids = [System.Collections.Generic.HashSet[string]]::new()
     $codes = [System.Collections.Generic.HashSet[string]]::new()
 
@@ -188,7 +191,10 @@ function ConvertTo-DesiredStudentState {
         $eligibleClasses = @($studentClasses | Where-Object Eligibility -eq 'Eligible')
         if ($eligibleClasses.Count -eq 0) {
             if (@($studentClasses | Where-Object Eligibility -eq 'Unknown').Count -gt 0) { $undetermined.Add($summary) }
-            elseif ($key) { [void]$notEligible.Add($key) }
+            else {
+                $notEligibleStudents.Add($summary)
+                if ($key) { [void]$notEligible.Add($key) }
+            }
             continue
         }
         if (-not $key) { $noCode.Add($summary); continue }
@@ -216,6 +222,14 @@ function ConvertTo-DesiredStudentState {
         # A code reused by an active student belongs to the active student.
         if ($key -and -not $codes.Contains($key)) { [void]$inactive.Add($key) }
     }
+    $inactiveStudents = foreach ($s in @($Data['inactiveStudents'])) {
+        if ($null -eq $s) { continue }
+        $key = Get-CodeKey ([string]$s['code'])
+        if ($key -and $codes.Contains($key)) { continue }
+        if ($key) { [void]$inactive.Add($key) }
+        $first = ([string]$s['firstName']).Trim(); $last = ([string]$s['lastName']).Trim()
+        [pscustomobject]@{ Id = ''; Code = if ($key) { ([string]$s['code']).Trim() } else { '' }; FirstName = $first; LastName = $last; DisplayName = "$first $last" }
+    }
 
     $skipped = @(@($Data['skipped']) | Where-Object { $_ } | ForEach-Object { [pscustomobject]$_ })
 
@@ -227,6 +241,8 @@ function ConvertTo-DesiredStudentState {
         NoCode            = $noCode.ToArray()
         NoClass           = $noClass.ToArray()
         Undetermined      = $undetermined.ToArray()
+        NotEligible       = $notEligibleStudents.ToArray()
+        Inactive          = @($inactiveStudents)
         NotEligibleCodes  = $notEligible
         InactiveCodes     = $inactive
         UnknownYearGroups = @($unknownYearGroups)

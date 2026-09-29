@@ -1,7 +1,8 @@
 -- Builds the student list for the Microsoft 365 student account scripts.
 -- Run by fetch-students.sh; returns a single JSON document (see README.md).
 -- Read-only: selects student ids, codes, names and current classes, class
--- names/year groups and class teachers' school email (for Team owners).
+-- names/year groups, class teachers' school email (for Team owners), and
+-- inactive students' codes and names (to explain unlinked accounts).
 -- Which year groups need an account is decided in config.psd1, not here.
 
 with
@@ -68,6 +69,17 @@ select json_build_object(
     select json_agg(distinct btrim(st.student_code))
     from students st
     where not st.active and nullif(btrim(coalesce(st.student_code, '')), '') is not null
+  ), '[]'::json),
+  -- Inactive students' names too, to say why an unlinked Microsoft 365
+  -- account exists ("student has left").
+  'inactiveStudents', coalesce((
+    select json_agg(json_build_object(
+      'code', nullif(btrim(coalesce(st.student_code, '')), ''),
+      'firstName', btrim(coalesce(st.first_name, '')),
+      'lastName', btrim(coalesce(st.last_name, ''))
+    ) order by st.last_name, st.first_name, st.id)
+    from students st
+    where not st.active
   ), '[]'::json),
   'skipped', coalesce((
     select json_agg(json_build_object('reason', 'missing first or last name', 'count', n))

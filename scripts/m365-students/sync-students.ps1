@@ -8,8 +8,9 @@
   Dry run by default: reads data/students.json (from fetch-students.sh) and
   Microsoft 365 with read-only permissions, shows every change the Microsoft
   side needs, and writes two owner-only CSV reports to reports/:
-    students-<stamp>.csv      one row per student / managed account
-    team-changes-<stamp>.csv  proposed Team changes, for review
+    students-<stamp>.csv         one row per student / account
+    team-changes-<stamp>.csv     proposed Team changes, for review
+    sign-in-blocks-<stamp>.csv   accounts whose sign-in could be blocked, for review
   Nothing is changed. See README.md.
 
   -Apply makes the account changes only (create, link, update, licence).
@@ -27,6 +28,10 @@
   A reviewed reports/team-changes-<stamp>.csv. Applies only rows with
   Approved = yes that are still needed now; makes no account changes.
   Deletes the student data file afterwards unless -KeepData.
+
+.PARAMETER ApplySignInBlocks
+  A reviewed reports/sign-in-blocks-<stamp>.csv. Blocks sign-in (and does
+  nothing else) for rows with Approved = yes that are still proposed now.
 
 .PARAMETER Force
   Proceed even if Team removals exceed MaxTeamRemovalPercent.
@@ -56,6 +61,7 @@
 param(
     [switch]$Apply,
     [string]$ApplyTeamChanges,
+    [string]$ApplySignInBlocks,
     [switch]$Force,
     [switch]$KeepData,
     [string]$Only,
@@ -78,6 +84,7 @@ Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'lib/StudentPlan.ps1')
 . (Join-Path $PSScriptRoot 'lib/TeamChanges.ps1')
 . (Join-Path $PSScriptRoot 'lib/Apply.ps1')
+. (Join-Path $PSScriptRoot 'lib/SignInBlocks.ps1')
 . (Join-Path $PSScriptRoot 'lib/Reports.ps1')
 
 # Issues that need someone to fix data before the sync is complete.
@@ -162,9 +169,47 @@ function Write-CountSummary {
     Write-SyncLog "Licences to assign:           $($Plan.Licenses.Count)"
     Write-SyncLog "Team changes for review:      $(@($Plan.TeamChanges | Where-Object Action -eq 'ADD').Count) add, $(@($Plan.TeamChanges | Where-Object Action -eq 'REMOVE').Count) remove"
     Write-SyncLog ("  removals: {0:N1}% of {1} managed Team memberships (limit {2}%)" -f $Plan.TeamRemovalPercent, $Plan.ManagedMembershipCount, $Config.MaxTeamRemovalPercent)
+    Write-SyncLog "Sign-in blocks for review:    $($Plan.SignInBlocks.Count) (enabled accounts reported below)"
     foreach ($group in ($Plan.Issues | Group-Object Type | Sort-Object Name)) {
         Write-SyncLog -Level WARN "Report only - $($group.Name): $($group.Count)"
     }
+}
+
+function Invoke-ApprovedSignInBlockStep {
+    <# -ApplySignInBlocks: block sign-in for approved rows still proposed. Returns the exit code. #>
+    [OutputType([int])]
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][hashtable]$Plan,
+        [double]$MaxAgeHours
+    )
+
+    $rows = Read-ReviewFile -Path $Path -RequiredColumns @('ChangeId', 'Action', 'Upn', 'UserId') -MaxAgeHours $MaxAgeHours
+    $selection = Select-ApprovedSignInBlocks -Rows $rows -SignInBlocks $Plan.SignInBlocks
+
+    Write-Host ''
+    foreach ($s in $selection.Skipped) {
+        Write-SyncLog -Level WARN "SKIPPED block $(Protect-Email $s.Row.Upn): $($s.Reason)" `
+            -ConsoleMessage "  - SKIPPED  $($s.Row.AccountName) <$(Format-Upn $s.Row.Upn)>: $($s.Reason)"
+    }
+    foreach ($b in $selection.ToApply) {
+        Write-Host "  x BLOCK SIGN-IN  $($b.AccountName) <$(Format-Upn $b.Upn)>: $($b.Reason)"
+    }
+    Write-SyncLog "Rows in file: $($rows.Count)  approved and still proposed: $($selection.ToApply.Count)  skipped: $($selection.Skipped.Count)  not approved: $($selection.NotApproved)"
+    if ($selection.ToApply.Count -eq 0) {
+        Write-SyncLog 'No approved sign-in blocks to make.'
+        return 0
+    }
+
+    $result = Invoke-SignInBlocks -Blocks $selection.ToApply
+    Write-SyncLog '--- Applied (counts only) ---'
+    Write-SyncLog "Sign-in blocked: $($result.Blocked)  failed: $($result.Failed)"
+    if ($result.Failed -gt 0) {
+        Write-SyncLog -Level WARN 'Some blocks failed (see errors above). Re-running with the same file is safe: done rows are skipped.'
+        return 3
+    }
+    Write-SyncLog 'Done. To undo, unblock sign-in for the account in the Microsoft 365 admin centre.'
+    return 0
 }
 
 function Invoke-ApprovedTeamChangeStep {
@@ -219,10 +264,12 @@ $Config = Import-StudentConfig -Path $ConfigPath -ContactSyncConfigPath (Join-Pa
 Import-DotEnv -Path $EnvPath
 $retention = if ($Config.ContainsKey('LogRetentionDays')) { [int]$Config.LogRetentionDays } else { 30 }
 $logPath = Start-SyncLog -Directory $LogDirectory -Prefix 'sync-students' -RetentionDays $retention
-if ($Apply -and $ApplyTeamChanges) { Write-SyncLog -Level ERROR 'Use either -Apply (accounts) or -ApplyTeamChanges (Teams), not both.'; exit 1 }
-if ($Only -and $ApplyTeamChanges) { Write-SyncLog -Level ERROR '-Only cannot be combined with -ApplyTeamChanges.'; exit 1 }
-$write = $Apply -or [bool]$ApplyTeamChanges
-$mode = if ($Apply) { 'APPLY (accounts only)' } elseif ($ApplyTeamChanges) { 'APPLY APPROVED TEAM CHANGES' } else { 'DRY RUN' }
+if (@($Apply.IsPresent, [bool]$ApplyTeamChanges, [bool]$ApplySignInBlocks | Where-Object { $_ }).Count -gt 1) {
+    Write-SyncLog -Level ERROR 'Use only one of -Apply (accounts), -ApplyTeamChanges (Teams) or -ApplySignInBlocks.'; exit 1
+}
+if ($Only -and ($ApplyTeamChanges -or $ApplySignInBlocks)) { Write-SyncLog -Level ERROR '-Only cannot be combined with -ApplyTeamChanges or -ApplySignInBlocks.'; exit 1 }
+$write = $Apply -or [bool]$ApplyTeamChanges -or [bool]$ApplySignInBlocks
+$mode = if ($Apply) { 'APPLY (accounts only)' } elseif ($ApplyTeamChanges) { 'APPLY APPROVED TEAM CHANGES' } elseif ($ApplySignInBlocks) { 'APPLY APPROVED SIGN-IN BLOCKS' } else { 'DRY RUN' }
 Write-SyncLog "Mode: $mode. Log: $logPath"
 if ($Only) { Write-SyncLog "Only student: $Only" }
 
@@ -244,6 +291,9 @@ try {
     if ($ApplyTeamChanges) {
         exit (Invoke-ApprovedTeamChangeStep -Path $ApplyTeamChanges -Plan $plan -MaxAgeHours $maxAge)
     }
+    if ($ApplySignInBlocks) {
+        exit (Invoke-ApprovedSignInBlockStep -Path $ApplySignInBlocks -Plan $plan -MaxAgeHours $maxAge)
+    }
 
     Write-PlanDetails -Plan $plan
     Write-CountSummary -Desired $desired -Plan $plan
@@ -254,10 +304,14 @@ try {
     $teamRows = @(ConvertTo-TeamChangeRows -TeamChanges $plan.TeamChanges -GeneratedAt ((Get-Date).ToString('o')))
     $teamPath = Save-PrivateCsv -Path (Get-ReportPath -Directory $ReportDirectory -Prefix 'team-changes' -Stamp $stamp) `
         -Rows $teamRows -Columns $script:TeamChangeColumns
+    $blockRows = @(ConvertTo-SignInBlockRows -SignInBlocks $plan.SignInBlocks -GeneratedAt ((Get-Date).ToString('o')))
+    $blockPath = Save-PrivateCsv -Path (Get-ReportPath -Directory $ReportDirectory -Prefix 'sign-in-blocks' -Stamp $stamp) `
+        -Rows $blockRows -Columns $script:SignInBlockColumns
     Write-Host ''
     Write-Host 'Reports (personal data; gitignored, owner-only - do not share):'
     Write-Host "  Reconciliation: $studentsPath"
     Write-Host "  Team changes:   $teamPath"
+    Write-Host "  Sign-in blocks: $blockPath"
 
     $total = $plan.Creates.Count + $plan.Links.Count + $plan.Updates.Count + $plan.Licenses.Count
     $blocking = @($plan.Issues | Where-Object { $script:BlockingIssues -contains $_.Type }).Count -gt 0
