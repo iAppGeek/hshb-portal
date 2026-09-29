@@ -36,7 +36,8 @@ function Assert-StudentConfig {
 
     $required = @(
         'Domain', 'UsageLocation', 'Tag', 'MembershipAttribute', 'EligibleYearGroups', 'IgnoredYearGroups',
-        'ClassTeamNameFormat', 'YearTeamNameFormat', 'TeamNicknamePrefix', 'MaxTeamRemovalPercent'
+        'ClassTeamNameFormat', 'ClassTeamNicknameFormat', 'YearTeamNameFormat', 'YearTeamNicknameFormat',
+        'YearTeamIsTeam', 'MaxTeamRemovalPercent'
     )
     foreach ($key in $required) {
         if (-not $Config.ContainsKey($key)) { throw "Config is missing '$key'." }
@@ -53,9 +54,18 @@ function Assert-StudentConfig {
     if ([string]$Config.MembershipAttribute -notmatch '^CustomAttribute([2-9]|1[0-5])$') {
         throw 'MembershipAttribute must be CustomAttribute2 to CustomAttribute15 (CustomAttribute1 holds the tag).'
     }
-    if ([string]$Config.TeamNicknamePrefix -cnotmatch '^[a-z0-9][a-z0-9-]*$') {
-        throw 'TeamNicknamePrefix must be lowercase letters, digits and hyphens.'
+    foreach ($key in @('ClassTeamNicknameFormat', 'YearTeamNicknameFormat')) {
+        $format = [string]$Config[$key]
+        if ($format -notmatch '\{[12]\}') { throw "$key must include the year ({1} or {2}), so each year gets its own Teams." }
+        if (($format -replace '\{[0-2]\}', 'x') -cnotmatch '^[a-z0-9][a-z0-9.-]*$') {
+            throw "$key may only contain lowercase letters, digits, dots, hyphens and {0}/{1}/{2}."
+        }
     }
+    if ([string]$Config.ClassTeamNicknameFormat -notmatch '\{0\}') { throw 'ClassTeamNicknameFormat must include the class ({0}).' }
+    if ($Config.ContainsKey('ClassTeamNames') -and $Config.ClassTeamNames -isnot [hashtable]) {
+        throw "ClassTeamNames must be a table, e.g. @{ 'GCSE I' = 'GCSE1' }."
+    }
+    if ($Config.YearTeamIsTeam -isnot [bool]) { throw 'YearTeamIsTeam must be $true or $false.' }
     if (@($Config.EligibleYearGroups).Count -eq 0) { throw 'EligibleYearGroups must list at least one year group.' }
 
     $seen = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
@@ -109,4 +119,29 @@ function Get-YearGroupEligibility {
     foreach ($g in @($Config.EligibleYearGroups)) { if (([string]$g).Trim() -ieq $value) { return 'Eligible' } }
     foreach ($g in @($Config.IgnoredYearGroups)) { if (([string]$g).Trim() -ieq $value) { return 'Ignored' } }
     return 'Unknown'
+}
+
+function Get-LongYearCode {
+    <# '2026-27' -> '2026-2027'. #>
+    [OutputType([string])]
+    param([Parameter(Mandatory)][string]$YearCode)
+
+    if ($YearCode -notmatch '^(\d{4})-\d{2}$') { throw "Academic year code '$YearCode' is not in the form 2026-27." }
+    return "$($Matches[1])-$([int]$Matches[1] + 1)"
+}
+
+function Get-ManagedTeamPattern {
+    <#
+      Regex matching the mail nickname of any year's class or year Team, as
+      built from ClassTeamNicknameFormat / YearTeamNicknameFormat.
+    #>
+    [OutputType([string])]
+    param([Parameter(Mandatory)][hashtable]$Config)
+
+    $patterns = foreach ($key in @('ClassTeamNicknameFormat', 'YearTeamNicknameFormat')) {
+        $p = [regex]::Escape([string]$Config[$key])
+        $p = $p.Replace('\{0}', '[a-z0-9]+').Replace('\{1}', '\d{4}-\d{2}').Replace('\{2}', '\d{4}-\d{4}')
+        "^$p$"
+    }
+    return ($patterns -join '|')
 }

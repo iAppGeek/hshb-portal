@@ -174,7 +174,7 @@ used/available) and saves three CSV files in `reports/`:
 | File                             | One row per                | Columns                                                                                                                                                   |
 | -------------------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `inventory-users-<stamp>.csv`    | user                       | username, given name, surname, display name, enabled, Employee ID, Employee type, Department, synced from AD, licences, groups/Teams, CustomAttribute1-15 |
-| `inventory-teams-<stamp>.csv`    | Microsoft 365 group / Team | id, name, mail nickname, is a Team, managed by these scripts, owner and member counts, description                                                        |
+| `inventory-teams-<stamp>.csv`    | Microsoft 365 group / Team | id, name, mail nickname, is a Team, named like a class/year Team, owner and member counts, owners' usernames, description                                 |
 | `inventory-licences-<stamp>.csv` | licence (SKU)              | part number, id, total, used, available                                                                                                                   |
 
 Use it to decide:
@@ -231,7 +231,7 @@ anything. It shows on screen, for every student in Year 3 and up:
 | `= LINK`        | One existing, unlinked account has the student's name: it will be linked (Employee ID and tags set) |
 | `~ UPDATE`      | Linked account whose name, department or tags differ from the portal                                |
 | `$ LICENCE`     | Account without the configured licence                                                              |
-| `> TEAM ADD`    | Student missing from their class Team or the year Team (needs review, see below)                    |
+| `> TEAM ADD`    | Student missing from their class Team or the year group (needs review, see below)                   |
 | `< TEAM REMOVE` | Student in a class Team for a class they have left (needs review)                                   |
 | `! …`           | Something to look at; report only (see [issues](#issues))                                           |
 
@@ -246,6 +246,8 @@ holds student codes and masked usernames, never names.
 when an account is created. If a student's name changes in the portal,
 their display name, first name and surname are updated, and a
 `NAME/UPN MISMATCH` is reported for you to decide on; the username stays.
+Existing usernames written as `firstlast` (no dot) or `first-last` count as
+matching the name, so they aren't reported.
 
 ### New usernames
 
@@ -398,20 +400,40 @@ it should plan no account changes for that student.
 
 Each student belongs in:
 
-- the **year Team** for the current academic year, e.g. `Students 2026-27`
+- the **year group** for the current academic year, e.g.
+  `HSHB Student 2026-2027`: a plain Microsoft 365 group like last year's
+  (set `YearTeamIsTeam = $true` to make it a Team as well)
 - a **class Team** for each of their current classes in an eligible year
-  group, e.g. `Year 3 2026-27`
+  group, e.g. `Year 3 - 2026-2027`
 
-Teams are found by their mail nickname, not their name, so renaming a class
-(or a Team) doesn't break anything:
+Teams are found by their **mail nickname**, built from the class name and
+the year, so they match the Teams made by hand for 2026-27 and those are
+adopted, not duplicated:
 
-| Team  | Mail nickname                                    | Display name (`config.psd1`)                             |
-| ----- | ------------------------------------------------ | -------------------------------------------------------- |
-| Year  | `stu-year-<year code>`, e.g. `stu-year-2026-27`  | `YearTeamNameFormat`, e.g. `Students {0}`                |
-| Class | `stu-class-<first 8 characters of the class id>` | `ClassTeamNameFormat`, e.g. `{0} {1}` (class name, year) |
+| Team  | Mail nickname (`config.psd1`)                                  | Display name (`config.psd1`)                             |
+| ----- | -------------------------------------------------------------- | -------------------------------------------------------- |
+| Year  | `YearTeamNicknameFormat` `students-{2}` → `students-2026-2027` | `YearTeamNameFormat` `HSHB Student {2}`                  |
+| Class | `ClassTeamNicknameFormat` `{0}-{2}` → `year3-2026-2027`        | `ClassTeamNameFormat` `{0} - {2}` → `Year 3 - 2026-2027` |
 
-A new academic year has new classes (new ids) and a new year code, so it
-gets new Teams; last year's are left alone.
+In the formats, `{0}` is the class's Team name, `{1}` the year code
+(`2026-27`) and `{2}` the long year (`2026-2027`). In a nickname, `{0}` is
+the Team name in lowercase letters and digits only (`A Level` → `alevel`).
+
+A class's Team name is its portal class name, unless it is mapped in
+`ClassTeamNames`. The GCSE classes are mapped because the Teams use digits
+and the portal uses Roman numerals:
+
+```powershell
+ClassTeamNames = @{ 'GCSE I' = 'GCSE1'; 'GCSE II' = 'GCSE2'; 'GCSE III' = 'GCSE3' }
+```
+
+If a class is renamed in the portal, its nickname changes too, so the
+scripts look for (and would create) a Team under the new name. Add the new
+name to `ClassTeamNames`, mapped to the old Team name, to keep using the
+existing Team.
+
+Each year's nicknames include the year, so a new academic year gets new
+Teams, and last year's are left alone.
 
 ### Create this year's Teams
 
@@ -421,26 +443,27 @@ pwsh ./setup-teams.ps1          # dry run
 pwsh ./setup-teams.ps1 -Apply
 ```
 
-For the year Team and each eligible class it:
+For the year group and each eligible class it:
 
-- **creates** the Team if it doesn't exist: a private Microsoft 365 group
-  (welcome emails off) turned into a Team, with the class teacher
+- **creates** it if it doesn't exist: a private Microsoft 365 group
+  (welcome emails off), turned into a Team for classes (and for the year
+  group only if `YearTeamIsTeam`), with the class teacher
   (`classes.teacher_id` → their school email) and everyone in
   `DefaultTeamOwners` as owners. A Team must have an owner: if none can be
   found, it is reported (`NO OWNER`) and skipped.
-- turns an existing group with the right nickname into a Team
+- turns an existing class group with the right nickname into a Team
 - updates the display name if the class was renamed
 - adds missing owners
 
 It **never** deletes a Team, removes an owner or changes student
-membership. Managed Teams that aren't this year's (e.g. last year's class
-Teams) are listed as `PAST TEAM` so you can archive them in Teams when
-you're ready.
+membership. Teams named for another year (e.g. `Year 3 - 2025-2026`,
+`year3-2025-2026`) are listed as `PAST TEAM` so you can archive them in
+Teams when you're ready.
 
-Last year's student Team was made by hand, so it isn't managed. Put its id
-(from the inventory's `inventory-teams-*.csv`) in `LegacyStudentTeamIds`:
-it is then used only to help match existing accounts by name, and is never
-changed.
+Last year's year group, `HSHB Student 2025-2026` (`students2025`), doesn't
+follow the naming, so it is never changed. Its id is in
+`LegacyStudentTeamIds`, which is used only to help match existing accounts
+by name.
 
 New Teams can take a few minutes to appear in the Teams app.
 

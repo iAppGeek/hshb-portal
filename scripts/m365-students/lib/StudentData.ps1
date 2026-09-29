@@ -25,14 +25,46 @@ function Get-CodeKey {
     return $Code.Trim().ToUpperInvariant()
 }
 
-function Get-ClassTeamNickname {
+function Get-ClassTeamBaseName {
+    <# The Team name for a class: ClassTeamNames override (e.g. 'GCSE I' -> 'GCSE1'), or the class name. #>
     [OutputType([string])]
     param(
-        [Parameter(Mandatory)][string]$ClassId,
+        [Parameter(Mandatory)][string]$ClassName,
         [Parameter(Mandatory)][hashtable]$Config
     )
-    $id = ($ClassId -replace '-', '').ToLowerInvariant()
-    return "$($Config.TeamNicknamePrefix)class-$($id.Substring(0, [Math]::Min(8, $id.Length)))"
+    if ($Config.ContainsKey('ClassTeamNames') -and $Config.ClassTeamNames) {
+        foreach ($key in $Config.ClassTeamNames.Keys) {
+            if (([string]$key).Trim() -ieq $ClassName.Trim()) { return ([string]$Config.ClassTeamNames[$key]).Trim() }
+        }
+    }
+    return $ClassName.Trim()
+}
+
+function Format-TeamNickname {
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)][string]$Format,
+        [AllowEmptyString()][string]$Slug,
+        [Parameter(Mandatory)][string]$YearCode
+    )
+    $nickname = [string]::Format($Format, $Slug, $YearCode, (Get-LongYearCode $YearCode)).ToLowerInvariant()
+    if ($nickname -cnotmatch '^[a-z0-9][a-z0-9.-]*$' -or $nickname.Length -gt 64) {
+        throw "Team mail nickname '$nickname' is not valid (lowercase letters, digits, dots and hyphens, up to 64)."
+    }
+    return $nickname
+}
+
+function Get-ClassTeamNickname {
+    <# e.g. 'Year 3' in 2026-27 -> 'year3-2026-2027' with the default format. #>
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)][string]$ClassName,
+        [Parameter(Mandatory)][string]$YearCode,
+        [Parameter(Mandatory)][hashtable]$Config
+    )
+    $slug = ((Get-ClassTeamBaseName -ClassName $ClassName -Config $Config).ToLowerInvariant() -replace '[^a-z0-9]', '')
+    if (-not $slug) { throw "Class '$ClassName' has no letters or digits for a Team nickname: add it to ClassTeamNames in config.psd1." }
+    return Format-TeamNickname -Format ([string]$Config.ClassTeamNicknameFormat) -Slug $slug -YearCode $YearCode
 }
 
 function Get-YearTeamNickname {
@@ -41,7 +73,7 @@ function Get-YearTeamNickname {
         [Parameter(Mandatory)][string]$YearCode,
         [Parameter(Mandatory)][hashtable]$Config
     )
-    return "$($Config.TeamNicknamePrefix)year-$($YearCode.ToLowerInvariant())"
+    return Format-TeamNickname -Format ([string]$Config.YearTeamNicknameFormat) -Slug '' -YearCode $YearCode
 }
 
 function ConvertTo-DesiredStudentState {
@@ -90,7 +122,7 @@ function ConvertTo-DesiredStudentState {
 
     $yearTeam = [pscustomobject]@{
         Nickname    = Get-YearTeamNickname -YearCode $yearCode -Config $Config
-        DisplayName = [string]::Format([string]$Config.YearTeamNameFormat, $yearCode)
+        DisplayName = [string]::Format([string]$Config.YearTeamNameFormat, '', $yearCode, (Get-LongYearCode $yearCode))
     }
 
     # Classes, with eligibility from config.psd1.
@@ -103,9 +135,15 @@ function ConvertTo-DesiredStudentState {
         $yearGroup = ([string]$c['yearGroup']).Trim()
         $eligibility = Get-YearGroupEligibility -YearGroup $yearGroup -Config $Config
         if ($eligibility -eq 'Unknown') { [void]$unknownYearGroups.Add($yearGroup) }
-        $nickname = Get-ClassTeamNickname -ClassId $id -Config $Config
-        if (-not $nicknames.Add($nickname)) { throw "Two classes would share the Team nickname $nickname." }
         $name = ([string]$c['name']).Trim()
+        # Only classes in eligible year groups get a Team.
+        $nickname = ''
+        if ($eligibility -eq 'Eligible') {
+            $nickname = Get-ClassTeamNickname -ClassName $name -YearCode $yearCode -Config $Config
+            if ($nickname -eq $yearTeam.Nickname -or -not $nicknames.Add($nickname)) {
+                throw "Two Teams would share the mail nickname $nickname. Rename a class, or map it in ClassTeamNames in config.psd1."
+            }
+        }
         $classes[$id] = [pscustomobject]@{
             Id           = $id
             Name         = $name
@@ -113,7 +151,7 @@ function ConvertTo-DesiredStudentState {
             Eligibility  = $eligibility
             TeacherEmail = if ($c['teacherEmail']) { ([string]$c['teacherEmail']).Trim().ToLowerInvariant() } else { '' }
             Nickname     = $nickname
-            DisplayName  = [string]::Format([string]$Config.ClassTeamNameFormat, $name, $yearCode)
+            DisplayName  = [string]::Format([string]$Config.ClassTeamNameFormat, (Get-ClassTeamBaseName -ClassName $name -Config $Config), $yearCode, (Get-LongYearCode $yearCode))
         }
     }
 

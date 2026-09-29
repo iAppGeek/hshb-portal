@@ -30,9 +30,9 @@ BeforeAll {
 
 Describe 'Select-ApprovedTeamChanges' {
     BeforeAll {
-        $script:add = New-Change 'ADD' 'stu-class-30000000' 'S001'
-        $script:remove = New-Change 'REMOVE' 'stu-class-40000000' 'S001'
-        $script:newAccount = New-Change 'ADD' 'stu-year-2026-27' 'S002' -UserId $null
+        $script:add = New-Change 'ADD' 'year3-2026-2027' 'S001'
+        $script:remove = New-Change 'REMOVE' 'year4-2026-2027' 'S001'
+        $script:newAccount = New-Change 'ADD' 'students-2026-2027' 'S002' -UserId $null
     }
 
     It 'applies only rows marked yes (any case, spaces allowed)' {
@@ -56,14 +56,14 @@ Describe 'Select-ApprovedTeamChanges' {
 
     It 'skips a row whose details were edited after it was written' {
         $row = New-Row $add
-        $row.TeamNickname = 'stu-class-40000000'
-        $result = Select-ApprovedTeamChanges -Rows @($row) -TeamChanges @($add, (New-Change 'ADD' 'stu-class-40000000' 'S001'))
+        $row.TeamNickname = 'year4-2026-2027'
+        $result = Select-ApprovedTeamChanges -Rows @($row) -TeamChanges @($add, (New-Change 'ADD' 'year4-2026-2027' 'S001'))
         $result.ToApply | Should -BeNullOrEmpty
         $result.Skipped[0].Reason | Should -Match 'edited'
     }
 
     It 'ignores rows added by hand that the plan never proposed' {
-        $invented = New-Change 'ADD' 'stu-class-99999999' 'S123'
+        $invented = New-Change 'ADD' 'year3-2025-2026' 'S123'
         $result = Select-ApprovedTeamChanges -Rows @(New-Row $invented) -TeamChanges @($add)
         $result.ToApply | Should -BeNullOrEmpty
     }
@@ -79,14 +79,14 @@ Describe 'Select-ApprovedTeamChanges' {
         $row | Add-Member -NotePropertyName GroupId -NotePropertyValue 'evil-group' -Force
         $result = Select-ApprovedTeamChanges -Rows @($row, $row) -TeamChanges @($add)
         $result.ToApply.Count | Should -Be 1
-        $result.ToApply[0].GroupId | Should -Be 'group-stu-class-30000000'
+        $result.ToApply[0].GroupId | Should -Be 'group-year3-2026-2027'
     }
 }
 
 Describe 'Read-TeamChangeFile' {
     It 'reads a file written by the dry run' {
         $path = Join-Path $TestDrive 'changes.csv'
-        ConvertTo-TeamChangeRows -TeamChanges @(New-Change 'ADD' 'stu-year-2026-27' 'S001') -GeneratedAt '2026-09-29T10:00:00+00:00' |
+        ConvertTo-TeamChangeRows -TeamChanges @(New-Change 'ADD' 'students-2026-2027' 'S001') -GeneratedAt '2026-09-29T10:00:00+00:00' |
             Export-Csv -LiteralPath $path
         $rows = Read-TeamChangeFile -Path $path -MaxAgeHours 24 -Now '2026-09-29T12:00:00+00:00'
         $rows.Count | Should -Be 1
@@ -94,7 +94,7 @@ Describe 'Read-TeamChangeFile' {
 
     It 'refuses an old file' {
         $path = Join-Path $TestDrive 'old.csv'
-        ConvertTo-TeamChangeRows -TeamChanges @(New-Change 'ADD' 'stu-year-2026-27' 'S001') -GeneratedAt '2026-09-27T10:00:00+00:00' |
+        ConvertTo-TeamChangeRows -TeamChanges @(New-Change 'ADD' 'students-2026-2027' 'S001') -GeneratedAt '2026-09-27T10:00:00+00:00' |
             Export-Csv -LiteralPath $path
         { Read-TeamChangeFile -Path $path -MaxAgeHours 24 -Now '2026-09-29T12:00:00+00:00' } | Should -Throw '*hours old*'
     }
@@ -112,12 +112,12 @@ Describe 'Invoke-TeamChanges' {
         $groups = New-CurrentTeams -Members @{ Y4 = @($user.id) }
         $tenant = New-FakeTenant -Users @($user) -Groups $groups
         Mock Invoke-MgGraphRequest { Invoke-FakeGraph -Tenant $tenant -Method $Method -Uri $Uri -Body $Body }
-        $y3 = @($groups | Where-Object { $_.mailNickname -eq 'stu-class-30000000' })[0]
-        $y4 = @($groups | Where-Object { $_.mailNickname -eq 'stu-class-40000000' })[0]
+        $y3 = @($groups | Where-Object { $_.mailNickname -eq 'year3-2026-2027' })[0]
+        $y4 = @($groups | Where-Object { $_.mailNickname -eq 'year4-2026-2027' })[0]
         $changes = @(
-            [pscustomobject]@{ Action = 'ADD'; GroupId = $y3.id; UserId = $user.id; StudentCode = 'S001'; TeamNickname = 'stu-class-30000000' }
+            [pscustomobject]@{ Action = 'ADD'; GroupId = $y3.id; UserId = $user.id; StudentCode = 'S001'; TeamNickname = 'year3-2026-2027' }
             [pscustomobject]@{ Action = 'ADD'; GroupId = 'missing-group'; UserId = $user.id; StudentCode = 'S001'; TeamNickname = 'nope' }
-            [pscustomobject]@{ Action = 'REMOVE'; GroupId = $y4.id; UserId = $user.id; StudentCode = 'S001'; TeamNickname = 'stu-class-40000000' }
+            [pscustomobject]@{ Action = 'REMOVE'; GroupId = $y4.id; UserId = $user.id; StudentCode = 'S001'; TeamNickname = 'year4-2026-2027' }
         )
         $result = Invoke-TeamChanges -Changes $changes
         $result.Added | Should -Be 1

@@ -103,3 +103,50 @@ Describe 'Get-YearGroupEligibility' {
         Get-YearGroupEligibility -YearGroup $Value -Config (New-TestConfig) | Should -Be $Expected
     }
 }
+
+Describe 'Team naming' {
+    BeforeAll { . (Join-Path $script:Root 'lib/StudentData.ps1') }
+
+    It 'turns 2026-27 into 2026-2027' {
+        Get-LongYearCode '2026-27' | Should -Be '2026-2027'
+        Get-LongYearCode '2099-00' | Should -Be '2099-2100'
+    }
+
+    It 'names class Teams like the ones made by hand' {
+        $config = Import-PowerShellDataFile (Join-Path $script:Root 'config.psd1')
+        Get-ClassTeamNickname -ClassName 'Year 3' -YearCode '2026-27' -Config $config | Should -Be 'year3-2026-2027'
+        Get-ClassTeamNickname -ClassName 'A Level' -YearCode '2026-27' -Config $config | Should -Be 'alevel-2026-2027'
+        Get-ClassTeamNickname -ClassName 'gcse ii' -YearCode '2026-27' -Config $config | Should -Be 'gcse2-2026-2027'
+        Get-ClassTeamBaseName -ClassName 'GCSE III' -Config $config | Should -Be 'GCSE3'
+        Get-YearTeamNickname -YearCode '2026-27' -Config $config | Should -Be 'students-2026-2027'
+    }
+
+    It 'recognises any year of these Teams, but not other groups' {
+        $pattern = Get-ManagedTeamPattern -Config (Import-PowerShellDataFile (Join-Path $script:Root 'config.psd1'))
+        'year3-2025-2026' | Should -Match $pattern
+        'students-2026-2027' | Should -Match $pattern
+        'students2025' | Should -Not -Match $pattern
+        'hshb-automation' | Should -Not -Match $pattern
+        'teachers' | Should -Not -Match $pattern
+    }
+
+    It 'rejects nickname formats without the year or with bad characters' {
+        { Assert-StudentConfig -Config (New-TestConfig @{ ClassTeamNicknameFormat = '{0}' }) } | Should -Throw '*must include the year*'
+        { Assert-StudentConfig -Config (New-TestConfig @{ YearTeamNicknameFormat = 'Students {2}' }) } | Should -Throw '*may only contain*'
+        { Assert-StudentConfig -Config (New-TestConfig @{ ClassTeamNicknameFormat = 'class-{2}' }) } | Should -Throw '*must include the class*'
+        { Assert-StudentConfig -Config (New-TestConfig @{ YearTeamIsTeam = 'no' }) } | Should -Throw '*YearTeamIsTeam*'
+    }
+
+    It 'rejects two eligible classes that would share a Team, but not ignored ones' {
+        $classes = @(
+            @{ id = '30000000-0000-0000-0000-000000000000'; name = 'Year 3'; yearGroup = '3'; teacherEmail = $null }
+            @{ id = '31000000-0000-0000-0000-000000000000'; name = 'Year-3'; yearGroup = '3'; teacherEmail = $null }
+        )
+        $data = New-TestStudentData -Students @(New-TestStudent 'S1' 'A' 'B') -Classes $classes
+        { ConvertTo-DesiredStudentState -Data $data -Config (New-TestConfig) } | Should -Throw '*share the mail nickname year3-2026-2027*'
+
+        $classes[1].yearGroup = '2'
+        $data = New-TestStudentData -Students @(New-TestStudent 'S1' 'A' 'B') -Classes $classes
+        { ConvertTo-DesiredStudentState -Data $data -Config (New-TestConfig) } | Should -Not -Throw
+    }
+}

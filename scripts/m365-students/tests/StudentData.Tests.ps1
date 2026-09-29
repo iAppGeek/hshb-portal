@@ -48,11 +48,11 @@ Describe 'ConvertTo-DesiredStudentState: eligibility (Year 3 and up)' {
     }
 
     It 'puts each student in the year Team and their eligible class Teams only' {
-        $desired.YearTeam.Nickname | Should -Be 'stu-year-2026-27'
-        $desired.YearTeam.DisplayName | Should -Be 'Students 2026-27'
-        $desired.Students['S004'].TeamNicknames | Should -Be @('stu-year-2026-27', 'stu-class-40000000')
+        $desired.YearTeam.Nickname | Should -Be 'students-2026-2027'
+        $desired.YearTeam.DisplayName | Should -Be 'HSHB Student 2026-2027'
+        $desired.Students['S004'].TeamNicknames | Should -Be @('students-2026-2027', 'year4-2026-2027')
         $desired.Classes[$script:ClassIds.Dance].Eligibility | Should -Be 'Ignored'
-        $desired.Classes[$script:ClassIds.Y3].DisplayName | Should -Be 'Year 3 2026-27'
+        $desired.Classes[$script:ClassIds.Y3].DisplayName | Should -Be 'Year 3 - 2026-2027'
     }
 
     It 'sets the department from the year groups in config order' {

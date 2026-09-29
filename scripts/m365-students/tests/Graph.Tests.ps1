@@ -3,6 +3,7 @@
 
 BeforeAll {
     . (Join-Path $PSScriptRoot 'TestHelpers.ps1')
+    . (Join-Path $script:Root 'lib/StudentConfig.ps1')
     . (Join-Path $script:Root 'lib/Graph.ps1')
     . (Join-Path $script:Root 'lib/Inventory.ps1')
 }
@@ -13,7 +14,7 @@ Describe 'Reading the tenant' {
             -Attributes @{ CustomAttribute1 = 'Student'; CustomAttribute4 = 'Student' } -SkuIds @('sku-student')
         $script:bob = New-GraphUser -Upn 'bob@school.example' -Given 'Bob' -Surname 'Jones' -Attributes @{ CustomAttribute1 = 'Teacher' }
         $script:carol = New-GraphUser -Upn 'carol.white@school.example' -Given 'Carol' -Surname 'White' -Enabled $false
-        $group = New-GraphGroup -Name 'Year 3 2026-27' -Nickname 'stu-class-abcd1234' -MemberIds @($alice.id) -OwnerIds @($bob.id)
+        $group = New-GraphGroup -Name 'Year 3 - 2026-2027' -Nickname 'year3-2026-2027' -MemberIds @($alice.id) -OwnerIds @($bob.id)
         $other = New-GraphGroup -Name 'Staff' -Nickname 'staff' -MemberIds @($bob.id) -IsTeam $false
         $script:tenant = New-FakeTenant -Users @($alice, $bob, $carol) -Groups @($group, $other) -PageSize 2
         Mock Invoke-MgGraphRequest { Invoke-FakeGraph -Tenant $script:tenant -Method $Method -Uri $Uri -Body $Body }
@@ -35,7 +36,7 @@ Describe 'Reading the tenant' {
     It 'reads groups with members, owners and whether they are Teams' {
         $groups = Get-GraphUnifiedGroups
         $groups.Count | Should -Be 2
-        $class = $groups | Where-Object Nickname -eq 'stu-class-abcd1234'
+        $class = $groups | Where-Object Nickname -eq 'year3-2026-2027'
         $class.IsTeam | Should -BeTrue
         $class.MemberIds | Should -Be @($alice.id)
         $class.OwnerIds | Should -Be @($bob.id)
@@ -55,10 +56,10 @@ Describe 'Reading the tenant' {
         $rows.Users.Count | Should -Be 3
         $aliceRow = $rows.Users | Where-Object Upn -eq 'alice.smith@school.example'
         $aliceRow.Licences | Should -Be 'STUDENT_SKU'
-        $aliceRow.Groups | Should -Be 'Year 3 2026-27'
+        $aliceRow.Groups | Should -Be 'Year 3 - 2026-2027'
         $aliceRow.CustomAttribute4 | Should -Be 'Student'
 
-        ($rows.Teams | Where-Object Nickname -eq 'stu-class-abcd1234').Managed | Should -BeTrue
+        ($rows.Teams | Where-Object Nickname -eq 'year3-2026-2027').Managed | Should -BeTrue
         ($rows.Teams | Where-Object Nickname -eq 'staff').Managed | Should -BeFalse
         $rows.Licences[0].Available | Should -Be 490
 

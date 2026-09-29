@@ -27,44 +27,44 @@ BeforeAll {
 Describe 'New-TeamSetupPlan' {
     It 'creates the year Team and one Team per eligible class only' {
         $plan = Get-SetupPlan -Users $teachers
-        @($plan.Creates | ForEach-Object DisplayName) | Should -Be @('Students 2026-27', 'GCSE I 2026-27', 'Year 3 2026-27', 'Year 4 2026-27')
-        @($plan.Creates | ForEach-Object Nickname) | Should -Contain 'stu-class-30000000'
-        @($plan.Creates | ForEach-Object DisplayName) | Should -Not -Contain 'Dance 2026-27'
-        @($plan.Creates | ForEach-Object DisplayName) | Should -Not -Contain 'Year 2 2026-27'
+        @($plan.Creates | ForEach-Object DisplayName) | Should -Be @('HSHB Student 2026-2027', 'GCSE1 - 2026-2027', 'Year 3 - 2026-2027', 'Year 4 - 2026-2027')
+        @($plan.Creates | ForEach-Object Nickname) | Should -Contain 'year3-2026-2027'
+        @($plan.Creates | ForEach-Object DisplayName) | Should -Not -Contain 'Dance - 2026-2027'
+        @($plan.Creates | ForEach-Object DisplayName) | Should -Not -Contain 'Year 2 - 2026-2027'
     }
 
     It 'makes the class teacher and default owners owners' {
         $plan = Get-SetupPlan -Users $teachers
-        $y3 = $plan.Creates | Where-Object Nickname -eq 'stu-class-30000000'
+        $y3 = $plan.Creates | Where-Object Nickname -eq 'year3-2026-2027'
         $y3.OwnerIds | Should -Be @($teachers[0].id, $teachers[2].id)
-        ($plan.Creates | Where-Object Nickname -eq 'stu-year-2026-27').OwnerIds | Should -Be @($teachers[2].id)
+        ($plan.Creates | Where-Object Nickname -eq 'students-2026-2027').OwnerIds | Should -Be @($teachers[2].id)
     }
 
     It 'skips a Team with no owner it can find, and reports unknown owners' {
         $plan = Get-SetupPlan -Users @($teachers[0]) -Config (New-TestConfig @{ DefaultTeamOwners = @() })
-        @($plan.Creates | ForEach-Object Nickname) | Should -Be @('stu-class-30000000')
+        @($plan.Creates | ForEach-Object Nickname) | Should -Be @('year3-2026-2027')
         @($plan.Issues | Where-Object Type -eq 'NO OWNER').Count | Should -Be 3
         @($plan.Issues | Where-Object Type -eq 'OWNER NOT FOUND' | ForEach-Object Detail) | Should -Contain 'no Microsoft 365 user with address t4@school.example'
     }
 
     It 'fixes existing Teams: turns groups into Teams, renames, adds owners, never removes owners' {
         $groups = @(New-CurrentTeams)
-        ($groups | Where-Object { $_.mailNickname -eq 'stu-class-30000000' }).displayName = 'Old name'
-        ($groups | Where-Object { $_.mailNickname -eq 'stu-class-40000000' }).resourceProvisioningOptions = @()
+        ($groups | Where-Object { $_.mailNickname -eq 'year3-2026-2027' }).displayName = 'Old name'
+        ($groups | Where-Object { $_.mailNickname -eq 'year4-2026-2027' }).resourceProvisioningOptions = @()
         $plan = Get-SetupPlan -Users $teachers -Groups $groups
         $plan.Creates | Should -BeNullOrEmpty
-        @($plan.EnableTeams | ForEach-Object Nickname) | Should -Be @('stu-class-40000000')
-        $plan.Renames[0].To | Should -Be 'Year 3 2026-27'
-        @($plan.OwnerAdds | Where-Object Nickname -eq 'stu-class-30000000' | ForEach-Object UserId) | Should -Be @($teachers[0].id, $teachers[2].id)
+        @($plan.EnableTeams | ForEach-Object Nickname) | Should -Be @('year4-2026-2027')
+        $plan.Renames[0].To | Should -Be 'Year 3 - 2026-2027'
+        @($plan.OwnerAdds | Where-Object Nickname -eq 'year3-2026-2027' | ForEach-Object UserId) | Should -Be @($teachers[0].id, $teachers[2].id)
     }
 
     It 'lists past Teams and does not create over a user nickname' {
-        $past = New-GraphGroup -Name 'Year 3 2025-26' -Nickname 'stu-class-deadbeef'
-        $clash = New-GraphUser -Upn 'stu-year-2026-27@school.example' -Given 'Odd' -Surname 'User'
+        $past = New-GraphGroup -Name 'Year 3 - 2025-2026' -Nickname 'year3-2025-2026'
+        $clash = New-GraphUser -Upn 'students-2026-2027@school.example' -Given 'Odd' -Surname 'User'
         $plan = Get-SetupPlan -Users (@($teachers) + $clash) -Groups @($past)
-        @($plan.Issues | Where-Object Type -eq 'PAST TEAM' | ForEach-Object Team) | Should -Be @('Year 3 2025-26')
+        @($plan.Issues | Where-Object Type -eq 'PAST TEAM' | ForEach-Object Team) | Should -Be @('Year 3 - 2025-2026')
         @($plan.Issues | Where-Object Type -eq 'NICKNAME TAKEN').Count | Should -Be 1
-        @($plan.Creates | ForEach-Object Nickname) | Should -Not -Contain 'stu-year-2026-27'
+        @($plan.Creates | ForEach-Object Nickname) | Should -Not -Contain 'students-2026-2027'
     }
 }
 
@@ -81,7 +81,11 @@ Describe 'Invoke-TeamSetupPlan' {
         $post = @($tenant.Calls | Where-Object { $_.Method -eq 'POST' -and $_.Uri -eq 'v1.0/groups' })[0].Body
         $post.visibility | Should -Be 'Private'
         $post.groupTypes | Should -Be @('Unified')
-        @($tenant.Calls | Where-Object { $_.Method -eq 'PUT' -and $_.Uri -match '/team$' }).Count | Should -Be 4
+        # The year group is a plain group (YearTeamIsTeam = $false); class groups become Teams.
+        @($tenant.Calls | Where-Object { $_.Method -eq 'PUT' -and $_.Uri -match '/team$' }).Count | Should -Be 3
+        $year = @($tenant.Groups | Where-Object { $_['mailNickname'] -eq 'students-2026-2027' })[0]
+        $year['displayName'] | Should -Be 'HSHB Student 2026-2027'
+        $year['resourceProvisioningOptions'] | Should -BeNullOrEmpty
 
         $again = New-TeamSetupPlan -Desired $desired -State @{ Users = Get-GraphUsers; Groups = Get-GraphUnifiedGroups } -Config (New-TestConfig)
         $again.Creates + $again.EnableTeams + $again.Renames + $again.OwnerAdds | Should -BeNullOrEmpty
@@ -96,7 +100,7 @@ Describe 'Invoke-TeamSetupPlan' {
         }
         $desired = Get-TestDesired -Students @(New-TestStudent 'S1' 'A' 'B')
         $plan = New-TeamSetupPlan -Desired $desired -State (New-TestState -Users $teachers) -Config (New-TestConfig)
-        $plan.Creates = @($plan.Creates[0])
+        $plan.Creates = @($plan.Creates | Where-Object IsTeam | Select-Object -First 1)
         $result = Invoke-TeamSetupPlan -Plan $plan -RetryDelaySeconds 0
         $result.Created | Should -Be 1
         $script:putAttempts | Should -Be 2

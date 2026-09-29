@@ -21,6 +21,8 @@ BeforeAll {
         $lines = foreach ($k in $config.Keys) {
             $v = $config[$k]
             $value = if ($v -is [array]) { '@(' + (($v | ForEach-Object { "'$_'" }) -join ', ') + ')' }
+            elseif ($v -is [hashtable]) { '@{ ' + (($v.Keys | ForEach-Object { "'$_' = '$($v[$_])'" }) -join '; ') + ' }' }
+            elseif ($v -is [bool]) { if ($v) { '$true' } else { '$false' } }
             elseif ($v -is [int] -or $v -is [double]) { "$v" }
             else { "'$v'" }
             "    $k = $value"
@@ -87,7 +89,7 @@ Describe 'sync-students.ps1 dry run' {
         $students = @(Import-Csv (Get-ChildItem (Join-Path $TestDrive 'reports') -Filter 'students-*.csv').FullName)
         @($students | ForEach-Object Status | Sort-Object) | Should -Be @('CREATE', 'LINK')
         ($students | Where-Object StudentCode -eq 'S001').Upn | Should -Be 'alice.smith@school.example'
-        ($students | Where-Object StudentCode -eq 'S002').ExpectedTeams | Should -Be 'Students 2026-27; Year 4 2026-27'
+        ($students | Where-Object StudentCode -eq 'S002').ExpectedTeams | Should -Be 'HSHB Student 2026-2027; Year 4 - 2026-2027'
 
         $changes = @(Import-Csv (Get-ChildItem (Join-Path $TestDrive 'reports') -Filter 'team-changes-*.csv').FullName)
         $changes.Count | Should -Be 4
@@ -191,7 +193,7 @@ Describe 'sync-students.ps1 -ApplyTeamChanges' {
         $file = (Get-ChildItem (Join-Path $TestDrive 'reports') -Filter 'team-changes-*.csv').FullName
         $rows = @(Import-Csv $file)
         @($rows | ForEach-Object { "$($_.Action) $($_.StudentCode) $($_.TeamNickname)" } | Sort-Object) | Should -Be @(
-            'ADD S001 stu-class-30000000', 'ADD S001 stu-year-2026-27', 'ADD S002 stu-class-40000000', 'REMOVE S002 stu-class-30000000')
+            'ADD S001 students-2026-2027', 'ADD S001 year3-2026-2027', 'ADD S002 year4-2026-2027', 'REMOVE S002 year3-2026-2027')
         foreach ($r in $rows) { if ($r.StudentCode -eq 'S002') { $r.Approved = 'yes' } }
         $rows | Export-Csv -LiteralPath $file
 
@@ -250,7 +252,7 @@ Describe 'setup-teams.ps1' {
         & $script:SetupScript @common -Apply *> $null
         $LASTEXITCODE | Should -Be 0
         @($global:FakeTenant.Groups | ForEach-Object { $_['displayName'] } | Sort-Object) |
-            Should -Be @('GCSE I 2026-27', 'Students 2026-27', 'Year 3 2026-27', 'Year 4 2026-27')
+            Should -Be @('GCSE1 - 2026-2027', 'HSHB Student 2026-2027', 'Year 3 - 2026-2027', 'Year 4 - 2026-2027')
 
         $global:FakeTenant.Calls.Clear()
         & $script:SetupScript @common -Apply *> $null

@@ -21,7 +21,8 @@ function Get-UserIdByAddress {
 
 function New-TeamSetupPlan {
     <#
-      Pure. Returns Creates, EnableTeams, Renames, OwnerAdds and Issues
+      Pure. The year group is a Team only if YearTeamIsTeam; class groups
+      are always Teams. Returns Creates, EnableTeams, Renames, OwnerAdds and Issues
       (NO OWNER, OWNER NOT FOUND, NICKNAME TAKEN, PAST TEAM).
     #>
     [OutputType([hashtable])]
@@ -44,6 +45,7 @@ function New-TeamSetupPlan {
             DisplayName = $Desired.YearTeam.DisplayName
             Description = "All Year 3+ students, $($Desired.AcademicYear.Code). Managed by scripts/m365-students."
             OwnerEmails = $defaultOwners
+            IsTeam      = [bool]$Config.YearTeamIsTeam
         })
     foreach ($c in ($Desired.Classes.Values | Where-Object Eligibility -eq 'Eligible' | Sort-Object DisplayName)) {
         $wanted.Add([pscustomobject]@{
@@ -51,6 +53,7 @@ function New-TeamSetupPlan {
                 DisplayName = $c.DisplayName
                 Description = "Class $($c.Name), $($Desired.AcademicYear.Code). Managed by scripts/m365-students."
                 OwnerEmails = @(@($c.TeacherEmail) + $defaultOwners | Where-Object { $_ } | Select-Object -Unique)
+                IsTeam      = $true
             })
     }
 
@@ -77,13 +80,13 @@ function New-TeamSetupPlan {
                 continue
             }
             $creates.Add([pscustomobject]@{
-                    Nickname = $w.Nickname; DisplayName = $w.DisplayName; Description = $w.Description; OwnerIds = $ownerIds.ToArray()
+                    Nickname = $w.Nickname; DisplayName = $w.DisplayName; Description = $w.Description; OwnerIds = $ownerIds.ToArray(); IsTeam = $w.IsTeam
                 })
             continue
         }
 
         $group = $groupsByNickname[$w.Nickname]
-        if (-not $group.IsTeam) { $enable.Add([pscustomobject]@{ GroupId = $group.Id; Nickname = $w.Nickname; DisplayName = $group.DisplayName }) }
+        if ($w.IsTeam -and -not $group.IsTeam) { $enable.Add([pscustomobject]@{ GroupId = $group.Id; Nickname = $w.Nickname; DisplayName = $group.DisplayName }) }
         if ($group.DisplayName -cne $w.DisplayName) {
             $renames.Add([pscustomobject]@{ GroupId = $group.Id; Nickname = $w.Nickname; From = $group.DisplayName; To = $w.DisplayName })
         }
@@ -96,8 +99,8 @@ function New-TeamSetupPlan {
     }
 
     $wantedNicknames = @($wanted | ForEach-Object Nickname)
-    $prefix = [string]$Config.TeamNicknamePrefix
-    foreach ($g in ($State.Groups | Where-Object { $_.Nickname.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) } | Sort-Object DisplayName)) {
+    $managedPattern = Get-ManagedTeamPattern -Config $Config
+    foreach ($g in ($State.Groups | Where-Object { $_.Nickname -match $managedPattern } | Sort-Object DisplayName)) {
         if ($wantedNicknames -notcontains $g.Nickname) {
             $issues.Add([pscustomobject]@{ Type = 'PAST TEAM'; Team = $g.DisplayName; Detail = "not a current class or year ($($g.Nickname)); archive it in Teams when you're ready (never changed by these scripts)" })
         }
@@ -143,9 +146,9 @@ function Invoke-TeamSetupPlan {
                 'owners@odata.bind'       = $binds
                 'members@odata.bind'      = $binds
             }
-            & $makeTeam ([string]$group['id'])
+            if ($item.IsTeam) { & $makeTeam ([string]$group['id']) }
             $result.Created++
-            Write-SyncLog "CREATED TEAM $($item.Nickname)"
+            Write-SyncLog "CREATED $(if ($item.IsTeam) { 'TEAM' } else { 'GROUP' }) $($item.Nickname)"
         }
         catch {
             $result.Failed++

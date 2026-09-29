@@ -67,7 +67,7 @@ Describe 'Matching students to accounts' {
         $plan.Creates + $plan.Links + $plan.Updates + $plan.Licenses + $plan.TeamChanges | Should -BeNullOrEmpty
         $plan.Issues | Should -BeNullOrEmpty
         $plan.Rows[0].Status | Should -Be 'OK'
-        $plan.Rows[0].ActualTeams | Should -Be 'Students 2026-27; Year 3 2026-27'
+        $plan.Rows[0].ActualTeams | Should -Be 'HSHB Student 2026-2027; Year 3 - 2026-2027'
     }
 
     It 'plans an UPDATE for changed names and department, never the username' {
@@ -177,7 +177,7 @@ Describe 'Creating accounts' {
 
     It 'queues Team adds for the new account without a user id yet' {
         $plan = Get-Plan -Students @(New-TestStudent 'S001' 'Alice' 'Smith' @('Y3'))
-        @($plan.TeamChanges | ForEach-Object Team) | Should -Be @('Students 2026-27', 'Year 3 2026-27')
+        @($plan.TeamChanges | ForEach-Object Team) | Should -Be @('HSHB Student 2026-2027', 'Year 3 - 2026-2027')
         $plan.TeamChanges | ForEach-Object { $_.UserId | Should -BeNullOrEmpty; $_.Action | Should -Be 'ADD' }
     }
 
@@ -228,7 +228,7 @@ Describe 'Teams' {
         $plan = Get-Plan -Students @(New-TestStudent 'S001' 'Alice' 'Smith' @('Y3')) -Users @($account)
         $plan.TeamChanges.Count | Should -Be 2
         $plan.TeamChanges | ForEach-Object { $_.UserId | Should -Be $account.id }
-        $plan.TeamChanges[0].ChangeId | Should -Be (Get-TeamChangeId -Action 'ADD' -Nickname 'stu-year-2026-27' -Code 's001')
+        $plan.TeamChanges[0].ChangeId | Should -Be (Get-TeamChangeId -Action 'ADD' -Nickname 'students-2026-2027' -Code 's001')
     }
 
     It 'removes a student who moved class, from the old class Team only' {
@@ -237,8 +237,8 @@ Describe 'Teams' {
         $plan = Get-Plan -Students @(New-TestStudent 'S001' 'Alice' 'Smith' @('Y4')) -Users @($account) -Groups $groups -Config (New-TestConfig @{ MaxTeamRemovalPercent = 100 })
         $remove = @($plan.TeamChanges | Where-Object Action -eq 'REMOVE')
         $remove.Count | Should -Be 1
-        $remove[0].Team | Should -Be 'Year 3 2026-27'
-        @($plan.TeamChanges | Where-Object Action -eq 'ADD' | ForEach-Object Team) | Should -Be @('Year 4 2026-27')
+        $remove[0].Team | Should -Be 'Year 3 - 2026-2027'
+        @($plan.TeamChanges | Where-Object Action -eq 'ADD' | ForEach-Object Team) | Should -Be @('Year 4 - 2026-2027')
     }
 
     It 'never removes teachers, owners or other non-student members' {
@@ -252,7 +252,7 @@ Describe 'Teams' {
     It "never removes leavers (report only) or touches past years' Teams" {
         $leaver = New-StudentAccount 'old.kid@school.example' 'Old' 'Kid' 'S900'
         $current = New-StudentAccount 'alice.smith@school.example' 'Alice' 'Smith' 'S001'
-        $past = New-GraphGroup -Name 'Year 3 2025-26' -Nickname 'stu-class-99999999' -MemberIds @($current.id)
+        $past = New-GraphGroup -Name 'Year 3 - 2025-2026' -Nickname 'year3-2025-2026' -MemberIds @($current.id)
         $groups = @(New-CurrentTeams -Members @{ Year = @($leaver.id, $current.id); Y3 = @($leaver.id, $current.id) }) + $past
         $plan = Get-Plan -Students @(New-TestStudent 'S001' 'Alice' 'Smith' @('Y3')) -Users @($leaver, $current) -Groups $groups -InactiveCodes @('S900')
         $plan.TeamChanges | Should -BeNullOrEmpty
@@ -260,12 +260,12 @@ Describe 'Teams' {
     }
 
     It 'reports a missing Team once, with the number of students waiting' {
-        $groups = @(New-CurrentTeams | Where-Object { $_.mailNickname -ne 'stu-class-30000000' })
+        $groups = @(New-CurrentTeams | Where-Object { $_.mailNickname -ne 'year3-2026-2027' })
         $plan = Get-Plan -Students @((New-TestStudent 'S1' 'A' 'B' @('Y3')), (New-TestStudent 'S2' 'C' 'D' @('Y3'))) -Groups $groups
         $missing = @($plan.Issues | Where-Object Type -eq 'MISSING TEAM')
         $missing.Count | Should -Be 1
-        $missing[0].Detail | Should -Match 'Year 3 2026-27 \(stu-class-30000000\).*2 student'
-        @($plan.TeamChanges | ForEach-Object Team) | Should -Not -Contain 'Year 3 2026-27'
+        $missing[0].Detail | Should -Match 'Year 3 - 2026-2027 \(year3-2026-2027\).*2 student'
+        @($plan.TeamChanges | ForEach-Object Team) | Should -Not -Contain 'Year 3 - 2026-2027'
     }
 
     It 'trips the removal guard above MaxTeamRemovalPercent' {
@@ -292,6 +292,14 @@ Describe 'Reports' {
         @(Get-IssueTypes $plan | Sort-Object) | Should -Be @('LEAVER', 'NOT ELIGIBLE', 'ORPHAN', 'ORPHAN')
         $plan.Updates + $plan.Links | Should -BeNullOrEmpty
         @($plan.Rows | ForEach-Object Status | Sort-Object) | Should -Be @('CREATE', 'LEAVER', 'NOT ELIGIBLE', 'ORPHAN', 'ORPHAN')
+    }
+
+    It 'accepts firstlast and first.last usernames as matching the name' {
+        $a = New-StudentAccount 'alicesmith@school.example' 'Alice' 'Smith' 'S001'
+        $b = New-StudentAccount 'bob.jones2@school.example' 'Bob' 'Jones' 'S002'
+        $c = New-StudentAccount 'cjl@school.example' 'Cara' 'Lee' 'S003'
+        $plan = Get-Plan -Students @((New-TestStudent 'S001' 'Alice' 'Smith'), (New-TestStudent 'S002' 'Bob' 'Jones'), (New-TestStudent 'S003' 'Cara' 'Lee')) -Users @($a, $b, $c)
+        @($plan.Issues | Where-Object Type -eq 'NAME/UPN MISMATCH' | ForEach-Object Upn) | Should -Be @('cjl@school.example')
     }
 
     It 'reports a disabled account for an active student' {

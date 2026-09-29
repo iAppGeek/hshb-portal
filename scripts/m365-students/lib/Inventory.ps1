@@ -39,15 +39,18 @@ function Get-InventoryRows {
         [pscustomobject]$row
     }
 
-    $prefix = [string]$Config.TeamNicknamePrefix
+    $managedPattern = Get-ManagedTeamPattern -Config $Config
+    $upnById = @{}
+    foreach ($u in $State.Users) { $upnById[$u.Id] = $u.Upn }
     $teams = foreach ($g in ($State.Groups | Sort-Object DisplayName)) {
         [pscustomobject][ordered]@{
             Id          = $g.Id
             DisplayName = $g.DisplayName
             Nickname    = $g.Nickname
             IsTeam      = $g.IsTeam
-            Managed     = $g.Nickname.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)
+            Managed     = $g.Nickname -match $managedPattern
             Owners      = @($g.OwnerIds).Count
+            OwnerUpns   = (@($g.OwnerIds | ForEach-Object { if ($upnById.ContainsKey($_)) { $upnById[$_] } else { $_ } }) | Sort-Object) -join '; '
             Members     = @($g.MemberIds).Count
             Description = $g.Description
         }
@@ -75,7 +78,7 @@ function Get-InventoryRows {
     foreach ($group in ($State.Users | Where-Object EmployeeType | Group-Object EmployeeType | Sort-Object Name)) {
         $summary.Add("  with Employee type = $($group.Name): $($group.Count)")
     }
-    $summary.Add("Microsoft 365 groups:         $(@($State.Groups).Count) (Teams: $(@($State.Groups | Where-Object IsTeam).Count), managed by these scripts: $(@($teams | Where-Object Managed).Count))")
+    $summary.Add("Microsoft 365 groups:         $(@($State.Groups).Count) (Teams: $(@($State.Groups | Where-Object IsTeam).Count), named like this year's or another year's student Teams: $(@($teams | Where-Object Managed).Count))")
     foreach ($s in $licences) {
         $summary.Add("Licence $($s.PartNumber): $($s.Consumed) of $($s.Enabled) used, $($s.Available) available")
     }

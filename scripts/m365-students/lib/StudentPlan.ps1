@@ -336,7 +336,8 @@ function New-StudentPlan {
                 }
                 $local = ($u.Upn -split '@')[0] -replace '\d+$', ''
                 $base = Get-StudentUpnBase -FirstName $s.FirstName -LastName $s.LastName
-                if ($base -and $local -ne $base) {
+                # firstlast and first.last (and first-last) all count as matching the name.
+                if ($base -and ($local -replace '[.-]', '') -ne ($base -replace '[.-]', '')) {
                     & $addIssue 'NAME/UPN MISMATCH' $s.Code $s.DisplayName $u.Upn "username doesn't match $base (not changed automatically)"
                     $notes.Add('username does not match name')
                 }

@@ -21,9 +21,12 @@ function New-TestConfig {
         MembershipAttribute   = 'CustomAttribute4'
         EligibleYearGroups    = @('3', '4', '5', '6', 'GCSE', 'A Level')
         IgnoredYearGroups     = @('pre-school', '1', '2', 'All', 'Test')
-        ClassTeamNameFormat   = '{0} {1}'
-        YearTeamNameFormat    = 'Students {0}'
-        TeamNicknamePrefix    = 'stu-'
+        ClassTeamNames          = @{ 'GCSE I' = 'GCSE1' }
+        ClassTeamNameFormat     = '{0} - {2}'
+        ClassTeamNicknameFormat = '{0}-{2}'
+        YearTeamNameFormat      = 'HSHB Student {2}'
+        YearTeamNicknameFormat  = 'students-{2}'
+        YearTeamIsTeam          = $false
         DefaultTeamOwners     = @('head@school.example')
         LegacyStudentTeamIds  = @()
         MaxTeamRemovalPercent = 20
@@ -309,10 +312,10 @@ function New-CurrentTeams {
     <# This year's managed Teams for the test classes, with optional members. #>
     param([hashtable]$Members = @{})
     $teams = @(
-        @{ Key = 'Year'; Name = 'Students 2026-27'; Nickname = 'stu-year-2026-27' }
-        @{ Key = 'Y3'; Name = 'Year 3 2026-27'; Nickname = 'stu-class-30000000' }
-        @{ Key = 'Y4'; Name = 'Year 4 2026-27'; Nickname = 'stu-class-40000000' }
-        @{ Key = 'Gcse'; Name = 'GCSE I 2026-27'; Nickname = 'stu-class-50000000' }
+        @{ Key = 'Year'; Name = 'HSHB Student 2026-2027'; Nickname = 'students-2026-2027' }
+        @{ Key = 'Y3'; Name = 'Year 3 - 2026-2027'; Nickname = 'year3-2026-2027' }
+        @{ Key = 'Y4'; Name = 'Year 4 - 2026-2027'; Nickname = 'year4-2026-2027' }
+        @{ Key = 'Gcse'; Name = 'GCSE1 - 2026-2027'; Nickname = 'gcse1-2026-2027' }
     )
     return @($teams | ForEach-Object {
             $ids = if ($Members.ContainsKey($_.Key)) { @($Members[$_.Key]) } else { @() }
