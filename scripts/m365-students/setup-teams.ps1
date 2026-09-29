@@ -91,7 +91,7 @@ try {
     Write-Host ''
     $wanted = 1 + @($desired.Classes.Values | Where-Object Eligibility -eq 'Eligible').Count
     Write-SyncLog '--- Summary ---'
-    Write-SyncLog "Teams expected for $($desired.AcademicYear.Code): $wanted (year Team + $($wanted - 1) class Teams)"
+    Write-SyncLog "Teams expected for $($desired.AcademicYear.Code): $wanted (year group + $($wanted - 1) class Teams)"
     Write-SyncLog "To create: $($plan.Creates.Count)  to turn into Teams: $($plan.EnableTeams.Count)  to rename: $($plan.Renames.Count)  owners to add: $($plan.OwnerAdds.Count)"
     foreach ($group in ($plan.Issues | Group-Object Type | Sort-Object Name)) { Write-SyncLog -Level WARN "$($group.Name): $($group.Count)" }
 

@@ -4,11 +4,13 @@
 #
 # Usernames and email addresses are never changed: only a CREATE sets them.
 # UPDATE and LINK may only touch the fields in $script:UserWritableFields.
+# Department and class are deliberately not stored on accounts: class
+# membership lives in the class Teams.
 
 Set-StrictMode -Version Latest
 
 $script:UserWritableFields = @(
-    'givenName', 'surname', 'displayName', 'employeeId', 'department', 'usageLocation'
+    'givenName', 'surname', 'displayName', 'employeeId', 'usageLocation'
 ) + @(1..15 | ForEach-Object { "CustomAttribute$_" })
 
 $script:SpecialLetters = @{ 'ß' = 'ss'; 'æ' = 'ae'; 'œ' = 'oe'; 'ø' = 'o'; 'ł' = 'l'; 'đ' = 'd'; 'ð' = 'd'; 'þ' = 'th'; 'ı' = 'i' }
@@ -107,7 +109,6 @@ function Get-UserFieldValue {
         '^surname$' { return $User.Surname }
         '^displayName$' { return $User.DisplayName }
         '^employeeId$' { return $User.EmployeeId }
-        '^department$' { return $User.Department }
         '^usageLocation$' { return $User.UsageLocation }
         '^CustomAttribute\d+$' { return $User.Attributes[$Field] }
     }
@@ -306,7 +307,6 @@ function New-StudentPlan {
                         DisplayName   = $s.DisplayName
                         Upn           = $allocated.Upn
                         MailNickname  = $allocated.MailNickname
-                        Department    = $s.Department
                         UsageLocation = [string]$Config.UsageLocation
                         Attributes    = $attributes
                         SkuId         = $skuId
@@ -316,7 +316,7 @@ function New-StudentPlan {
             { $_ -in 'MATCHED', 'LINK' } {
                 $wanted = [ordered]@{
                     givenName = $s.FirstName; surname = $s.LastName; displayName = $s.DisplayName
-                    employeeId = $s.Code; department = $s.Department; CustomAttribute1 = $tag
+                    employeeId = $s.Code; CustomAttribute1 = $tag
                 }
                 $wanted[$memberAttribute] = $tag
                 if (-not $u.UsageLocation) { $wanted['usageLocation'] = [string]$Config.UsageLocation }
@@ -379,7 +379,7 @@ function New-StudentPlan {
                 StudentCode      = $s.Code
                 DbFirstName      = $s.FirstName
                 DbLastName       = $s.LastName
-                YearGroups       = $s.Department
+                YearGroups       = $s.YearGroupLabel
                 Upn              = if ($u) { $u.Upn } else { '' }
                 AccountFirstName = if ($u) { $u.GivenName } else { '' }
                 AccountSurname   = if ($u) { $u.Surname } else { '' }

@@ -33,20 +33,20 @@ Describe 'ConvertTo-GraphUserPatch' {
     It 'maps custom attributes to onPremisesExtensionAttributes and clears with null' {
         $body = ConvertTo-GraphUserPatch -Changes ([ordered]@{
                 givenName        = @{ From = 'Alise'; To = 'Alice' }
-                department       = @{ From = 'Year 2'; To = '' }
+                surname          = @{ From = 'Smith'; To = '' }
                 CustomAttribute1 = @{ From = ''; To = 'Student' }
                 CustomAttribute4 = @{ From = ''; To = 'Student' }
             })
         $body.givenName | Should -Be 'Alice'
-        $body.ContainsKey('department') | Should -BeTrue
-        $body.department | Should -BeNullOrEmpty
+        $body.ContainsKey('surname') | Should -BeTrue
+        $body.surname | Should -BeNullOrEmpty
         $body.onPremisesExtensionAttributes.extensionAttribute1 | Should -Be 'Student'
         $body.onPremisesExtensionAttributes.extensionAttribute4 | Should -Be 'Student'
     }
 
     It 'refuses to change <Field>' -ForEach @(
         @{ Field = 'userPrincipalName' }, @{ Field = 'mail' }, @{ Field = 'mailNickname' },
-        @{ Field = 'proxyAddresses' }, @{ Field = 'otherMails' }, @{ Field = 'accountEnabled' }
+        @{ Field = 'proxyAddresses' }, @{ Field = 'otherMails' }, @{ Field = 'accountEnabled' }, @{ Field = 'department' }
     ) {
         { ConvertTo-GraphUserPatch -Changes @{ $Field = @{ From = 'a'; To = 'b' } } } | Should -Throw "*Refusing to change '$Field'*"
     }
@@ -86,7 +86,7 @@ Describe 'Invoke-AccountPlan' {
         $post.userPrincipalName | Should -Be 'zoe.obrien@school.example'
         $post.mailNickname | Should -Be 'zoe.obrien'
         $post.employeeId | Should -Be 'S001'
-        $post.department | Should -Be 'Year 3'
+        $post.Keys | Should -Not -Contain 'department'
         $post.usageLocation | Should -Be 'GB'
         $post.accountEnabled | Should -BeTrue
         $post.onPremisesExtensionAttributes.extensionAttribute1 | Should -Be 'Student'

@@ -97,12 +97,11 @@ Each student account carries the student's details from the portal, so the
 scripts can match accounts to students exactly, never by guessing from
 names:
 
-| Microsoft 365 field  | Value                    | Where you can see it                                             |
-| -------------------- | ------------------------ | ---------------------------------------------------------------- |
-| **Employee ID**      | `students.student_code`  | Entra admin centre → Users → user → Properties → Job information |
-| **CustomAttribute1** | `Student`                | Exchange admin centre → mailbox → Custom attributes              |
-| **CustomAttribute4** | `Student`                | as above                                                         |
-| **Department**       | the student's year group | Microsoft 365 admin centre and Entra, user details               |
+| Microsoft 365 field  | Value                   | Where you can see it                                             |
+| -------------------- | ----------------------- | ---------------------------------------------------------------- |
+| **Employee ID**      | `students.student_code` | Entra admin centre → Users → user → Properties → Job information |
+| **CustomAttribute1** | `Student`               | Exchange admin centre → mailbox → Custom attributes              |
+| **CustomAttribute4** | `Student`               | as above                                                         |
 
 - The Employee ID is the link. A student without a `student_code` can't be
   linked, so the scripts report them and ask you to add a code in the portal.
@@ -112,6 +111,10 @@ names:
   calls `onPremisesExtensionAttributes` 1-15.
 - `CustomAttribute4 = Student` is the membership attribute. It makes an
   "All Students" dynamic list possible later.
+- Nothing about the student's class or year group is stored on the account
+  (Department is neither set nor checked, and any existing value is left
+  alone). Class membership is recorded by the class Teams, and the reports
+  show each student's year group.
 
 > **Don't add `Student` to `Tags` in `../m365-sync/config.psd1`.** The
 > contact sync would treat every student account as a teacher/parent
@@ -229,7 +232,7 @@ anything. It shows on screen, for every student in Year 3 and up:
 | --------------- | --------------------------------------------------------------------------------------------------- |
 | `+ CREATE`      | No account found: a new `firstname.lastname@<Domain>` account is needed                             |
 | `= LINK`        | One existing, unlinked account has the student's name: it will be linked (Employee ID and tags set) |
-| `~ UPDATE`      | Linked account whose name, department or tags differ from the portal                                |
+| `~ UPDATE`      | Linked account whose name or tags differ from the portal                                            |
 | `$ LICENCE`     | Account without the configured licence                                                              |
 | `> TEAM ADD`    | Student missing from their class Team or the year group (needs review, see below)                   |
 | `< TEAM REMOVE` | Student in a class Team for a class they have left (needs review)                                   |
@@ -362,14 +365,14 @@ pwsh ./sync-students.ps1 -Apply
 This signs in with write access and makes the **account** changes only:
 
 - `CREATE`: new account with `firstname.lastname@<Domain>`, first name,
-  surname, display name, Employee ID, Department, `CustomAttribute1` and
+  surname, display name, Employee ID, `CustomAttribute1` and
   `CustomAttribute4`, usage location and the configured licence. Sign-in is
   enabled with a random 14-character initial password that must be changed
   at first sign-in.
 - `LINK` and `UPDATE`: only first name, surname, display name, Employee ID,
-  Department, usage location and custom attributes can be set. Any other
-  field (username, email addresses, aliases, sign-in status) is refused in
-  code.
+  usage location and custom attributes can be set. Any other field
+  (username, email addresses, aliases, sign-in status, Department) is
+  refused in code.
 - `LICENCE`: assigns the configured licence.
 
 It **never** changes Team membership, usernames or email addresses, and

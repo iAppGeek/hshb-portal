@@ -106,7 +106,7 @@ function Write-PlanDetails {
 
     foreach ($i in $Plan.Creates) {
         Write-SyncLog "PLAN CREATE  [$($i.Code)] $(Protect-Email $i.Upn)" `
-            -ConsoleMessage "  + CREATE   $($i.DisplayName) [$($i.Code)] <$(Format-Upn $i.Upn)> $($i.Department)"
+            -ConsoleMessage "  + CREATE   $($i.DisplayName) [$($i.Code)] <$(Format-Upn $i.Upn)>"
     }
     foreach ($i in $Plan.Links) {
         Write-SyncLog "PLAN LINK    [$($i.Code)] $(Protect-Email $i.Upn) fields: $(@($i.Changes.Keys) -join ', ')" `
@@ -147,7 +147,7 @@ function Write-CountSummary {
     Write-SyncLog "Active students:              $($c.Active)"
     Write-SyncLog "  need an account (Year 3+):  $($c.Eligible)"
     Write-SyncLog "  below Year 3 (no account):  $($c.NotEligible)"
-    foreach ($group in ($Desired.Students.Values | Group-Object Department | Sort-Object Name)) {
+    foreach ($group in ($Desired.Students.Values | Group-Object YearGroupLabel | Sort-Object Name)) {
         Write-SyncLog "    $($group.Name): $($group.Count)"
     }
     foreach ($s in $Desired.Skipped) { Write-SyncLog -Level WARN "Skipped in the database ($($s.reason)): $($s.count)" }

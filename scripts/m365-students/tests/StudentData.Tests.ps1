@@ -55,9 +55,9 @@ Describe 'ConvertTo-DesiredStudentState: eligibility (Year 3 and up)' {
         $desired.Classes[$script:ClassIds.Y3].DisplayName | Should -Be 'Year 3 - 2026-2027'
     }
 
-    It 'sets the department from the year groups in config order' {
-        $desired.Students['S001'].Department | Should -Be 'Year 3'
-        $desired.Students['S006'].Department | Should -Be 'Year 4, GCSE'
+    It 'labels the year groups in config order, for reports' {
+        $desired.Students['S001'].YearGroupLabel | Should -Be 'Year 3'
+        $desired.Students['S006'].YearGroupLabel | Should -Be 'Year 4, GCSE'
     }
 
     It 'counts every group' {

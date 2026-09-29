@@ -83,7 +83,7 @@ function ConvertTo-DesiredStudentState {
         YearTeam       : { Nickname, DisplayName }
         Classes        : map class id -> { Id, Name, YearGroup, Eligibility, TeacherEmail, Nickname, DisplayName }
         Students       : ordered map CODE -> student who needs an account
-                         { Id, Code, FirstName, LastName, DisplayName, YearGroups, Department, ClassIds, TeamNicknames }
+                         { Id, Code, FirstName, LastName, DisplayName, YearGroups, YearGroupLabel, ClassIds, TeamNicknames }
         NoCode         : eligible students with no student code (no account can be linked)
         NoClass        : active students with no current class
         Undetermined   : students whose only classes are in unknown year groups
@@ -203,7 +203,8 @@ function ConvertTo-DesiredStudentState {
             LastName      = $last
             DisplayName   = $summary.DisplayName
             YearGroups    = $yearGroups
-            Department    = ($yearGroups | ForEach-Object { if ($_ -match '^\d+$') { "Year $_" } else { $_ } }) -join ', '
+            # For reports only; not written to Microsoft 365.
+            YearGroupLabel = ($yearGroups | ForEach-Object { if ($_ -match '^\d+$') { "Year $_" } else { $_ } }) -join ', '
             ClassIds      = @($eligibleClasses | ForEach-Object Id)
             TeamNicknames = @($yearTeam.Nickname) + @($eligibleClasses | ForEach-Object Nickname)
         }

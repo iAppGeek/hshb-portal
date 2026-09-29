@@ -67,15 +67,16 @@ Describe 'Matching students to accounts' {
         $plan.Creates + $plan.Links + $plan.Updates + $plan.Licenses + $plan.TeamChanges | Should -BeNullOrEmpty
         $plan.Issues | Should -BeNullOrEmpty
         $plan.Rows[0].Status | Should -Be 'OK'
+        $plan.Rows[0].YearGroups | Should -Be 'Year 3'
         $plan.Rows[0].ActualTeams | Should -Be 'HSHB Student 2026-2027; Year 3 - 2026-2027'
     }
 
-    It 'plans an UPDATE for changed names and department, never the username' {
+    It 'plans an UPDATE for changed names, never the username, and ignores Department' {
         $account = New-StudentAccount 'alice.smith@school.example' 'Alise' 'Smith' 'S001' -Department 'Year 2'
         $plan = Get-Plan -Students @(New-TestStudent 'S001' 'Alice' 'Smith-Jones') -Users @($account)
         $plan.Updates.Count | Should -Be 1
         $changes = $plan.Updates[0].Changes
-        @($changes.Keys) | Should -Be @('givenName', 'surname', 'displayName', 'department')
+        @($changes.Keys) | Should -Be @('givenName', 'surname', 'displayName')
         $changes['surname'].To | Should -Be 'Smith-Jones'
         Get-IssueTypes $plan | Should -Contain 'NAME/UPN MISMATCH'
     }
@@ -89,7 +90,6 @@ Describe 'Matching students to accounts' {
         $changes['employeeId'].To | Should -Be 'S001'
         $changes['CustomAttribute1'].To | Should -Be 'Student'
         $changes['CustomAttribute4'].To | Should -Be 'Student'
-        $changes['department'].To | Should -Be 'Year 3'
         $changes['usageLocation'].To | Should -Be 'GB'
     }
 
@@ -160,14 +160,14 @@ Describe 'Matching students to accounts' {
 }
 
 Describe 'Creating accounts' {
-    It 'creates firstname.lastname with the link fields, department, usage location and licence' {
+    It 'creates firstname.lastname with the link fields, usage location and licence' {
         $plan = Get-Plan -Students @(New-TestStudent 'S001' 'Zoë' "O'Brien" @('Y4', 'Gcse'))
         $plan.Creates.Count | Should -Be 1
         $c = $plan.Creates[0]
         $c.Upn | Should -Be 'zoe.obrien@school.example'
         $c.MailNickname | Should -Be 'zoe.obrien'
         $c.DisplayName | Should -Be "Zoë O'Brien"
-        $c.Department | Should -Be 'Year 4, GCSE'
+        $c.PSObject.Properties.Name | Should -Not -Contain 'Department'
         $c.Attributes['CustomAttribute1'] | Should -Be 'Student'
         $c.Attributes['CustomAttribute4'] | Should -Be 'Student'
         $c.UsageLocation | Should -Be 'GB'
@@ -215,6 +215,7 @@ Describe 'Usernames and email addresses are never changed' {
         $fields = @($plan.Updates + $plan.Links | ForEach-Object { $_.Changes.Keys })
         $fields.Count | Should -BeGreaterThan 0
         foreach ($field in $fields) { $script:UserWritableFields | Should -Contain $field }
+        $fields | Should -Not -Contain 'department'
         $fields | Should -Not -Contain 'userPrincipalName'
         $fields | Should -Not -Contain 'mail'
         $fields | Should -Not -Contain 'mailNickname'

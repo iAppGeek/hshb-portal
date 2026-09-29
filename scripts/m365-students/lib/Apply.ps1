@@ -68,7 +68,6 @@ function ConvertTo-GraphNewUser {
         mailNickname                  = $Create.MailNickname
         usageLocation                 = $Create.UsageLocation
         employeeId                    = $Create.Code
-        department                    = $Create.Department
         onPremisesExtensionAttributes = $extensions
         passwordProfile               = @{ forceChangePasswordNextSignIn = $true; password = $Password }
     }
