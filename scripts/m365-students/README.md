@@ -17,6 +17,8 @@ two never clash, but they never change anything there.
 - [One-off setup](#one-off-setup)
 - [Inventory: see the current Microsoft 365 setup](#inventory-see-the-current-microsoft-365-setup)
 - [Fetching student data](#fetching-student-data)
+- [Dry run: compare with Microsoft 365](#dry-run-compare-with-microsoft-365)
+- [Reading the reports](#reading-the-reports)
 - [Data protection](#data-protection)
 - [Reference](#reference)
 
@@ -174,6 +176,126 @@ current academic year or there are no active students. The data file is
 refused by the other scripts once it is more than `MaxDataAgeHours` (24)
 old, so fetch again before each session.
 
+## Dry run: compare with Microsoft 365
+
+```bash
+cd scripts/m365-students
+./fetch-students.sh
+pwsh ./sync-students.ps1          # dry run: changes nothing
+```
+
+The dry run signs in with **read-only** permissions, so it cannot change
+anything. It shows on screen, for every student in Year 3 and up:
+
+| Line            | Meaning                                                                                             |
+| --------------- | --------------------------------------------------------------------------------------------------- |
+| `+ CREATE`      | No account found: a new `firstname.lastname@<Domain>` account is needed                             |
+| `= LINK`        | One existing, unlinked account has the student's name: it will be linked (Employee ID and tags set) |
+| `~ UPDATE`      | Linked account whose name, department or tags differ from the portal                                |
+| `$ LICENCE`     | Account without the configured licence                                                              |
+| `> TEAM ADD`    | Student missing from their class Team or the year Team (needs review, see below)                    |
+| `< TEAM REMOVE` | Student in a class Team for a class they have left (needs review)                                   |
+| `! …`           | Something to look at; report only (see [issues](#issues))                                           |
+
+followed by a summary of counts, and it saves two reports (see
+[Reading the reports](#reading-the-reports)).
+
+Names are shown on screen only; usernames are masked (`a***@hshb.org.uk`)
+unless you pass `-ShowEmails`, which prints a warning first. The log file
+holds student codes and masked usernames, never names.
+
+**Usernames and email addresses are never changed.** They are set once,
+when an account is created. If a student's name changes in the portal,
+their display name, first name and surname are updated, and a
+`NAME/UPN MISMATCH` is reported for you to decide on; the username stays.
+
+### New usernames
+
+`firstname.lastname`, in lowercase, with accents removed (`Zoë` → `zoe`),
+apostrophes dropped (`O'Brien` → `obrien`) and spaces or other characters
+turned into hyphens (`Mary Jane` → `mary-jane`). If the username is already
+used by any user, group or email alias, a number is added:
+`alice.smith2`, `alice.smith3`, …
+
+### Matching existing accounts
+
+1. An account whose **Employee ID** is the student's code is theirs.
+2. Otherwise, an account with no Employee ID and no `CustomAttribute1` whose
+   first name and surname (or display name) match the student's, ignoring
+   case and accents, is **linked**, if it is the only one. If several
+   match, the one in last year's Team (`LegacyStudentTeamIds`) is preferred;
+   if that doesn't settle it, the student is reported as `AMBIGUOUS` and
+   nothing is done. Set the right account's Employee ID by hand (Entra admin
+   centre → user → Properties → Job information) and run again.
+3. Otherwise a new account is created.
+
+Accounts tagged for anything else (e.g. `CustomAttribute1 = Teacher`) are
+never linked to a student.
+
+### Options
+
+| `sync-students.ps1` | Effect                                                   |
+| ------------------- | -------------------------------------------------------- |
+| _(none)_            | Dry run                                                  |
+| `-Only <code>`      | Plan for one student only (useful for a first test)      |
+| `-Device`           | Sign in with a device code                               |
+| `-ShowEmails`       | Show full usernames on screen (never written to the log) |
+| `-DataPath <file>`  | Use a different data file                                |
+
+Exit codes: `0` success, `1` fatal error (nothing read or changed), `2`
+Team removals exceed `MaxTeamRemovalPercent` (check the data), `3` some
+students need fixing (`NO CODE`, `UNKNOWN YEAR GROUP`).
+
+## Reading the reports
+
+Both are saved in `reports/`, owner-only.
+
+### `students-<stamp>.csv`: one row per student
+
+This is the reconciliation view: for every Year 3+ student, their portal
+details next to their Microsoft 365 account and Teams. Managed accounts that
+no longer match a student (leavers, orphans) get a row too.
+
+| Column                                                 | Contents                                                        |
+| ------------------------------------------------------ | --------------------------------------------------------------- |
+| `Status`                                               | `OK`, `CREATE`, `LINK`, `UPDATE`, or an issue type              |
+| `StudentCode`                                          | Student code (= Employee ID)                                    |
+| `DbFirstName`, `DbLastName`                            | Name in the portal                                              |
+| `YearGroups`                                           | Year group(s) from their current classes                        |
+| `Upn`                                                  | Username (for `CREATE`: the one that would be created)          |
+| `AccountFirstName`, `AccountSurname`, `AccountEnabled` | The Microsoft 365 account as it is now                          |
+| `ExpectedTeams`                                        | The year Team and their class Teams                             |
+| `ActualTeams`                                          | Every Microsoft 365 group/Team the account is in now            |
+| `Issues`                                               | Anything else: licence missing, sign-in blocked, Team to add, … |
+
+### `team-changes-<stamp>.csv`: Team changes to review
+
+One row per proposed Team change, with an empty `Approved` column. Nothing
+changes in Teams from a dry run.
+
+### Issues
+
+Report only. Nothing is changed for these.
+
+| Issue                                   | Meaning and what to do                                                                                                   |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `NO CODE`                               | Year 3+ student with no student code. Add one in the portal.                                                             |
+| `UNKNOWN YEAR GROUP`                    | A class year group isn't in either list in `config.psd1`. Add it to one.                                                 |
+| `NO CLASS`                              | Active student with no current class. Check their enrolment.                                                             |
+| `AMBIGUOUS`                             | Several unlinked accounts have the student's name, or one account matches several students. Set the Employee ID by hand. |
+| `CONFLICT`                              | The account with this Employee ID is tagged for something else (e.g. `Teacher`). Check it.                               |
+| `DUPLICATE EMPLOYEE ID`                 | Several accounts have the same Employee ID. Clear it on the wrong one.                                                   |
+| `SYNCED ACCOUNT`                        | The account comes from on-premises Active Directory, so it must be changed there.                                        |
+| `INVALID NAME`                          | The name has no letters usable in a username. Create the account by hand and set its Employee ID.                        |
+| `NAME/UPN MISMATCH`                     | The username doesn't follow the name (e.g. after a name change). Usernames are never changed automatically.              |
+| `DISABLED`                              | An active student's account has sign-in blocked.                                                                         |
+| `LEAVER`                                | Managed account of a student who is no longer active. Disable or delete it by hand when appropriate.                     |
+| `NOT ELIGIBLE`                          | Managed account of a student below Year 3.                                                                               |
+| `ORPHAN`                                | Account tagged `Student` whose Employee ID matches no active student (or is empty).                                      |
+| `MISSING TEAM`                          | This year's class or year Team doesn't exist yet.                                                                        |
+| `LICENCE NOT SET` / `LICENCE NOT FOUND` | `LicenseSkuPartNumber` is empty, or not a licence in this tenant.                                                        |
+| `LEGACY TEAM NOT FOUND`                 | An id in `LegacyStudentTeamIds` isn't a Microsoft 365 group.                                                             |
+
 ## Data protection
 
 - Only student ids, codes, names and classes leave the database, plus class
@@ -196,6 +318,9 @@ old, so fetch again before each session.
 | `students.sql`          | Selects the current year's classes and active students                      |
 | `fetch-students.sh`     | Runs the SQL and writes `data/students.json`                                |
 | `lib/StudentData.ps1`   | Reads and checks the data file; who needs an account and which Teams        |
+| `sync-students.ps1`     | Compares students with Microsoft 365 and reports (dry run)                  |
+| `lib/StudentPlan.ps1`   | Works out the changes (pure, fully tested)                                  |
+| `lib/TeamChanges.ps1`   | The Team change review file                                                 |
 | `config.psd1`           | Settings (committed, no personal data)                                      |
 | `lib/StudentConfig.ps1` | Loads and checks the config; the contact sync clash check; year group rules |
 | `lib/Graph.ps1`         | Microsoft Graph sign-in and reading the tenant                              |

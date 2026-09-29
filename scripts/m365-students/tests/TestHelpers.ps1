@@ -279,3 +279,42 @@ function Get-TestDesired {
     param([object[]]$Students, [hashtable]$Config = (New-TestConfig), [string[]]$InactiveCodes = @(), [object[]]$Classes = (New-TestClasses))
     return ConvertTo-DesiredStudentState -Data (New-TestStudentData -Students $Students -InactiveCodes $InactiveCodes -Classes $Classes) -Config $Config
 }
+
+function New-TestState {
+    <# Planner state from fake Graph objects (uses ConvertFrom-GraphUser from lib/Graph.ps1). #>
+    param([object[]]$Users = @(), [object[]]$Groups = @(), [object[]]$Skus = @(
+            [pscustomobject]@{ SkuId = 'sku-student'; PartNumber = 'STUDENT_SKU'; Enabled = 500; Consumed = 10; Available = 490 }))
+    return @{
+        Users  = @($Users | ForEach-Object { ConvertFrom-GraphUser -User $_ })
+        Groups = @($Groups | ForEach-Object {
+                [pscustomobject]@{
+                    Id = $_['id']; DisplayName = $_['displayName']; Nickname = $_['mailNickname']; Mail = $_['mail']
+                    Addresses = @($_['mail']); IsTeam = @($_['resourceProvisioningOptions']) -contains 'Team'; Description = ''
+                    MemberIds = @($_['members']); OwnerIds = @($_['owners'])
+                }
+            })
+        Skus   = $Skus
+    }
+}
+
+function New-StudentAccount {
+    <# A fake Graph user already linked to a student. #>
+    param([string]$Upn, [string]$Given, [string]$Surname, [string]$Code, [string]$Department = 'Year 3', [bool]$Enabled = $true)
+    return New-GraphUser -Upn $Upn -Given $Given -Surname $Surname -EmployeeId $Code -Department $Department -Enabled $Enabled `
+        -Attributes @{ CustomAttribute1 = 'Student'; CustomAttribute4 = 'Student' } -SkuIds @('sku-student')
+}
+
+function New-CurrentTeams {
+    <# This year's managed Teams for the test classes, with optional members. #>
+    param([hashtable]$Members = @{})
+    $teams = @(
+        @{ Key = 'Year'; Name = 'Students 2026-27'; Nickname = 'stu-year-2026-27' }
+        @{ Key = 'Y3'; Name = 'Year 3 2026-27'; Nickname = 'stu-class-30000000' }
+        @{ Key = 'Y4'; Name = 'Year 4 2026-27'; Nickname = 'stu-class-40000000' }
+        @{ Key = 'Gcse'; Name = 'GCSE I 2026-27'; Nickname = 'stu-class-50000000' }
+    )
+    return @($teams | ForEach-Object {
+            $ids = if ($Members.ContainsKey($_.Key)) { @($Members[$_.Key]) } else { @() }
+            New-GraphGroup -Name $_.Name -Nickname $_.Nickname -MemberIds $ids -OwnerIds @('owner-id')
+        })
+}

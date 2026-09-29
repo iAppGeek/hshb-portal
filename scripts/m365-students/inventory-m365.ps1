@@ -24,6 +24,7 @@
 param(
     [switch]$Device,
     [string]$ReportDirectory = (Join-Path $PSScriptRoot 'reports'),
+    [string]$LogDirectory = (Join-Path $PSScriptRoot 'logs'),
     [string]$ConfigPath = (Join-Path $PSScriptRoot 'config.psd1')
 )
 
@@ -39,7 +40,7 @@ Set-StrictMode -Version Latest
 $config = Import-StudentConfig -Path $ConfigPath -ContactSyncConfigPath (Join-Path $PSScriptRoot '../m365-sync/config.psd1')
 Import-DotEnv -Path (Join-Path $PSScriptRoot '.env')
 $retention = if ($config.ContainsKey('LogRetentionDays')) { [int]$config.LogRetentionDays } else { 30 }
-$logPath = Start-SyncLog -Directory (Join-Path $PSScriptRoot 'logs') -Prefix 'inventory' -RetentionDays $retention
+$logPath = Start-SyncLog -Directory $LogDirectory -Prefix 'inventory' -RetentionDays $retention
 Write-SyncLog "Mode: READ ONLY. Log: $logPath"
 
 try {
