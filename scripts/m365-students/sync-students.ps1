@@ -5,12 +5,22 @@
   with Microsoft 365 and reports every difference.
 
 .DESCRIPTION
-  Dry run: reads data/students.json (from fetch-students.sh) and Microsoft
-  365 with read-only permissions, shows every change the Microsoft side
-  needs, and writes two owner-only CSV reports to reports/:
+  Dry run by default: reads data/students.json (from fetch-students.sh) and
+  Microsoft 365 with read-only permissions, shows every change the Microsoft
+  side needs, and writes two owner-only CSV reports to reports/:
     students-<stamp>.csv      one row per student / managed account
     team-changes-<stamp>.csv  proposed Team changes, for review
   Nothing is changed. See README.md.
+
+  -Apply makes the account changes only (create, link, update, licence).
+  It never changes Team membership, usernames or email addresses.
+
+.PARAMETER Apply
+  Make the planned account changes. New accounts' initial passwords are
+  saved to reports/new-accounts-<stamp>.csv (owner-only).
+
+.PARAMETER Force
+  Proceed even if Team removals exceed MaxTeamRemovalPercent.
 
 .PARAMETER DataPath
   Student data written by fetch-students.sh.
@@ -27,9 +37,12 @@
 .EXAMPLE
   ./fetch-students.sh
   pwsh ./sync-students.ps1
+  pwsh ./sync-students.ps1 -Apply
 #>
 [CmdletBinding()]
 param(
+    [switch]$Apply,
+    [switch]$Force,
     [string]$Only,
     [switch]$Device,
     [switch]$ShowEmails,
@@ -48,6 +61,7 @@ Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'lib/Graph.ps1')
 . (Join-Path $PSScriptRoot 'lib/StudentPlan.ps1')
 . (Join-Path $PSScriptRoot 'lib/TeamChanges.ps1')
+. (Join-Path $PSScriptRoot 'lib/Apply.ps1')
 . (Join-Path $PSScriptRoot 'lib/Reports.ps1')
 
 # Issues that need someone to fix data before the sync is complete.
@@ -141,7 +155,8 @@ $Config = Import-StudentConfig -Path $ConfigPath -ContactSyncConfigPath (Join-Pa
 Import-DotEnv -Path (Join-Path $PSScriptRoot '.env')
 $retention = if ($Config.ContainsKey('LogRetentionDays')) { [int]$Config.LogRetentionDays } else { 30 }
 $logPath = Start-SyncLog -Directory $LogDirectory -Prefix 'sync-students' -RetentionDays $retention
-Write-SyncLog "Mode: DRY RUN. Log: $logPath"
+$mode = if ($Apply) { 'APPLY (accounts only)' } else { 'DRY RUN' }
+Write-SyncLog "Mode: $mode. Log: $logPath"
 if ($Only) { Write-SyncLog "Only student: $Only" }
 
 try {
@@ -152,9 +167,9 @@ try {
         throw "No student with code '$Only' needs an account (check the code, and that they are active and in Year 3+)."
     }
 
-    # 2. Compare with Microsoft 365 (read-only sign-in).
-    Write-SyncLog 'Connecting to Microsoft Graph (read-only)...'
-    Connect-SyncGraph -Device:$Device
+    # 2. Compare with Microsoft 365. A dry run signs in read-only.
+    Write-SyncLog "Connecting to Microsoft Graph ($(if ($Apply) { 'read/write' } else { 'read-only' }))..."
+    Connect-SyncGraph -Write:$Apply -Device:$Device
     Write-SyncLog 'Reading users, groups and licences...'
     $state = Get-GraphTenantState
     $plan = New-StudentPlan -Desired $desired -State $state -Config $Config -OnlyCode $Only
@@ -174,14 +189,49 @@ try {
     Write-Host "  Team changes:   $teamPath"
 
     $total = $plan.Creates.Count + $plan.Links.Count + $plan.Updates.Count + $plan.Licenses.Count
-    Write-SyncLog "Dry run complete: $total account change(s) and $($plan.TeamChanges.Count) Team change(s) planned, none made."
+    $blocking = @($plan.Issues | Where-Object { $script:BlockingIssues -contains $_.Type }).Count -gt 0
 
-    if ($plan.TeamGuardTripped) {
-        Write-SyncLog -Level ERROR ("Team removals exceed {0}% of managed memberships ({1:N1}%). Check the source data." -f $Config.MaxTeamRemovalPercent, $plan.TeamRemovalPercent)
+    if ($plan.TeamGuardTripped -and -not $Force) {
+        Write-SyncLog -Level ERROR ("ABORTED: Team removals exceed {0}% of managed memberships ({1:N1}%). Check the source data, then re-run with -Force if this is expected." -f $Config.MaxTeamRemovalPercent, $plan.TeamRemovalPercent)
         exit 2
     }
-    if (@($plan.Issues | Where-Object { $script:BlockingIssues -contains $_.Type }).Count -gt 0) {
-        Write-SyncLog -Level WARN 'Some students need fixing in the portal or config.psd1 (NO CODE / UNKNOWN YEAR GROUP above).'
+    if (-not $Apply) {
+        Write-SyncLog "Dry run complete: $total account change(s) and $($plan.TeamChanges.Count) Team change(s) planned, none made. Re-run with -Apply to make the account changes."
+        if ($blocking) {
+            Write-SyncLog -Level WARN 'Some students need fixing in the portal or config.psd1 (NO CODE / UNKNOWN YEAR GROUP above).'
+            exit 3
+        }
+        exit 0
+    }
+
+    # 4. Apply the account changes (never Teams).
+    if ($plan.BlocksApply) {
+        Write-SyncLog -Level ERROR 'ABORTED: some year groups are in neither EligibleYearGroups nor IgnoredYearGroups, so it is unclear who needs an account. Add them to config.psd1 and run again. Nothing was changed.'
+        exit 1
+    }
+    if ($total -eq 0) {
+        Write-SyncLog 'No account changes needed.'
+    }
+    else {
+        $result = Invoke-AccountPlan -Plan $plan
+        Write-SyncLog '--- Applied (counts only) ---'
+        Write-SyncLog "Created: $($result.Created)  Linked: $($result.Linked)  Updated: $($result.Updated)  Licensed: $($result.Licensed)  Failed: $($result.Failed)"
+        if ($result.NewAccounts.Count -gt 0) {
+            $passwordsPath = Save-PrivateCsv -Path (Get-ReportPath -Directory $ReportDirectory -Prefix 'new-accounts' -Stamp $stamp) -Rows $result.NewAccounts
+            Write-Host ''
+            Write-Host "Initial passwords for $($result.NewAccounts.Count) new account(s): $passwordsPath" -ForegroundColor Magenta
+            Write-Host 'Students must change them at first sign-in. Hand them out securely, then delete the file.' -ForegroundColor Magenta
+        }
+        if ($result.Failed -gt 0) {
+            Write-SyncLog -Level WARN 'Some changes failed (see errors above). Re-running is safe: it retries only what is still out of sync.'
+            exit 3
+        }
+    }
+    if ($plan.TeamChanges.Count -gt 0) {
+        Write-SyncLog "Team membership was not changed. Review $teamPath, set Approved to yes on the rows to apply, then run -ApplyTeamChanges with that file."
+    }
+    if ($blocking) {
+        Write-SyncLog -Level WARN 'Some students need fixing in the portal (NO CODE above).'
         exit 3
     }
     exit 0

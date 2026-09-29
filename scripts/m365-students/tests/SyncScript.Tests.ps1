@@ -111,6 +111,65 @@ Describe 'sync-students.ps1 dry run' {
     }
 }
 
+Describe 'sync-students.ps1 -Apply' {
+    BeforeEach {
+        Remove-Item -Recurse -Force (Join-Path $TestDrive 'reports') -ErrorAction SilentlyContinue
+        $script:ConfigPath = Save-TestConfig
+        $script:DataPath = Save-TestData -Students @(
+            (New-TestStudent 'S001' 'Alice' 'Smith' @('Y3')),
+            (New-TestStudent 'S002' 'Bob' 'Jones' @('Y4'))
+        )
+        $bob = New-GraphUser -Upn 'bjones@school.example' -Given 'Bob' -Surname 'Jones'
+        Use-FakeGraph -Tenant (New-FakeTenant -Users @($bob) -Groups (New-CurrentTeams))
+    }
+
+    It 'signs in with write access, changes accounts only, and a second dry run plans no account changes' {
+        Invoke-SyncScript @{ Apply = $true } | Should -Be 0
+        Should -Invoke Connect-MgGraph -Times 1 -ParameterFilter { $Scopes -contains 'User.ReadWrite.All' }
+        @($global:FakeTenant.Users | ForEach-Object { $_['userPrincipalName'] } | Sort-Object) | Should -Be @('alice.smith@school.example', 'bjones@school.example')
+        @(Get-WriteCalls -Tenant $global:FakeTenant | Where-Object { $_.Uri -match 'groups' }) | Should -BeNullOrEmpty
+
+        Remove-Item -Recurse -Force (Join-Path $TestDrive 'reports')
+        $global:FakeTenant.Calls.Clear()
+        Invoke-SyncScript | Should -Be 0
+        Get-WriteCalls -Tenant $global:FakeTenant | Should -BeNullOrEmpty
+        @(Import-Csv (Get-ChildItem (Join-Path $TestDrive 'reports') -Filter 'students-*.csv').FullName | ForEach-Object Status) |
+            Should -Be @('OK', 'OK')
+    }
+
+    It 'saves the new accounts and passwords to an owner-only file' {
+        Invoke-SyncScript @{ Apply = $true } | Should -Be 0
+        $file = Get-ChildItem (Join-Path $TestDrive 'reports') -Filter 'new-accounts-*.csv'
+        $rows = @(Import-Csv $file.FullName)
+        $rows.Count | Should -Be 1
+        $rows[0].Upn | Should -Be 'alice.smith@school.example'
+        $rows[0].InitialPassword.Length | Should -Be 14
+        if ($IsMacOS -or $IsLinux) { $file.UnixMode | Should -Be '-rw-------' }
+    }
+
+    It 'only changes the -Only student' {
+        Invoke-SyncScript @{ Apply = $true; Only = 'S002' } | Should -Be 0
+        @($global:FakeTenant.Users | ForEach-Object { $_['userPrincipalName'] }) | Should -Be @('bjones@school.example')
+        @(Get-WriteCalls -Tenant $global:FakeTenant).Count | Should -Be 2   # link + licence
+    }
+
+    It 'refuses to apply with an unknown year group and changes nothing' {
+        $script:ConfigPath = Save-TestConfig @{ IgnoredYearGroups = @('pre-school', '1', 'All', 'Test') }
+        Invoke-SyncScript @{ Apply = $true } | Should -Be 1
+        Get-WriteCalls -Tenant $global:FakeTenant | Should -BeNullOrEmpty
+    }
+
+    It 'stops at the Team removal limit unless -Force' {
+        $a = New-StudentAccount 'alice.smith@school.example' 'Alice' 'Smith' 'S001'
+        $groups = New-CurrentTeams -Members @{ Year = @($a.id); Y4 = @($a.id); Y3 = @($a.id) }
+        Use-FakeGraph -Tenant (New-FakeTenant -Users @($a) -Groups $groups)
+        Invoke-SyncScript @{ Apply = $true } | Should -Be 2
+        Get-WriteCalls -Tenant $global:FakeTenant | Should -BeNullOrEmpty
+        Invoke-SyncScript @{ Apply = $true; Force = $true } | Should -Be 0
+        @(Get-WriteCalls -Tenant $global:FakeTenant | Where-Object { $_.Uri -match 'groups' }) | Should -BeNullOrEmpty
+    }
+}
+
 Describe 'inventory-m365.ps1' {
     It 'writes three reports and sends only GET requests' {
         $script:ConfigPath = Save-TestConfig

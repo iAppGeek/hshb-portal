@@ -19,6 +19,7 @@ two never clash, but they never change anything there.
 - [Fetching student data](#fetching-student-data)
 - [Dry run: compare with Microsoft 365](#dry-run-compare-with-microsoft-365)
 - [Reading the reports](#reading-the-reports)
+- [Apply: create and update accounts](#apply-create-and-update-accounts)
 - [Data protection](#data-protection)
 - [Reference](#reference)
 
@@ -237,14 +238,17 @@ never linked to a student.
 | `sync-students.ps1` | Effect                                                   |
 | ------------------- | -------------------------------------------------------- |
 | _(none)_            | Dry run                                                  |
+| `-Apply`            | Make the account changes (never Teams)                   |
+| `-Force`            | Allow Team removals above `MaxTeamRemovalPercent`        |
 | `-Only <code>`      | Plan for one student only (useful for a first test)      |
 | `-Device`           | Sign in with a device code                               |
 | `-ShowEmails`       | Show full usernames on screen (never written to the log) |
 | `-DataPath <file>`  | Use a different data file                                |
 
-Exit codes: `0` success, `1` fatal error (nothing read or changed), `2`
+Exit codes: `0` success, `1` fatal error or refused (nothing changed), `2`
 Team removals exceed `MaxTeamRemovalPercent` (check the data), `3` some
-students need fixing (`NO CODE`, `UNKNOWN YEAR GROUP`).
+changes failed, or some students need fixing (`NO CODE`,
+`UNKNOWN YEAR GROUP`).
 
 ## Reading the reports
 
@@ -296,12 +300,59 @@ Report only. Nothing is changed for these.
 | `LICENCE NOT SET` / `LICENCE NOT FOUND` | `LicenseSkuPartNumber` is empty, or not a licence in this tenant.                                                        |
 | `LEGACY TEAM NOT FOUND`                 | An id in `LegacyStudentTeamIds` isn't a Microsoft 365 group.                                                             |
 
+## Apply: create and update accounts
+
+After reviewing the dry run:
+
+```bash
+pwsh ./sync-students.ps1 -Apply
+```
+
+This signs in with write access and makes the **account** changes only:
+
+- `CREATE`: new account with `firstname.lastname@<Domain>`, first name,
+  surname, display name, Employee ID, Department, `CustomAttribute1` and
+  `CustomAttribute4`, usage location and the configured licence. Sign-in is
+  enabled with a random 14-character initial password that must be changed
+  at first sign-in.
+- `LINK` and `UPDATE`: only first name, surname, display name, Employee ID,
+  Department, usage location and custom attributes can be set. Any other
+  field (username, email addresses, aliases, sign-in status) is refused in
+  code.
+- `LICENCE`: assigns the configured licence.
+
+It **never** changes Team membership, usernames or email addresses, and
+never disables or deletes an account.
+
+It refuses to run if a year group is unknown (see
+[Who needs an account](#who-needs-an-account)), and stops if Team removals
+exceed `MaxTeamRemovalPercent` unless you pass `-Force`. Each change is
+tried on its own, so one failure doesn't stop the rest; re-running is safe
+and only retries what is still out of sync.
+
+**Initial passwords** for new accounts are saved to
+`reports/new-accounts-<stamp>.csv` (student code, name, username, initial
+password), readable only by you, and are never shown on screen or logged.
+Hand them out securely, then delete the file.
+
+To try it on one student first:
+
+```bash
+pwsh ./sync-students.ps1 -Only S001          # dry run for one student
+pwsh ./sync-students.ps1 -Only S001 -Apply
+```
+
+Then check the account in the Entra admin centre, and run a dry run again:
+it should plan no account changes for that student.
+
 ## Data protection
 
 - Only student ids, codes, names and classes leave the database, plus class
   teachers' school email addresses. `students.sql` selects nothing else.
 - `data/students.json` holds personal data. It is gitignored and readable
   only by you. Don't copy it anywhere else.
+- `reports/new-accounts-*.csv` holds initial passwords. Delete it once
+  they have been handed out.
 - The CSV reports contain personal data. They are saved in `reports/`,
   which is gitignored, and both the folder and the files are readable only
   by you. Don't email or share them; delete them when you're done.
@@ -321,6 +372,7 @@ Report only. Nothing is changed for these.
 | `sync-students.ps1`     | Compares students with Microsoft 365 and reports (dry run)                  |
 | `lib/StudentPlan.ps1`   | Works out the changes (pure, fully tested)                                  |
 | `lib/TeamChanges.ps1`   | The Team change review file                                                 |
+| `lib/Apply.ps1`         | Makes the account changes                                                   |
 | `config.psd1`           | Settings (committed, no personal data)                                      |
 | `lib/StudentConfig.ps1` | Loads and checks the config; the contact sync clash check; year group rules |
 | `lib/Graph.ps1`         | Microsoft Graph sign-in and reading the tenant                              |
@@ -334,7 +386,7 @@ Run the tests with:
 pwsh -c "Invoke-Pester ./tests"
 ```
 
-Exit codes: `0` success, `1` fatal error.
+`inventory-m365.ps1` exit codes: `0` success, `1` fatal error.
 
 ### Data file format
 
