@@ -447,10 +447,16 @@ For the year group and each eligible class it:
 
 - **creates** it if it doesn't exist: a private Microsoft 365 group
   (welcome emails off), turned into a Team for classes (and for the year
-  group only if `YearTeamIsTeam`), with the class teacher
-  (`classes.teacher_id` → their school email) and everyone in
-  `DefaultTeamOwners` as owners. A Team must have an owner: if none can be
-  found, it is reported (`NO OWNER`) and skipped.
+  group only if `YearTeamIsTeam`). Owners:
+  - class Teams: the class teacher (`classes.teacher_id` → their school
+    email)
+  - the year group: **you**, the account signed in when it is created
+  - both: anyone in `DefaultTeamOwners` (usually empty)
+
+  A group must have an owner: if none can be found, it is reported
+  (`NO OWNER`) and skipped. Running the script again later doesn't add the
+  person running it to an existing year group.
+
 - turns an existing class group with the right nickname into a Team
 - updates the display name if the class was renamed
 - adds missing owners
@@ -505,8 +511,8 @@ never removed. Leavers are reported, not removed.
 
 Run everything from `scripts/m365-students`.
 
-1. **Inventory** the tenant and set `LicenseSkuPartNumber`,
-   `DefaultTeamOwners` and `LegacyStudentTeamIds` in `config.psd1`:
+1. **Inventory** the tenant and set `LicenseSkuPartNumber` and
+   `LegacyStudentTeamIds` in `config.psd1`:
 
    ```bash
    pwsh ./inventory-m365.ps1

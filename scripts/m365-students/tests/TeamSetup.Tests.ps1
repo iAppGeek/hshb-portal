@@ -12,9 +12,9 @@ BeforeAll {
     Mock Write-Host { }
 
     function Get-SetupPlan {
-        param([object[]]$Users, [object[]]$Groups = @(), [hashtable]$Config = (New-TestConfig))
+        param([object[]]$Users, [object[]]$Groups = @(), [hashtable]$Config = (New-TestConfig), [string]$CreatorUpn)
         $desired = Get-TestDesired -Students @(New-TestStudent 'S1' 'A' 'B') -Config $Config
-        return New-TeamSetupPlan -Desired $desired -State (New-TestState -Users $Users -Groups $Groups) -Config $Config
+        return New-TeamSetupPlan -Desired $desired -State (New-TestState -Users $Users -Groups $Groups) -Config $Config -CreatorUpn $CreatorUpn
     }
 
     $script:teachers = @(
@@ -65,6 +65,51 @@ Describe 'New-TeamSetupPlan' {
         @($plan.Issues | Where-Object Type -eq 'PAST TEAM' | ForEach-Object Team) | Should -Be @('Year 3 - 2025-2026')
         @($plan.Issues | Where-Object Type -eq 'NICKNAME TAKEN').Count | Should -Be 1
         @($plan.Creates | ForEach-Object Nickname) | Should -Not -Contain 'students-2026-2027'
+    }
+}
+
+Describe 'The person running setup-teams.ps1 owns the year group' {
+    BeforeAll {
+        $script:me = New-GraphUser -Upn 'admin.person@school.example' -Given 'Ad' -Surname 'Min'
+        $script:noDefaults = New-TestConfig @{ DefaultTeamOwners = @() }
+    }
+
+    It 'makes the signed-in account an owner of the new year group only' {
+        $plan = Get-SetupPlan -Users (@($teachers) + $me) -Config $noDefaults -CreatorUpn 'Admin.Person@school.example'
+        ($plan.Creates | Where-Object Nickname -eq 'students-2026-2027').OwnerIds | Should -Be @($me.id)
+        ($plan.Creates | Where-Object Nickname -eq 'year3-2026-2027').OwnerIds | Should -Be @($teachers[0].id)
+        @($plan.Issues | Where-Object { $_.Type -eq 'NO OWNER' -and $_.Team -eq 'HSHB Student 2026-2027' }) | Should -BeNullOrEmpty
+    }
+
+    It 'does not add whoever runs it later to an existing year group' {
+        $year = New-GraphGroup -Name 'HSHB Student 2026-2027' -Nickname 'students-2026-2027' -OwnerIds @($teachers[2].id) -IsTeam $false
+        $plan = Get-SetupPlan -Users (@($teachers) + $me) -Groups @($year) -Config $noDefaults -CreatorUpn 'admin.person@school.example'
+        @($plan.OwnerAdds | Where-Object UserId -eq $me.id) | Should -BeNullOrEmpty
+        @($plan.Creates | ForEach-Object Nickname) | Should -Not -Contain 'students-2026-2027'
+    }
+
+    It 'reports NO OWNER when nobody signed in is known and there are no default owners' {
+        $plan = Get-SetupPlan -Users $teachers -Config $noDefaults
+        @($plan.Issues | Where-Object { $_.Type -eq 'NO OWNER' -and $_.Team -eq 'HSHB Student 2026-2027' }).Count | Should -Be 1
+    }
+
+    It 'reports a signed-in account that is not a user in the tenant' {
+        $plan = Get-SetupPlan -Users $teachers -Config $noDefaults -CreatorUpn 'guest@elsewhere.example'
+        @($plan.Issues | Where-Object Type -eq 'OWNER NOT FOUND' | ForEach-Object Detail) | Should -Contain 'the signed-in account guest@elsewhere.example was not found among users'
+    }
+}
+
+Describe 'Get-SignedInUpn' {
+    It 'returns the signed-in account, lowercased' {
+        Mock Get-MgContext { [pscustomobject]@{ Account = 'Admin.Person@School.Example'; Scopes = @() } }
+        Get-SignedInUpn | Should -Be 'admin.person@school.example'
+    }
+
+    It 'returns nothing when not signed in or the account is unknown' {
+        Mock Get-MgContext { $null }
+        Get-SignedInUpn | Should -Be ''
+        Mock Get-MgContext { [pscustomobject]@{ Scopes = @() } }
+        Get-SignedInUpn | Should -Be ''
     }
 }
 

@@ -49,8 +49,10 @@
     # $true: also a Team.
     YearTeamIsTeam          = $false
 
-    # Owners added to every Team setup-teams.ps1 creates (user accounts, not
-    # shared mailboxes). The class teacher is added as well when found.
+    # Owners added to every Team setup-teams.ps1 creates or checks (user
+    # accounts, not shared mailboxes). Class Teams also get the class
+    # teacher; the year group also gets whoever runs setup-teams.ps1 when it
+    # creates it. Usually empty.
     DefaultTeamOwners     = @()
 
     # Group ids of Teams from before these scripts (e.g. last year's student

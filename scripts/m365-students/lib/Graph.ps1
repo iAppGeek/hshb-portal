@@ -45,6 +45,16 @@ function Connect-SyncGraph {
     Connect-MgGraph @params
 }
 
+function Get-SignedInUpn {
+    <# The account signed in to Microsoft Graph, lowercased, or '' if unknown. #>
+    [OutputType([string])]
+    param()
+
+    $context = Get-MgContext
+    if ($null -eq $context -or $null -eq $context.PSObject.Properties['Account']) { return '' }
+    return ([string]$context.Account).Trim().ToLowerInvariant()
+}
+
 function Invoke-StudentGraph {
     [OutputType([object])]
     param(

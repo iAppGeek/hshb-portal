@@ -10,8 +10,9 @@
   Reads data/students.json (from fetch-students.sh) for the current year's
   classes and class teachers. For each Team it expects (found by
   mailNickname, see README.md) it:
-    - creates it if missing (private Microsoft 365 group + Team), with the
-      class teacher and DefaultTeamOwners as owners
+    - creates it if missing (private Microsoft 365 group, plus a Team for
+      classes), with the class teacher and DefaultTeamOwners as owners; you
+      (the signed-in account) also own the year group you create
     - turns an existing group into a Team if needed
     - updates the display name if the class was renamed
     - adds missing owners
@@ -64,9 +65,12 @@ try {
 
     Write-SyncLog "Connecting to Microsoft Graph ($(if ($Apply) { 'read/write' } else { 'read-only' }))..."
     Connect-SyncGraph -Write:$Apply -Device:$Device
+    $runner = Get-SignedInUpn
+    if ($runner) { Write-SyncLog "Signed in as $(Protect-Email $runner)" -ConsoleMessage "Signed in as $runner" }
+    else { Write-SyncLog -Level WARN 'Could not tell who is signed in; the year group gets only DefaultTeamOwners as owners.' }
     Write-SyncLog 'Reading users and groups...'
     $state = @{ Users = Get-GraphUsers; Groups = Get-GraphUnifiedGroups }
-    $plan = New-TeamSetupPlan -Desired $desired -State $state -Config $config
+    $plan = New-TeamSetupPlan -Desired $desired -State $state -Config $config -CreatorUpn $runner
 
     Write-Host ''
     foreach ($i in $plan.Creates) {

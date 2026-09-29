@@ -22,17 +22,22 @@ function Get-UserIdByAddress {
 function New-TeamSetupPlan {
     <#
       Pure. The year group is a Team only if YearTeamIsTeam; class groups
-      are always Teams. Returns Creates, EnableTeams, Renames, OwnerAdds and Issues
+      are always Teams. The person running the script (CreatorUpn) becomes an
+      owner of the year group when it is created. Returns Creates,
+      EnableTeams, Renames, OwnerAdds and Issues
       (NO OWNER, OWNER NOT FOUND, NICKNAME TAKEN, PAST TEAM).
     #>
     [OutputType([hashtable])]
     param(
         [Parameter(Mandatory)][hashtable]$Desired,
         [Parameter(Mandatory)][hashtable]$State,
-        [Parameter(Mandatory)][hashtable]$Config
+        [Parameter(Mandatory)][hashtable]$Config,
+        # The signed-in account; owner of the year group when it is created.
+        [string]$CreatorUpn
     )
 
     $userIds = Get-UserIdByAddress -State $State
+    $creator = if ($CreatorUpn) { $CreatorUpn.Trim().ToLowerInvariant() } else { '' }
     $groupsByNickname = @{}
     foreach ($g in @($State.Groups)) { if ($g.Nickname) { $groupsByNickname[$g.Nickname.ToLowerInvariant()] = $g } }
     $userNicknames = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
@@ -45,6 +50,8 @@ function New-TeamSetupPlan {
             DisplayName = $Desired.YearTeam.DisplayName
             Description = "All Year 3+ students, $($Desired.AcademicYear.Code). Managed by scripts/m365-students."
             OwnerEmails = $defaultOwners
+            # Only when creating: whoever runs it later isn't added again.
+            CreatorEmails = @($creator | Where-Object { $_ })
             IsTeam      = [bool]$Config.YearTeamIsTeam
         })
     foreach ($c in ($Desired.Classes.Values | Where-Object Eligibility -eq 'Eligible' | Sort-Object DisplayName)) {
@@ -53,6 +60,7 @@ function New-TeamSetupPlan {
                 DisplayName = $c.DisplayName
                 Description = "Class $($c.Name), $($Desired.AcademicYear.Code). Managed by scripts/m365-students."
                 OwnerEmails = @(@($c.TeacherEmail) + $defaultOwners | Where-Object { $_ } | Select-Object -Unique)
+                CreatorEmails = @()
                 IsTeam      = $true
             })
     }
@@ -75,8 +83,12 @@ function New-TeamSetupPlan {
                 $issues.Add([pscustomobject]@{ Type = 'NICKNAME TAKEN'; Team = $w.DisplayName; Detail = "a user already has the mail nickname $($w.Nickname)" })
                 continue
             }
+            foreach ($email in $w.CreatorEmails) {
+                if ($userIds.ContainsKey($email)) { if (-not $ownerIds.Contains($userIds[$email])) { $ownerIds.Add($userIds[$email]) } }
+                else { $issues.Add([pscustomobject]@{ Type = 'OWNER NOT FOUND'; Team = $w.DisplayName; Detail = "the signed-in account $email was not found among users" }) }
+            }
             if ($ownerIds.Count -eq 0) {
-                $issues.Add([pscustomobject]@{ Type = 'NO OWNER'; Team = $w.DisplayName; Detail = 'a Team needs an owner: set the class teacher in the portal or DefaultTeamOwners in config.psd1' })
+                $issues.Add([pscustomobject]@{ Type = 'NO OWNER'; Team = $w.DisplayName; Detail = 'a group needs an owner: set the class teacher in the portal or DefaultTeamOwners in config.psd1' })
                 continue
             }
             $creates.Add([pscustomobject]@{

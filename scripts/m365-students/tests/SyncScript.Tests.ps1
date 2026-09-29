@@ -51,9 +51,10 @@ BeforeAll {
         # is not this file's: keep the fake tenant global.
         $global:FakeTenant = $Tenant
         $global:FakeGrantedScopes = $Scopes
+        $global:FakeAccount = $null
         Mock Get-Module { @{ Name = 'Microsoft.Graph.Authentication' } } -ParameterFilter { $ListAvailable }
         Mock Import-Module { } -ParameterFilter { $Name -eq 'Microsoft.Graph.Authentication' }
-        Mock Get-MgContext { [pscustomobject]@{ Scopes = $global:FakeGrantedScopes } }
+        Mock Get-MgContext { [pscustomobject]@{ Scopes = $global:FakeGrantedScopes; Account = $global:FakeAccount } }
         Mock Connect-MgGraph { $global:FakeGrantedScopes = @($Scopes) }
         Mock Disconnect-MgGraph { }
         Mock Invoke-MgGraphRequest { Invoke-FakeGraph -Tenant $global:FakeTenant -Method $Method -Uri $Uri -Body $Body }
@@ -61,7 +62,7 @@ BeforeAll {
 }
 
 AfterAll {
-    Remove-Variable -Name FakeTenant, FakeGrantedScopes -Scope Global -ErrorAction SilentlyContinue
+    Remove-Variable -Name FakeTenant, FakeGrantedScopes, FakeAccount -Scope Global -ErrorAction SilentlyContinue
 }
 
 Describe 'sync-students.ps1 dry run' {
@@ -243,6 +244,7 @@ Describe 'setup-teams.ps1' {
         $owners = @('t3@school.example', 't4@school.example', 'head@school.example') | ForEach-Object { New-GraphUser -Upn $_ -Given 'T' -Surname 'Eacher' }
         Use-FakeGraph -Tenant (New-FakeTenant -Users $owners)
         $script:SetupScript = Join-Path $script:Root 'setup-teams.ps1'
+        $global:FakeAccount = 'T4@school.example'
         $common = @{ DataPath = $script:DataPath; ConfigPath = $script:ConfigPath; LogDirectory = (Join-Path $TestDrive 'logs') }
 
         & $script:SetupScript @common *> $null
@@ -253,6 +255,9 @@ Describe 'setup-teams.ps1' {
         $LASTEXITCODE | Should -Be 0
         @($global:FakeTenant.Groups | ForEach-Object { $_['displayName'] } | Sort-Object) |
             Should -Be @('GCSE1 - 2026-2027', 'HSHB Student 2026-2027', 'Year 3 - 2026-2027', 'Year 4 - 2026-2027')
+        $year = @($global:FakeTenant.Groups | Where-Object { $_['mailNickname'] -eq 'students-2026-2027' })[0]
+        $year['owners'] | Should -Contain $owners[1].id   # the person who ran it
+        $year['owners'] | Should -Contain $owners[2].id   # DefaultTeamOwners
 
         $global:FakeTenant.Calls.Clear()
         & $script:SetupScript @common -Apply *> $null
