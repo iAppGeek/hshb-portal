@@ -78,4 +78,35 @@ describe('staff payroll', () => {
       constraint: 'staff_payroll_bank_sort_code_check',
     })
   })
+
+  it('stores the NI number and home address', async () => {
+    await upsertStaffPayroll(SEED.staff.secretary, {
+      payment_funding: 'school',
+      national_insurance_number: 'QQ123456C',
+      address_line_1: '1 High Street',
+      address_line_2: null,
+      city: 'London',
+      postcode: 'N1 1AA',
+    })
+    expect(await getStaffPayrollByStaffId(SEED.staff.secretary)).toMatchObject({
+      national_insurance_number: 'QQ123456C',
+      address_line_1: '1 High Street',
+      address_line_2: null,
+      city: 'London',
+      postcode: 'N1 1AA',
+    })
+  })
+
+  it('rejects a partial address', async () => {
+    const err = await upsertStaffPayroll(SEED.staff.secretary, {
+      payment_funding: 'school',
+      address_line_1: '1 High Street',
+      city: null,
+      postcode: null,
+    }).catch((e: unknown) => e)
+    expect(asDbError(err)).toMatchObject({
+      code: '23514',
+      constraint: 'staff_payroll_address_details_check',
+    })
+  })
 })

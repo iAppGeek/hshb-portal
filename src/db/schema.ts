@@ -714,6 +714,11 @@ export const staffPayroll = pgTable(
     bankSortCode: text(),
     bankAccountNumber: text(),
     payrollRef: text(),
+    nationalInsuranceNumber: text(),
+    addressLine1: text('address_line_1'),
+    addressLine2: text('address_line_2'),
+    city: text(),
+    postcode: text(),
     idVerified: boolean().default(false).notNull(),
     idVerifiedAt: date(),
     idType: text(),
@@ -764,6 +769,10 @@ export const staffPayroll = pgTable(
       columns: [t.staffId],
       foreignColumns: [staff.id],
     }).onDelete('cascade'),
+    check(
+      'staff_payroll_address_details_check',
+      sql`((${t.addressLine1} IS NULL) AND (${t.addressLine2} IS NULL) AND (${t.city} IS NULL) AND (${t.postcode} IS NULL)) OR ((${t.addressLine1} IS NOT NULL) AND (${t.city} IS NOT NULL) AND (${t.postcode} IS NOT NULL))`,
+    ),
     check(
       'staff_payroll_bank_account_number_check',
       sql`(${t.bankAccountNumber} IS NULL) OR (${t.bankAccountNumber} ~ '^[0-9]{8}$'::text)`,

@@ -1,5 +1,5 @@
 {
-  "id": "5021b295-0e80-4065-ac12-218554b9c7b1",
+  "id": "9eaab20e-58d4-42e4-804c-b1f1887728cd",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -2107,6 +2107,36 @@
           "primaryKey": false,
           "notNull": false
         },
+        "national_insurance_number": {
+          "name": "national_insurance_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address_line_1": {
+          "name": "address_line_1",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address_line_2": {
+          "name": "address_line_2",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "city": {
+          "name": "city",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "postcode": {
+          "name": "postcode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "id_verified": {
           "name": "id_verified",
           "type": "boolean",
@@ -2349,6 +2379,10 @@
       },
       "policies": {},
       "checkConstraints": {
+        "staff_payroll_address_details_check": {
+          "name": "staff_payroll_address_details_check",
+          "value": "((\"staff_payroll\".\"address_line_1\" IS NULL) AND (\"staff_payroll\".\"address_line_2\" IS NULL) AND (\"staff_payroll\".\"city\" IS NULL) AND (\"staff_payroll\".\"postcode\" IS NULL)) OR ((\"staff_payroll\".\"address_line_1\" IS NOT NULL) AND (\"staff_payroll\".\"city\" IS NOT NULL) AND (\"staff_payroll\".\"postcode\" IS NOT NULL))"
+        },
         "staff_payroll_bank_account_number_check": {
           "name": "staff_payroll_bank_account_number_check",
           "value": "(\"staff_payroll\".\"bank_account_number\" IS NULL) OR (\"staff_payroll\".\"bank_account_number\" ~ '^[0-9]{8}$'::text)"
