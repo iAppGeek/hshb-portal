@@ -1,4 +1,4 @@
-import EmailDropdown from '@/clientComponents/EmailDropdown'
+import EmailClassDropdown from '@/components/EmailClassDropdown'
 import {
   getStudentsByIds,
   getAttendanceByClassAndDate,
@@ -7,7 +7,6 @@ import {
 import type { AttendanceStatus } from '@/db'
 import { buildRegisterRoster } from '@/lib/enrolment'
 import { todayInSchoolTz } from '@/lib/datetime'
-import { guardianEmailsForMailto, mailtoWithBcc } from '@/lib/mailto'
 import type { StaffRole } from '@/types/next-auth'
 
 import AttendanceForm from './AttendanceForm'
@@ -47,26 +46,18 @@ export default async function AttendanceRegister({
   }
 
   const today = todayInSchoolTz()
-  const attendanceBcc = guardianEmailsForMailto(students)
-  const attendanceMailtoHref = mailtoWithBcc(attendanceBcc, {
-    subject: `${className} — Attendance ${date}`,
-  })
 
   const header: RegisterHeaderInfo = {
     className,
     date,
     dateLabel:
       date === today ? 'Today' : date < today ? 'Historical' : 'Future',
-    actions:
-      students.length > 0 ? (
-        <EmailDropdown
-          groups={[{ emails: attendanceBcc, mailtoHref: attendanceMailtoHref }]}
-          buttonLabel="Email class"
-          triggerClassName="rounded-lg border border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 shadow-sm transition hover:bg-blue-50"
-          emptyReason="No guardian email addresses on file for this class."
-          mailtoUnavailableReason="Too many addresses for your email app. Use copy instead."
-        />
-      ) : null,
+    actions: (
+      <EmailClassDropdown
+        students={students}
+        subject={`${className} — Attendance ${date}`}
+      />
+    ),
   }
 
   // The form owns the header once there is a roster, so "(register already

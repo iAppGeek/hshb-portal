@@ -3,13 +3,12 @@ import { type Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
 import { requireSession } from '@/auth/require'
-import EmailDropdown from '@/clientComponents/EmailDropdown'
+import EmailClassDropdown from '@/components/EmailClassDropdown'
 import PrintPageSetup from '@/components/grid/PrintPageSetup'
 import TableSkeleton from '@/components/grid/TableSkeleton'
 import { getClassWithStudents } from '@/db'
 import { personName } from '@/lib/format'
 import { compareByName } from '@/lib/grid/sort'
-import { guardianEmailsForMailto, mailtoWithBcc } from '@/lib/mailto'
 import { isTeacher } from '@/lib/permissions'
 
 import PageHeader from '../../_components/PageHeader'
@@ -64,11 +63,6 @@ export default async function ClassRegisterPage({
   const enrolmentHistory = (cls.enrolment_history ??
     []) as EnrolmentHistoryRow[]
 
-  const classBccEmails = guardianEmailsForMailto(students)
-  const classMailtoHref = mailtoWithBcc(classBccEmails, {
-    subject: `${cls.name} — Class register`,
-  })
-
   return (
     <div className="max-w-5xl print:max-w-none">
       <PrintPageSetup />
@@ -80,17 +74,10 @@ export default async function ClassRegisterPage({
           backLabel="Classes"
           action={
             <div className="flex shrink-0 items-center gap-3">
-              {students.length > 0 && (
-                <EmailDropdown
-                  groups={[
-                    { emails: classBccEmails, mailtoHref: classMailtoHref },
-                  ]}
-                  buttonLabel="Email class"
-                  triggerClassName="rounded-lg border border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 shadow-sm transition hover:bg-blue-50"
-                  emptyReason="No guardian email addresses on file for this class."
-                  mailtoUnavailableReason="Too many addresses for your email app. Use copy instead."
-                />
-              )}
+              <EmailClassDropdown
+                students={students}
+                subject={`${cls.name} — Class register`}
+              />
               <PrintButton />
             </div>
           }

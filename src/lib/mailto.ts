@@ -52,11 +52,14 @@ export function staffEmailsForMailto(
   return normalizeAndDedupeEmails(raw)
 }
 
+/** A student with the guardian fields `guardianEmailsForMailto` reads. */
+export type GuardianEmailSource = {
+  primary_guardian?: { email?: string | null } | null
+  secondary_guardian?: { email?: string | null } | null
+}
+
 export function guardianEmailsForMailto(
-  students: ReadonlyArray<{
-    primary_guardian?: { email?: string | null } | null
-    secondary_guardian?: { email?: string | null } | null
-  }>,
+  students: ReadonlyArray<GuardianEmailSource>,
 ): string[] {
   const raw: (string | null | undefined)[] = []
   for (const s of students) {
@@ -64,18 +67,6 @@ export function guardianEmailsForMailto(
     raw.push(s.secondary_guardian?.email)
   }
   return normalizeAndDedupeEmails(raw)
-}
-
-function csvEscapeField(value: string): string {
-  if (/[",\n\r]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`
-  }
-  return value
-}
-
-/** Single-row CSV of email addresses (deduped, RFC 4180–safe fields). */
-export function formatEmailsAsCsv(emails: string[]): string {
-  return normalizeAndDedupeEmails(emails).map(csvEscapeField).join(',')
 }
 
 /**

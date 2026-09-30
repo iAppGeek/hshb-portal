@@ -26,8 +26,8 @@ vi.mock('next/link', () => ({
   }) => <a href={href}>{children}</a>,
 }))
 
-vi.mock('@/clientComponents/EmailDropdown', () => ({
-  default: () => <div>EmailDropdown</div>,
+vi.mock('@/components/EmailClassDropdown', () => ({
+  default: () => <div>EmailClassDropdown</div>,
 }))
 
 vi.mock('../PrintButton', () => ({

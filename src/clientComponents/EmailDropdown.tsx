@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactElement } from 'react'
 import { ChevronDownIcon } from '@heroicons/react/24/outline'
 import {
   Menu,
@@ -13,7 +13,7 @@ import {
 } from '@headlessui/react'
 import clsx from 'clsx'
 
-import { formatEmailsAsCsv } from '@/lib/mailto'
+import { formatEmailsForOutlook } from '@/lib/mailto'
 
 export type EmailGroup = {
   /** Section heading; omit for a single, unlabelled group. */
@@ -45,16 +45,16 @@ function GroupSection({
 }: {
   group: EmailGroup
   mailtoUnavailableReason: string
-}) {
+}): ReactElement {
   const [copied, setCopied] = useState(false)
   const [copyError, setCopyError] = useState(false)
   const hasEmails = group.emails.length > 0
-  const csv = formatEmailsAsCsv(group.emails)
+  const clipboardText = formatEmailsForOutlook(group.emails)
 
-  async function copy() {
+  async function copy(): Promise<void> {
     setCopyError(false)
     try {
-      await navigator.clipboard.writeText(csv)
+      await navigator.clipboard.writeText(clipboardText)
       setCopied(true)
       window.setTimeout(() => setCopied(false), 2000)
     } catch {
@@ -73,7 +73,7 @@ function GroupSection({
             ? 'Copied'
             : copyError
               ? 'Copy failed — try again'
-              : 'Copy emails (CSV)'}
+              : 'Copy emails'}
         </button>
       </MenuItem>
       <MenuItem disabled={!hasEmails || group.mailtoHref == null}>
@@ -109,7 +109,7 @@ export default function EmailDropdown({
   emptyReason = 'No email addresses available.',
   mailtoUnavailableReason = 'Too many addresses for your email app. Use copy instead.',
   menuAnchor = 'bottom end',
-}: Props) {
+}: Props): ReactElement {
   const disabled = groups.every((g) => g.emails.length === 0)
 
   if (disabled) {

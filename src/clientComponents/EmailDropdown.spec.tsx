@@ -32,7 +32,7 @@ describe('EmailDropdown', () => {
     expect(screen.queryByRole('button', { name: /email class/i })).toBeNull()
   })
 
-  it('opens menu and copies CSV for a single unlabelled group', async () => {
+  it('opens menu and copies semicolon-separated emails for a single unlabelled group', async () => {
     render(
       <EmailDropdown
         groups={[
@@ -45,13 +45,11 @@ describe('EmailDropdown', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /email class/i }))
     await screen.findByRole('menu')
-    const copyItem = screen.getByRole('menuitem', {
-      name: /^copy emails \(csv\)$/i,
-    })
+    const copyItem = screen.getByRole('menuitem', { name: 'Copy emails' })
     fireEvent.click(copyItem)
 
     await waitFor(() => {
-      expect(clipboardWriteText).toHaveBeenCalledWith('a@x.com,b@x.com')
+      expect(clipboardWriteText).toHaveBeenCalledWith('a@x.com; b@x.com')
     })
   })
 
@@ -111,9 +109,7 @@ describe('EmailDropdown', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /email staff/i }))
     await screen.findByRole('menu')
-    const copyItems = screen.getAllByRole('menuitem', {
-      name: /^copy emails \(csv\)$/i,
-    })
+    const copyItems = screen.getAllByRole('menuitem', { name: 'Copy emails' })
     expect(copyItems.length).toBe(2)
     fireEvent.click(copyItems[0]!)
 
