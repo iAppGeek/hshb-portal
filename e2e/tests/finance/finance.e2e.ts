@@ -1,12 +1,14 @@
 import { test, expect } from '../../fixtures/index'
 import { loadWithFreshData } from '../../fixtures/loadWithFreshData'
 import {
-  db,
-  SEED_IDS,
   deleteAcademicYearByCode,
   deleteClassByName,
   deleteFeePlansByName,
   deleteStudentsByLastName,
+  insertRow,
+  insertRows,
+  SEED_IDS,
+  sql,
 } from '../../fixtures/seed'
 
 // Finance is admin-only; redirects for other roles are covered by
@@ -57,43 +59,26 @@ test.describe('Finance', () => {
 
     const year = academicYearForSuffix(suffix)
     academicYearCode = year.code
-    const { data: yearRow, error: yearError } = await db
-      .from('academic_years')
-      .insert(year)
-      .select('id')
-      .single()
-    if (yearError) throw yearError
-    academicYearId = yearRow.id
+    academicYearId = await insertRow('academic_years', year)
 
-    const { data: cls, error: classError } = await db
-      .from('classes')
-      .insert({
-        name: className,
-        year_group: 'Year 9',
-        teacher_id: SEED_IDS.staff.teacher,
-        academic_year_id: academicYearId,
-      })
-      .select('id')
-      .single()
-    if (classError) throw classError
+    const classId = await insertRow('classes', {
+      name: className,
+      year_group: 'Year 9',
+      teacher_id: SEED_IDS.staff.teacher,
+      academic_year_id: academicYearId,
+    })
 
-    const { data: student, error: studentError } = await db
-      .from('students')
-      .insert({
-        first_name: 'Fin',
-        last_name: studentLastName,
-        primary_guardian_id: GUARDIAN_ID,
-        address_guardian_id: GUARDIAN_ID,
-      })
-      .select('id')
-      .single()
-    if (studentError) throw studentError
-    studentId = student.id
+    studentId = await insertRow('students', {
+      first_name: 'Fin',
+      last_name: studentLastName,
+      primary_guardian_id: GUARDIAN_ID,
+      address_guardian_id: GUARDIAN_ID,
+    })
 
-    const { error: enrolError } = await db
-      .from('student_classes')
-      .insert({ student_id: studentId, class_id: cls.id })
-    if (enrolError) throw enrolError
+    await insertRow('student_classes', {
+      student_id: studentId,
+      class_id: classId,
+    })
   })
 
   test.afterEach(async () => {
@@ -167,7 +152,7 @@ test.describe('Finance', () => {
     page,
   }) => {
     const reference = `E2E-${suffix}`
-    const { error } = await db.from('student_payments').insert({
+    await insertRow('student_payments', {
       student_id: studentId,
       academic_year_id: academicYearId,
       amount: 100,
@@ -175,7 +160,6 @@ test.describe('Finance', () => {
       reference,
       method: 'cash',
     })
-    if (error) throw error
 
     const paymentRow = page.getByRole('row', { name: new RegExp(reference) })
     await page.goto(`/finance/students/${studentId}?year=${academicYearId}`)
@@ -236,13 +220,7 @@ test.describe('Finance — Student Fees search and filters', () => {
     const year = academicYearForSuffix(suffix)
     yearCode = year.code
 
-    const { data: yearRow, error: yearError } = await db
-      .from('academic_years')
-      .insert(year)
-      .select('id')
-      .single()
-    if (yearError) throw yearError
-    yearId = yearRow.id
+    yearId = await insertRow('academic_years', year)
 
     // The prior-year debt for "owes_prior" reuses the already-seeded previous
     // academic year (2025-26) instead of inserting a new one: every test's
@@ -252,67 +230,45 @@ test.describe('Finance — Student Fees search and filters', () => {
     // concurrently running test.
     const priorYearId = SEED_IDS.academicYears.previous
 
-    const { data: classA, error: classAError } = await db
-      .from('classes')
-      .insert({
-        name: classAName,
-        year_group: 'Year 9',
-        teacher_id: SEED_IDS.staff.teacher,
-        academic_year_id: yearId,
-      })
-      .select('id')
-      .single()
-    if (classAError) throw classAError
+    const classAId = await insertRow('classes', {
+      name: classAName,
+      year_group: 'Year 9',
+      teacher_id: SEED_IDS.staff.teacher,
+      academic_year_id: yearId,
+    })
 
-    const { data: classB, error: classBError } = await db
-      .from('classes')
-      .insert({
-        name: classBName,
-        year_group: 'Year 9',
-        teacher_id: SEED_IDS.staff.teacher,
-        academic_year_id: yearId,
-      })
-      .select('id')
-      .single()
-    if (classBError) throw classBError
+    const classBId = await insertRow('classes', {
+      name: classBName,
+      year_group: 'Year 9',
+      teacher_id: SEED_IDS.staff.teacher,
+      academic_year_id: yearId,
+    })
 
-    const { data: planA, error: planAError } = await db
-      .from('fee_plans')
-      .insert({
-        name: planAName,
-        academic_year_id: yearId,
-        full_year_amount: 800,
-        monthly_instalment_amount: 100,
-        termly_instalment_amount: 266.67,
-        active: true,
-      })
-      .select('id')
-      .single()
-    if (planAError) throw planAError
+    const planAId = await insertRow('fee_plans', {
+      name: planAName,
+      academic_year_id: yearId,
+      full_year_amount: 800,
+      monthly_instalment_amount: 100,
+      termly_instalment_amount: 266.67,
+      active: true,
+    })
 
-    const { data: planB, error: planBError } = await db
-      .from('fee_plans')
-      .insert({
-        name: planBName,
-        academic_year_id: yearId,
-        full_year_amount: 900,
-        monthly_instalment_amount: 112.5,
-        termly_instalment_amount: 300,
-        active: true,
-      })
-      .select('id')
-      .single()
-    if (planBError) throw planBError
+    const planBId = await insertRow('fee_plans', {
+      name: planBName,
+      academic_year_id: yearId,
+      full_year_amount: 900,
+      monthly_instalment_amount: 112.5,
+      termly_instalment_amount: 300,
+      active: true,
+    })
 
-    const { error: planClassError } = await db.from('fee_plan_classes').insert([
-      { fee_plan_id: planA.id, class_id: classA.id },
-      { fee_plan_id: planB.id, class_id: classB.id },
+    await insertRows('fee_plan_classes', [
+      { fee_plan_id: planAId, class_id: classAId },
+      { fee_plan_id: planBId, class_id: classBId },
     ])
-    if (planClassError) throw planClassError
 
-    const { data: students, error: studentsError } = await db
-      .from('students')
-      .insert([
+    const students = await sql<{ id: string; last_name: string }[]>`
+      insert into students ${sql([
         {
           first_name: 'Fin',
           last_name: searchLastName,
@@ -338,9 +294,7 @@ test.describe('Finance — Student Fees search and filters', () => {
           primary_guardian_id: GUARDIAN_ID,
           address_guardian_id: GUARDIAN_ID,
         },
-      ])
-      .select('id, last_name')
-    if (studentsError) throw studentsError
+      ])} returning id, last_name`
 
     const idFor = (lastName: string): string => {
       const row = students.find((s) => s.last_name === lastName)
@@ -352,37 +306,30 @@ test.describe('Finance — Student Fees search and filters', () => {
     const conflictId = idFor(conflictLastName)
     const priorOwedId = idFor(priorOwedLastName)
 
-    const { error: enrolError } = await db.from('student_classes').insert([
-      { student_id: searchId, class_id: classA.id },
-      { student_id: noPlanId, class_id: classB.id },
-      { student_id: conflictId, class_id: classA.id },
-      { student_id: conflictId, class_id: classB.id },
-      { student_id: priorOwedId, class_id: classB.id },
+    await insertRows('student_classes', [
+      { student_id: searchId, class_id: classAId },
+      { student_id: noPlanId, class_id: classBId },
+      { student_id: conflictId, class_id: classAId },
+      { student_id: conflictId, class_id: classBId },
+      { student_id: priorOwedId, class_id: classBId },
     ])
-    if (enrolError) throw enrolError
 
-    // Two separate inserts, not one bulk array: PostgREST/Postgres fills a
-    // missing key with NULL (not the column default) when rows in the same
-    // batch differ in shape, which trips the custom_up_to_date NOT NULL check.
-    const { error: searchAccountError } = await db
-      .from('student_fee_accounts')
-      .insert({
-        student_id: searchId,
-        academic_year_id: yearId,
-        payment_plan: 'monthly',
-      })
-    if (searchAccountError) throw searchAccountError
+    // Two separate inserts, not one bulk array: a bulk insert fills a missing
+    // key with NULL (not the column default) when rows in the same batch
+    // differ in shape, which trips the custom_up_to_date NOT NULL check.
+    await insertRow('student_fee_accounts', {
+      student_id: searchId,
+      academic_year_id: yearId,
+      payment_plan: 'monthly',
+    })
 
-    const { error: priorAccountError } = await db
-      .from('student_fee_accounts')
-      .insert({
-        student_id: priorOwedId,
-        academic_year_id: priorYearId,
-        payment_plan: 'custom',
-        custom_total_amount: 500,
-        custom_up_to_date: false,
-      })
-    if (priorAccountError) throw priorAccountError
+    await insertRow('student_fee_accounts', {
+      student_id: priorOwedId,
+      academic_year_id: priorYearId,
+      payment_plan: 'custom',
+      custom_total_amount: 500,
+      custom_up_to_date: false,
+    })
   })
 
   test.afterEach(async () => {
@@ -549,17 +496,10 @@ test.describe('Finance — Student Fees sorting', () => {
 
     const year = academicYearForSuffix(suffix)
     yearCode = year.code
-    const { data: yearRow, error: yearError } = await db
-      .from('academic_years')
-      .insert(year)
-      .select('id')
-      .single()
-    if (yearError) throw yearError
-    yearId = yearRow.id
+    yearId = await insertRow('academic_years', year)
 
-    const { data: students, error: studentsError } = await db
-      .from('students')
-      .insert([
+    const students = await sql<{ id: string; last_name: string }[]>`
+      insert into students ${sql([
         {
           first_name: 'Fin',
           last_name: smallOwedLastName,
@@ -572,9 +512,7 @@ test.describe('Finance — Student Fees sorting', () => {
           primary_guardian_id: GUARDIAN_ID,
           address_guardian_id: GUARDIAN_ID,
         },
-      ])
-      .select('id, last_name')
-    if (studentsError) throw studentsError
+      ])} returning id, last_name`
 
     const idFor = (lastName: string): string => {
       const row = students.find((s) => s.last_name === lastName)
@@ -582,25 +520,22 @@ test.describe('Finance — Student Fees sorting', () => {
       return row.id
     }
 
-    const { error: accountsError } = await db
-      .from('student_fee_accounts')
-      .insert([
-        {
-          student_id: idFor(smallOwedLastName),
-          academic_year_id: priorYearId,
-          payment_plan: 'custom',
-          custom_total_amount: 200,
-          custom_up_to_date: false,
-        },
-        {
-          student_id: idFor(largeOwedLastName),
-          academic_year_id: priorYearId,
-          payment_plan: 'custom',
-          custom_total_amount: 900,
-          custom_up_to_date: false,
-        },
-      ])
-    if (accountsError) throw accountsError
+    await insertRows('student_fee_accounts', [
+      {
+        student_id: idFor(smallOwedLastName),
+        academic_year_id: priorYearId,
+        payment_plan: 'custom',
+        custom_total_amount: 200,
+        custom_up_to_date: false,
+      },
+      {
+        student_id: idFor(largeOwedLastName),
+        academic_year_id: priorYearId,
+        payment_plan: 'custom',
+        custom_total_amount: 900,
+        custom_up_to_date: false,
+      },
+    ])
   })
 
   test.afterEach(async () => {

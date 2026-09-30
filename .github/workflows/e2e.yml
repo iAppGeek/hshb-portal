@@ -20,8 +20,6 @@ jobs:
       AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
       AUTH_URL: http://localhost:3000
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
-      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY_LOCAL }}
       AZURE_AD_CLIENT_ID: ci-placeholder
       AZURE_AD_CLIENT_SECRET: ci-placeholder
       AZURE_AD_TENANT_ID: ci-placeholder
