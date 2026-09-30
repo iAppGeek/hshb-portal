@@ -8,6 +8,20 @@
       "when": 1790768332354,
       "tag": "20260930113852_drizzle_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790801296221,
+      "tag": "20260930204816_start_date_default_without_function",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790801302174,
+      "tag": "20260930204822_drop_plpgsql",
+      "breakpoints": true
     }
   ]
 }

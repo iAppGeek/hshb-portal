@@ -1,0 +1,1 @@
+ALTER TABLE "student_classes" ALTER COLUMN "start_date" SET DEFAULT ((now() AT TIME ZONE 'Europe/London'::text))::date;

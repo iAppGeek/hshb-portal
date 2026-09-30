@@ -1,0 +1,3353 @@
+{
+  "id": "e5b99d44-7a93-477e-af0d-9928c9dae063",
+  "prevId": "c90fc525-1473-4242-adb7-5848a4647edb",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.academic_years": {
+      "name": "academic_years",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "end_date": {
+          "name": "end_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_current": {
+          "name": "is_current",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "academic_years_one_current": {
+          "name": "academic_years_one_current",
+          "columns": [
+            {
+              "expression": "is_current",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "where": "\"academic_years\".\"is_current\"",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "academic_years_code_key": {
+          "name": "academic_years_code_key",
+          "columns": [
+            "code"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "academic_years_code_check": {
+          "name": "academic_years_code_check",
+          "value": "\"academic_years\".\"code\" ~ '^\\d{4}-\\d{2}$'"
+        },
+        "academic_years_end_date_check": {
+          "name": "academic_years_end_date_check",
+          "value": "\"academic_years\".\"end_date\" > \"academic_years\".\"start_date\""
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.attendance": {
+      "name": "attendance",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "class_id": {
+          "name": "class_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "student_id": {
+          "name": "student_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recorded_by": {
+          "name": "recorded_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "attendance_class_id_date_idx": {
+          "name": "attendance_class_id_date_idx",
+          "columns": [
+            {
+              "expression": "class_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "attendance_student_id_idx": {
+          "name": "attendance_student_id_idx",
+          "columns": [
+            {
+              "expression": "student_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "attendance_class_id_fkey": {
+          "name": "attendance_class_id_fkey",
+          "tableFrom": "attendance",
+          "columnsFrom": [
+            "class_id"
+          ],
+          "tableTo": "classes",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "attendance_recorded_by_fkey": {
+          "name": "attendance_recorded_by_fkey",
+          "tableFrom": "attendance",
+          "columnsFrom": [
+            "recorded_by"
+          ],
+          "tableTo": "staff",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        },
+        "attendance_student_id_fkey": {
+          "name": "attendance_student_id_fkey",
+          "tableFrom": "attendance",
+          "columnsFrom": [
+            "student_id"
+          ],
+          "tableTo": "students",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "attendance_class_student_date_key": {
+          "name": "attendance_class_student_date_key",
+          "columns": [
+            "class_id",
+            "student_id",
+            "date"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "attendance_status_check": {
+          "name": "attendance_status_check",
+          "value": "\"attendance\".\"status\" = ANY (ARRAY['present'::text, 'absent'::text, 'late'::text])"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.audit_log": {
+      "name": "audit_log",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entity": {
+          "name": "entity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entity_id": {
+          "name": "entity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "details": {
+          "name": "details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_audit_log_created_at": {
+          "name": "idx_audit_log_created_at",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "idx_audit_log_entity": {
+          "name": "idx_audit_log_entity",
+          "columns": [
+            {
+              "expression": "entity",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "idx_audit_log_staff_id": {
+          "name": "idx_audit_log_staff_id",
+          "columns": [
+            {
+              "expression": "staff_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "audit_log_staff_id_fkey": {
+          "name": "audit_log_staff_id_fkey",
+          "tableFrom": "audit_log",
+          "columnsFrom": [
+            "staff_id"
+          ],
+          "tableTo": "staff",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.classes": {
+      "name": "classes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "year_group": {
+          "name": "year_group",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "room_number": {
+          "name": "room_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "teacher_id": {
+          "name": "teacher_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "academic_year_id": {
+          "name": "academic_year_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "classes_academic_year_id_idx": {
+          "name": "classes_academic_year_id_idx",
+          "columns": [
+            {
+              "expression": "academic_year_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "classes_active_idx": {
+          "name": "classes_active_idx",
+          "columns": [
+            {
+              "expression": "active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "classes_teacher_id_idx": {
+          "name": "classes_teacher_id_idx",
+          "columns": [
+            {
+              "expression": "teacher_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "classes_academic_year_id_fkey": {
+          "name": "classes_academic_year_id_fkey",
+          "tableFrom": "classes",
+          "columnsFrom": [
+            "academic_year_id"
+          ],
+          "tableTo": "academic_years",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        },
+        "classes_teacher_id_fkey": {
+          "name": "classes_teacher_id_fkey",
+          "tableFrom": "classes",
+          "columnsFrom": [
+            "teacher_id"
+          ],
+          "tableTo": "staff",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "classes_name_academic_year_id_key": {
+          "name": "classes_name_academic_year_id_key",
+          "columns": [
+            "name",
+            "academic_year_id"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.fee_plan_classes": {
+      "name": "fee_plan_classes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "fee_plan_id": {
+          "name": "fee_plan_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "class_id": {
+          "name": "class_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "fee_plan_classes_fee_plan_id_idx": {
+          "name": "fee_plan_classes_fee_plan_id_idx",
+          "columns": [
+            {
+              "expression": "fee_plan_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "fee_plan_classes_class_id_fkey": {
+          "name": "fee_plan_classes_class_id_fkey",
+          "tableFrom": "fee_plan_classes",
+          "columnsFrom": [
+            "class_id"
+          ],
+          "tableTo": "classes",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "fee_plan_classes_fee_plan_id_fkey": {
+          "name": "fee_plan_classes_fee_plan_id_fkey",
+          "tableFrom": "fee_plan_classes",
+          "columnsFrom": [
+            "fee_plan_id"
+          ],
+          "tableTo": "fee_plans",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "fee_plan_classes_class_id_key": {
+          "name": "fee_plan_classes_class_id_key",
+          "columns": [
+            "class_id"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.fee_plans": {
+      "name": "fee_plans",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "full_year_amount": {
+          "name": "full_year_amount",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "monthly_instalment_amount": {
+          "name": "monthly_instalment_amount",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "termly_instalment_amount": {
+          "name": "termly_instalment_amount",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "academic_year_id": {
+          "name": "academic_year_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "fee_plans_academic_year_id_idx": {
+          "name": "fee_plans_academic_year_id_idx",
+          "columns": [
+            {
+              "expression": "academic_year_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "fee_plans_academic_year_id_fkey": {
+          "name": "fee_plans_academic_year_id_fkey",
+          "tableFrom": "fee_plans",
+          "columnsFrom": [
+            "academic_year_id"
+          ],
+          "tableTo": "academic_years",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "fee_plans_name_academic_year_id_key": {
+          "name": "fee_plans_name_academic_year_id_key",
+          "columns": [
+            "name",
+            "academic_year_id"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "fee_plans_full_year_amount_check": {
+          "name": "fee_plans_full_year_amount_check",
+          "value": "\"fee_plans\".\"full_year_amount\" >= (0)::numeric"
+        },
+        "fee_plans_monthly_instalment_amount_check": {
+          "name": "fee_plans_monthly_instalment_amount_check",
+          "value": "\"fee_plans\".\"monthly_instalment_amount\" >= (0)::numeric"
+        },
+        "fee_plans_termly_instalment_amount_check": {
+          "name": "fee_plans_termly_instalment_amount_check",
+          "value": "\"fee_plans\".\"termly_instalment_amount\" >= (0)::numeric"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.guardians": {
+      "name": "guardians",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "first_name": {
+          "name": "first_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_name": {
+          "name": "last_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address_line_1": {
+          "name": "address_line_1",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address_line_2": {
+          "name": "address_line_2",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "city": {
+          "name": "city",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "postcode": {
+          "name": "postcode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "occupation": {
+          "name": "occupation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "guardians_email_lower_idx": {
+          "name": "guardians_email_lower_idx",
+          "columns": [
+            {
+              "expression": "lower(\"email\")",
+              "isExpression": true,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "guardians_last_name_idx": {
+          "name": "guardians_last_name_idx",
+          "columns": [
+            {
+              "expression": "last_name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.incidents": {
+      "name": "incidents",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "student_id": {
+          "name": "student_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "incident_date": {
+          "name": "incident_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "parent_notified": {
+          "name": "parent_notified",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "parent_notified_at": {
+          "name": "parent_notified_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "idx_incidents_incident_date": {
+          "name": "idx_incidents_incident_date",
+          "columns": [
+            {
+              "expression": "incident_date",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "first"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "idx_incidents_student_id": {
+          "name": "idx_incidents_student_id",
+          "columns": [
+            {
+              "expression": "student_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "idx_incidents_type": {
+          "name": "idx_incidents_type",
+          "columns": [
+            {
+              "expression": "type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "incidents_created_by_fkey": {
+          "name": "incidents_created_by_fkey",
+          "tableFrom": "incidents",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "tableTo": "staff",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "incidents_student_id_fkey": {
+          "name": "incidents_student_id_fkey",
+          "tableFrom": "incidents",
+          "columnsFrom": [
+            "student_id"
+          ],
+          "tableTo": "students",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "incidents_updated_by_fkey": {
+          "name": "incidents_updated_by_fkey",
+          "tableFrom": "incidents",
+          "columnsFrom": [
+            "updated_by"
+          ],
+          "tableTo": "staff",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "incidents_type_check": {
+          "name": "incidents_type_check",
+          "value": "\"incidents\".\"type\" = ANY (ARRAY['medical'::text, 'behaviour'::text, 'other'::text])"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.lesson_plans": {
+      "name": "lesson_plans",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "class_id": {
+          "name": "class_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lesson_date": {
+          "name": "lesson_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "lesson_plans_class_id_idx": {
+          "name": "lesson_plans_class_id_idx",
+          "columns": [
+            {
+              "expression": "class_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "lesson_plans_lesson_date_idx": {
+          "name": "lesson_plans_lesson_date_idx",
+          "columns": [
+            {
+              "expression": "lesson_date",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "first"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "lesson_plans_class_id_fkey": {
+          "name": "lesson_plans_class_id_fkey",
+          "tableFrom": "lesson_plans",
+          "columnsFrom": [
+            "class_id"
+          ],
+          "tableTo": "classes",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "lesson_plans_created_by_fkey": {
+          "name": "lesson_plans_created_by_fkey",
+          "tableFrom": "lesson_plans",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "tableTo": "staff",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "lesson_plans_updated_by_fkey": {
+          "name": "lesson_plans_updated_by_fkey",
+          "tableFrom": "lesson_plans",
+          "columnsFrom": [
+            "updated_by"
+          ],
+          "tableTo": "staff",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "lesson_plans_class_id_lesson_date_key": {
+          "name": "lesson_plans_class_id_lesson_date_key",
+          "columns": [
+            "class_id",
+            "lesson_date"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.photo_consent_opt_outs": {
+      "name": "photo_consent_opt_outs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "status": {
+          "name": "status",
+          "type": "photo_opt_out_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "submitted_at": {
+          "name": "submitted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "child_first_name": {
+          "name": "child_first_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "child_last_name": {
+          "name": "child_last_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_of_birth": {
+          "name": "date_of_birth",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "declaration_name": {
+          "name": "declaration_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actioned_by": {
+          "name": "actioned_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actioned_at": {
+          "name": "actioned_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "student_id": {
+          "name": "student_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rejected_reason": {
+          "name": "rejected_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "photo_consent_opt_outs_status_idx": {
+          "name": "photo_consent_opt_outs_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "photo_consent_opt_outs_submitted_at_idx": {
+          "name": "photo_consent_opt_outs_submitted_at_idx",
+          "columns": [
+            {
+              "expression": "submitted_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "first"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "photo_consent_opt_outs_actioned_by_fkey": {
+          "name": "photo_consent_opt_outs_actioned_by_fkey",
+          "tableFrom": "photo_consent_opt_outs",
+          "columnsFrom": [
+            "actioned_by"
+          ],
+          "tableTo": "staff",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        },
+        "photo_consent_opt_outs_student_id_fkey": {
+          "name": "photo_consent_opt_outs_student_id_fkey",
+          "tableFrom": "photo_consent_opt_outs",
+          "columnsFrom": [
+            "student_id"
+          ],
+          "tableTo": "students",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.push_subscriptions": {
+      "name": "push_subscriptions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "endpoint": {
+          "name": "endpoint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "p256dh": {
+          "name": "p256dh",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "auth": {
+          "name": "auth",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "push_subscriptions_staff_id_idx": {
+          "name": "push_subscriptions_staff_id_idx",
+          "columns": [
+            {
+              "expression": "staff_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "push_subscriptions_staff_id_fkey": {
+          "name": "push_subscriptions_staff_id_fkey",
+          "tableFrom": "push_subscriptions",
+          "columnsFrom": [
+            "staff_id"
+          ],
+          "tableTo": "staff",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "push_subscriptions_endpoint_key": {
+          "name": "push_subscriptions_endpoint_key",
+          "columns": [
+            "endpoint"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.registration_submission_contacts": {
+      "name": "registration_submission_contacts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "submission_id": {
+          "name": "submission_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contact_role": {
+          "name": "contact_role",
+          "type": "contact_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "first_name": {
+          "name": "first_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_name": {
+          "name": "last_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "relationship": {
+          "name": "relationship",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "same_as_child_address": {
+          "name": "same_as_child_address",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "address_line_1": {
+          "name": "address_line_1",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address_line_2": {
+          "name": "address_line_2",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "city": {
+          "name": "city",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "postcode": {
+          "name": "postcode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "occupation": {
+          "name": "occupation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "registration_submission_contacts_submission_id_idx": {
+          "name": "registration_submission_contacts_submission_id_idx",
+          "columns": [
+            {
+              "expression": "submission_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "registration_submission_contacts_submission_id_fkey": {
+          "name": "registration_submission_contacts_submission_id_fkey",
+          "tableFrom": "registration_submission_contacts",
+          "columnsFrom": [
+            "submission_id"
+          ],
+          "tableTo": "registration_submissions",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "registration_submission_contacts_submission_id_contact_role_key": {
+          "name": "registration_submission_contacts_submission_id_contact_role_key",
+          "columns": [
+            "submission_id",
+            "contact_role"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.registration_submissions": {
+      "name": "registration_submissions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "status": {
+          "name": "status",
+          "type": "submission_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "submitted_at": {
+          "name": "submitted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "child_first_name": {
+          "name": "child_first_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "child_last_name": {
+          "name": "child_last_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_of_birth": {
+          "name": "date_of_birth",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "preferred_year_group": {
+          "name": "preferred_year_group",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address_line_1": {
+          "name": "address_line_1",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "address_line_2": {
+          "name": "address_line_2",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "city": {
+          "name": "city",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "postcode": {
+          "name": "postcode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "allergies": {
+          "name": "allergies",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "medical_details": {
+          "name": "medical_details",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "collect_authorised": {
+          "name": "collect_authorised",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "collect_password": {
+          "name": "collect_password",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "consent_privacy_notice": {
+          "name": "consent_privacy_notice",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "consent_emergency_first_aid": {
+          "name": "consent_emergency_first_aid",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "consent_photo_media": {
+          "name": "consent_photo_media",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "consent_home_school": {
+          "name": "consent_home_school",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "consent_comms_email_sms": {
+          "name": "consent_comms_email_sms",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "declaration_name": {
+          "name": "declaration_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actioned_by": {
+          "name": "actioned_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actioned_at": {
+          "name": "actioned_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "student_id": {
+          "name": "student_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "linked_existing": {
+          "name": "linked_existing",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "rejected_reason": {
+          "name": "rejected_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "english_school_name": {
+          "name": "english_school_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "registration_submissions_status_idx": {
+          "name": "registration_submissions_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "registration_submissions_student_id_idx": {
+          "name": "registration_submissions_student_id_idx",
+          "columns": [
+            {
+              "expression": "student_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "registration_submissions_submitted_at_idx": {
+          "name": "registration_submissions_submitted_at_idx",
+          "columns": [
+            {
+              "expression": "submitted_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "first"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "registration_submissions_actioned_by_fkey": {
+          "name": "registration_submissions_actioned_by_fkey",
+          "tableFrom": "registration_submissions",
+          "columnsFrom": [
+            "actioned_by"
+          ],
+          "tableTo": "staff",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        },
+        "registration_submissions_student_id_fkey": {
+          "name": "registration_submissions_student_id_fkey",
+          "tableFrom": "registration_submissions",
+          "columnsFrom": [
+            "student_id"
+          ],
+          "tableTo": "students",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.staff": {
+      "name": "staff",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contact_number": {
+          "name": "contact_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "first_name": {
+          "name": "first_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_name": {
+          "name": "last_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "personal_email": {
+          "name": "personal_email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Ms'"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "staff_email_key": {
+          "name": "staff_email_key",
+          "columns": [
+            "email"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "staff_role_check": {
+          "name": "staff_role_check",
+          "value": "\"staff\".\"role\" = ANY (ARRAY['teacher'::text, 'admin'::text, 'headteacher'::text, 'secretary'::text])"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.staff_attendance": {
+      "name": "staff_attendance",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "CURRENT_DATE"
+        },
+        "signed_in_at": {
+          "name": "signed_in_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "signed_out_at": {
+          "name": "signed_out_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "staff_attendance_date_idx": {
+          "name": "staff_attendance_date_idx",
+          "columns": [
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "staff_attendance_staff_id_idx": {
+          "name": "staff_attendance_staff_id_idx",
+          "columns": [
+            {
+              "expression": "staff_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "staff_attendance_staff_id_fkey": {
+          "name": "staff_attendance_staff_id_fkey",
+          "tableFrom": "staff_attendance",
+          "columnsFrom": [
+            "staff_id"
+          ],
+          "tableTo": "staff",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "staff_attendance_staff_id_date_key": {
+          "name": "staff_attendance_staff_id_date_key",
+          "columns": [
+            "staff_id",
+            "date"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.staff_payroll": {
+      "name": "staff_payroll",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payment_funding": {
+          "name": "payment_funding",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bank_account_name": {
+          "name": "bank_account_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bank_sort_code": {
+          "name": "bank_sort_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bank_account_number": {
+          "name": "bank_account_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payroll_ref": {
+          "name": "payroll_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "national_insurance_number": {
+          "name": "national_insurance_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address_line_1": {
+          "name": "address_line_1",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address_line_2": {
+          "name": "address_line_2",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "city": {
+          "name": "city",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "postcode": {
+          "name": "postcode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "id_verified": {
+          "name": "id_verified",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "id_verified_at": {
+          "name": "id_verified_at",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "id_type": {
+          "name": "id_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "id_verified_by": {
+          "name": "id_verified_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "right_to_work_checked": {
+          "name": "right_to_work_checked",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "right_to_work_checked_at": {
+          "name": "right_to_work_checked_at",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dbs_verified": {
+          "name": "dbs_verified",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "dbs_level": {
+          "name": "dbs_level",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dbs_barred_list_checked": {
+          "name": "dbs_barred_list_checked",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "dbs_update_service": {
+          "name": "dbs_update_service",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "dbs_reference": {
+          "name": "dbs_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dbs_issue_date": {
+          "name": "dbs_issue_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dbs_verified_at": {
+          "name": "dbs_verified_at",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dbs_renewal_due": {
+          "name": "dbs_renewal_due",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dbs_verified_by": {
+          "name": "dbs_verified_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "first_aid_certified": {
+          "name": "first_aid_certified",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "first_aid_issue_date": {
+          "name": "first_aid_issue_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "first_aid_verified_at": {
+          "name": "first_aid_verified_at",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "first_aid_expiry_date": {
+          "name": "first_aid_expiry_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "first_aid_reference": {
+          "name": "first_aid_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fire_warden_certified": {
+          "name": "fire_warden_certified",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "fire_warden_issue_date": {
+          "name": "fire_warden_issue_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fire_warden_verified_at": {
+          "name": "fire_warden_verified_at",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fire_warden_expiry_date": {
+          "name": "fire_warden_expiry_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fire_warden_reference": {
+          "name": "fire_warden_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "staff_payroll_staff_id_idx": {
+          "name": "staff_payroll_staff_id_idx",
+          "columns": [
+            {
+              "expression": "staff_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "staff_payroll_dbs_verified_by_fkey": {
+          "name": "staff_payroll_dbs_verified_by_fkey",
+          "tableFrom": "staff_payroll",
+          "columnsFrom": [
+            "dbs_verified_by"
+          ],
+          "tableTo": "staff",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        },
+        "staff_payroll_id_verified_by_fkey": {
+          "name": "staff_payroll_id_verified_by_fkey",
+          "tableFrom": "staff_payroll",
+          "columnsFrom": [
+            "id_verified_by"
+          ],
+          "tableTo": "staff",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        },
+        "staff_payroll_staff_id_fkey": {
+          "name": "staff_payroll_staff_id_fkey",
+          "tableFrom": "staff_payroll",
+          "columnsFrom": [
+            "staff_id"
+          ],
+          "tableTo": "staff",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "staff_payroll_staff_id_key": {
+          "name": "staff_payroll_staff_id_key",
+          "columns": [
+            "staff_id"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "staff_payroll_address_details_check": {
+          "name": "staff_payroll_address_details_check",
+          "value": "((\"staff_payroll\".\"address_line_1\" IS NULL) AND (\"staff_payroll\".\"address_line_2\" IS NULL) AND (\"staff_payroll\".\"city\" IS NULL) AND (\"staff_payroll\".\"postcode\" IS NULL)) OR ((\"staff_payroll\".\"address_line_1\" IS NOT NULL) AND (\"staff_payroll\".\"city\" IS NOT NULL) AND (\"staff_payroll\".\"postcode\" IS NOT NULL))"
+        },
+        "staff_payroll_bank_account_number_check": {
+          "name": "staff_payroll_bank_account_number_check",
+          "value": "(\"staff_payroll\".\"bank_account_number\" IS NULL) OR (\"staff_payroll\".\"bank_account_number\" ~ '^[0-9]{8}$'::text)"
+        },
+        "staff_payroll_bank_sort_code_check": {
+          "name": "staff_payroll_bank_sort_code_check",
+          "value": "(\"staff_payroll\".\"bank_sort_code\" IS NULL) OR (\"staff_payroll\".\"bank_sort_code\" ~ '^[0-9]{6}$'::text)"
+        },
+        "staff_payroll_dbs_level_check": {
+          "name": "staff_payroll_dbs_level_check",
+          "value": "(\"staff_payroll\".\"dbs_level\" IS NULL) OR (\"staff_payroll\".\"dbs_level\" = ANY (ARRAY['enhanced'::text, 'standard'::text, 'basic'::text]))"
+        },
+        "staff_payroll_dbs_verified_details_check": {
+          "name": "staff_payroll_dbs_verified_details_check",
+          "value": "(NOT \"staff_payroll\".\"dbs_verified\") OR ((\"staff_payroll\".\"dbs_reference\" IS NOT NULL) AND (\"staff_payroll\".\"dbs_issue_date\" IS NOT NULL) AND (\"staff_payroll\".\"dbs_verified_at\" IS NOT NULL) AND (\"staff_payroll\".\"dbs_level\" IS NOT NULL))"
+        },
+        "staff_payroll_fire_warden_details_check": {
+          "name": "staff_payroll_fire_warden_details_check",
+          "value": "(NOT \"staff_payroll\".\"fire_warden_certified\") OR ((\"staff_payroll\".\"fire_warden_reference\" IS NOT NULL) AND (\"staff_payroll\".\"fire_warden_issue_date\" IS NOT NULL) AND (\"staff_payroll\".\"fire_warden_verified_at\" IS NOT NULL))"
+        },
+        "staff_payroll_first_aid_details_check": {
+          "name": "staff_payroll_first_aid_details_check",
+          "value": "(NOT \"staff_payroll\".\"first_aid_certified\") OR ((\"staff_payroll\".\"first_aid_reference\" IS NOT NULL) AND (\"staff_payroll\".\"first_aid_issue_date\" IS NOT NULL) AND (\"staff_payroll\".\"first_aid_verified_at\" IS NOT NULL))"
+        },
+        "staff_payroll_id_type_check": {
+          "name": "staff_payroll_id_type_check",
+          "value": "(\"staff_payroll\".\"id_type\" IS NULL) OR (\"staff_payroll\".\"id_type\" = ANY (ARRAY['passport'::text, 'driving_licence'::text, 'brp'::text, 'birth_certificate'::text, 'other'::text]))"
+        },
+        "staff_payroll_id_verified_details_check": {
+          "name": "staff_payroll_id_verified_details_check",
+          "value": "(NOT \"staff_payroll\".\"id_verified\") OR ((\"staff_payroll\".\"id_verified_at\" IS NOT NULL) AND (\"staff_payroll\".\"id_type\" IS NOT NULL))"
+        },
+        "staff_payroll_payment_funding_check": {
+          "name": "staff_payroll_payment_funding_check",
+          "value": "\"staff_payroll\".\"payment_funding\" = ANY (ARRAY['kea'::text, 'school'::text])"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.student_classes": {
+      "name": "student_classes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "student_id": {
+          "name": "student_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "class_id": {
+          "name": "class_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "enrolled_at": {
+          "name": "enrolled_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "((now() AT TIME ZONE 'Europe/London'::text))::date"
+        },
+        "end_date": {
+          "name": "end_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "student_classes_class_dates": {
+          "name": "student_classes_class_dates",
+          "columns": [
+            {
+              "expression": "class_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "start_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "end_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "student_classes_class_id_idx": {
+          "name": "student_classes_class_id_idx",
+          "columns": [
+            {
+              "expression": "class_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "student_classes_one_open": {
+          "name": "student_classes_one_open",
+          "columns": [
+            {
+              "expression": "student_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "class_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "where": "\"student_classes\".\"end_date\" IS NULL",
+          "concurrently": false
+        },
+        "student_classes_student_id_idx": {
+          "name": "student_classes_student_id_idx",
+          "columns": [
+            {
+              "expression": "student_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "student_classes_class_id_fkey": {
+          "name": "student_classes_class_id_fkey",
+          "tableFrom": "student_classes",
+          "columnsFrom": [
+            "class_id"
+          ],
+          "tableTo": "classes",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "student_classes_student_id_fkey": {
+          "name": "student_classes_student_id_fkey",
+          "tableFrom": "student_classes",
+          "columnsFrom": [
+            "student_id"
+          ],
+          "tableTo": "students",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "student_classes_dates_check": {
+          "name": "student_classes_dates_check",
+          "value": "(\"student_classes\".\"end_date\" IS NULL) OR (\"student_classes\".\"end_date\" >= \"student_classes\".\"start_date\")"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.student_fee_accounts": {
+      "name": "student_fee_accounts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "student_id": {
+          "name": "student_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payment_plan": {
+          "name": "payment_plan",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payment_plan_notes": {
+          "name": "payment_plan_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fee_plan_override_id": {
+          "name": "fee_plan_override_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "custom_total_amount": {
+          "name": "custom_total_amount",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "custom_up_to_date": {
+          "name": "custom_up_to_date",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "academic_year_id": {
+          "name": "academic_year_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "settled": {
+          "name": "settled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "settled_note": {
+          "name": "settled_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "student_fee_accounts_academic_year_id_idx": {
+          "name": "student_fee_accounts_academic_year_id_idx",
+          "columns": [
+            {
+              "expression": "academic_year_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "student_fee_accounts_academic_year_id_fkey": {
+          "name": "student_fee_accounts_academic_year_id_fkey",
+          "tableFrom": "student_fee_accounts",
+          "columnsFrom": [
+            "academic_year_id"
+          ],
+          "tableTo": "academic_years",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        },
+        "student_fee_accounts_fee_plan_override_id_fkey": {
+          "name": "student_fee_accounts_fee_plan_override_id_fkey",
+          "tableFrom": "student_fee_accounts",
+          "columnsFrom": [
+            "fee_plan_override_id"
+          ],
+          "tableTo": "fee_plans",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        },
+        "student_fee_accounts_student_id_fkey": {
+          "name": "student_fee_accounts_student_id_fkey",
+          "tableFrom": "student_fee_accounts",
+          "columnsFrom": [
+            "student_id"
+          ],
+          "tableTo": "students",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "student_fee_accounts_student_id_academic_year_id_key": {
+          "name": "student_fee_accounts_student_id_academic_year_id_key",
+          "columns": [
+            "student_id",
+            "academic_year_id"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "student_fee_accounts_custom_total_amount_check": {
+          "name": "student_fee_accounts_custom_total_amount_check",
+          "value": "(\"student_fee_accounts\".\"custom_total_amount\" IS NULL) OR (\"student_fee_accounts\".\"custom_total_amount\" >= (0)::numeric)"
+        },
+        "student_fee_accounts_payment_plan_check": {
+          "name": "student_fee_accounts_payment_plan_check",
+          "value": "(\"student_fee_accounts\".\"payment_plan\" IS NULL) OR (\"student_fee_accounts\".\"payment_plan\" = ANY (ARRAY['monthly'::text, 'termly'::text, 'yearly'::text, 'custom'::text]))"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.student_payments": {
+      "name": "student_payments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "student_id": {
+          "name": "student_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount": {
+          "name": "amount",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reference": {
+          "name": "reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "method": {
+          "name": "method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recorded_by": {
+          "name": "recorded_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "academic_year_id": {
+          "name": "academic_year_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "student_payments_academic_year_id_idx": {
+          "name": "student_payments_academic_year_id_idx",
+          "columns": [
+            {
+              "expression": "academic_year_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "student_payments_payment_date_idx": {
+          "name": "student_payments_payment_date_idx",
+          "columns": [
+            {
+              "expression": "payment_date",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "first"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "student_payments_student_id_idx": {
+          "name": "student_payments_student_id_idx",
+          "columns": [
+            {
+              "expression": "student_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "student_payments_academic_year_id_fkey": {
+          "name": "student_payments_academic_year_id_fkey",
+          "tableFrom": "student_payments",
+          "columnsFrom": [
+            "academic_year_id"
+          ],
+          "tableTo": "academic_years",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        },
+        "student_payments_recorded_by_fkey": {
+          "name": "student_payments_recorded_by_fkey",
+          "tableFrom": "student_payments",
+          "columnsFrom": [
+            "recorded_by"
+          ],
+          "tableTo": "staff",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        },
+        "student_payments_student_id_fkey": {
+          "name": "student_payments_student_id_fkey",
+          "tableFrom": "student_payments",
+          "columnsFrom": [
+            "student_id"
+          ],
+          "tableTo": "students",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "student_payments_amount_check": {
+          "name": "student_payments_amount_check",
+          "value": "\"student_payments\".\"amount\" > (0)::numeric"
+        },
+        "student_payments_method_check": {
+          "name": "student_payments_method_check",
+          "value": "\"student_payments\".\"method\" = ANY (ARRAY['bank_transfer'::text, 'cash'::text, 'card'::text, 'other'::text])"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.students": {
+      "name": "students",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "student_code": {
+          "name": "student_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "first_name": {
+          "name": "first_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_name": {
+          "name": "last_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_of_birth": {
+          "name": "date_of_birth",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "allergies": {
+          "name": "allergies",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "enrollment_date": {
+          "name": "enrollment_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "CURRENT_DATE"
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "address_line_1": {
+          "name": "address_line_1",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address_line_2": {
+          "name": "address_line_2",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "city": {
+          "name": "city",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "postcode": {
+          "name": "postcode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "primary_guardian_id": {
+          "name": "primary_guardian_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "secondary_guardian_id": {
+          "name": "secondary_guardian_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "additional_contact_1_id": {
+          "name": "additional_contact_1_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "additional_contact_2_id": {
+          "name": "additional_contact_2_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "primary_guardian_relationship": {
+          "name": "primary_guardian_relationship",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "secondary_guardian_relationship": {
+          "name": "secondary_guardian_relationship",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "additional_contact_1_relationship": {
+          "name": "additional_contact_1_relationship",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "additional_contact_2_relationship": {
+          "name": "additional_contact_2_relationship",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "medical_details": {
+          "name": "medical_details",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address_guardian_id": {
+          "name": "address_guardian_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "consent_privacy_notice": {
+          "name": "consent_privacy_notice",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "consent_emergency_first_aid": {
+          "name": "consent_emergency_first_aid",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "consent_photo_media": {
+          "name": "consent_photo_media",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "consent_home_school": {
+          "name": "consent_home_school",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "consent_comms_email_sms": {
+          "name": "consent_comms_email_sms",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "english_school_name": {
+          "name": "english_school_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "leaving_reason": {
+          "name": "leaving_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "students_active_idx": {
+          "name": "students_active_idx",
+          "columns": [
+            {
+              "expression": "active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "students_additional_contact_1_id_idx": {
+          "name": "students_additional_contact_1_id_idx",
+          "columns": [
+            {
+              "expression": "additional_contact_1_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "students_additional_contact_2_id_idx": {
+          "name": "students_additional_contact_2_id_idx",
+          "columns": [
+            {
+              "expression": "additional_contact_2_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "students_primary_guardian_id_idx": {
+          "name": "students_primary_guardian_id_idx",
+          "columns": [
+            {
+              "expression": "primary_guardian_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "students_secondary_guardian_id_idx": {
+          "name": "students_secondary_guardian_id_idx",
+          "columns": [
+            {
+              "expression": "secondary_guardian_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "students_student_code_idx": {
+          "name": "students_student_code_idx",
+          "columns": [
+            {
+              "expression": "student_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "students_primary_guardian_id_fkey": {
+          "name": "students_primary_guardian_id_fkey",
+          "tableFrom": "students",
+          "columnsFrom": [
+            "primary_guardian_id"
+          ],
+          "tableTo": "guardians",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        },
+        "students_secondary_guardian_id_fkey": {
+          "name": "students_secondary_guardian_id_fkey",
+          "tableFrom": "students",
+          "columnsFrom": [
+            "secondary_guardian_id"
+          ],
+          "tableTo": "guardians",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        },
+        "students_additional_contact_1_id_fkey": {
+          "name": "students_additional_contact_1_id_fkey",
+          "tableFrom": "students",
+          "columnsFrom": [
+            "additional_contact_1_id"
+          ],
+          "tableTo": "guardians",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        },
+        "students_additional_contact_2_id_fkey": {
+          "name": "students_additional_contact_2_id_fkey",
+          "tableFrom": "students",
+          "columnsFrom": [
+            "additional_contact_2_id"
+          ],
+          "tableTo": "guardians",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        },
+        "students_address_guardian_id_fkey": {
+          "name": "students_address_guardian_id_fkey",
+          "tableFrom": "students",
+          "columnsFrom": [
+            "address_guardian_id"
+          ],
+          "tableTo": "guardians",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "students_student_code_key": {
+          "name": "students_student_code_key",
+          "columns": [
+            "student_code"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "students_address_source_check": {
+          "name": "students_address_source_check",
+          "value": "(\"students\".\"address_guardian_id\" IS NOT NULL) OR ((\"students\".\"address_line_1\" IS NOT NULL) AND (\"students\".\"city\" IS NOT NULL) AND (\"students\".\"postcode\" IS NOT NULL))"
+        },
+        "students_leaving_reason_check": {
+          "name": "students_leaving_reason_check",
+          "value": "\"students\".\"leaving_reason\" = ANY (ARRAY['left'::text, 'graduated'::text, 'transferred'::text])"
+        }
+      },
+      "isRLSEnabled": true
+    }
+  },
+  "enums": {
+    "public.contact_role": {
+      "name": "contact_role",
+      "schema": "public",
+      "values": [
+        "primary",
+        "secondary",
+        "additional_1",
+        "additional_2"
+      ]
+    },
+    "public.photo_opt_out_status": {
+      "name": "photo_opt_out_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "actioned",
+        "rejected"
+      ]
+    },
+    "public.submission_status": {
+      "name": "submission_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "actioned",
+        "rejected"
+      ]
+    }
+  },
+  "schemas": {},
+  "views": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
