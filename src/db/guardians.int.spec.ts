@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { db } from './client'
@@ -12,7 +13,7 @@ import {
   getStudentsByGuardian,
   updateGuardian,
 } from './guardians'
-import { students } from './schema'
+import { guardians, students } from './schema'
 import { resetDatabase, SEED } from './test-db'
 
 const DAN = '30000000-0000-0000-0000-0000000000d1'
@@ -133,17 +134,87 @@ describe('writes', () => {
     })
   })
 
-  it('finds matches through the RPC', async () => {
+  it('updates updated_at on every update', async () => {
+    const updatedAt = async (): Promise<number> => {
+      const [row] = await db
+        .select({ updatedAt: guardians.updatedAt })
+        .from(guardians)
+        .where(eq(guardians.id, SEED.guardians.greg))
+      return Date.parse(row.updatedAt!)
+    }
+    const before = await updatedAt()
+    await updateGuardian(SEED.guardians.greg, {
+      first_name: 'Greg',
+      last_name: 'CarolGuardian',
+      phone: '07711000003',
+    })
+    expect(await updatedAt()).toBeGreaterThan(before)
+  })
+})
+
+describe('findGuardianMatches', () => {
+  it('matches an email case-insensitively, with every contact field', async () => {
     const matches = await findGuardianMatches({
       email: 'GRACE.BOB@example.com',
       phone: '00000',
       lastName: 'x',
     })
     expect(matches).toEqual([
-      expect.objectContaining({
+      {
         id: SEED.guardians.grace,
+        first_name: 'Grace',
+        last_name: 'BobGuardian',
+        phone: '07711000002',
+        email: 'grace.bob@example.com',
+        occupation: 'Pharmacist',
+        address_line_1: null,
+        address_line_2: null,
+        city: null,
+        postcode: null,
         matched_on: 'email',
-      }),
+      },
     ])
+  })
+
+  it('matches phone digits and last name, ignoring spacing and case', async () => {
+    const matches = await findGuardianMatches({
+      email: null,
+      phone: '07711 000 001',
+      lastName: 'alICEguardian',
+    })
+    expect(matches.map((m) => [m.id, m.matched_on])).toEqual([
+      [SEED.guardians.gary, 'phone'],
+    ])
+    // The same phone with another last name is someone else.
+    expect(
+      await findGuardianMatches({
+        email: null,
+        phone: '07711000001',
+        lastName: 'Other',
+      }),
+    ).toEqual([])
+  })
+
+  it('lists email matches before phone matches, each guardian once', async () => {
+    const [twin] = await db
+      .insert(guardians)
+      .values({
+        firstName: 'Twin',
+        lastName: 'AliceGuardian',
+        phone: '07711000001',
+        email: 'twin@example.com',
+      })
+      .returning({ id: guardians.id })
+
+    const matches = await findGuardianMatches({
+      email: 'twin@example.com',
+      phone: '07711000001',
+      lastName: 'AliceGuardian',
+    })
+    expect(matches.map((m) => [m.id, m.matched_on])).toEqual([
+      [twin.id, 'email'],
+      [SEED.guardians.gary, 'phone'],
+    ])
+    await db.delete(guardians).where(eq(guardians.id, twin.id))
   })
 })

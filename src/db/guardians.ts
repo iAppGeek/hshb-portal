@@ -1,14 +1,22 @@
 import 'server-only'
 
-import { and, asc, count, eq, or, type SQL } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  count,
+  eq,
+  or,
+  sql,
+  type SQL,
+  type SQLWrapper,
+} from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 
 import { sortClasses } from '@/lib/classes'
 import { isUuid } from '@/lib/uuid'
-import type { Database } from '@/types/database'
 
 import { toCamel, toSnake } from './casing'
-import { db, supabase } from './client'
+import { db, type Queryable } from './client'
 import { isCurrentStay } from './membership'
 import { guardians, students } from './schema'
 
@@ -354,10 +362,7 @@ export async function updateGuardian(
   id: string,
   data: GuardianInsert,
 ): Promise<void> {
-  await db
-    .update(guardians)
-    .set({ ...toCamel(data), updatedAt: new Date().toISOString() })
-    .where(eq(guardians.id, id))
+  await db.update(guardians).set(toCamel(data)).where(eq(guardians.id, id))
 }
 
 export type GuardianMatch = {
@@ -374,22 +379,55 @@ export type GuardianMatch = {
   matched_on: 'email' | 'phone'
 }
 
-// Mirrors the de-dup rule approve_registration uses, surfaced so an admin can
-// see which contacts on a submission would be linked to an existing guardian.
-export async function findGuardianMatches({
-  email,
-  phone,
-  lastName,
-}: {
-  email: string | null
-  phone: string
-  lastName: string
-}): Promise<GuardianMatch[]> {
-  const { data, error } = await supabase.rpc('find_guardian_matches', {
-    p_email: email ?? undefined,
-    p_phone: phone,
-    p_last_name: lastName,
-  } as Database['public']['Functions']['find_guardian_matches']['Args'])
-  if (error) throw error
-  return (data ?? []) as GuardianMatch[]
+const digitsOnly = (value: SQLWrapper | string): SQL =>
+  sql`regexp_replace(${value}, '\\D', '', 'g')`
+
+/**
+ * Existing guardians a registration contact would be linked to: the same
+ * email (case-insensitive), else the same phone digits and last name
+ * (case-insensitive). Email matches come first. approveRegistration links the
+ * first match, so the review page shows exactly what approval will do.
+ */
+export async function findGuardianMatches(
+  {
+    email,
+    phone,
+    lastName,
+  }: {
+    email: string | null
+    phone: string
+    lastName: string
+  },
+  q: Queryable = db,
+): Promise<GuardianMatch[]> {
+  const byEmail =
+    email === null
+      ? sql`false`
+      : sql`lower(${guardians.email}) = lower(${email})`
+  const byPhone = and(
+    sql`${digitsOnly(guardians.phone)} = ${digitsOnly(phone)}`,
+    sql`lower(${guardians.lastName}) = lower(${lastName})`,
+  )
+  const matchedOn = sql<
+    GuardianMatch['matched_on']
+  >`case when ${byEmail} then 'email' else 'phone' end`
+  const rows = await q
+    .select({
+      id: guardians.id,
+      firstName: guardians.firstName,
+      lastName: guardians.lastName,
+      phone: guardians.phone,
+      email: guardians.email,
+      occupation: guardians.occupation,
+      addressLine1: guardians.addressLine1,
+      addressLine2: guardians.addressLine2,
+      city: guardians.city,
+      postcode: guardians.postcode,
+      matchedOn,
+    })
+    .from(guardians)
+    .where(or(byEmail, byPhone))
+    .orderBy(matchedOn, asc(guardians.id))
+    .limit(5)
+  return toSnake(rows)
 }

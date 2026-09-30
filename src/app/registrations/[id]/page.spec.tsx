@@ -216,7 +216,7 @@ describe('RegistrationDetailPage', () => {
     vi.mocked(findStudentMatches).mockResolvedValue([])
     vi.mocked(getStudentsForLinking).mockResolvedValue([])
     vi.mocked(getAllClasses).mockResolvedValue([])
-    vi.mocked(findGuardianMatches).mockRejectedValue(new Error('rpc failed'))
+    vi.mocked(findGuardianMatches).mockRejectedValue(new Error('query failed'))
 
     render(
       await RegistrationDetailPage({
@@ -236,7 +236,7 @@ describe('RegistrationDetailPage', () => {
     vi.mocked(getRegistrationSubmissionById).mockResolvedValue(
       submission as never,
     )
-    vi.mocked(findStudentMatches).mockRejectedValue(new Error('rpc failed'))
+    vi.mocked(findStudentMatches).mockRejectedValue(new Error('query failed'))
     vi.mocked(getStudentsForLinking).mockResolvedValue([])
     vi.mocked(getAllClasses).mockResolvedValue([])
 

@@ -1,5 +1,17 @@
+/**
+ * A rule of a `src/db` write that the input broke (e.g. "Leavers can't be
+ * enrolled in classes."). The message is written for the user, so
+ * `getUserFriendlyDbError` shows it verbatim.
+ */
+export class DbError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'DbError'
+  }
+}
+
 /** The fields of a Postgres error that the app acts on. */
-export type DbError = {
+export type PostgresError = {
   code: string
   message: string
   details?: string
@@ -10,7 +22,6 @@ type ErrorFields = {
   code?: unknown
   message?: unknown
   detail?: unknown
-  details?: unknown
   constraint_name?: unknown
   cause?: unknown
 }
@@ -25,29 +36,21 @@ function stringOr(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined
 }
 
-/** PostgREST drops `constraint_name`; Postgres names it in the message. */
-function constraintInMessage(message: string): string | undefined {
-  return /constraint "([^"]+)"/.exec(message)?.[1]
-}
-
 /**
  * The Postgres error behind `err`, or null when it isn't one. Understands
  * postgres.js errors (`detail`, `constraint_name`), including when Drizzle
- * wraps them in a DrizzleQueryError as `cause`, and the PostgREST shape
- * (`details`) that the remaining supabase-js `.rpc()` calls still throw.
+ * wraps them in a DrizzleQueryError as `cause`.
  */
-export function asDbError(err: unknown): DbError | null {
+export function asDbError(err: unknown): PostgresError | null {
   const outer = fieldsOf(err)
   const source =
     typeof outer?.code === 'string' ? outer : fieldsOf(outer?.cause)
   if (!source || typeof source.code !== 'string') return null
-  const message = stringOr(source.message) ?? ''
   return {
     code: source.code,
-    message,
-    details: stringOr(source.detail) ?? stringOr(source.details),
-    constraint:
-      stringOr(source.constraint_name) ?? constraintInMessage(message),
+    message: stringOr(source.message) ?? '',
+    details: stringOr(source.detail),
+    constraint: stringOr(source.constraint_name),
   }
 }
 
@@ -57,6 +60,8 @@ function extractColumnFromDetail(details: string): string | null {
 }
 
 export function getUserFriendlyDbError(err: unknown, fallback: string): string {
+  if (err instanceof DbError) return err.message
+
   const dbError = asDbError(err)
   if (!dbError) return fallback
 
@@ -77,11 +82,6 @@ export function getUserFriendlyDbError(err: unknown, fallback: string): string {
       return 'A value does not meet the required conditions.'
     case '22P02':
       return 'A value is not in the expected format.'
-    case 'P0001':
-      // Postgres's generic RAISE EXCEPTION code — used for our own
-      // intentionally user-facing messages raised inside RPCs (e.g.
-      // approve_registration, migrate_class), safe to show verbatim.
-      return dbError.message
     default:
       return fallback
   }

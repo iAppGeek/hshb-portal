@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { afterAll, describe, expect, it } from 'vitest'
 
-import { asDbError } from '@/lib/db-error'
+import { asDbError, DbError } from '@/lib/db-error'
 
 import {
   createAcademicYear,
@@ -14,6 +14,7 @@ import {
 } from './academic-years'
 import { db } from './client'
 import { academicYears } from './schema'
+import { failWritesTo } from './test-db'
 
 const CURRENT_YEAR = '05000000-0000-4000-8000-000000000001'
 const PRIOR_YEAR = '05000000-0000-4000-8000-000000000002'
@@ -102,6 +103,19 @@ describe('writes', () => {
     })
   })
 
+  it('stamps updated_at on every update', async () => {
+    const before = await getAcademicYearById(PRIOR_YEAR)
+    await updateAcademicYear(PRIOR_YEAR, {
+      start_date: before!.start_date,
+      end_date: before!.end_date,
+    })
+    const after = await getAcademicYearById(PRIOR_YEAR)
+    expect(after!.updated_at).toMatch(ISO_TIMESTAMP)
+    expect(Date.parse(after!.updated_at)).toBeGreaterThan(
+      Date.parse(before!.updated_at),
+    )
+  })
+
   it('rejects a duplicate code with a unique violation', async () => {
     const err = await createAcademicYear({
       code: '2026-27',
@@ -138,7 +152,18 @@ describe('writes', () => {
   it('rejects an unknown year and leaves the current year alone', async () => {
     await expect(
       setCurrentAcademicYear('05000000-0000-4000-8000-0000000000ff'),
-    ).rejects.toThrow('Academic year not found')
+    ).rejects.toEqual(new DbError('Academic year not found'))
+    expect((await getCurrentAcademicYear()).id).toBe(CURRENT_YEAR)
+  })
+
+  it('leaves the old current year when a write fails part-way', async () => {
+    // Clearing the current year succeeds; setting the new one fails.
+    const err = await failWritesTo(
+      'academic_years',
+      `not (is_current and id = '${PRIOR_YEAR}')`,
+      () => setCurrentAcademicYear(PRIOR_YEAR),
+    )
+    expect(err).toBeDefined()
     expect((await getCurrentAcademicYear()).id).toBe(CURRENT_YEAR)
   })
 })

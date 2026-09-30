@@ -205,6 +205,7 @@ describe('approveRegistrationAction', () => {
       code: '23505',
       message:
         'duplicate key value violates unique constraint "students_student_code_key"',
+      constraint_name: 'students_student_code_key',
     })
 
     const result = await approveRegistrationAction(
@@ -223,6 +224,7 @@ describe('approveRegistrationAction', () => {
       code: '23505',
       message:
         'duplicate key value violates unique constraint "student_classes_one_open"',
+      constraint_name: 'student_classes_one_open',
     })
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
@@ -236,7 +238,7 @@ describe('approveRegistrationAction', () => {
     consoleSpy.mockRestore()
   })
 
-  it('returns a friendly error when the RPC throws', async () => {
+  it('returns the fallback error when approval fails unexpectedly', async () => {
     vi.mocked(approveRegistration).mockRejectedValue(
       new Error('Submission not found or already actioned'),
     )
@@ -289,7 +291,7 @@ describe('approveRegistrationAction', () => {
     expect(redirect).toHaveBeenCalledWith(`/students/${STUDENT_ID}/edit`)
   })
 
-  it('audits the guardian and student change record from the RPC result', async () => {
+  it('audits the guardian and student change record from the approval result', async () => {
     vi.mocked(approveRegistration).mockResolvedValue({
       student_id: STUDENT_ID,
       linked_existing: false,
@@ -539,7 +541,7 @@ describe('applyPhotoOptOutAction', () => {
     expect(applyPhotoOptOut).not.toHaveBeenCalled()
   })
 
-  it('returns a friendly error when the RPC throws', async () => {
+  it('returns the fallback error when applying fails unexpectedly', async () => {
     vi.mocked(applyPhotoOptOut).mockRejectedValue(
       new Error('Request not found or already actioned'),
     )

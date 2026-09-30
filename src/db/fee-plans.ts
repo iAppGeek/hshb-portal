@@ -1,13 +1,13 @@
 import 'server-only'
 
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, ne } from 'drizzle-orm'
 
+import { asDbError, DbError } from '@/lib/db-error'
 import { isUuid } from '@/lib/uuid'
-import type { Database } from '@/types/database'
 
-import { toSnake, type Snake } from './casing'
-import { db, supabase } from './client'
-import { feePlans, type FeePlan } from './schema'
+import { toCamel, toSnake, type Snake } from './casing'
+import { db } from './client'
+import { classes, feePlanClasses, feePlans, type FeePlan } from './schema'
 
 export type FeePlanRow = Snake<FeePlan>
 
@@ -74,28 +74,73 @@ export async function getFeePlanById(
   return row ? toSnake(withClassIds(row)) : null
 }
 
-// The plan and its class links are written in one transaction by the
-// save_fee_plan RPC, so a rejected link never leaves a half-saved plan.
+/** The rules a save breaks, raised as constraint errors by the insert/update. */
+function feePlanError(err: unknown): unknown {
+  switch (asDbError(err)?.code) {
+    case '23505':
+      return new DbError(
+        'A fee plan with this name already exists for this academic year, or a selected class is already on another plan.',
+      )
+    case '23503':
+      return new DbError('One of the selected classes no longer exists.')
+    default:
+      return err
+  }
+}
+
+// The plan and its class links are written in one transaction, so a rejected
+// link never leaves a half-saved plan.
 async function saveFeePlan(
   id: string | null,
   input: FeePlanInput,
   classIds: string[],
 ): Promise<string> {
-  // Supabase codegen types p_id and p_notes as `string`, but the Postgres
-  // function accepts NULL for both (NULL p_id creates a plan).
-  const { data, error } = await supabase.rpc('save_fee_plan', {
-    p_id: id,
-    p_name: input.name,
-    p_academic_year_id: input.academic_year_id,
-    p_full_year_amount: input.full_year_amount,
-    p_monthly_instalment_amount: input.monthly_instalment_amount,
-    p_termly_instalment_amount: input.termly_instalment_amount,
-    p_notes: input.notes,
-    p_active: input.active,
-    p_class_ids: classIds,
-  } as Database['public']['Functions']['save_fee_plan']['Args'])
-  if (error) throw error
-  return data as string
+  const values = toCamel(input)
+  try {
+    return await db.transaction(async (tx) => {
+      let planId: string
+      if (id === null) {
+        const [created] = await tx
+          .insert(feePlans)
+          .values(values)
+          .returning({ id: feePlans.id })
+        planId = created.id
+      } else {
+        const [updated] = await tx
+          .update(feePlans)
+          .set(values)
+          .where(eq(feePlans.id, id))
+          .returning({ id: feePlans.id })
+        if (!updated) throw new DbError('Fee plan not found.')
+        planId = updated.id
+        await tx
+          .delete(feePlanClasses)
+          .where(eq(feePlanClasses.feePlanId, planId))
+      }
+      if (classIds.length === 0) return planId
+
+      const [{ wrongYear }] = await tx
+        .select({ wrongYear: count() })
+        .from(classes)
+        .where(
+          and(
+            inArray(classes.id, classIds),
+            ne(classes.academicYearId, input.academic_year_id),
+          ),
+        )
+      if (wrongYear > 0)
+        throw new DbError(
+          "One or more selected classes do not belong to this fee plan's academic year.",
+        )
+
+      await tx
+        .insert(feePlanClasses)
+        .values(classIds.map((classId) => ({ feePlanId: planId, classId })))
+      return planId
+    })
+  } catch (err) {
+    throw feePlanError(err)
+  }
 }
 
 export async function createFeePlan(

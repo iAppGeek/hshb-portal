@@ -4,6 +4,7 @@ import {
   and,
   asc,
   count,
+  desc,
   eq,
   ilike,
   inArray,
@@ -16,13 +17,15 @@ import {
 } from 'drizzle-orm'
 
 import { compareClasses } from '@/lib/classes'
-import type { LeavingReason } from '@/lib/schemas'
+import { todayInSchoolTz } from '@/lib/datetime'
+import { DbError } from '@/lib/db-error'
+import { LEAVING_REASONS, type LeavingReason } from '@/lib/schemas'
 import { nextStudentCode, studentCodePattern } from '@/lib/student-code'
 import { isUuid } from '@/lib/uuid'
-import type { Database } from '@/types/database'
 
 import { toCamel, toSnake, type Snake } from './casing'
-import { db, supabase, type Tx } from './client'
+import { db, type Queryable, type Tx } from './client'
+import { closeEnrolments, setEnrolments } from './enrolments'
 import type { GuardianInsert } from './guardians'
 import { isCurrentStay, studentIdsTaughtBy } from './membership'
 import {
@@ -33,6 +36,10 @@ import {
   type Guardian,
   type Student,
 } from './schema'
+
+function isLeavingReason(value: string): value is LeavingReason {
+  return (LEAVING_REASONS as readonly string[]).includes(value)
+}
 
 type StudentListItem = Snake<
   Pick<Student, 'id' | 'firstName' | 'lastName' | 'studentCode'>
@@ -366,25 +373,50 @@ export type StudentMatch = {
   active: boolean
 }
 
-// Includes inactive students so returning children can be found and reactivated.
-// Uses a parameterised RPC rather than a string-built PostgREST filter, since
-// firstName and lastName originate from the public registration form.
-export async function findStudentMatches({
-  firstName,
-  lastName,
-  dateOfBirth,
-}: {
-  firstName: string
-  lastName: string
-  dateOfBirth: string
-}): Promise<StudentMatch[]> {
-  const { data, error } = await supabase.rpc('find_student_matches', {
-    p_first_name: firstName,
-    p_last_name: lastName,
-    p_date_of_birth: dateOfBirth,
-  })
-  if (error) throw error
-  return (data ?? []) as StudentMatch[]
+/**
+ * Possible existing records for a registered or opted-out child: the same
+ * last name and either the same date of birth or the same first name
+ * (names case-insensitive). Includes inactive students so returning children
+ * can be found and reactivated.
+ */
+export async function findStudentMatches(
+  {
+    firstName,
+    lastName,
+    dateOfBirth,
+  }: {
+    firstName: string
+    lastName: string
+    dateOfBirth: string
+  },
+  q: Queryable = db,
+): Promise<StudentMatch[]> {
+  const rows = await q
+    .select({
+      id: students.id,
+      firstName: students.firstName,
+      lastName: students.lastName,
+      dateOfBirth: students.dateOfBirth,
+      studentCode: students.studentCode,
+      active: students.active,
+    })
+    .from(students)
+    .where(
+      and(
+        sql`lower(${students.lastName}) = lower(${lastName})`,
+        or(
+          eq(students.dateOfBirth, dateOfBirth),
+          sql`lower(${students.firstName}) = lower(${firstName})`,
+        ),
+      ),
+    )
+    .orderBy(
+      desc(students.active),
+      asc(students.lastName),
+      asc(students.firstName),
+    )
+    .limit(10)
+  return toSnake(rows)
 }
 
 export async function getStudentsForLinking(): Promise<StudentMatch[]> {
@@ -634,36 +666,65 @@ function photoConsentChange(
 export async function withdrawPhotoVideoConsent(
   studentId: string,
   staffId: string,
+  q: Queryable = db,
 ): Promise<void> {
-  const rows = await db
+  const rows = await q
     .update(students)
     .set({ photoVideoConsent: false, ...photoConsentChange(false, staffId) })
     .where(eq(students.id, studentId))
     .returning({ id: students.id })
-  if (rows.length === 0) throw new Error('Student not found')
+  if (rows.length === 0) throw new DbError('Student not found')
 }
 
+/** Makes `classIds` the student's current classes; see setEnrolments. */
 export async function updateStudentClasses(
   studentId: string,
   classIds: string[],
 ): Promise<void> {
-  // Supabase codegen marks p_class_id as a required string — the SQL function
-  // treats a NULL p_class_id as "student mode" (p_ids are class ids).
-  const { error } = await supabase.rpc('set_enrolments', {
-    p_student_id: studentId,
-    p_class_id: null,
-    p_ids: classIds,
-  } as unknown as Database['public']['Functions']['set_enrolments']['Args'])
-  if (error) throw error
+  await db.transaction((tx) => setEnrolments(tx, { studentId }, classIds))
+}
+
+/**
+ * Ends every current stay today and records why the student left. Also run
+ * by migrateClass, inside its transaction, for the students leaving with it.
+ */
+export async function markLeaver(
+  tx: Tx,
+  studentId: string,
+  reason: string,
+): Promise<void> {
+  const [student] = await tx
+    .select({ active: students.active })
+    .from(students)
+    .where(eq(students.id, studentId))
+  if (!student) throw new DbError('Student not found')
+  if (!student.active) throw new DbError('This student has already left.')
+  if (!isLeavingReason(reason)) throw new DbError('Choose a leaving reason.')
+
+  const stays = await tx
+    .select({ id: studentClasses.id })
+    .from(studentClasses)
+    .where(
+      and(
+        eq(studentClasses.studentId, studentId),
+        isCurrentStay(studentClasses),
+      ),
+    )
+  await closeEnrolments(
+    tx,
+    stays.map((stay) => stay.id),
+    todayInSchoolTz(),
+  )
+
+  await tx
+    .update(students)
+    .set({ active: false, leavingReason: reason })
+    .where(eq(students.id, studentId))
 }
 
 export async function markStudentAsLeaver(
   studentId: string,
   reason: LeavingReason,
 ): Promise<void> {
-  const { error } = await supabase.rpc('mark_student_as_leaver', {
-    p_student_id: studentId,
-    p_reason: reason,
-  })
-  if (error) throw error
+  await db.transaction((tx) => markLeaver(tx, studentId, reason))
 }

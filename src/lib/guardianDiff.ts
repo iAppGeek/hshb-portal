@@ -1,9 +1,8 @@
-import type { GuardianMatch } from '@/db'
-import type { Tables } from '@/types/database'
+import type { GuardianMatch, RegistrationFull } from '@/db'
 
-type Contact = Tables<'registration_submission_contacts'>
+type Contact = RegistrationFull['contacts'][number]
 type Submission = Pick<
-  Tables<'registration_submissions'>,
+  RegistrationFull,
   'address_line_1' | 'address_line_2' | 'city' | 'postcode'
 >
 
@@ -13,8 +12,8 @@ export type FieldDiff = {
   new: string | null
 }
 
-// Mirrors the UPDATE in approve_registration's reuse branch so the page shows
-// exactly what approval will write.
+// Mirrors the update approveRegistration makes to a reused guardian, so the
+// page shows exactly what approval will write.
 export function guardianReuseDiff(
   match: GuardianMatch,
   contact: Contact,
