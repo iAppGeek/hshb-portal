@@ -1,6 +1,7 @@
+import { DrizzleQueryError } from 'drizzle-orm'
 import { describe, it, expect } from 'vitest'
 
-import { getUserFriendlyDbError } from './db-error'
+import { asDbError, getUserFriendlyDbError } from './db-error'
 
 const FALLBACK = 'Something went wrong. Please try again.'
 
@@ -87,6 +88,44 @@ describe('getUserFriendlyDbError', () => {
     })
   })
 
+  describe('postgres.js errors', () => {
+    const pgError = {
+      code: '23505',
+      message: 'duplicate key value violates unique constraint',
+      detail: 'Key (student_code)=(S001) already exists.',
+      constraint_name: 'students_student_code_key',
+    }
+
+    it('reads the column from `detail`', () => {
+      expect(getUserFriendlyDbError(pgError, FALLBACK)).toBe(
+        'A record with this student code already exists.',
+      )
+    })
+
+    it('unwraps the cause of a DrizzleQueryError', () => {
+      const wrapped = new DrizzleQueryError(
+        'insert into "students" …',
+        ['S001'],
+        Object.assign(new Error(pgError.message), pgError),
+      )
+      expect(getUserFriendlyDbError(wrapped, FALLBACK)).toBe(
+        'A record with this student code already exists.',
+      )
+    })
+
+    it('maps 22P02 (invalid input syntax)', () => {
+      const err = { code: '22P02', message: 'invalid input syntax for uuid' }
+      expect(getUserFriendlyDbError(err, FALLBACK)).toBe(
+        'A value is not in the expected format.',
+      )
+    })
+
+    it('falls back for connection errors', () => {
+      const err = { code: 'CONNECTION_CLOSED', message: 'connection closed' }
+      expect(getUserFriendlyDbError(err, FALLBACK)).toBe(FALLBACK)
+    })
+  })
+
   describe('unknown or non-DB errors', () => {
     it('returns fallback for unknown error code', () => {
       const err = { code: '42P01', message: 'relation does not exist' }
@@ -109,5 +148,38 @@ describe('getUserFriendlyDbError', () => {
       const err = { message: 'some error' }
       expect(getUserFriendlyDbError(err, FALLBACK)).toBe(FALLBACK)
     })
+  })
+})
+
+describe('asDbError', () => {
+  it('returns the code, message, detail and constraint of a wrapped error', () => {
+    const cause = Object.assign(new Error('violates check constraint'), {
+      code: '23514',
+      detail: 'Failing row contains (…).',
+      constraint_name: 'staff_payroll_bank_sort_code_check',
+    })
+    expect(asDbError(new DrizzleQueryError('update …', [], cause))).toEqual({
+      code: '23514',
+      message: 'violates check constraint',
+      details: 'Failing row contains (…).',
+      constraint: 'staff_payroll_bank_sort_code_check',
+    })
+  })
+
+  it('reads the PostgREST `details` field', () => {
+    expect(
+      asDbError({ code: 'P0001', message: 'Nope', details: 'more' }),
+    ).toEqual({
+      code: 'P0001',
+      message: 'Nope',
+      details: 'more',
+      constraint: undefined,
+    })
+  })
+
+  it('returns null for errors without a code', () => {
+    expect(asDbError(new Error('boom'))).toBeNull()
+    expect(asDbError('boom')).toBeNull()
+    expect(asDbError(null)).toBeNull()
   })
 })

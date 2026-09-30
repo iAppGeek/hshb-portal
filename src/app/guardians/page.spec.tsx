@@ -7,8 +7,7 @@ vi.mock('@/auth', () => ({
 }))
 
 vi.mock('@/db', () => ({
-  getAllGuardians: vi.fn(),
-  getGuardianChildCounts: vi.fn(),
+  getGuardiansWithChildCounts: vi.fn(),
 }))
 
 vi.mock('next/navigation', async (importOriginal) => ({
@@ -26,13 +25,12 @@ vi.mock('./GuardiansTable', () => ({
 }))
 
 import { auth } from '@/auth'
-import { getAllGuardians, getGuardianChildCounts } from '@/db'
+import { getGuardiansWithChildCounts } from '@/db'
 
 import GuardiansPage from './page'
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(getGuardianChildCounts).mockResolvedValue(new Map())
 })
 
 const mockGuardian = {
@@ -41,6 +39,7 @@ const mockGuardian = {
   last_name: 'Smith',
   phone: '07700 900000',
   email: 'maria@example.com',
+  child_count: 3,
 }
 
 describe('GuardiansPage', () => {
@@ -48,7 +47,7 @@ describe('GuardiansPage', () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
-    vi.mocked(getAllGuardians).mockResolvedValue([])
+    vi.mocked(getGuardiansWithChildCounts).mockResolvedValue([])
 
     render(await GuardiansPage())
     expect(screen.getByText('Guardians')).toBeTruthy()
@@ -58,41 +57,27 @@ describe('GuardiansPage', () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
-    vi.mocked(getAllGuardians).mockResolvedValue([mockGuardian] as any)
+    vi.mocked(getGuardiansWithChildCounts).mockResolvedValue([mockGuardian])
 
     render(await GuardiansPage())
     expect(screen.getByText(/GuardiansTable/)).toBeTruthy()
   })
 
-  it('merges in each guardian’s child count from getGuardianChildCounts', async () => {
+  it('passes each guardian’s child count through to the table', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
-    vi.mocked(getAllGuardians).mockResolvedValue([mockGuardian] as any)
-    vi.mocked(getGuardianChildCounts).mockResolvedValue(
-      new Map([['guardian-1', 3]]),
-    )
+    vi.mocked(getGuardiansWithChildCounts).mockResolvedValue([mockGuardian])
 
     render(await GuardiansPage())
     expect(screen.getByText(/counts=3/)).toBeTruthy()
-  })
-
-  it('gives a guardian with no entry in the counts map a zero count', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { role: 'admin', staffId: 'staff-1' },
-    } as any)
-    vi.mocked(getAllGuardians).mockResolvedValue([mockGuardian] as any)
-    vi.mocked(getGuardianChildCounts).mockResolvedValue(new Map())
-
-    render(await GuardiansPage())
-    expect(screen.getByText(/counts=0/)).toBeTruthy()
   })
 
   it('shows empty state when no guardians exist', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
     } as any)
-    vi.mocked(getAllGuardians).mockResolvedValue([])
+    vi.mocked(getGuardiansWithChildCounts).mockResolvedValue([])
 
     render(await GuardiansPage())
     expect(screen.getByText('No guardians found.')).toBeTruthy()
@@ -110,8 +95,7 @@ describe('GuardiansPage', () => {
 
       await expect(GuardiansPage()).rejects.toThrow('NEXT_REDIRECT')
       expect(redirect).toHaveBeenCalledWith('/students')
-      expect(getAllGuardians).not.toHaveBeenCalled()
-      expect(getGuardianChildCounts).not.toHaveBeenCalled()
+      expect(getGuardiansWithChildCounts).not.toHaveBeenCalled()
     },
   )
 })

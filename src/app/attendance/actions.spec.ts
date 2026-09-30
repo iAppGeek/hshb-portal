@@ -58,16 +58,16 @@ beforeEach(() => {
   } as any)
   vi.mocked(getEnrolmentsForClass).mockResolvedValue([
     {
-      class_id: CLASS_ID,
-      student_id: STUDENT_1,
-      start_date: '2020-01-01',
-      end_date: null,
+      classId: CLASS_ID,
+      studentId: STUDENT_1,
+      startDate: '2020-01-01',
+      endDate: null,
     },
     {
-      class_id: CLASS_ID,
-      student_id: STUDENT_2,
-      start_date: '2020-01-01',
-      end_date: null,
+      classId: CLASS_ID,
+      studentId: STUDENT_2,
+      startDate: '2020-01-01',
+      endDate: null,
     },
   ])
 })
@@ -86,11 +86,11 @@ function makeFormData(fields: Record<string, string | string[]>): FormData {
 
 const mockSub = {
   id: 'sub-1',
-  staff_id: ADMIN_ID,
+  staffId: ADMIN_ID,
   endpoint: 'https://fcm.googleapis.com/fcm/send/abc',
   p256dh: 'p256dh-key',
   auth: 'auth-key',
-  created_at: null,
+  createdAt: null,
 }
 
 describe('saveAttendanceAction', () => {
@@ -216,7 +216,7 @@ describe('saveAttendanceAction', () => {
   })
 
   it('excludes the submitting staff member from notifications', async () => {
-    const submitterSub = { ...mockSub, staff_id: STAFF_ID }
+    const submitterSub = { ...mockSub, staffId: STAFF_ID }
     vi.mocked(getActor).mockResolvedValue({
       staffId: STAFF_ID,
       name: null,
@@ -591,10 +591,10 @@ describe('saveAttendanceAction', () => {
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
     vi.mocked(getEnrolmentsForClass).mockResolvedValue([
       {
-        class_id: CLASS_ID,
-        student_id: STUDENT_1,
-        start_date: '2026-09-20',
-        end_date: null,
+        classId: CLASS_ID,
+        studentId: STUDENT_1,
+        startDate: '2026-09-20',
+        endDate: null,
       },
     ])
 
@@ -625,10 +625,10 @@ describe('saveAttendanceAction', () => {
     ])
     vi.mocked(getEnrolmentsForClass).mockResolvedValue([
       {
-        class_id: CLASS_ID,
-        student_id: STUDENT_1,
-        start_date: '2020-01-01',
-        end_date: '2024-01-01',
+        classId: CLASS_ID,
+        studentId: STUDENT_1,
+        startDate: '2020-01-01',
+        endDate: '2024-01-01',
       },
     ])
     vi.mocked(saveAttendance).mockResolvedValue([] as any)

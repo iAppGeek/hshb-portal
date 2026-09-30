@@ -1,54 +1,52 @@
+import 'server-only'
+
+import { asc, eq, inArray } from 'drizzle-orm'
+
 import { TEACHING_ROLES } from '@/lib/permissions'
+import { isUuid } from '@/lib/uuid'
 
-import { supabase } from './client'
+import { toCamel, toSnake, type Snake } from './casing'
+import { db } from './client'
+import { staff, type Class, type Staff } from './schema'
 
-const STAFF_SELECT =
-  'id, email, title, first_name, last_name, display_name, role, contact_number, personal_email, created_at'
-
-export async function getStaffByEmail(email: string) {
-  const { data } = await supabase
-    .from('staff')
-    .select(STAFF_SELECT)
-    .eq('email', email.toLowerCase())
-    .single()
-  return data
+const staffColumns = {
+  id: staff.id,
+  email: staff.email,
+  title: staff.title,
+  firstName: staff.firstName,
+  lastName: staff.lastName,
+  displayName: staff.displayName,
+  role: staff.role,
+  contactNumber: staff.contactNumber,
+  personalEmail: staff.personalEmail,
+  createdAt: staff.createdAt,
 }
 
-export async function getStaffById(id: string) {
-  const { data } = await supabase
-    .from('staff')
-    .select(STAFF_SELECT)
-    .eq('id', id)
-    .single()
-  return data
-}
+type StaffMember = Snake<
+  Pick<
+    Staff,
+    | 'id'
+    | 'email'
+    | 'title'
+    | 'firstName'
+    | 'lastName'
+    | 'displayName'
+    | 'role'
+    | 'contactNumber'
+    | 'personalEmail'
+    | 'createdAt'
+  >
+>
 
-export async function getAllStaff() {
-  const { data } = await supabase
-    .from('staff')
-    .select(STAFF_SELECT)
-    .order('last_name')
-  return data ?? []
-}
+type StaffWithClasses = Snake<
+  Staff & { classes: Pick<Class, 'id' | 'name' | 'roomNumber' | 'yearGroup'>[] }
+>
 
-export async function getAllStaffWithClasses() {
-  const { data } = await supabase
-    .from('staff')
-    .select('*, classes(id, name, room_number, year_group)')
-    .order('last_name')
-  return data ?? []
-}
+type Teacher = Snake<
+  Pick<Staff, 'id' | 'firstName' | 'lastName' | 'displayName'>
+>
 
-export async function getTeachers() {
-  const { data } = await supabase
-    .from('staff')
-    .select('id, first_name, last_name, display_name')
-    .in('role', TEACHING_ROLES)
-    .order('last_name')
-  return data ?? []
-}
-
-export async function createStaff(input: {
+type StaffInput = {
   title: string
   first_name: string
   last_name: string
@@ -57,29 +55,71 @@ export async function createStaff(input: {
   display_name?: string | null
   contact_number?: string | null
   personal_email?: string | null
-}) {
-  const { data, error } = await supabase
-    .from('staff')
-    .insert(input)
-    .select()
-    .single()
-  if (error) throw error
-  return data
+}
+
+export async function getStaffByEmail(
+  email: string,
+): Promise<StaffMember | null> {
+  const [row] = await db
+    .select(staffColumns)
+    .from(staff)
+    .where(eq(staff.email, email.toLowerCase()))
+  return row ? toSnake(row) : null
+}
+
+export async function getStaffById(id: string): Promise<StaffMember | null> {
+  // A malformed id finds nothing, rather than failing the uuid cast.
+  if (!isUuid(id)) return null
+
+  const [row] = await db
+    .select(staffColumns)
+    .from(staff)
+    .where(eq(staff.id, id))
+  return row ? toSnake(row) : null
+}
+
+export async function getAllStaff(): Promise<StaffMember[]> {
+  const rows = await db
+    .select(staffColumns)
+    .from(staff)
+    .orderBy(asc(staff.lastName))
+  return toSnake(rows)
+}
+
+export async function getAllStaffWithClasses(): Promise<StaffWithClasses[]> {
+  const rows = await db.query.staff.findMany({
+    with: {
+      classes: {
+        columns: { id: true, name: true, roomNumber: true, yearGroup: true },
+      },
+    },
+    orderBy: asc(staff.lastName),
+  })
+  return toSnake(rows)
+}
+
+export async function getTeachers(): Promise<Teacher[]> {
+  const rows = await db
+    .select({
+      id: staff.id,
+      firstName: staff.firstName,
+      lastName: staff.lastName,
+      displayName: staff.displayName,
+    })
+    .from(staff)
+    .where(inArray(staff.role, TEACHING_ROLES))
+    .orderBy(asc(staff.lastName))
+  return toSnake(rows)
+}
+
+export async function createStaff(input: StaffInput): Promise<Snake<Staff>> {
+  const [row] = await db.insert(staff).values(toCamel(input)).returning()
+  return toSnake(row)
 }
 
 export async function updateStaff(
   id: string,
-  input: {
-    title: string
-    first_name: string
-    last_name: string
-    email: string
-    role: string
-    display_name?: string | null
-    contact_number?: string | null
-    personal_email?: string | null
-  },
-) {
-  const { error } = await supabase.from('staff').update(input).eq('id', id)
-  if (error) throw error
+  input: StaffInput,
+): Promise<void> {
+  await db.update(staff).set(toCamel(input)).where(eq(staff.id, id))
 }

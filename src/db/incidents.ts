@@ -1,6 +1,12 @@
-import { supabase } from './client'
+import 'server-only'
 
-export type IncidentType = 'medical' | 'behaviour' | 'other'
+import { and, count, desc, eq, gte, inArray, lte, or } from 'drizzle-orm'
+
+import { toCamel, toSnake } from './casing'
+import { db, type Tx } from './client'
+import { incidents, type Incident } from './schema'
+
+export type IncidentType = Incident['type']
 
 export type IncidentRow = {
   id: string
@@ -20,21 +26,29 @@ export type IncidentRow = {
   updater: { id: string; first_name: string; last_name: string } | null
 }
 
-const INCIDENT_SELECT = `
-  id, type, student_id, title, description, incident_date,
-  created_by, updated_by, parent_notified, parent_notified_at,
-  created_at, updated_at,
-  student:students(id, first_name, last_name),
-  creator:staff!incidents_created_by_fkey(id, first_name, last_name),
-  updater:staff!incidents_updated_by_fkey(id, first_name, last_name)
-`
+const person = {
+  columns: { id: true, firstName: true, lastName: true },
+} as const
+const incidentWith = {
+  student: person,
+  creator: person,
+  updater: person,
+} as const
+
+async function findIncident(
+  tx: Tx | typeof db,
+  id: string,
+): Promise<IncidentRow | null> {
+  const row = await tx.query.incidents.findFirst({
+    where: eq(incidents.id, id),
+    with: incidentWith,
+  })
+  return row ? toSnake(row) : null
+}
 
 export async function getIncidentCount(): Promise<number> {
-  const { count, error } = await supabase
-    .from('incidents')
-    .select('*', { count: 'exact', head: true })
-  if (error) throw error
-  return count ?? 0
+  const [{ n }] = await db.select({ n: count() }).from(incidents)
+  return n
 }
 
 export async function getIncidents(options?: {
@@ -44,47 +58,28 @@ export async function getIncidents(options?: {
   limit?: number
   offset?: number
 }): Promise<IncidentRow[]> {
-  let query = supabase
-    .from('incidents')
-    .select(INCIDENT_SELECT)
-    .order('incident_date', { ascending: false })
-
-  if (options?.type) {
-    query = query.eq('type', options.type)
-  }
-
-  // With createdBy, match incidents for studentIds OR recorded by that staff member
-  if (options?.createdBy) {
-    const filters = [`created_by.eq.${options.createdBy}`]
-    if (options.studentIds && options.studentIds.length > 0) {
-      filters.push(`student_id.in.(${options.studentIds.join(',')})`)
-    }
-    query = query.or(filters.join(','))
-  } else if (options?.studentIds && options.studentIds.length > 0) {
-    query = query.in('student_id', options.studentIds)
-  }
-
-  if (options?.limit !== undefined) {
-    const from = options.offset ?? 0
-    query = query.range(from, from + options.limit - 1)
-  }
-
-  const { data, error } = await query
-  if (error) throw error
-  return data as IncidentRow[]
+  const studentIds = options?.studentIds ?? []
+  const forStudents =
+    studentIds.length > 0 ? inArray(incidents.studentId, studentIds) : undefined
+  // With createdBy: incidents for studentIds OR recorded by that staff member.
+  const scope = options?.createdBy
+    ? or(eq(incidents.createdBy, options.createdBy), forStudents)
+    : forStudents
+  const rows = await db.query.incidents.findMany({
+    with: incidentWith,
+    where: and(
+      options?.type ? eq(incidents.type, options.type) : undefined,
+      scope,
+    ),
+    orderBy: desc(incidents.incidentDate),
+    limit: options?.limit,
+    offset: options?.limit !== undefined ? (options.offset ?? 0) : undefined,
+  })
+  return toSnake(rows)
 }
 
 export async function getIncidentById(id: string): Promise<IncidentRow | null> {
-  const { data, error } = await supabase
-    .from('incidents')
-    .select(INCIDENT_SELECT)
-    .eq('id', id)
-    .single()
-  if (error) {
-    if (error.code === 'PGRST116') return null
-    throw error
-  }
-  return data as IncidentRow
+  return findIncident(db, id)
 }
 
 export async function createIncident(data: {
@@ -97,13 +92,13 @@ export async function createIncident(data: {
   parent_notified?: boolean
   parent_notified_at?: string | null
 }): Promise<IncidentRow> {
-  const { data: row, error } = await supabase
-    .from('incidents')
-    .insert(data)
-    .select(INCIDENT_SELECT)
-    .single()
-  if (error) throw error
-  return row as IncidentRow
+  return db.transaction(async (tx) => {
+    const [{ id }] = await tx
+      .insert(incidents)
+      .values(toCamel(data))
+      .returning({ id: incidents.id })
+    return (await findIncident(tx, id))!
+  })
 }
 
 export type IncidentCounts = {
@@ -118,22 +113,25 @@ export async function getIncidentCountsByDateRange(
   startDate: string,
   endDate: string,
 ): Promise<IncidentCounts> {
-  const { data, error } = await supabase
-    .from('incidents')
-    .select('type')
-    .gte('incident_date', startDate)
-    .lte('incident_date', endDate)
-  if (error) throw error
+  const rows = await db
+    .select({ type: incidents.type, n: count() })
+    .from(incidents)
+    .where(
+      and(
+        gte(incidents.incidentDate, startDate),
+        lte(incidents.incidentDate, endDate),
+      ),
+    )
+    .groupBy(incidents.type)
   const counts: IncidentCounts = {
     medical: 0,
     behaviour: 0,
     other: 0,
     total: 0,
   }
-  for (const row of data ?? []) {
-    const t = row.type as IncidentType
-    counts[t]++
-    counts.total++
+  for (const { type, n } of rows) {
+    counts[type] = n
+    counts.total += n
   }
   return counts
 }
@@ -149,12 +147,10 @@ export async function updateIncident(
     parent_notified_at?: string | null
   },
 ): Promise<IncidentRow> {
-  const { data: row, error } = await supabase
-    .from('incidents')
-    .update(data)
-    .eq('id', id)
-    .select(INCIDENT_SELECT)
-    .single()
-  if (error) throw error
-  return row as IncidentRow
+  return db.transaction(async (tx) => {
+    await tx.update(incidents).set(toCamel(data)).where(eq(incidents.id, id))
+    const row = await findIncident(tx, id)
+    if (!row) throw new Error('Incident not found')
+    return row
+  })
 }

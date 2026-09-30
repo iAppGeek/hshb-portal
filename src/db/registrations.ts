@@ -1,25 +1,36 @@
-import type { Database, Enums, Json, Tables } from '@/types/database'
+import 'server-only'
 
-import { supabase } from './client'
+import { and, count, desc, eq } from 'drizzle-orm'
 
-export type RegistrationStatus = Enums<'submission_status'>
-export type ContactRole = Enums<'contact_role'>
+import { isUuid } from '@/lib/uuid'
+import type { Database, Json } from '@/types/database'
 
-export type RegistrationSummary = Tables<'registration_submissions'> & {
+import { toSnake, type Snake } from './casing'
+import { db, supabase } from './client'
+import {
+  contactRole,
+  registrationSubmissions,
+  submissionStatus,
+  type RegistrationSubmission,
+  type RegistrationSubmissionContact,
+} from './schema'
+
+export type RegistrationStatus = (typeof submissionStatus.enumValues)[number]
+export type ContactRole = (typeof contactRole.enumValues)[number]
+
+type SubmissionRow = Snake<RegistrationSubmission>
+type ContactRow = Snake<RegistrationSubmissionContact>
+
+export type RegistrationSummary = SubmissionRow & {
   primary_contact: Pick<
-    Tables<'registration_submission_contacts'>,
+    ContactRow,
     'first_name' | 'last_name' | 'phone' | 'email'
   > | null
 }
 
-export type RegistrationFull = Tables<'registration_submissions'> & {
-  contacts: Tables<'registration_submission_contacts'>[]
+export type RegistrationFull = SubmissionRow & {
+  contacts: ContactRow[]
 }
-
-const SUMMARY_SELECT = `
-  *,
-  primary_contact:registration_submission_contacts(first_name, last_name, phone, email)
-`
 
 type CreateRegistrationInput = {
   submission: Database['public']['Tables']['registration_submissions']['Insert']
@@ -47,45 +58,42 @@ export async function createRegistrationSubmission({
 export async function getRegistrationSubmissions(
   status: RegistrationStatus | 'all',
 ): Promise<RegistrationSummary[]> {
-  let query = supabase
-    .from('registration_submissions')
-    .select(SUMMARY_SELECT)
-    .eq('registration_submission_contacts.contact_role', 'primary')
-    .order('submitted_at', { ascending: false })
-  if (status !== 'all') {
-    query = query.eq('status', status)
-  }
-  const { data } = await query
-  return (data ?? []).map((row) => ({
-    ...row,
-    primary_contact: row.primary_contact?.[0] ?? null,
-  })) as RegistrationSummary[]
+  const rows = await db.query.registrationSubmissions.findMany({
+    with: {
+      contacts: {
+        where: (c, { eq }) => eq(c.contactRole, 'primary'),
+        columns: { firstName: true, lastName: true, phone: true, email: true },
+      },
+    },
+    where:
+      status === 'all' ? undefined : eq(registrationSubmissions.status, status),
+    orderBy: desc(registrationSubmissions.submittedAt),
+  })
+  return rows.map(({ contacts, ...submission }) => ({
+    ...toSnake(submission),
+    primary_contact: contacts[0] ? toSnake(contacts[0]) : null,
+  }))
 }
 
 export async function getPendingRegistrationCount(): Promise<number> {
-  const { count } = await supabase
-    .from('registration_submissions')
-    .select('*', { count: 'exact', head: true })
-    .eq('status', 'pending')
-  return count ?? 0
+  const [{ n }] = await db
+    .select({ n: count() })
+    .from(registrationSubmissions)
+    .where(eq(registrationSubmissions.status, 'pending'))
+  return n
 }
 
 export async function getRegistrationSubmissionById(
   id: string,
 ): Promise<RegistrationFull | null> {
-  const { data: submission } = await supabase
-    .from('registration_submissions')
-    .select('*')
-    .eq('id', id)
-    .single()
-  if (!submission) return null
+  // A malformed id finds nothing, rather than failing the uuid cast.
+  if (!isUuid(id)) return null
 
-  const { data: contacts } = await supabase
-    .from('registration_submission_contacts')
-    .select('*')
-    .eq('submission_id', id)
-
-  return { ...submission, contacts: contacts ?? [] }
+  const row = await db.query.registrationSubmissions.findFirst({
+    where: eq(registrationSubmissions.id, id),
+    with: { contacts: true },
+  })
+  return row ? toSnake(row) : null
 }
 
 type ApproveRegistrationInput = {
@@ -143,27 +151,29 @@ export async function rejectRegistration({
   staffId,
   reason,
 }: RejectRegistrationInput): Promise<void> {
-  const { data, error } = await supabase
-    .from('registration_submissions')
-    .update({
+  const rows = await db
+    .update(registrationSubmissions)
+    .set({
       status: 'rejected',
-      rejected_reason: reason,
-      actioned_by: staffId,
-      actioned_at: new Date().toISOString(),
+      rejectedReason: reason,
+      actionedBy: staffId,
+      actionedAt: new Date().toISOString(),
     })
-    .eq('id', submissionId)
-    .eq('status', 'pending')
-    .select('id')
-  if (error) throw error
-  if (!data?.length) throw new Error('Submission not found or already actioned')
+    .where(
+      and(
+        eq(registrationSubmissions.id, submissionId),
+        eq(registrationSubmissions.status, 'pending'),
+      ),
+    )
+    .returning({ id: registrationSubmissions.id })
+  if (rows.length === 0)
+    throw new Error('Submission not found or already actioned')
 }
 
 export async function deleteRegistrationSubmission(id: string): Promise<void> {
-  const { data, error } = await supabase
-    .from('registration_submissions')
-    .delete()
-    .eq('id', id)
-    .select('id')
-  if (error) throw error
-  if (!data?.length) throw new Error('Submission not found')
+  const rows = await db
+    .delete(registrationSubmissions)
+    .where(eq(registrationSubmissions.id, id))
+    .returning({ id: registrationSubmissions.id })
+  if (rows.length === 0) throw new Error('Submission not found')
 }

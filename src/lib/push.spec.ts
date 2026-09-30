@@ -18,11 +18,11 @@ beforeEach(() => {
 
 const mockSubscription = {
   id: 'sub-1',
-  staff_id: 'staff-1',
+  staffId: 'staff-1',
   endpoint: 'https://fcm.googleapis.com/fcm/send/abc',
   p256dh: 'p256dh-key',
   auth: 'auth-key',
-  created_at: '2024-03-08T10:00:00Z',
+  createdAt: '2024-03-08T10:00:00Z',
 }
 
 const mockPayload = {

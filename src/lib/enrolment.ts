@@ -1,26 +1,25 @@
 // Pure enrolment-history helpers. student_classes rows are dated stays:
-// start_date inclusive, end_date exclusive, null = open.
+// startDate inclusive, endDate exclusive, null = open. Rows come straight
+// from Drizzle (src/db), so fields are camelCase.
 //
 // Two questions, two rules:
 // - "Current classes" (membership): stays with no end date, including one that
-//   starts in the future. Queried via withCurrentClasses in @/db/membership.
+//   starts in the future. Queried via isCurrentStay in @/db/membership.
 // - "In the class on a date": isEnrolledOn / buildRegisterRoster below.
 
 export type EnrolmentRow = {
-  class_id: string
-  student_id: string
-  start_date: string
-  end_date: string | null
+  classId: string
+  studentId: string
+  startDate: string
+  endDate: string | null
 }
 
-/** A zero-length row (start_date === end_date) is never enrolled. */
+/** A zero-length row (startDate === endDate) is never enrolled. */
 export function isEnrolledOn(
-  row: Pick<EnrolmentRow, 'start_date' | 'end_date'>,
+  row: Pick<EnrolmentRow, 'startDate' | 'endDate'>,
   date: string,
 ): boolean {
-  return (
-    row.start_date <= date && (row.end_date === null || row.end_date > date)
-  )
+  return row.startDate <= date && (row.endDate === null || row.endDate > date)
 }
 
 /**
@@ -35,7 +34,7 @@ export function buildRegisterRoster(
 ): string[] {
   const ids = new Set(markedStudentIds)
   for (const row of enrolments) {
-    if (isEnrolledOn(row, date)) ids.add(row.student_id)
+    if (isEnrolledOn(row, date)) ids.add(row.studentId)
   }
   return [...ids].sort()
 }
@@ -46,18 +45,18 @@ export function buildRegisterRoster(
  * A zero-length stay (added and removed the same day) never counts.
  */
 export function feeClassesForYear<
-  T extends { start_date: string; end_date: string | null },
+  T extends { startDate: string; endDate: string | null },
 >(rows: T[]): T[] {
-  const stays = rows.filter((r) => r.end_date !== r.start_date)
-  const current = stays.filter((r) => r.end_date === null)
+  const stays = rows.filter((r) => r.endDate !== r.startDate)
+  const current = stays.filter((r) => r.endDate === null)
   if (current.length > 0) return current
   const ended = stays.filter(
-    (r): r is T & { end_date: string } => r.end_date !== null,
+    (r): r is T & { endDate: string } => r.endDate !== null,
   )
   if (ended.length === 0) return []
   const lastEndDate = ended.reduce(
-    (max, r) => (r.end_date > max ? r.end_date : max),
-    ended[0].end_date,
+    (max, r) => (r.endDate > max ? r.endDate : max),
+    ended[0].endDate,
   )
-  return ended.filter((r) => r.end_date === lastEndDate)
+  return ended.filter((r) => r.endDate === lastEndDate)
 }

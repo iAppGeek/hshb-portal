@@ -1,0 +1,2 @@
+# Written by drizzle-kit on every `npm run db:generate`
+supabase/migrations/meta/

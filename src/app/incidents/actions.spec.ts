@@ -17,7 +17,8 @@ vi.mock('@/db', () => ({
   updateIncident: vi.fn(),
   logAuditEvent: vi.fn(),
 }))
-vi.mock('@/lib/db-error', () => ({
+vi.mock('@/lib/db-error', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/db-error')>()),
   getUserFriendlyDbError: vi.fn((_err: unknown, fallback: string) => fallback),
 }))
 

@@ -1,56 +1,68 @@
+import 'server-only'
+
+import { eq, inArray } from 'drizzle-orm'
+
 import { NOTIFICATION_ROLES } from '@/lib/permissions'
 
-import type { TablesInsert } from '../types/database'
+import { toCamel, type Snake } from './casing'
+import { db } from './client'
+import {
+  pushSubscriptions,
+  staff,
+  type NewPushSubscription,
+  type PushSubscription,
+} from './schema'
 
-import { supabase } from './client'
+export type PushSubscriptionRow = PushSubscription
 
-export type PushSubscriptionRow = {
-  id: string
-  staff_id: string
-  endpoint: string
-  p256dh: string
-  auth: string
-  created_at: string | null
-}
+export type SavePushSubscriptionInput = Snake<NewPushSubscription>
 
-export type SavePushSubscriptionInput = TablesInsert<'push_subscriptions'>
-
+/** Saves a browser's subscription, replacing any earlier one for the same endpoint. */
 export async function savePushSubscription(
   input: SavePushSubscriptionInput,
 ): Promise<void> {
-  const { error } = await supabase
-    .from('push_subscriptions')
-    .upsert(input, { onConflict: 'endpoint' })
-  if (error) throw error
+  const values = toCamel(input)
+  await db
+    .insert(pushSubscriptions)
+    .values(values)
+    .onConflictDoUpdate({
+      target: pushSubscriptions.endpoint,
+      set: {
+        staffId: values.staffId,
+        p256dh: values.p256dh,
+        auth: values.auth,
+      },
+    })
 }
 
 export async function deletePushSubscription(endpoint: string): Promise<void> {
-  const { error } = await supabase
-    .from('push_subscriptions')
-    .delete()
-    .eq('endpoint', endpoint)
-  if (error) throw error
+  await db
+    .delete(pushSubscriptions)
+    .where(eq(pushSubscriptions.endpoint, endpoint))
 }
 
 export async function pushSubscriptionExists(
   endpoint: string,
 ): Promise<boolean> {
-  const { data, error } = await supabase
-    .from('push_subscriptions')
-    .select('id')
-    .eq('endpoint', endpoint)
-    .maybeSingle()
-  if (error) throw error
-  return data !== null
+  const rows = await db
+    .select({ id: pushSubscriptions.id })
+    .from(pushSubscriptions)
+    .where(eq(pushSubscriptions.endpoint, endpoint))
+  return rows.length > 0
 }
 
+/** Subscriptions of the staff who get admin notifications. */
 export async function getAdminSubscriptions(): Promise<PushSubscriptionRow[]> {
-  const { data, error } = await supabase
-    .from('push_subscriptions')
-    .select(
-      'id, staff_id, endpoint, p256dh, auth, created_at, staff!inner(role)',
-    )
-    .in('staff.role', NOTIFICATION_ROLES)
-  if (error) throw error
-  return (data ?? []) as unknown as PushSubscriptionRow[]
+  return db
+    .select({
+      id: pushSubscriptions.id,
+      staffId: pushSubscriptions.staffId,
+      endpoint: pushSubscriptions.endpoint,
+      p256dh: pushSubscriptions.p256dh,
+      auth: pushSubscriptions.auth,
+      createdAt: pushSubscriptions.createdAt,
+    })
+    .from(pushSubscriptions)
+    .innerJoin(staff, eq(staff.id, pushSubscriptions.staffId))
+    .where(inArray(staff.role, NOTIFICATION_ROLES))
 }

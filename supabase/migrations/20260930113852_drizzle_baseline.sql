@@ -1,0 +1,6 @@
+-- Drizzle baseline: intentionally empty.
+--
+-- Every object described by src/db/schema.ts already exists, created by the
+-- migrations before this one. This file only anchors drizzle-kit's journal and
+-- snapshot (supabase/migrations/meta/) so that `npm run db:generate` diffs
+-- future schema.ts changes against the current database shape.

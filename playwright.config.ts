@@ -3,6 +3,9 @@ import { defineConfig, devices } from '@playwright/test'
 export default defineConfig({
   testDir: './e2e/tests',
   testMatch: '**/*.e2e.ts',
+  // Tests that change app-wide state (e.g. the current academic year) run
+  // only in the `global` project below, after every per-role project.
+  testIgnore: '**/global/**',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -91,6 +94,28 @@ export default defineConfig({
       use: {
         ...devices['Pixel 5'],
         storageState: 'e2e/.auth/secretary.json',
+      },
+    },
+
+    // App-wide state changes: nothing else is running once this starts, and
+    // its files are serial, so no other test sees the change mid-flight.
+    {
+      name: 'global',
+      testMatch: 'global/**/*.e2e.ts',
+      testIgnore: [],
+      dependencies: [
+        'desktop:admin',
+        'desktop:teacher',
+        'desktop:headteacher',
+        'desktop:secretary',
+        'mobile:admin',
+        'mobile:teacher',
+        'mobile:headteacher',
+        'mobile:secretary',
+      ],
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'e2e/.auth/admin.json',
       },
     },
   ],

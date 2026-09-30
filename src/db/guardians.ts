@@ -1,9 +1,15 @@
-import type { Database } from '@/types/database'
-import { isUuid } from '@/lib/uuid'
+import 'server-only'
 
-import { supabase } from './client'
-import { withCurrentClasses } from './membership'
-import { fetchAllPages } from './paging'
+import { and, asc, count, eq, or, type SQL } from 'drizzle-orm'
+import type { AnyPgColumn } from 'drizzle-orm/pg-core'
+
+import { isUuid } from '@/lib/uuid'
+import type { Database } from '@/types/database'
+
+import { toCamel, toSnake } from './casing'
+import { db, supabase } from './client'
+import { isCurrentStay } from './membership'
+import { guardians, students } from './schema'
 
 type GuardianInsert = {
   first_name: string
@@ -34,100 +40,71 @@ export type GuardianListItem = GuardianSummary & {
 }
 
 // GuardianListItem plus the child count only the /guardians list page needs
-// — see getGuardianChildCounts.
+// — see getGuardiansWithChildCounts.
 export type GuardianWithChildCount = GuardianListItem & {
   child_count: number
 }
 
-const GUARDIAN_SLOTS_SELECT =
-  'primary_guardian_id, secondary_guardian_id, additional_contact_1_id, additional_contact_2_id'
-
-type GuardianSlotsRow = {
-  primary_guardian_id: string
-  secondary_guardian_id: string | null
-  additional_contact_1_id: string | null
-  additional_contact_2_id: string | null
+const listColumns = {
+  id: guardians.id,
+  firstName: guardians.firstName,
+  lastName: guardians.lastName,
+  phone: guardians.phone,
+  email: guardians.email,
 }
 
-/**
- * Every distinct guardian id a student links to, across all four contact
- * slots. Deduped so a guardian occupying two slots on the same student (e.g.
- * primary and an additional contact) is only counted once for that student.
- */
-function guardianIdsOnStudent(student: GuardianSlotsRow): string[] {
-  return [
-    ...new Set(
-      [
-        student.primary_guardian_id,
-        student.secondary_guardian_id,
-        student.additional_contact_1_id,
-        student.additional_contact_2_id,
-      ].filter((id): id is string => id !== null),
-    ),
-  ]
+/** Students linked to `guardianId` (a value or a column) in any of the four contact slots. */
+function linkedTo(guardianId: string | AnyPgColumn): SQL {
+  return or(
+    eq(students.primaryGuardianId, guardianId),
+    eq(students.secondaryGuardianId, guardianId),
+    eq(students.additionalContact1Id, guardianId),
+    eq(students.additionalContact2Id, guardianId),
+  ) as SQL
 }
 
 export async function getGuardianCount(): Promise<number> {
-  const { count, error } = await supabase
-    .from('guardians')
-    .select('*', { count: 'exact', head: true })
-  if (error) throw error
-  return count ?? 0
+  const [{ n }] = await db.select({ n: count() }).from(guardians)
+  return n
 }
 
 // Deliberately does not include the per-guardian child count — that's
-// getGuardianChildCounts, a separate full students-table scan that only the
-// /guardians list page needs. The guardian pickers on /students/new and
-// /students/[id]/edit discarded that count while still paying for the scan
-// on every load, before it was split out.
-//
-// PostgREST caps a response at 1000 rows (supabase/config.toml max_rows), so
-// this pages through fetchAllPages rather than trusting a single response to
-// be complete. Ordered by (last_name, id) — id as a tiebreaker so pagination
-// windows stay deterministic even across duplicate last names.
+// getGuardiansWithChildCounts, which only the /guardians list page needs.
+// Ordered by (last_name, id) so duplicate last names keep a stable order.
 export async function getAllGuardians(): Promise<GuardianListItem[]> {
-  return fetchAllPages<GuardianListItem>((from, to) =>
-    supabase
-      .from('guardians')
-      .select('id, first_name, last_name, phone, email')
-      .order('last_name')
-      .order('id')
-      .range(from, to),
-  )
+  const rows = await db
+    .select(listColumns)
+    .from(guardians)
+    .orderBy(asc(guardians.lastName), asc(guardians.id))
+  return toSnake(rows)
 }
 
-// The /guardians list page's per-guardian child count, kept out of
-// getAllGuardians so the student guardian-picker forms don't pay for a full
-// students-table scan they'd only discard the result of. A future
-// improvement would push this aggregation into the database (a view or
-// RPC) instead of paging the whole table in application code; not done here
-// since it needs a migration applied to prod, outside this change's scope.
-export async function getGuardianChildCounts(): Promise<Map<string, number>> {
-  const students = await fetchAllPages<GuardianSlotsRow>((from, to) =>
-    supabase
-      .from('students')
-      .select(GUARDIAN_SLOTS_SELECT)
-      .order('id')
-      .range(from, to),
-  )
-
-  const counts = new Map<string, number>()
-  for (const student of students) {
-    for (const guardianId of guardianIdsOnStudent(student)) {
-      counts.set(guardianId, (counts.get(guardianId) ?? 0) + 1)
-    }
-  }
-  return counts
+/**
+ * The /guardians list: every guardian with the number of students (active
+ * or not) linked to them in any contact slot. A student is counted once per
+ * guardian even when the guardian fills two of their slots.
+ */
+export async function getGuardiansWithChildCounts(): Promise<
+  GuardianWithChildCount[]
+> {
+  const rows = await db
+    .select({
+      ...listColumns,
+      childCount: db.$count(students, linkedTo(guardians.id)),
+    })
+    .from(guardians)
+    .orderBy(asc(guardians.lastName), asc(guardians.id))
+  return toSnake(rows)
 }
 
-export async function createGuardian(data: GuardianInsert) {
-  const { data: guardian, error } = await supabase
-    .from('guardians')
-    .insert(data)
-    .select('id')
-    .single()
-  if (error) throw error
-  return guardian
+export async function createGuardian(
+  data: GuardianInsert,
+): Promise<{ id: string }> {
+  const [row] = await db
+    .insert(guardians)
+    .values(toCamel(data))
+    .returning({ id: guardians.id })
+  return row
 }
 
 export type GuardianFull = GuardianInsert & { id: string }
@@ -135,14 +112,26 @@ export type GuardianFull = GuardianInsert & { id: string }
 export async function getGuardianById(
   id: string,
 ): Promise<GuardianFull | null> {
-  const { data } = await supabase
-    .from('guardians')
-    .select(
-      'id, first_name, last_name, phone, email, occupation, address_line_1, address_line_2, city, postcode, notes',
-    )
-    .eq('id', id)
-    .single()
-  return data
+  // A malformed id finds nothing, rather than failing the uuid cast.
+  if (!isUuid(id)) return null
+
+  const [row] = await db
+    .select({
+      id: guardians.id,
+      firstName: guardians.firstName,
+      lastName: guardians.lastName,
+      phone: guardians.phone,
+      email: guardians.email,
+      occupation: guardians.occupation,
+      addressLine1: guardians.addressLine1,
+      addressLine2: guardians.addressLine2,
+      city: guardians.city,
+      postcode: guardians.postcode,
+      notes: guardians.notes,
+    })
+    .from(guardians)
+    .where(eq(guardians.id, id))
+  return row ? toSnake(row) : null
 }
 
 export type GuardianStudentLink = {
@@ -155,19 +144,20 @@ export type GuardianStudentLink = {
 export async function getStudentsByGuardian(
   guardianId: string,
 ): Promise<GuardianStudentLink[]> {
-  // guardianId is interpolated into the filter below; a non-UUID must never
-  // reach it, or a crafted value could inject an extra disjunct (see isUuid).
+  // A malformed id finds nothing, rather than failing the uuid cast.
   if (!isUuid(guardianId)) return []
 
-  const { data } = await supabase
-    .from('students')
-    .select('id, first_name, last_name, student_code')
-    .or(
-      `primary_guardian_id.eq.${guardianId},secondary_guardian_id.eq.${guardianId},additional_contact_1_id.eq.${guardianId},additional_contact_2_id.eq.${guardianId}`,
-    )
-    .eq('active', true)
-    .order('last_name')
-  return data ?? []
+  const rows = await db
+    .select({
+      id: students.id,
+      firstName: students.firstName,
+      lastName: students.lastName,
+      studentCode: students.studentCode,
+    })
+    .from(students)
+    .where(and(linkedTo(guardianId), eq(students.active, true)))
+    .orderBy(asc(students.lastName))
+  return toSnake(rows)
 }
 
 export type FamilySlot =
@@ -205,67 +195,32 @@ export type GuardianFamily = {
   coGuardians: FamilyCoGuardian[]
 }
 
-type FamilyStudentRow = {
+type SlotGuardian = {
   id: string
-  first_name: string
-  last_name: string
-  student_code: string | null
-  active: boolean
-  leaving_reason: string | null
-  primary_guardian_id: string
-  primary_guardian_relationship: string | null
-  secondary_guardian_id: string | null
-  secondary_guardian_relationship: string | null
-  additional_contact_1_id: string | null
-  additional_contact_1_relationship: string | null
-  additional_contact_2_id: string | null
-  additional_contact_2_relationship: string | null
-  student_classes: { class: { id: string; name: string } | null }[]
+  firstName: string
+  lastName: string
+  phone: string
+  email: string | null
 }
 
 type StudentGuardianSlot = {
   slot: FamilySlot
-  guardianId: string | null
+  guardian: SlotGuardian | null
   relationship: string | null
 }
 
-function slotsForStudent(student: FamilyStudentRow): StudentGuardianSlot[] {
-  return [
-    {
-      slot: 'primary',
-      guardianId: student.primary_guardian_id,
-      relationship: student.primary_guardian_relationship,
-    },
-    {
-      slot: 'secondary',
-      guardianId: student.secondary_guardian_id,
-      relationship: student.secondary_guardian_relationship,
-    },
-    {
-      slot: 'additional_1',
-      guardianId: student.additional_contact_1_id,
-      relationship: student.additional_contact_1_relationship,
-    },
-    {
-      slot: 'additional_2',
-      guardianId: student.additional_contact_2_id,
-      relationship: student.additional_contact_2_relationship,
-    },
-  ]
-}
+const slotGuardian = {
+  columns: {
+    id: true,
+    firstName: true,
+    lastName: true,
+    phone: true,
+    email: true,
+  },
+} as const
 
-// The student_classes embed lists current classes, so this query goes
-// through withCurrentClasses like every other student_classes select (see
-// src/db/students.ts) — otherwise a child would show classes they've
-// already left.
-const FAMILY_STUDENT_SELECT = `
-  id, first_name, last_name, student_code, active, leaving_reason,
-  primary_guardian_id, primary_guardian_relationship,
-  secondary_guardian_id, secondary_guardian_relationship,
-  additional_contact_1_id, additional_contact_1_relationship,
-  additional_contact_2_id, additional_contact_2_relationship,
-  student_classes(class:classes(id, name))
-`
+// Same order the database would give for `order by last_name`.
+const byLastName = new Intl.Collator('en-US')
 
 // Anchored on one guardian rather than a derived "family" grouping — see
 // plans/guardian-family-view.md decision 1. Returns that guardian's children
@@ -273,7 +228,7 @@ const FAMILY_STUDENT_SELECT = `
 // guardian linked to those same children ("also linked"), one hop out. This
 // is what lets a child with a different primary guardian still surface: open
 // either parent and both children show, with the other parent listed as a
-// co-guardian.
+// co-guardian. One query: the co-guardians come with the children's slots.
 export async function getFamilyForGuardian(
   rawGuardianId: string,
 ): Promise<GuardianFamily> {
@@ -284,44 +239,78 @@ export async function getFamilyForGuardian(
   // their own co-guardian.
   const guardianId = rawGuardianId.toLowerCase()
 
-  // guardianId is interpolated into the filter below; a non-UUID must
-  // never reach it (see isUuid). Returning the empty family here — rather
-  // than throwing — lets the guardian page's existing "not found" redirect
-  // handle a malformed or stale id instead of surfacing a 500.
+  // Returning the empty family for a malformed id — rather than throwing —
+  // lets the guardian page's existing "not found" redirect handle it
+  // instead of surfacing a 500.
   if (!isUuid(guardianId)) return { children: [], coGuardians: [] }
 
-  const { data: students, error } = await withCurrentClasses(
-    supabase
-      .from('students')
-      .select(FAMILY_STUDENT_SELECT)
-      .or(
-        `primary_guardian_id.eq.${guardianId},secondary_guardian_id.eq.${guardianId},additional_contact_1_id.eq.${guardianId},additional_contact_2_id.eq.${guardianId}`,
-      ),
-  ).order('last_name')
-  if (error) throw error
-
-  const rows = (students ?? []) as unknown as FamilyStudentRow[]
-  if (rows.length === 0) return { children: [], coGuardians: [] }
+  const rows = await db.query.students.findMany({
+    columns: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      studentCode: true,
+      active: true,
+      leavingReason: true,
+      primaryGuardianRelationship: true,
+      secondaryGuardianRelationship: true,
+      additionalContact1Relationship: true,
+      additionalContact2Relationship: true,
+    },
+    with: {
+      // Current classes only — a child shouldn't show classes they've left.
+      studentClasses: {
+        where: isCurrentStay,
+        columns: {},
+        with: { class: { columns: { id: true, name: true } } },
+      },
+      primaryGuardian: slotGuardian,
+      secondaryGuardian: slotGuardian,
+      additionalContact1: slotGuardian,
+      additionalContact2: slotGuardian,
+    },
+    where: linkedTo(guardianId),
+    orderBy: asc(students.lastName),
+  })
 
   const children: FamilyChild[] = []
-  const coGuardianLinks = new Map<string, FamilyCoGuardianLink[]>()
+  const coGuardiansById: Record<string, FamilyCoGuardian> = {}
 
   for (const student of rows) {
-    const slots = slotsForStudent(student)
-    const matched = slots.find((slot) => slot.guardianId === guardianId)
+    const slots: StudentGuardianSlot[] = [
+      {
+        slot: 'primary',
+        guardian: student.primaryGuardian,
+        relationship: student.primaryGuardianRelationship,
+      },
+      {
+        slot: 'secondary',
+        guardian: student.secondaryGuardian,
+        relationship: student.secondaryGuardianRelationship,
+      },
+      {
+        slot: 'additional_1',
+        guardian: student.additionalContact1,
+        relationship: student.additionalContact1Relationship,
+      },
+      {
+        slot: 'additional_2',
+        guardian: student.additionalContact2,
+        relationship: student.additionalContact2Relationship,
+      },
+    ]
+    const matched = slots.find((slot) => slot.guardian?.id === guardianId)
 
     children.push({
       id: student.id,
-      first_name: student.first_name,
-      last_name: student.last_name,
-      student_code: student.student_code,
+      first_name: student.firstName,
+      last_name: student.lastName,
+      student_code: student.studentCode,
       active: student.active,
-      leaving_reason: student.leaving_reason,
+      leaving_reason: student.leavingReason,
       relationship: matched?.relationship ?? null,
       slot: matched?.slot ?? 'primary',
-      classes: student.student_classes
-        .map((sc) => sc.class)
-        .filter((c): c is { id: string; name: string } => c !== null),
+      classes: student.studentClasses.map((sc) => sc.class),
     })
 
     // A guardian occupying more than one slot on the same child (e.g.
@@ -329,49 +318,45 @@ export async function getFamilyForGuardian(
     // under whichever of their slots is checked first — otherwise they'd
     // get duplicate "also linked" entries for that one child.
     const recordedForStudent = new Set<string>()
-    for (const slot of slots) {
+    for (const { slot, guardian } of slots) {
       if (
-        slot.guardianId &&
-        slot.guardianId !== guardianId &&
-        !recordedForStudent.has(slot.guardianId)
+        !guardian ||
+        guardian.id === guardianId ||
+        recordedForStudent.has(guardian.id)
       ) {
-        recordedForStudent.add(slot.guardianId)
-        const links = coGuardianLinks.get(slot.guardianId) ?? []
-        links.push({
-          childId: student.id,
-          childName: `${student.first_name} ${student.last_name}`,
-          slot: slot.slot,
-        })
-        coGuardianLinks.set(slot.guardianId, links)
+        continue
       }
+      recordedForStudent.add(guardian.id)
+      coGuardiansById[guardian.id] ??= {
+        id: guardian.id,
+        first_name: guardian.firstName,
+        last_name: guardian.lastName,
+        phone: guardian.phone,
+        email: guardian.email,
+        links: [],
+      }
+      coGuardiansById[guardian.id].links.push({
+        childId: student.id,
+        childName: `${student.firstName} ${student.lastName}`,
+        slot,
+      })
     }
   }
 
-  if (coGuardianLinks.size === 0) return { children, coGuardians: [] }
-
-  const { data: coGuardianRows, error: coGuardianError } = await supabase
-    .from('guardians')
-    .select('id, first_name, last_name, phone, email')
-    .in('id', [...coGuardianLinks.keys()])
-    .order('last_name')
-  if (coGuardianError) throw coGuardianError
-
-  const coGuardians: FamilyCoGuardian[] = (coGuardianRows ?? []).map(
-    (guardian) => ({
-      ...guardian,
-      links: coGuardianLinks.get(guardian.id) ?? [],
-    }),
+  const coGuardians = Object.values(coGuardiansById).sort((a, b) =>
+    byLastName.compare(a.last_name, b.last_name),
   )
-
   return { children, coGuardians }
 }
 
-export async function updateGuardian(id: string, data: GuardianInsert) {
-  const { error } = await supabase
-    .from('guardians')
-    .update({ ...data, updated_at: new Date().toISOString() })
-    .eq('id', id)
-  if (error) throw error
+export async function updateGuardian(
+  id: string,
+  data: GuardianInsert,
+): Promise<void> {
+  await db
+    .update(guardians)
+    .set({ ...toCamel(data), updatedAt: new Date().toISOString() })
+    .where(eq(guardians.id, id))
 }
 
 export type GuardianMatch = {

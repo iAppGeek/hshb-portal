@@ -1,6 +1,9 @@
-import type { Json } from '@/types/database'
+import 'server-only'
 
-import { supabase } from './client'
+import { logError } from '@/lib/log'
+
+import { db } from './client'
+import { auditLog } from './schema'
 
 export type AuditAction =
   | 'create'
@@ -25,20 +28,18 @@ export type AuditEntry = {
   details?: Record<string, unknown>
 }
 
+/** Fire-and-forget: a failed audit write is logged, never surfaced to the user. */
 export function logAuditEvent(entry: AuditEntry): void {
-  Promise.resolve(
-    supabase.from('audit_log').insert({
-      staff_id: entry.staffId,
+  db.insert(auditLog)
+    .values({
+      staffId: entry.staffId,
       action: entry.action,
       entity: entry.entity,
-      entity_id: entry.entityId ?? null,
-      details: (entry.details as Json) ?? null,
-    }),
-  )
-    .then(({ error }) => {
-      if (error) console.error('[audit-log] failed to write:', error)
+      entityId: entry.entityId ?? null,
+      details: entry.details ?? null,
     })
-    .catch((err: unknown) => {
-      console.error('[audit-log] unexpected error:', err)
-    })
+    .then(
+      () => undefined,
+      (err: unknown) => logError('audit-log', err),
+    )
 }

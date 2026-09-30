@@ -1,25 +1,35 @@
+import 'server-only'
+
+import { and, asc, desc, eq, sql, sum } from 'drizzle-orm'
+
 import { feeClassesForYear } from '@/lib/enrolment'
 import {
   feeStatus,
   resolveFeePlan,
   resolvedPlanOrNull,
-  sumPayments,
   type PaymentPlan,
 } from '@/lib/fees'
-import type { Database } from '@/types/database'
+import { isUuid } from '@/lib/uuid'
 
-import { getAcademicYears, type AcademicYearRow } from './academic-years'
-import { supabase } from './client'
-import { getFeePlans } from './fee-plans'
-import { fetchAllPages } from './paging'
+import type { AcademicYearRow } from './academic-years'
+import { toCamel, toSnake, type Snake } from './casing'
+import { db, type Tx } from './client'
+import {
+  academicYears,
+  classes,
+  studentFeeAccounts,
+  studentPayments,
+  students,
+  type NewStudentFeeAccount,
+  type StudentFeeAccount,
+  type StudentPayment,
+} from './schema'
 
-type Tables = Database['public']['Tables']
-
-export type StudentFeeAccountRow = Tables['student_fee_accounts']['Row']
-export type StudentPaymentRow = Tables['student_payments']['Row']
+export type StudentFeeAccountRow = Snake<StudentFeeAccount>
+export type StudentPaymentRow = Snake<StudentPayment>
 
 export type StudentFeeAccountInput = Omit<
-  Tables['student_fee_accounts']['Insert'],
+  Snake<NewStudentFeeAccount>,
   'id' | 'student_id' | 'academic_year_id' | 'created_at' | 'updated_at'
 >
 
@@ -77,141 +87,117 @@ export type StudentFeeYear = {
   payments: PaymentSummary[]
 }
 
-type DatedEnrolment = {
-  student_id: string
-  start_date: string
-  end_date: string | null
-  class: FeeClass | null
+type Stay = { startDate: string; endDate: string | null; class: FeeClass }
+
+const studentColumns = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  studentCode: true,
+  active: true,
+  leavingReason: true,
+} as const
+
+/** Ids of the classes in one academic year, as a subquery. */
+function classesOfYear(yearId: string) {
+  return db
+    .select({ id: classes.id })
+    .from(classes)
+    .where(eq(classes.academicYearId, yearId))
 }
 
-// PostgREST caps a response at 1000 rows; payments accumulate every year.
-async function getAllPaymentSummaries(
-  yearId: string,
-): Promise<(PaymentSummary & { student_id: string })[]> {
-  return fetchAllPages((from, to) =>
-    supabase
-      .from('student_payments')
-      .select('student_id, amount, payment_date')
-      .eq('academic_year_id', yearId)
-      .order('id')
-      .range(from, to),
-  )
+/** The classes whose fee plan applies, from a student's stays in one year. */
+function feeClasses(stays: Stay[]): FeeClass[] {
+  return feeClassesForYear(stays).map((s) => ({
+    id: s.class.id,
+    name: s.class.name,
+  }))
 }
 
-async function getAllEnrolmentsForYear(
-  yearId: string,
-): Promise<DatedEnrolment[]> {
-  return fetchAllPages((from, to) =>
-    supabase
-      .from('student_classes')
-      .select('student_id, start_date, end_date, class:classes!inner(id, name)')
-      .eq('class.academic_year_id', yearId)
-      .order('id')
-      .range(from, to),
-  )
+function toPaymentSummary(p: {
+  amount: number
+  paymentDate: string
+}): PaymentSummary {
+  return { amount: p.amount, payment_date: p.paymentDate }
 }
 
 export async function getStudentFeeList(
   yearId: string,
 ): Promise<StudentFeeListItem[]> {
-  const [{ data: students }, enrolments, { data: accounts }] =
-    await Promise.all([
-      supabase
-        .from('students')
-        .select(
-          'id, first_name, last_name, student_code, active, leaving_reason',
-        )
-        .order('last_name'),
-      getAllEnrolmentsForYear(yearId),
-      supabase
-        .from('student_fee_accounts')
-        .select('*')
-        .eq('academic_year_id', yearId),
-    ])
-  const payments = await getAllPaymentSummaries(yearId)
+  const rows = await db.query.students.findMany({
+    columns: studentColumns,
+    with: {
+      studentClasses: {
+        columns: { startDate: true, endDate: true },
+        where: (sc, { inArray }) => inArray(sc.classId, classesOfYear(yearId)),
+        orderBy: (sc, { asc }) => asc(sc.id),
+        with: { class: { columns: { id: true, name: true } } },
+      },
+      feeAccounts: {
+        where: (a, { eq }) => eq(a.academicYearId, yearId),
+      },
+      payments: {
+        columns: { amount: true, paymentDate: true },
+        where: (p, { eq }) => eq(p.academicYearId, yearId),
+        orderBy: (p, { asc }) => asc(p.id),
+      },
+    },
+    orderBy: asc(students.lastName),
+  })
 
-  const enrolmentsByStudent = new Map<string, DatedEnrolment[]>()
-  for (const e of enrolments) {
-    if (!e.class) continue
-    const list = enrolmentsByStudent.get(e.student_id) ?? []
-    list.push(e)
-    enrolmentsByStudent.set(e.student_id, list)
-  }
-  const accountByStudent = new Map(
-    (accounts ?? []).map((a) => [a.student_id, a]),
-  )
-  const paymentsByStudent = new Map<string, PaymentSummary[]>()
-  for (const { student_id, amount, payment_date } of payments) {
-    const list = paymentsByStudent.get(student_id) ?? []
-    list.push({ amount, payment_date })
-    paymentsByStudent.set(student_id, list)
-  }
-
-  return (students ?? [])
-    .map((s) => {
-      const studentEnrolments = enrolmentsByStudent.get(s.id) ?? []
-      return {
-        ...s,
-        classes: feeClassesForYear(studentEnrolments).map(
-          (e) => e.class as FeeClass,
-        ),
-        account: accountByStudent.get(s.id) ?? null,
-        payments: paymentsByStudent.get(s.id) ?? [],
-        hasEnrolment: studentEnrolments.length > 0,
-      }
-    })
+  // Leavers only appear in a year they have something in.
+  return rows
     .filter(
       (s) =>
         s.active ||
-        s.hasEnrolment ||
-        accountByStudent.has(s.id) ||
-        paymentsByStudent.has(s.id),
+        s.studentClasses.length > 0 ||
+        s.feeAccounts.length > 0 ||
+        s.payments.length > 0,
     )
-    .map(({ hasEnrolment: _hasEnrolment, ...rest }) => rest)
+    .map(({ studentClasses: stays, feeAccounts, payments, ...student }) => ({
+      ...toSnake(student),
+      classes: feeClasses(stays),
+      account: feeAccounts[0] ? toSnake(feeAccounts[0]) : null,
+      payments: payments.map(toPaymentSummary),
+    }))
 }
 
 export async function getStudentFeeDetail(
   studentId: string,
   yearId: string,
 ): Promise<StudentFeeDetail | null> {
-  const { data: student } = await supabase
-    .from('students')
-    .select('id, first_name, last_name, student_code, active, leaving_reason')
-    .eq('id', studentId)
-    .maybeSingle()
-  if (!student) return null
+  // A malformed id finds nothing, rather than failing the uuid cast.
+  if (!isUuid(studentId) || !isUuid(yearId)) return null
 
-  const [{ data: enrolments }, { data: account }, { data: payments }] =
-    await Promise.all([
-      supabase
-        .from('student_classes')
-        .select(
-          'student_id, start_date, end_date, class:classes!inner(id, name)',
-        )
-        .eq('student_id', studentId)
-        .eq('class.academic_year_id', yearId),
-      supabase
-        .from('student_fee_accounts')
-        .select('*')
-        .eq('student_id', studentId)
-        .eq('academic_year_id', yearId)
-        .maybeSingle(),
-      supabase
-        .from('student_payments')
-        .select('*, recorder:staff(first_name, last_name)')
-        .eq('student_id', studentId)
-        .eq('academic_year_id', yearId)
-        .order('payment_date', { ascending: false })
-        .order('created_at', { ascending: false }),
-    ])
+  const row = await db.query.students.findFirst({
+    columns: studentColumns,
+    where: eq(students.id, studentId),
+    with: {
+      studentClasses: {
+        columns: { startDate: true, endDate: true },
+        where: (sc, { inArray }) => inArray(sc.classId, classesOfYear(yearId)),
+        with: { class: { columns: { id: true, name: true } } },
+      },
+      feeAccounts: {
+        where: (a, { eq }) => eq(a.academicYearId, yearId),
+      },
+      payments: {
+        where: (p, { eq }) => eq(p.academicYearId, yearId),
+        orderBy: (p, { desc }) => [desc(p.paymentDate), desc(p.createdAt)],
+        with: {
+          recorder: { columns: { firstName: true, lastName: true } },
+        },
+      },
+    },
+  })
+  if (!row) return null
 
+  const { studentClasses: stays, feeAccounts, payments, ...student } = row
   return {
-    student,
-    classes: feeClassesForYear(
-      ((enrolments ?? []) as DatedEnrolment[]).filter((e) => e.class),
-    ).map((e) => e.class as FeeClass),
-    account: account ?? null,
-    payments: (payments ?? []) as StudentPaymentWithRecorder[],
+    student: toSnake(student),
+    classes: feeClasses(stays),
+    account: feeAccounts[0] ? toSnake(feeAccounts[0]) : null,
+    payments: toSnake(payments),
   }
 }
 
@@ -220,119 +206,176 @@ export async function getStudentFeeDetail(
 export async function getStudentFeeYears(
   studentId: string,
 ): Promise<StudentFeeYear[]> {
-  const years = await getAcademicYears()
-  const [{ data: enrolments }, { data: accounts }, { data: payments }] =
-    await Promise.all([
-      supabase
-        .from('student_classes')
-        .select(
-          'start_date, end_date, class:classes(id, name, academic_year_id)',
-        )
-        .eq('student_id', studentId),
-      supabase
-        .from('student_fee_accounts')
-        .select('*')
-        .eq('student_id', studentId),
-      supabase
-        .from('student_payments')
-        .select('amount, payment_date, academic_year_id')
-        .eq('student_id', studentId),
-    ])
+  // A malformed id finds nothing, rather than failing the uuid cast.
+  if (!isUuid(studentId)) return []
 
-  type YearEnrolment = {
-    start_date: string
-    end_date: string | null
-    class: { id: string; name: string; academic_year_id: string } | null
-  }
-  const enrolmentsByYear = new Map<
-    string,
-    (YearEnrolment & { class: NonNullable<YearEnrolment['class']> })[]
-  >()
-  for (const e of (enrolments ?? []) as YearEnrolment[]) {
-    if (!e.class) continue
-    const list = enrolmentsByYear.get(e.class.academic_year_id) ?? []
-    list.push({ ...e, class: e.class })
-    enrolmentsByYear.set(e.class.academic_year_id, list)
-  }
-  const classesByYear = new Map<string, FeeClass[]>()
-  for (const [yearId, yearEnrolments] of enrolmentsByYear) {
-    classesByYear.set(
-      yearId,
-      feeClassesForYear(yearEnrolments).map((e) => ({
-        id: e.class.id,
-        name: e.class.name,
-      })),
-    )
-  }
-  const accountByYear = new Map(
-    (accounts ?? []).map((a) => [a.academic_year_id, a]),
-  )
-  const paymentsByYear = new Map<string, PaymentSummary[]>()
-  for (const p of payments ?? []) {
-    const list = paymentsByYear.get(p.academic_year_id) ?? []
-    list.push({ amount: p.amount, payment_date: p.payment_date })
-    paymentsByYear.set(p.academic_year_id, list)
-  }
+  const years = await db.query.academicYears.findMany({
+    orderBy: desc(academicYears.startDate),
+    with: {
+      classes: {
+        columns: { id: true, name: true },
+        with: {
+          studentClasses: {
+            columns: { startDate: true, endDate: true },
+            where: (sc, { eq }) => eq(sc.studentId, studentId),
+          },
+        },
+      },
+      studentFeeAccounts: {
+        where: (a, { eq }) => eq(a.studentId, studentId),
+      },
+      studentPayments: {
+        columns: { amount: true, paymentDate: true },
+        where: (p, { eq }) => eq(p.studentId, studentId),
+      },
+    },
+  })
 
   return years
+    .map(
+      ({
+        classes: yearClasses,
+        studentFeeAccounts: accounts,
+        studentPayments: payments,
+        ...year
+      }) => ({
+        year: toSnake(year),
+        stays: yearClasses.flatMap((c) =>
+          c.studentClasses.map((sc) => ({
+            ...sc,
+            class: { id: c.id, name: c.name },
+          })),
+        ),
+        account: accounts[0] ? toSnake(accounts[0]) : null,
+        payments: payments.map(toPaymentSummary),
+      }),
+    )
     .filter(
       (y) =>
-        classesByYear.has(y.id) ||
-        accountByYear.has(y.id) ||
-        paymentsByYear.has(y.id),
+        feeClasses(y.stays).length > 0 ||
+        y.account !== null ||
+        y.payments.length > 0,
     )
-    .map((y) => ({
-      year: y,
-      classes: classesByYear.get(y.id) ?? [],
-      account: accountByYear.get(y.id) ?? null,
-      payments: paymentsByYear.get(y.id) ?? [],
-    }))
+    .map(({ stays, ...y }) => ({ ...y, classes: feeClasses(stays) }))
 }
 
 /**
  * Sum of everything still owed from years before `yearId`, per student.
  * Only counted where the year's total is known (a plan/override with a
  * payment plan, or a custom plan with an agreed total) and the account
- * isn't settled (decision 4).
+ * isn't settled (decision 4). One query: each unsettled prior-year account
+ * with a payment plan, its year's plans, the student's stays and the
+ * year's payments summed.
  */
 export async function getPriorYearBalances(
   yearId: string,
 ): Promise<Record<string, number>> {
-  const years = await getAcademicYears()
-  const target = years.find((y) => y.id === yearId)
-  if (!target) return {}
-  const priorYears = years.filter((y) => y.start_date < target.start_date)
+  const targetStart = db
+    .select({ startDate: academicYears.startDate })
+    .from(academicYears)
+    .where(eq(academicYears.id, yearId))
+  const priorYears = db
+    .select({ id: academicYears.id })
+    .from(academicYears)
+    .where(sql`${academicYears.startDate} < (${targetStart})`)
+
+  const accounts = await db.query.studentFeeAccounts.findMany({
+    columns: {
+      studentId: true,
+      paymentPlan: true,
+      feePlanOverrideId: true,
+      customTotalAmount: true,
+      customUpToDate: true,
+    },
+    where: (a, { and, eq, inArray, isNotNull }) =>
+      and(
+        inArray(a.academicYearId, priorYears),
+        eq(a.settled, false),
+        isNotNull(a.paymentPlan),
+      ),
+    extras: (a) => ({
+      paid: sql<number>`coalesce((${db
+        .select({ total: sum(studentPayments.amount) })
+        .from(studentPayments)
+        .where(
+          and(
+            eq(studentPayments.studentId, a.studentId),
+            eq(studentPayments.academicYearId, a.academicYearId),
+          ),
+        )}), 0)`
+        .mapWith(Number)
+        .as('paid'),
+    }),
+    with: {
+      academicYear: {
+        columns: { id: true, code: true, startDate: true, endDate: true },
+        with: {
+          feePlans: {
+            with: { feePlanClasses: { columns: { classId: true } } },
+          },
+        },
+      },
+      student: {
+        columns: {},
+        with: {
+          studentClasses: {
+            columns: { startDate: true, endDate: true },
+            with: {
+              class: {
+                columns: { id: true, name: true, academicYearId: true },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+
+  // Newest year first, so each student's total adds up in the same order
+  // as before (floating-point addition is order-sensitive).
+  accounts.sort((a, b) =>
+    b.academicYear.startDate.localeCompare(a.academicYear.startDate),
+  )
 
   const totals: Record<string, number> = {}
-  for (const year of priorYears) {
-    const [list, plans] = await Promise.all([
-      getStudentFeeList(year.id),
-      getFeePlans(year.id),
-    ])
-    for (const s of list) {
-      if (s.account?.settled) continue
-      const classIds = new Set(s.classes.map((c) => c.id))
-      // Plan status never hides a debt: inactive plans still apply.
-      const classPlans = plans.filter((p) =>
-        p.class_ids.some((id) => classIds.has(id)),
-      )
-      const overrideId = s.account?.fee_plan_override_id ?? null
-      const override = plans.find((p) => p.id === overrideId) ?? null
-      const feePlan = resolvedPlanOrNull(resolveFeePlan(override, classPlans))
-      const paymentPlan = (s.account?.payment_plan ??
-        null) as PaymentPlan | null
-      const paid = sumPayments(s.payments)
-      const { total } = feeStatus({
-        paymentPlan,
-        feePlan,
-        customTotal: s.account?.custom_total_amount ?? null,
-        customUpToDate: s.account?.custom_up_to_date ?? false,
-        paid,
-        today: year.end_date,
-      })
-      if (total === null) continue
-      const owed = Math.max(total - paid, 0)
-      if (owed > 0) totals[s.id] = (totals[s.id] ?? 0) + owed
+  for (const account of accounts) {
+    const { feePlans: yearPlans, ...year } = account.academicYear
+    const academicYear = toSnake({
+      code: year.code,
+      startDate: year.startDate,
+      endDate: year.endDate,
+    })
+    const plans = yearPlans.map(({ feePlanClasses, ...plan }) => ({
+      ...toSnake(plan),
+      academic_year: academicYear,
+      class_ids: feePlanClasses.map((link) => link.classId),
+    }))
+    const classIds = new Set(
+      feeClasses(
+        account.student.studentClasses.filter(
+          (sc) => sc.class.academicYearId === year.id,
+        ),
+      ).map((c) => c.id),
+    )
+    // Plan status never hides a debt: inactive plans still apply.
+    const classPlans = plans.filter((p) =>
+      p.class_ids.some((id) => classIds.has(id)),
+    )
+    const override =
+      plans.find((p) => p.id === account.feePlanOverrideId) ?? null
+    const feePlan = resolvedPlanOrNull(resolveFeePlan(override, classPlans))
+    const { total } = feeStatus({
+      paymentPlan: account.paymentPlan as PaymentPlan,
+      feePlan,
+      customTotal: account.customTotalAmount,
+      customUpToDate: account.customUpToDate,
+      paid: account.paid,
+      today: year.endDate,
+    })
+    if (total === null) continue
+    const owed = Math.max(total - account.paid, 0)
+    if (owed > 0) {
+      totals[account.studentId] = (totals[account.studentId] ?? 0) + owed
     }
   }
   return totals
@@ -343,29 +386,40 @@ export async function upsertStudentFeeAccount(
   yearId: string,
   input: StudentFeeAccountInput,
 ): Promise<StudentFeeAccountRow> {
-  const { data, error } = await supabase
-    .from('student_fee_accounts')
-    .upsert(
-      { ...input, student_id: studentId, academic_year_id: yearId },
-      { onConflict: 'student_id,academic_year_id' },
-    )
-    .select()
-    .single()
-  if (error) throw error
-  return data
+  const values = toCamel(input)
+  const [row] = await db
+    .insert(studentFeeAccounts)
+    .values({ ...values, studentId, academicYearId: yearId })
+    .onConflictDoUpdate({
+      target: [studentFeeAccounts.studentId, studentFeeAccounts.academicYearId],
+      set: values,
+    })
+    .returning()
+  return toSnake(row)
+}
+
+async function findPayment(
+  tx: Tx,
+  id: string,
+): Promise<StudentPaymentWithRecorder> {
+  const row = await tx.query.studentPayments.findFirst({
+    where: eq(studentPayments.id, id),
+    with: { recorder: { columns: { firstName: true, lastName: true } } },
+  })
+  return toSnake(row!)
 }
 
 export async function addStudentPayment(
   studentId: string,
   input: StudentPaymentInput,
 ): Promise<StudentPaymentWithRecorder> {
-  const { data, error } = await supabase
-    .from('student_payments')
-    .insert({ ...input, student_id: studentId })
-    .select('*, recorder:staff(first_name, last_name)')
-    .single()
-  if (error) throw error
-  return data as StudentPaymentWithRecorder
+  return db.transaction(async (tx) => {
+    const [{ id }] = await tx
+      .insert(studentPayments)
+      .values({ ...toCamel(input), studentId })
+      .returning({ id: studentPayments.id })
+    return findPayment(tx, id)
+  })
 }
 
 /** Scoped to the student so a payment id from another page can't be deleted. */
@@ -373,12 +427,14 @@ export async function deleteStudentPayment(
   studentId: string,
   paymentId: string,
 ): Promise<boolean> {
-  const { data, error } = await supabase
-    .from('student_payments')
-    .delete()
-    .eq('id', paymentId)
-    .eq('student_id', studentId)
-    .select('id')
-  if (error) throw error
-  return (data ?? []).length > 0
+  const rows = await db
+    .delete(studentPayments)
+    .where(
+      and(
+        eq(studentPayments.id, paymentId),
+        eq(studentPayments.studentId, studentId),
+      ),
+    )
+    .returning({ id: studentPayments.id })
+  return rows.length > 0
 }

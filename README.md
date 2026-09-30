@@ -6,7 +6,7 @@ Internal staff portal for the Hellenic School of High Barnet, deployed at [porta
 
 - [Next.js 16](https://nextjs.org) (App Router, Turbopack, React Compiler)
 - [React 19](https://react.dev)
-- [Supabase](https://supabase.com) — Postgres via `@supabase/supabase-js`
+- Postgres hosted on [Supabase](https://supabase.com), accessed with [Drizzle ORM](https://orm.drizzle.team) over a direct [postgres.js](https://github.com/porsager/postgres) connection. `@supabase/supabase-js` remains only for the `.rpc()` calls to the database functions that refactor plan 10 moves to TypeScript — see [Database](#database)
 - [NextAuth v5](https://authjs.dev) with Microsoft Entra ID (Azure AD)
 - [Tailwind CSS 4](https://tailwindcss.com) + [Headless UI](https://headlessui.dev)
 - [Zod](https://zod.dev) for input validation
@@ -33,6 +33,7 @@ Copy `.env.local.example` to `.env.local` and fill in the values. The example fi
 
 - **`AUTH_SECRET`** — generate with `openssl rand -base64 32`
 - **`AZURE_AD_*`** — Microsoft Entra ID app registration (Azure portal → App registrations → HSHB Portal)
+- **`DATABASE_URL`** — direct Postgres connection used by Drizzle. Locally `postgresql://postgres:postgres@127.0.0.1:54322/postgres`; in production the Supabase **transaction pooler** URL (Supabase dashboard → Connect → Transaction pooler, port 6543). Server-only
 - **`SUPABASE_SERVICE_ROLE_KEY`** — Supabase dashboard → Project Settings → API. Server-only; never expose to the browser
 - **`VAPID_*` keys** — generate with `npx web-push generate-vapid-keys`
 - **`NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY`** — Cloudflare Turnstile, gates the public `/register` form. Cloudflare dashboard → Turnstile → add a site. Local dev/E2E/CI use Cloudflare's published always-pass test keys (`1x00000000000000000000AA` / `1x0000000000000000000000000000000AA`); production needs real keys for the `portal.hshb.org.uk` hostname. Set `TURNSTILE_EXPECTED_HOSTNAME=portal.hshb.org.uk` in production only, to reject tokens verified against another origin — leave it unset locally/CI since the test keys don't return a real hostname
@@ -43,12 +44,41 @@ Copy `.env.local.example` to `.env.local` and fill in the values. The example fi
 npm run supabase:start
 ```
 
-This starts a local Postgres instance on `http://127.0.0.1:54321` via Docker. First run downloads the Supabase images (~1.5 GB) and applies migrations + seed data.
+This starts the local Supabase stack via Docker: Postgres on `127.0.0.1:54322` (what `DATABASE_URL` points at) and the Supabase API on `http://127.0.0.1:54321`. First run downloads the Supabase images (~1.5 GB) and applies migrations + seed data.
 
 Other helpers:
 
-- `npm run supabase:reset` — drop and re-seed the local DB
+- `npm run supabase:reset` — drop the local DB, re-apply every migration and re-seed
 - `npm run supabase:stop` — stop the Docker stack
+
+## Database
+
+`src/db/schema.ts` (Drizzle) is the source of truth for tables, columns, enums, foreign keys, indexes, `CHECK` constraints, defaults and relations. Application code reads and writes through the Drizzle client `db` exported from `src/db/client.ts`, a postgres.js connection to `DATABASE_URL`. Supabase is only the Postgres host and the CLI that applies migrations — no Supabase Auth, RLS policies, Storage or Realtime.
+
+### Changing the schema
+
+1. Edit `src/db/schema.ts`.
+2. `npm run db:generate` — drizzle-kit diffs the schema against the last snapshot in `supabase/migrations/meta/` and writes `supabase/migrations/<timestamp>_<name>.sql` (pass `-- --name=<name>` for a readable name).
+3. Review the generated SQL. It must contain only the change you intended.
+4. `npm run supabase:reset` — applies it locally with the Supabase CLI and re-seeds.
+5. Commit `schema.ts`, the new `.sql` file and the updated `meta/` files together.
+
+`npm run db:check` validates the migration history. Rules:
+
+- Never hand-write DDL for something `schema.ts` can express, and never edit a migration that has been applied to production — add a new one.
+- Never run `drizzle-kit push` or `drizzle-kit migrate`; migrations are applied only by the Supabase CLI (`supabase db reset` locally, `supabase db push` for production).
+- Never edit files in `supabase/migrations/meta/`; drizzle-kit owns them.
+- For the few things Drizzle cannot model (the `academic_years_no_overlap` `EXCLUDE` constraint, triggers, and the PL/pgSQL functions still awaiting plan 10), create an empty migration with `npx drizzle-kit generate --custom --name=<name>` and write the SQL there.
+- Do not add new PL/pgSQL functions or triggers. Multi-statement writes are TypeScript functions in `src/db/*.ts` using `db.transaction(async (tx) => …)`.
+- Until plan 10 lands, also run `npm run gen:types` (refreshes `src/types/database.ts`) and `npx supabase db dump --local --schema public -f supabase/schema.sql` after a schema change. Both files are legacy snapshots for the remaining supabase-js code; plan 10 deletes them.
+
+### Writing queries
+
+- Use `db` from `@/db/client` and the tables and row types (`Student`, `NewStudent`, …) from `@/db/schema`. Never use `supabase.from(…)`. `supabase.rpc(…)` is kept only for the existing database functions until plan 10.
+- Use the relational API (`db.query.students.findFirst({ with: … })`) for an entity plus its children, and the SQL-like builder with `count()`, `sum()` and `groupBy` for aggregates — not fetch-then-group in a JS `Map`.
+- Drizzle rows are camelCase; the functions in `src/db` return and accept the snake_case shapes the app's pages and forms use, converted with `toSnake` / `toCamel` from `src/db/casing.ts`. Rows the app only hands to a `src/lib` helper (enrolment and attendance ranges, push subscriptions) are returned as queried, and new code should prefer that — don't convert rows nobody reads field by field. `timestamptz` columns come back as ISO strings (`2026-09-27T12:00:00+00:00`).
+- One exported function = one query or one transaction. Every module in `src/db` starts with `import 'server-only'`.
+- Production uses the Supabase Supavisor **transaction pooler** (port 6543), which is why the client sets `prepare: false`.
 
 ### Run the development server
 
@@ -69,6 +99,14 @@ npm run test:coverage # with coverage report
 ```
 
 Test files sit alongside source as `*.spec.ts` / `*.spec.tsx`.
+
+### Database integration tests (Vitest)
+
+```bash
+npm run test:int
+```
+
+`src/db/*.int.spec.ts` run against the local Supabase Postgres (`npm run supabase:start` first), configured by `vitest.int.config.ts`. `SUPABASE_SERVICE_ROLE_KEY` is read from `.env.e2e`. They are excluded from `npm test` and from coverage.
 
 ### End-to-end tests (Playwright)
 
@@ -107,17 +145,19 @@ src/
   auth/            # NextAuth v5 config + helpers
   clientComponents/# Shared client components (have 'use client')
   components/      # Shared server components
-  db/              # Supabase queries — one file per domain
+  db/              # Data access — one file per domain; schema.ts (Drizzle schema), client.ts (db)
   lib/             # Permissions, schemas, utilities
-  types/           # database.ts (auto-generated via npm run gen:types), other shared types
+  types/           # database.ts (legacy, auto-generated via npm run gen:types until plan 10), other shared types
 e2e/
   auth.setup.ts    # Produces storageState per role
   global-setup.ts  # `supabase db reset` before the suite
   fixtures/        # Custom Playwright fixtures
   tests/           # E2E specs (*.e2e.ts)
 supabase/
-  schema.sql       # Generated schema snapshot (regenerate after migrations)
-  migrations/      # Applied to local + production
+  schema.sql       # Legacy schema dump, kept until plan 10 — src/db/schema.ts is the source of truth
+  migrations/      # Generated by `npm run db:generate`; applied by the Supabase CLI to local + production
+  migrations/meta/ # drizzle-kit snapshots and journal — never edit by hand
+drizzle.config.ts  # drizzle-kit config (schema path, migrations folder, casing)
   seed.sql         # Deterministic test data
 scripts/
   sw.template.js   # PWA service worker source

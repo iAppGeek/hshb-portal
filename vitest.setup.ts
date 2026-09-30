@@ -6,6 +6,8 @@ process.env.AUTH_SECRET ??= 'test-auth-secret'
 process.env.AZURE_AD_CLIENT_ID ??= 'test-client-id'
 process.env.AZURE_AD_TENANT_ID ??= 'test-tenant-id'
 process.env.AZURE_AD_CLIENT_SECRET ??= 'test-client-secret'
+process.env.DATABASE_URL ??=
+  'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
 process.env.NEXT_PUBLIC_SUPABASE_URL ??= 'http://127.0.0.1:54321'
 process.env.SUPABASE_SERVICE_ROLE_KEY ??= 'test-service-role-key'
 process.env.VAPID_PRIVATE_KEY ??= 'test-vapid-private-key'

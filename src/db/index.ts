@@ -68,7 +68,7 @@ export type { PhotoOptOutStatus, PhotoOptOutRow } from './photoOptOuts'
 export {
   getGuardianCount,
   getAllGuardians,
-  getGuardianChildCounts,
+  getGuardiansWithChildCounts,
   createGuardian,
   getGuardianById,
   getStudentsByGuardian,
@@ -146,7 +146,6 @@ export type {
   AttendanceInsert,
   AttendanceRow,
 } from './attendance'
-export { fetchAllPages } from './paging'
 export {
   getStaffAttendanceForToday,
   getStaffAttendanceByDate,
@@ -199,5 +198,7 @@ export type {
   StudentFeeDetail,
   StudentFeeYear,
 } from './student-fees'
+export { getDashboardStats } from './dashboard'
+export type { DashboardStats } from './dashboard'
 export { logAuditEvent } from './audit-log'
 export type { AuditAction, AuditEntry } from './audit-log'

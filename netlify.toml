@@ -1,6 +1,9 @@
 [build]
   command = "npm test && npm run build"
 
+# Runtime secrets live in the Netlify UI, not here. DATABASE_URL must be the
+# Supabase Supavisor transaction pooler URL (port 6543): functions are
+# short-lived, and src/db/client.ts disables prepared statements for it.
 [build.environment]
   NODE_VERSION = "24.14.0"
   NPM_FLAGS = "--ignore-scripts"

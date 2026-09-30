@@ -1,53 +1,63 @@
-import type { Database, Enums, Tables } from '@/types/database'
+import 'server-only'
 
-import { supabase } from './client'
+import { and, count, desc, eq } from 'drizzle-orm'
 
-export type PhotoOptOutStatus = Enums<'photo_opt_out_status'>
-export type PhotoOptOutRow = Tables<'photo_consent_opt_outs'>
+import { isUuid } from '@/lib/uuid'
+
+import { toCamel, toSnake, type Snake } from './casing'
+import { db, supabase } from './client'
+import {
+  photoConsentOptOuts,
+  photoOptOutStatus,
+  type NewPhotoConsentOptOut,
+  type PhotoConsentOptOut,
+} from './schema'
+
+export type PhotoOptOutStatus = (typeof photoOptOutStatus.enumValues)[number]
+export type PhotoOptOutRow = Snake<PhotoConsentOptOut>
 
 export async function createPhotoOptOut(
-  input: Database['public']['Tables']['photo_consent_opt_outs']['Insert'],
+  input: Snake<NewPhotoConsentOptOut>,
 ): Promise<{ id: string }> {
-  const { data, error } = await supabase
-    .from('photo_consent_opt_outs')
-    .insert(input)
-    .select('id')
-    .single()
-  if (error) throw error
-  return { id: data.id }
+  const [row] = await db
+    .insert(photoConsentOptOuts)
+    .values(toCamel(input))
+    .returning({ id: photoConsentOptOuts.id })
+  return row
 }
 
 export async function getPhotoOptOuts(
   status: PhotoOptOutStatus | 'all',
 ): Promise<PhotoOptOutRow[]> {
-  let query = supabase
-    .from('photo_consent_opt_outs')
-    .select('*')
-    .order('submitted_at', { ascending: false })
-  if (status !== 'all') {
-    query = query.eq('status', status)
-  }
-  const { data } = await query
-  return data ?? []
+  const rows = await db
+    .select()
+    .from(photoConsentOptOuts)
+    .where(
+      status === 'all' ? undefined : eq(photoConsentOptOuts.status, status),
+    )
+    .orderBy(desc(photoConsentOptOuts.submittedAt))
+  return toSnake(rows)
 }
 
 export async function getPendingPhotoOptOutCount(): Promise<number> {
-  const { count } = await supabase
-    .from('photo_consent_opt_outs')
-    .select('*', { count: 'exact', head: true })
-    .eq('status', 'pending')
-  return count ?? 0
+  const [{ n }] = await db
+    .select({ n: count() })
+    .from(photoConsentOptOuts)
+    .where(eq(photoConsentOptOuts.status, 'pending'))
+  return n
 }
 
 export async function getPhotoOptOutById(
   id: string,
 ): Promise<PhotoOptOutRow | null> {
-  const { data } = await supabase
-    .from('photo_consent_opt_outs')
-    .select('*')
-    .eq('id', id)
-    .single()
-  return data
+  // A malformed id finds nothing, rather than failing the uuid cast.
+  if (!isUuid(id)) return null
+
+  const [row] = await db
+    .select()
+    .from(photoConsentOptOuts)
+    .where(eq(photoConsentOptOuts.id, id))
+  return row ? toSnake(row) : null
 }
 
 type ApplyPhotoOptOutInput = {
@@ -81,27 +91,29 @@ export async function rejectPhotoOptOut({
   staffId,
   reason,
 }: RejectPhotoOptOutInput): Promise<void> {
-  const { data, error } = await supabase
-    .from('photo_consent_opt_outs')
-    .update({
+  const rows = await db
+    .update(photoConsentOptOuts)
+    .set({
       status: 'rejected',
-      rejected_reason: reason,
-      actioned_by: staffId,
-      actioned_at: new Date().toISOString(),
+      rejectedReason: reason,
+      actionedBy: staffId,
+      actionedAt: new Date().toISOString(),
     })
-    .eq('id', requestId)
-    .eq('status', 'pending')
-    .select('id')
-  if (error) throw error
-  if (!data?.length) throw new Error('Request not found or already actioned')
+    .where(
+      and(
+        eq(photoConsentOptOuts.id, requestId),
+        eq(photoConsentOptOuts.status, 'pending'),
+      ),
+    )
+    .returning({ id: photoConsentOptOuts.id })
+  if (rows.length === 0)
+    throw new Error('Request not found or already actioned')
 }
 
 export async function deletePhotoOptOut(id: string): Promise<void> {
-  const { data, error } = await supabase
-    .from('photo_consent_opt_outs')
-    .delete()
-    .eq('id', id)
-    .select('id')
-  if (error) throw error
-  if (!data?.length) throw new Error('Request not found')
+  const rows = await db
+    .delete(photoConsentOptOuts)
+    .where(eq(photoConsentOptOuts.id, id))
+    .returning({ id: photoConsentOptOuts.id })
+  if (rows.length === 0) throw new Error('Request not found')
 }

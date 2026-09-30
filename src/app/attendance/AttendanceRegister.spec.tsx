@@ -36,10 +36,10 @@ const mockStudent = {
 }
 
 const openEnrolment = {
-  class_id: 'class-1',
-  student_id: 'student-1',
-  start_date: '2020-01-01',
-  end_date: null,
+  classId: 'class-1',
+  studentId: 'student-1',
+  startDate: '2020-01-01',
+  endDate: null,
 }
 
 describe('AttendanceRegister', () => {
@@ -118,10 +118,10 @@ describe('AttendanceRegister', () => {
   it('includes a leaver with a mark, and a same-day joiner on a taken register', async () => {
     vi.mocked(getEnrolmentsForClass).mockResolvedValue([
       {
-        class_id: 'class-1',
-        student_id: 'joiner',
-        start_date: '2024-06-15',
-        end_date: null,
+        classId: 'class-1',
+        studentId: 'joiner',
+        startDate: '2024-06-15',
+        endDate: null,
       },
     ] as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([
