@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test'
 
 import {
-  db,
   deleteRegistrationSubmissionsByChildLastName,
+  sql,
 } from '../../fixtures/seed'
 
 // Clear storageState so all tests in this file run as unauthenticated,
@@ -53,22 +53,17 @@ test.describe('Public registration form', () => {
 
       await expect(page).toHaveURL(/\/register\/success/)
 
-      const { data } = await db
-        .from('registration_submissions')
-        .select(
-          'id, child_last_name, english_school_name, registration_submission_contacts(contact_role, occupation)',
-        )
-        .eq('child_last_name', childLastName)
-        .single()
-      expect(data).not.toBeNull()
+      const [data] = await sql`
+        select id, english_school_name from registration_submissions
+        where child_last_name = ${childLastName}`
+      expect(data).toBeDefined()
       expect(data?.english_school_name).toBe('St Marys Primary')
-      expect(data?.registration_submission_contacts).toHaveLength(1)
-      expect(data?.registration_submission_contacts[0].contact_role).toBe(
-        'primary',
-      )
-      expect(data?.registration_submission_contacts[0].occupation).toBe(
-        'Bus driver',
-      )
+      const contacts = await sql`
+        select contact_role, occupation from registration_submission_contacts
+        where submission_id = ${data?.id}`
+      expect(contacts).toHaveLength(1)
+      expect(contacts[0].contact_role).toBe('primary')
+      expect(contacts[0].occupation).toBe('Bus driver')
     })
   })
 
@@ -132,25 +127,21 @@ test.describe('Public registration form', () => {
 
       await expect(page).toHaveURL(/\/register\/success/)
 
-      const { data } = await db
-        .from('registration_submissions')
-        .select(
-          'id, child_last_name, registration_submission_contacts(contact_role, occupation)',
-        )
-        .eq('child_last_name', childLastName)
-        .single()
-      expect(data).not.toBeNull()
-      expect(
-        data?.registration_submission_contacts
-          .map((c) => c.contact_role)
-          .sort(),
-      ).toEqual(['additional_1', 'primary', 'secondary'])
+      const [data] = await sql`
+        select id from registration_submissions
+        where child_last_name = ${childLastName}`
+      expect(data).toBeDefined()
+      const contacts = await sql`
+        select contact_role, occupation from registration_submission_contacts
+        where submission_id = ${data?.id}`
+      expect(contacts.map((c) => c.contact_role).sort()).toEqual([
+        'additional_1',
+        'primary',
+        'secondary',
+      ])
 
       const byRole = new Map(
-        data?.registration_submission_contacts.map((c) => [
-          c.contact_role,
-          c.occupation,
-        ]),
+        contacts.map((c) => [c.contact_role, c.occupation]),
       )
       expect(byRole.get('primary')).toBe('Bus driver')
       expect(byRole.get('secondary')).toBe('Pharmacist')
@@ -187,10 +178,8 @@ test.describe('Public registration form', () => {
     await submit.click()
 
     await expect(page).toHaveURL(/\/register$/)
-    const { data } = await db
-      .from('registration_submissions')
-      .select('id')
-      .eq('child_last_name', 'NoConsent')
+    const data =
+      await sql`select id from registration_submissions where child_last_name = 'NoConsent'`
     expect(data).toEqual([])
   })
 

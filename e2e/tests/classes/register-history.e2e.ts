@@ -1,10 +1,12 @@
 import { test, expect } from '../../fixtures/index'
 import { loadWithFreshData } from '../../fixtures/loadWithFreshData'
 import {
-  db,
-  SEED_IDS,
   createRegistrationSubmission,
   deleteRegistrationSubmissionsByChildLastName,
+  insertRow,
+  insertRows,
+  SEED_IDS,
+  sql,
 } from '../../fixtures/seed'
 
 // Pin to admin by default — most of this file exercises admin-only pages.
@@ -43,13 +45,12 @@ function futureAcademicYear(suffix: string): {
 // the seed teachers' own class lists in other parallel tests. Copied from
 // e2e/tests/classes/edit-class.e2e.ts.
 async function createTeacher(lastName: string, email: string): Promise<string> {
-  const { data, error } = await db
-    .from('staff')
-    .insert({ first_name: 'E2E', last_name: lastName, email, role: 'teacher' })
-    .select('id')
-    .single()
-  if (error) throw error
-  return data.id
+  return insertRow('staff', {
+    first_name: 'E2E',
+    last_name: lastName,
+    email,
+    role: 'teacher',
+  })
 }
 
 async function createClass(
@@ -58,19 +59,13 @@ async function createClass(
   academicYearId: string,
   active = true,
 ): Promise<string> {
-  const { data, error } = await db
-    .from('classes')
-    .insert({
-      name,
-      year_group: '1',
-      teacher_id: teacherId,
-      academic_year_id: academicYearId,
-      active,
-    })
-    .select('id')
-    .single()
-  if (error) throw error
-  return data.id
+  return insertRow('classes', {
+    name,
+    year_group: '1',
+    teacher_id: teacherId,
+    academic_year_id: academicYearId,
+    active,
+  })
 }
 
 // The seed guardian id isn't RFC 4122 UUID-shaped, so it fails the
@@ -83,39 +78,28 @@ async function createStudent(
   firstName: string,
   lastName: string,
 ): Promise<string> {
-  const { data: guardian, error: guardianError } = await db
-    .from('guardians')
-    .insert({
-      first_name: 'E2E',
-      last_name: `Guardian${lastName}`,
-      phone: '07700000000',
-      address_line_1: '1 Fixture Street',
-      city: 'London',
-      postcode: 'N1 1AA',
-    })
-    .select('id')
-    .single()
-  if (guardianError) throw guardianError
-  createdGuardianIds.push(guardian.id)
+  const guardianId = await insertRow('guardians', {
+    first_name: 'E2E',
+    last_name: `Guardian${lastName}`,
+    phone: '07700000000',
+    address_line_1: '1 Fixture Street',
+    city: 'London',
+    postcode: 'N1 1AA',
+  })
+  createdGuardianIds.push(guardianId)
 
-  const { data, error } = await db
-    .from('students')
-    .insert({
-      first_name: firstName,
-      last_name: lastName,
-      primary_guardian_id: guardian.id,
-      primary_guardian_relationship: 'Guardian',
-      address_guardian_id: guardian.id,
-    })
-    .select('id')
-    .single()
-  if (error) throw error
-  return data.id
+  return insertRow('students', {
+    first_name: firstName,
+    last_name: lastName,
+    primary_guardian_id: guardianId,
+    primary_guardian_relationship: 'Guardian',
+    address_guardian_id: guardianId,
+  })
 }
 
 test.afterAll(async () => {
   if (createdGuardianIds.length > 0) {
-    await db.from('guardians').delete().in('id', createdGuardianIds)
+    await sql`delete from guardians where id in ${sql(createdGuardianIds)}`
   }
 })
 
@@ -125,18 +109,12 @@ async function enrol(
   startDate: string,
   endDate: string | null = null,
 ): Promise<string> {
-  const { data, error } = await db
-    .from('student_classes')
-    .insert({
-      student_id: studentId,
-      class_id: classId,
-      start_date: startDate,
-      end_date: endDate,
-    })
-    .select('id')
-    .single()
-  if (error) throw error
-  return data.id
+  return insertRow('student_classes', {
+    student_id: studentId,
+    class_id: classId,
+    start_date: startDate,
+    end_date: endDate,
+  })
 }
 
 async function mark(
@@ -145,32 +123,34 @@ async function mark(
   date: string,
   status: 'present' | 'absent' | 'late',
 ): Promise<void> {
-  const { error } = await db
-    .from('attendance')
-    .insert({ class_id: classId, student_id: studentId, date, status })
-  if (error) throw error
+  await insertRow('attendance', {
+    class_id: classId,
+    student_id: studentId,
+    date,
+    status,
+  })
 }
 
 async function cleanupStudents(studentIds: string[]): Promise<void> {
   const ids = studentIds.filter(Boolean)
   if (ids.length === 0) return
-  await db.from('attendance').delete().in('student_id', ids)
-  await db.from('student_classes').delete().in('student_id', ids)
-  await db.from('students').delete().in('id', ids)
+  await sql`delete from attendance where student_id in ${sql(ids)}`
+  await sql`delete from student_classes where student_id in ${sql(ids)}`
+  await sql`delete from students where id in ${sql(ids)}`
 }
 
 async function cleanupClasses(classIds: string[]): Promise<void> {
   const ids = classIds.filter(Boolean)
   if (ids.length === 0) return
-  await db.from('attendance').delete().in('class_id', ids)
-  await db.from('student_classes').delete().in('class_id', ids)
-  await db.from('classes').delete().in('id', ids)
+  await sql`delete from attendance where class_id in ${sql(ids)}`
+  await sql`delete from student_classes where class_id in ${sql(ids)}`
+  await sql`delete from classes where id in ${sql(ids)}`
 }
 
 async function cleanupTeachers(teacherIds: string[]): Promise<void> {
   const ids = teacherIds.filter(Boolean)
   if (ids.length === 0) return
-  await db.from('staff').delete().in('id', ids)
+  await sql`delete from staff where id in ${sql(ids)}`
 }
 
 test.describe('Enrolment history — registers, leavers, migration', () => {
@@ -314,11 +294,8 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
         timeout: 15_000,
       })
 
-      const { data: rows } = await db
-        .from('attendance')
-        .select('class_id, status')
-        .eq('student_id', studentId)
-        .eq('date', TODAY)
+      const rows =
+        await sql`select class_id, status from attendance where student_id = ${studentId} and date = ${TODAY}`
       expect(rows).toHaveLength(2)
       expect(rows?.every((r) => r.status === 'present')).toBe(true)
     } finally {
@@ -347,10 +324,7 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
     await enrol(memberId, classId, PAST_DATE)
     // A leaver whose stay was never closed, e.g. after a manual DB change.
     await enrol(leaverId, classId, PAST_DATE)
-    await db
-      .from('students')
-      .update({ active: false, leaving_reason: 'left' })
-      .eq('id', leaverId)
+    await sql`update students set ${sql({ active: false, leaving_reason: 'left' })} where id = ${leaverId}`
 
     try {
       await loadWithFreshData(page, `/classes/${classId}/edit`, async () => {
@@ -378,11 +352,8 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
       await page.getByRole('button', { name: 'Save changes' }).click()
       await expect(page).toHaveURL('/classes')
 
-      const { data: current } = await db
-        .from('student_classes')
-        .select('student_id')
-        .eq('class_id', classId)
-        .is('end_date', null)
+      const current =
+        await sql`select student_id from student_classes where class_id = ${classId} and end_date is null`
       expect(current?.map((r) => r.student_id).sort()).toEqual(
         [memberId, joinerId, leaverId].sort(),
       )
@@ -545,12 +516,10 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
     page,
   }, testInfo) => {
     const suffix = testInfo.testId.replace(/[^a-z0-9]/gi, '')
-    const { data: nextYear, error: nextYearError } = await db
-      .from('academic_years')
-      .insert(futureAcademicYear(suffix))
-      .select('id')
-      .single()
-    if (nextYearError) throw nextYearError
+    const nextYearId = await insertRow(
+      'academic_years',
+      futureAcademicYear(suffix),
+    )
 
     const teacherId = await createTeacher(
       `Migrate${suffix}`,
@@ -581,7 +550,7 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
       // cleanup before this submit.
       await loadWithFreshData(
         page,
-        `/admin?tab=class-migration&sourceClassId=${sourceClassId}&targetYearId=${nextYear.id}`,
+        `/admin?tab=class-migration&sourceClassId=${sourceClassId}&targetYearId=${nextYearId}`,
         async () => {
           await expect(
             page.locator(`select[name="action_${moverId}"]`),
@@ -612,47 +581,28 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
       await page.getByRole('button', { name: 'Migrate Class' }).click()
       await expect(page).toHaveURL('/admin')
 
-      const { data: newClass } = await db
-        .from('classes')
-        .select('id, active')
-        .eq('name', newClassName)
-        .single()
+      const [newClass] =
+        await sql`select id, active from classes where name = ${newClassName}`
       expect(newClass).toBeTruthy()
 
-      const { data: moverRow } = await db
-        .from('student_classes')
-        .select('class_id, end_date')
-        .eq('student_id', moverId)
-        .is('end_date', null)
-        .single()
+      const [moverRow] =
+        await sql`select class_id, end_date from student_classes where student_id = ${moverId} and end_date is null`
       expect(moverRow?.class_id).toBe(newClass!.id)
 
-      const { data: stayer } = await db
-        .from('students')
-        .select('active')
-        .eq('id', stayerId)
-        .single()
+      const [stayer] =
+        await sql`select active from students where id = ${stayerId}`
       expect(stayer?.active).toBe(true)
-      const { data: stayerOpenRows } = await db
-        .from('student_classes')
-        .select('id')
-        .eq('student_id', stayerId)
-        .is('end_date', null)
+      const stayerOpenRows =
+        await sql`select id from student_classes where student_id = ${stayerId} and end_date is null`
       expect(stayerOpenRows).toEqual([])
 
-      const { data: leaver } = await db
-        .from('students')
-        .select('active, leaving_reason')
-        .eq('id', leaverId)
-        .single()
+      const [leaver] =
+        await sql`select active, leaving_reason from students where id = ${leaverId}`
       expect(leaver?.active).toBe(false)
       expect(leaver?.leaving_reason).toBe('graduated')
 
-      const { data: source } = await db
-        .from('classes')
-        .select('active')
-        .eq('id', sourceClassId)
-        .single()
+      const [source] =
+        await sql`select active from classes where id = ${sourceClassId}`
       expect(source?.active).toBe(false)
 
       // Admin can still view the source class's register read-only, with the
@@ -675,7 +625,7 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
       await cleanupStudents([moverId, stayerId, leaverId])
       await cleanupClasses([sourceClassId])
       await cleanupTeachers([teacherId, newTeacherId])
-      await db.from('academic_years').delete().eq('id', nextYear!.id)
+      await sql`delete from academic_years where id = ${nextYearId}`
     }
   })
 
@@ -751,24 +701,16 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
       await page.getByRole('button', { name: 'Migrate Class' }).click()
       await expect(page).toHaveURL('/admin')
 
-      const { data: source } = await db
-        .from('classes')
-        .select('active')
-        .eq('id', sourceClassId)
-        .single()
+      const [source] =
+        await sql`select active from classes where id = ${sourceClassId}`
       expect(source?.active).toBe(false)
 
-      const { data: newClasses } = await db
-        .from('classes')
-        .select('id')
-        .eq('name', `E2ENoNewTarget${suffix}`)
+      const newClasses =
+        await sql`select id from classes where name = ${`E2ENoNewTarget${suffix}`}`
       expect(newClasses).toEqual([])
 
-      const { data: leaver } = await db
-        .from('students')
-        .select('active, leaving_reason')
-        .eq('id', leaverId)
-        .single()
+      const [leaver] =
+        await sql`select active, leaving_reason from students where id = ${leaverId}`
       expect(leaver?.active).toBe(false)
       expect(leaver?.leaving_reason).toBe('left')
     } finally {
@@ -795,25 +737,20 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
 
     try {
       childLastName = `Returner${suffix}`
-      const { data: existingStudent, error: studentError } = await db
-        .from('students')
-        .insert({
-          first_name: 'E2E',
-          last_name: childLastName,
-          date_of_birth: '2019-06-01',
-          address_line_1: 'Old Address',
-          city: 'Oldtown',
-          postcode: 'OL1 1AA',
-          primary_guardian_id: '20000000-0000-0000-0000-000000000001',
-          active: false,
-          leaving_reason: 'left',
-        })
-        .select('id')
-        .single()
-      if (studentError) throw studentError
+      const existingStudentId = await insertRow('students', {
+        first_name: 'E2E',
+        last_name: childLastName,
+        date_of_birth: '2019-06-01',
+        address_line_1: 'Old Address',
+        city: 'Oldtown',
+        postcode: 'OL1 1AA',
+        primary_guardian_id: '20000000-0000-0000-0000-000000000001',
+        active: false,
+        leaving_reason: 'left',
+      })
 
       // They were previously enrolled in this class and left.
-      await enrol(existingStudent.id, classId, PAST_DATE, TODAY)
+      await enrol(existingStudentId, classId, PAST_DATE, TODAY)
 
       const { id: submissionId } = await createRegistrationSubmission({
         child_last_name: childLastName,
@@ -840,24 +777,18 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
       await page.locator('select[name="class_id"]').selectOption(classId)
       await page.getByRole('button', { name: 'Approve' }).click()
 
-      await expect(page).toHaveURL(`/students/${existingStudent.id}/edit`)
+      await expect(page).toHaveURL(`/students/${existingStudentId}/edit`)
 
-      const { data: updated } = await db
-        .from('students')
-        .select('active, leaving_reason')
-        .eq('id', existingStudent.id)
-        .single()
+      const [updated] =
+        await sql`select active, leaving_reason from students where id = ${existingStudentId}`
       expect(updated?.active).toBe(true)
       expect(updated?.leaving_reason).toBeNull()
 
-      await cleanupStudents([existingStudent.id])
+      await cleanupStudents([existingStudentId])
     } finally {
       if (childLastName) {
         await deleteRegistrationSubmissionsByChildLastName(childLastName)
-        await db
-          .from('guardians')
-          .delete()
-          .eq('last_name', `Parent${childLastName}`)
+        await sql`delete from guardians where last_name = ${`Parent${childLastName}`}`
       }
       await cleanupClasses([classId])
       await cleanupTeachers([teacherId])
@@ -887,33 +818,23 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
     const studentId = await createStudent('Fees', `Student${suffix}`)
     await enrol(studentId, classAId, PAST_DATE)
 
-    const { data: planA, error: planAError } = await db
-      .from('fee_plans')
-      .insert({
-        name: planAName,
-        academic_year_id: SEED_IDS.academicYears.current,
-        full_year_amount: 800,
-        monthly_instalment_amount: 100,
-        termly_instalment_amount: 266.67,
-      })
-      .select('id')
-      .single()
-    if (planAError) throw planAError
-    const { data: planB, error: planBError } = await db
-      .from('fee_plans')
-      .insert({
-        name: planBName,
-        academic_year_id: SEED_IDS.academicYears.current,
-        full_year_amount: 900,
-        monthly_instalment_amount: 110,
-        termly_instalment_amount: 300,
-      })
-      .select('id')
-      .single()
-    if (planBError) throw planBError
-    await db.from('fee_plan_classes').insert([
-      { fee_plan_id: planA!.id, class_id: classAId },
-      { fee_plan_id: planB!.id, class_id: classBId },
+    const planAId = await insertRow('fee_plans', {
+      name: planAName,
+      academic_year_id: SEED_IDS.academicYears.current,
+      full_year_amount: 800,
+      monthly_instalment_amount: 100,
+      termly_instalment_amount: 266.67,
+    })
+    const planBId = await insertRow('fee_plans', {
+      name: planBName,
+      academic_year_id: SEED_IDS.academicYears.current,
+      full_year_amount: 900,
+      monthly_instalment_amount: 110,
+      termly_instalment_amount: 300,
+    })
+    await insertRows('fee_plan_classes', [
+      { fee_plan_id: planAId, class_id: classAId },
+      { fee_plan_id: planBId, class_id: classBId },
     ])
 
     try {
@@ -938,9 +859,9 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
         'Multiple fee plans',
       )
     } finally {
-      await db.from('fee_plan_classes').delete().eq('fee_plan_id', planA!.id)
-      await db.from('fee_plan_classes').delete().eq('fee_plan_id', planB!.id)
-      await db.from('fee_plans').delete().in('id', [planA!.id, planB!.id])
+      await sql`delete from fee_plan_classes where fee_plan_id = ${planAId}`
+      await sql`delete from fee_plan_classes where fee_plan_id = ${planBId}`
+      await sql`delete from fee_plans where id in ${sql([planAId, planBId])}`
       await cleanupStudents([studentId])
       await cleanupClasses([classAId, classBId])
       await cleanupTeachers([teacherId])
@@ -995,29 +916,19 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
       await page.getByRole('button', { name: 'Migrate Class' }).click()
       await expect(page).toHaveURL('/admin')
 
-      const { data: newClass } = await db
-        .from('classes')
-        .select('id, academic_year_id, active')
-        .eq('name', newClassName)
-        .single()
+      const [newClass] =
+        await sql`select id, academic_year_id, active from classes where name = ${newClassName}`
       newClassId = newClass!.id
       expect(newClass?.academic_year_id).toBe(SEED_IDS.academicYears.current)
       expect(newClass?.active).toBe(true)
 
       // Dates come from the academic years, not the day the migration ran.
-      const { data: sourceRow } = await db
-        .from('student_classes')
-        .select('end_date')
-        .eq('id', sourceRowId)
-        .single()
+      const [sourceRow] =
+        await sql`select end_date from student_classes where id = ${sourceRowId}`
       expect(sourceRow?.end_date).toBe('2026-09-01')
 
-      const { data: newRow } = await db
-        .from('student_classes')
-        .select('start_date, end_date')
-        .eq('student_id', moverId)
-        .eq('class_id', newClassId)
-        .single()
+      const [newRow] =
+        await sql`select start_date, end_date from student_classes where student_id = ${moverId} and class_id = ${newClassId}`
       expect(newRow).toEqual({ start_date: '2026-09-01', end_date: null })
     } finally {
       await cleanupStudents([moverId])

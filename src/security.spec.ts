@@ -8,7 +8,7 @@ import { walkSourceFiles } from '@/test/walkSourceFiles'
 const SECRET_VARS = [
   'AUTH_SECRET',
   'AZURE_AD_CLIENT_SECRET',
-  'SUPABASE_SERVICE_ROLE_KEY',
+  'DATABASE_URL',
   'VAPID_PRIVATE_KEY',
   'TURNSTILE_SECRET_KEY',
 ]
@@ -117,20 +117,10 @@ describe('Server actions', () => {
   })
 })
 
-describe('Supabase client', () => {
-  it('uses service role key, not anon key', () => {
-    const client = readFileSync(join(srcDir, 'db/supabase-client.ts'), 'utf-8')
-    expect(client).toContain('SUPABASE_SERVICE_ROLE_KEY')
-    expect(client).not.toContain('SUPABASE_ANON_KEY')
-  })
-
-  it('is not imported by any client component', () => {
-    for (const file of clientFiles) {
-      const content = stripTypeImports(readFileSync(file, 'utf-8'))
-      expect(
-        content,
-        `${file} is a client component but imports from @/db`,
-      ).not.toContain("from '@/db'")
-    }
+describe('Database client', () => {
+  it('is server-only and connects with DATABASE_URL', () => {
+    const client = readFileSync(join(srcDir, 'db/client.ts'), 'utf-8')
+    expect(client).toContain("import 'server-only'")
+    expect(client).toContain('env.DATABASE_URL')
   })
 })

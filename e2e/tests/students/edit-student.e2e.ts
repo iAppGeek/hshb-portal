@@ -1,5 +1,5 @@
 import { test, expect } from '../../fixtures/index'
-import { db } from '../../fixtures/seed'
+import { insertRow, sql } from '../../fixtures/seed'
 
 // Pin to admin — only admins can edit students
 test.use({ storageState: 'e2e/.auth/admin.json' })
@@ -15,37 +15,26 @@ test.describe('Edit student', () => {
     const suffix = testInfo.testId.replace(/[^a-z0-9]/gi, '')
     lastName = `EditStudent${suffix}`
 
-    const { data: guardian, error: guardianError } = await db
-      .from('guardians')
-      .insert({
-        first_name: 'E2E',
-        last_name: `Parent${lastName}`,
-        phone: '07700 900000',
-      })
-      .select('id')
-      .single()
-    if (guardianError) throw guardianError
+    const guardianId = await insertRow('guardians', {
+      first_name: 'E2E',
+      last_name: `Parent${lastName}`,
+      phone: '07700 900000',
+    })
 
-    const { data: student, error: studentError } = await db
-      .from('students')
-      .insert({
-        first_name: 'Before',
-        last_name: lastName,
-        address_line_1: '1 Test St',
-        city: 'London',
-        postcode: 'N1 1AA',
-        primary_guardian_id: guardian.id,
-        primary_guardian_relationship: 'Mother',
-      })
-      .select('id')
-      .single()
-    if (studentError) throw studentError
-    studentId = student.id
+    studentId = await insertRow('students', {
+      first_name: 'Before',
+      last_name: lastName,
+      address_line_1: '1 Test St',
+      city: 'London',
+      postcode: 'N1 1AA',
+      primary_guardian_id: guardianId,
+      primary_guardian_relationship: 'Mother',
+    })
   })
 
   test.afterEach(async () => {
-    await db.from('students').delete().eq('last_name', lastName)
-    await db.from('guardians').delete().eq('last_name', `Parent${lastName}`)
+    await sql`delete from students where last_name = ${lastName}`
+    await sql`delete from guardians where last_name = ${`Parent${lastName}`}`
   })
 
   test('shows the saved changes without reloading', async ({ page }) => {

@@ -1,6 +1,6 @@
 import { test, expect } from '../../fixtures/index'
 import { loadWithFreshData } from '../../fixtures/loadWithFreshData'
-import { db, deleteStudentsByLastName } from '../../fixtures/seed'
+import { deleteStudentsByLastName, insertRows } from '../../fixtures/seed'
 
 // Students is visible to every role; sorting only needs one to exercise it.
 test.use({ storageState: 'e2e/.auth/admin.json' })
@@ -23,7 +23,7 @@ test.describe('Students — sorting', () => {
     alphaLastName = `E2ESortAlpha${suffix}`
     zuluLastName = `E2ESortZulu${suffix}`
 
-    const { error } = await db.from('students').insert([
+    await insertRows('students', [
       {
         first_name: 'Ann',
         last_name: alphaLastName,
@@ -37,7 +37,6 @@ test.describe('Students — sorting', () => {
         address_guardian_id: GUARDIAN_ID,
       },
     ])
-    if (error) throw error
   })
 
   test.afterEach(async () => {

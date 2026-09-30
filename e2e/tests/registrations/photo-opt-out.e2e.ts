@@ -1,8 +1,9 @@
 import { test, expect } from '../../fixtures/index'
 import {
-  db,
   createPhotoOptOut,
   deletePhotoOptOutsByChildLastName,
+  insertRow,
+  sql,
 } from '../../fixtures/seed'
 
 test.describe('Photo consent opt-out — public form', () => {
@@ -25,11 +26,8 @@ test.describe('Photo consent opt-out — public form', () => {
     await submit.click()
     await expect(page).toHaveURL(/\/register\/photo-opt-out\/success/)
 
-    const { data } = await db
-      .from('photo_consent_opt_outs')
-      .select('status')
-      .eq('child_last_name', childLastName)
-      .single()
+    const [data] =
+      await sql`select status from photo_consent_opt_outs where child_last_name = ${childLastName}`
     expect(data?.status).toBe('pending')
 
     await deletePhotoOptOutsByChildLastName(childLastName)
@@ -48,12 +46,9 @@ test.describe('Photo consent opt-out — admin review', () => {
 
   test.afterEach(async () => {
     if (!childLastName) return
-    await db.from('students').delete().eq('last_name', childLastName)
+    await sql`delete from students where last_name = ${childLastName}`
     await deletePhotoOptOutsByChildLastName(childLastName)
-    await db
-      .from('guardians')
-      .delete()
-      .eq('last_name', `OptOutGuardian-${childLastName}`)
+    await sql`delete from guardians where last_name = ${`OptOutGuardian-${childLastName}`}`
   })
 
   test('matches and applies an opt-out request', async ({ page }, testInfo) => {
@@ -61,30 +56,22 @@ test.describe('Photo consent opt-out — admin review', () => {
     childLastName = `OptOutAdmin${suffix}`
     const dob = '2016-03-10'
 
-    const { data: guardian } = await db
-      .from('guardians')
-      .insert({
-        first_name: 'E2E',
-        last_name: `OptOutGuardian-${childLastName}`,
-        phone: '07700 900444',
-      })
-      .select('id')
-      .single()
+    const guardianId = await insertRow('guardians', {
+      first_name: 'E2E',
+      last_name: `OptOutGuardian-${childLastName}`,
+      phone: '07700 900444',
+    })
 
-    const { data: student } = await db
-      .from('students')
-      .insert({
-        first_name: 'E2E',
-        last_name: childLastName,
-        date_of_birth: dob,
-        address_line_1: '1 Test St',
-        city: 'London',
-        postcode: 'N1 1AA',
-        primary_guardian_id: guardian!.id,
-        consent_photo_media: true,
-      })
-      .select('id')
-      .single()
+    const studentId = await insertRow('students', {
+      first_name: 'E2E',
+      last_name: childLastName,
+      date_of_birth: dob,
+      address_line_1: '1 Test St',
+      city: 'London',
+      postcode: 'N1 1AA',
+      primary_guardian_id: guardianId,
+      consent_photo_media: true,
+    })
 
     // Submit through the real public form (not a direct DB insert) so the
     // test covers the parent-facing flow end to end.
@@ -100,11 +87,8 @@ test.describe('Photo consent opt-out — admin review', () => {
     await submitOptOut.click()
     await expect(page).toHaveURL(/\/register\/photo-opt-out\/success/)
 
-    const { data: submitted } = await db
-      .from('photo_consent_opt_outs')
-      .select('id')
-      .eq('child_last_name', childLastName)
-      .single()
+    const [submitted] =
+      await sql`select id from photo_consent_opt_outs where child_last_name = ${childLastName}`
 
     // The request is listed on the opt-outs tab and links to its review page.
     // In dev mode a click right after load can land before hydration and be
@@ -142,21 +126,15 @@ test.describe('Photo consent opt-out — admin review', () => {
     // triggered can still be a beat behind this test's own read — poll
     // rather than asserting on a single, possibly-too-early read.
     await expect(async () => {
-      const { data: updated } = await db
-        .from('students')
-        .select('consent_photo_media')
-        .eq('id', student!.id)
-        .single()
+      const [updated] =
+        await sql`select consent_photo_media from students where id = ${studentId}`
       expect(updated?.consent_photo_media).toBe(false)
     }).toPass({ timeout: 5000 })
 
-    const { data: request } = await db
-      .from('photo_consent_opt_outs')
-      .select('status, student_id')
-      .eq('child_last_name', childLastName)
-      .single()
+    const [request] =
+      await sql`select status, student_id from photo_consent_opt_outs where child_last_name = ${childLastName}`
     expect(request?.status).toBe('actioned')
-    expect(request?.student_id).toBe(student!.id)
+    expect(request?.student_id).toBe(studentId)
   })
 
   test('rejects an opt-out request through the shared reason dialog', async ({
@@ -184,23 +162,16 @@ test.describe('Photo consent opt-out — admin review', () => {
 
     await expect(page).toHaveURL(/\/registrations\?tab=photo-opt-outs$/)
 
-    const { data: rejected } = await db
-      .from('photo_consent_opt_outs')
-      .select('status, rejected_reason, actioned_by, actioned_at')
-      .eq('id', id)
-      .single()
+    const [rejected] =
+      await sql`select status, rejected_reason, actioned_by, actioned_at from photo_consent_opt_outs where id = ${id}`
     expect(rejected?.status).toBe('rejected')
     expect(rejected?.rejected_reason).toBe('Cannot match to a student')
     expect(rejected?.actioned_by).not.toBeNull()
     expect(rejected?.actioned_at).not.toBeNull()
 
     await expect(async () => {
-      const { data: audit } = await db
-        .from('audit_log')
-        .select('details')
-        .eq('action', 'photo_opt_out_rejected')
-        .eq('entity_id', id)
-        .single()
+      const [audit] =
+        await sql`select details from audit_log where action = 'photo_opt_out_rejected' and entity_id = ${id}`
       expect(audit?.details).toEqual({ reason: 'Cannot match to a student' })
     }).toPass({ timeout: 5000 })
   })
@@ -226,18 +197,13 @@ test.describe('Photo consent opt-out — admin review', () => {
 
     await expect(page).toHaveURL(/\/registrations\?tab=photo-opt-outs$/)
 
-    const { data } = await db
-      .from('photo_consent_opt_outs')
-      .select('id')
-      .eq('id', id)
+    const data =
+      await sql`select id from photo_consent_opt_outs where id = ${id}`
     expect(data).toEqual([])
 
     await expect(async () => {
-      const { data: audit } = await db
-        .from('audit_log')
-        .select('action')
-        .eq('action', 'photo_opt_out_deleted')
-        .eq('entity_id', id)
+      const audit =
+        await sql`select action from audit_log where action = 'photo_opt_out_deleted' and entity_id = ${id}`
       expect(audit).toHaveLength(1)
     }).toPass({ timeout: 5000 })
   })

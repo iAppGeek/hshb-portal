@@ -2,7 +2,7 @@ import type { Locator, Page } from '@playwright/test'
 
 import { test, expect } from '../../fixtures/index'
 import { loadWithFreshData } from '../../fixtures/loadWithFreshData'
-import { db, deleteStaffByEmail } from '../../fixtures/seed'
+import { deleteStaffByEmail, insertRow } from '../../fixtures/seed'
 
 // The reception tablet: an admin keeps today's sheet open while staff arrive.
 test.use({ storageState: 'e2e/.auth/admin.json' })
@@ -43,14 +43,13 @@ test.describe('Staff sign-in time', () => {
     staffEmail = `e2e.signin.${suffix.toLowerCase()}@test.hshb.local`
     lastName = `E2ESignIn${suffix}`
 
-    const { error } = await db.from('staff').insert({
+    await insertRow('staff', {
       title: 'Ms',
       first_name: 'Signin',
       last_name: lastName,
       email: staffEmail,
       role: 'teacher',
     })
-    if (error) throw error
 
     await page.clock.install()
     row = page.getByRole('row').filter({ hasText: lastName })
