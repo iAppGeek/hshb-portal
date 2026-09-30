@@ -55,6 +55,9 @@ file for the rules; read one numbered plan to do the work.
 - **Product decisions.** Plan 13 (class roll-over) changes a workflow; approve or drop it.
 - **Production migrations.** Continue applying `supabase/migrations` to production with
   `supabase db push` after each plan that adds a migration (09, 10, 01).
+- **After plan 10 is deployed:** turn off the Supabase Data API (Project Settings → Data API) and
+  delete `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from Netlify. Not before: the
+  remaining `.rpc()` calls use the Data API until plan 10 ships.
 
 ## Conventions every plan follows
 
@@ -114,7 +117,9 @@ in parallel on separate branches.
 - `rg "function Field\(|function TextField\(|function Section\(" src/app` returns nothing.
 - `rg "unstable_cache|updateTag|revalidatePath|revalidateTag" src` returns nothing.
 - `rg "\.rpc\(|@supabase/supabase-js" src e2e` returns nothing; `supabase/schema.sql` and
-  `src/types/database.ts` are gone; `supabase/migrations` contains no `CREATE FUNCTION`.
+  `src/types/database.ts` are gone; no migration after plan 10's creates a function.
+- Every table has RLS enabled with no policies, and `anon`/`authenticated` hold no grants in
+  `public`; the Supabase Data API is turned off.
 - Every `src/app/**/page.tsx` that renders a heading uses `PageHeader`; every `[id]` route calls
   `notFound()` on a missing record; `src/app/not-found.tsx` and `src/app/error.tsx` exist.
 - Every list renders through `SimpleGrid` or `FunctionalGrid`.
