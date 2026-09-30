@@ -58,6 +58,10 @@ Four roles exist: **teacher**, **admin**, **headteacher**, **secretary**.
   for pages whose access rule matches the route exactly; pages with a finer
   rule (e.g. guardians redirecting to `/students` instead of `/dashboard`)
   keep an explicit `requireRole()`/`redirect()` check.
+- These checks are the only authorisation. The database does not repeat them:
+  the app connects as `postgres`, and row level security (on for every table,
+  with no policies) only shuts out Supabase's public Data API, whose roles hold
+  no grants.
 
 ## Notes
 
