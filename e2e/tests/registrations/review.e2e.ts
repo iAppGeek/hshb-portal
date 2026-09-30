@@ -1,8 +1,9 @@
 import { test, expect } from '../../fixtures/index'
 import {
-  db,
   createRegistrationSubmission,
   deleteRegistrationSubmissionsByChildLastName,
+  insertRow,
+  sql,
 } from '../../fixtures/seed'
 
 // Pin to admin — only admins can approve/reject/delete registrations
@@ -19,16 +20,13 @@ test.describe('Registration review', () => {
 
   test.afterEach(async () => {
     if (!childLastName) return
-    await db.from('students').delete().eq('last_name', childLastName)
+    await sql`delete from students where last_name = ${childLastName}`
     await deleteRegistrationSubmissionsByChildLastName(childLastName)
-    await db
-      .from('guardians')
-      .delete()
-      .in('last_name', [
-        `Parent${childLastName}`,
-        `Guardian${childLastName}`,
-        `Holder${childLastName}`,
-      ])
+    await sql`delete from guardians where last_name in ${sql([
+      `Parent${childLastName}`,
+      `Guardian${childLastName}`,
+      `Holder${childLastName}`,
+    ])}`
   })
 
   test('a new submission appears in the review inbox', async ({ page }) => {
@@ -62,22 +60,15 @@ test.describe('Registration review', () => {
 
     await expect(page).toHaveURL(/\/students\/.+\/edit/)
 
-    const { data: submission } = await db
-      .from('registration_submissions')
-      .select('status, student_id, linked_existing')
-      .eq('id', id)
-      .single()
+    const [submission] =
+      await sql`select status, student_id, linked_existing from registration_submissions where id = ${id}`
     expect(submission?.status).toBe('actioned')
     expect(submission?.student_id).not.toBeNull()
     expect(submission?.linked_existing).toBe(false)
 
-    const { data: student } = await db
-      .from('students')
-      .select(
-        'id, consent_privacy_notice, consent_emergency_first_aid, primary_guardian_id',
-      )
-      .eq('id', submission!.student_id)
-      .single()
+    const [student] = await sql`
+      select id, consent_privacy_notice, consent_emergency_first_aid, primary_guardian_id
+      from students where id = ${submission!.student_id}`
     expect(student?.consent_privacy_notice).toBe(true)
     expect(student?.consent_emergency_first_aid).toBe(true)
     expect(student?.primary_guardian_id).not.toBeNull()
@@ -99,11 +90,8 @@ test.describe('Registration review', () => {
 
     await expect(page).toHaveURL(/\/students\/.+\/edit/)
 
-    const { data: submission } = await db
-      .from('registration_submissions')
-      .select('student_id')
-      .eq('id', id)
-      .single()
+    const [submission] =
+      await sql`select student_id from registration_submissions where id = ${id}`
     const studentId = submission!.student_id
 
     await page.goto(`/registrations/${id}`)
@@ -112,17 +100,11 @@ test.describe('Registration review', () => {
 
     await expect(page).toHaveURL(/\/registrations\?status=rejected/)
 
-    const { data: deletedSubmission } = await db
-      .from('registration_submissions')
-      .select('id')
-      .eq('id', id)
+    const deletedSubmission =
+      await sql`select id from registration_submissions where id = ${id}`
     expect(deletedSubmission).toEqual([])
 
-    const { data: student } = await db
-      .from('students')
-      .select('id')
-      .eq('id', studentId)
-      .single()
+    const [student] = await sql`select id from students where id = ${studentId}`
     expect(student?.id).toBe(studentId)
   })
 
@@ -132,30 +114,22 @@ test.describe('Registration review', () => {
     childLastName = `ReviewLink${suffix}`
     const dob = '2019-06-01'
 
-    const { data: guardian } = await db
-      .from('guardians')
-      .insert({
-        first_name: 'Existing',
-        last_name: `Guardian${childLastName}`,
-        phone: '07700 900111',
-      })
-      .select('id')
-      .single()
+    const guardianId = await insertRow('guardians', {
+      first_name: 'Existing',
+      last_name: `Guardian${childLastName}`,
+      phone: '07700 900111',
+    })
 
-    const { data: existingStudent } = await db
-      .from('students')
-      .insert({
-        first_name: 'E2E',
-        last_name: childLastName,
-        date_of_birth: dob,
-        address_line_1: 'Old Address',
-        city: 'Oldtown',
-        postcode: 'OL1 1AA',
-        primary_guardian_id: guardian!.id,
-        active: false,
-      })
-      .select('id')
-      .single()
+    const existingStudentId = await insertRow('students', {
+      first_name: 'E2E',
+      last_name: childLastName,
+      date_of_birth: dob,
+      address_line_1: 'Old Address',
+      city: 'Oldtown',
+      postcode: 'OL1 1AA',
+      primary_guardian_id: guardianId,
+      active: false,
+    })
 
     const { id } = await createRegistrationSubmission({
       child_last_name: childLastName,
@@ -171,23 +145,17 @@ test.describe('Registration review', () => {
     await page.getByRole('radio', { name: 'Link to existing student' }).click()
     await page.getByRole('button', { name: 'Approve' }).click()
 
-    await expect(page).toHaveURL(`/students/${existingStudent!.id}/edit`)
+    await expect(page).toHaveURL(`/students/${existingStudentId}/edit`)
 
-    const { data: updated } = await db
-      .from('students')
-      .select('active, address_line_1')
-      .eq('id', existingStudent!.id)
-      .single()
+    const [updated] =
+      await sql`select active, address_line_1 from students where id = ${existingStudentId}`
     expect(updated?.active).toBe(true)
     expect(updated?.address_line_1).toBe('1 Fixture St')
 
-    const { data: submission } = await db
-      .from('registration_submissions')
-      .select('linked_existing, student_id')
-      .eq('id', id)
-      .single()
+    const [submission] =
+      await sql`select linked_existing, student_id from registration_submissions where id = ${id}`
     expect(submission?.linked_existing).toBe(true)
-    expect(submission?.student_id).toBe(existingStudent!.id)
+    expect(submission?.student_id).toBe(existingStudentId)
   })
 
   test('shows a readable error and creates nothing when the student code is already in use', async ({
@@ -196,24 +164,20 @@ test.describe('Registration review', () => {
     childLastName = `ReviewDup${suffix}`
     const dupCode = `E2EDUP${suffix}`.slice(0, 20)
 
-    const { data: guardian } = await db
-      .from('guardians')
-      .insert({
-        first_name: 'Code',
-        last_name: `Holder${childLastName}`,
-        phone: '07700 900222',
-      })
-      .select('id')
-      .single()
+    const guardianId = await insertRow('guardians', {
+      first_name: 'Code',
+      last_name: `Holder${childLastName}`,
+      phone: '07700 900222',
+    })
 
-    await db.from('students').insert({
+    await insertRow('students', {
       first_name: 'Existing',
       last_name: `Holder${childLastName}`,
       student_code: dupCode,
       address_line_1: '1 X St',
       city: 'X',
       postcode: 'X1 1XX',
-      primary_guardian_id: guardian!.id,
+      primary_guardian_id: guardianId,
     })
 
     const { id } = await createRegistrationSubmission({
@@ -230,20 +194,15 @@ test.describe('Registration review', () => {
     await expect(page.getByText(/already in use/)).toBeVisible()
     await expect(page).toHaveURL(new RegExp(`/registrations/${id}$`))
 
-    const { data: submission } = await db
-      .from('registration_submissions')
-      .select('status')
-      .eq('id', id)
-      .single()
+    const [submission] =
+      await sql`select status from registration_submissions where id = ${id}`
     expect(submission?.status).toBe('pending')
 
-    const { data: newStudents } = await db
-      .from('students')
-      .select('id')
-      .eq('last_name', childLastName)
+    const newStudents =
+      await sql`select id from students where last_name = ${childLastName}`
     expect(newStudents).toEqual([])
 
-    await db.from('students').delete().eq('student_code', dupCode)
+    await sql`delete from students where student_code = ${dupCode}`
   })
 
   test('rejects with a reason, then deletes', async ({ page }) => {
@@ -270,11 +229,8 @@ test.describe('Registration review', () => {
 
     // Assert the outcome on the row itself rather than by reading it back off
     // the inbox list, which every parallel project writes to.
-    const { data: rejected } = await db
-      .from('registration_submissions')
-      .select('status, rejected_reason, actioned_by, actioned_at')
-      .eq('id', id)
-      .single()
+    const [rejected] =
+      await sql`select status, rejected_reason, actioned_by, actioned_at from registration_submissions where id = ${id}`
     expect(rejected?.status).toBe('rejected')
     expect(rejected?.rejected_reason).toBe('Duplicate')
     expect(rejected?.actioned_by).not.toBeNull()
@@ -290,10 +246,8 @@ test.describe('Registration review', () => {
 
     await expect(page).toHaveURL(/\/registrations\?status=rejected/)
 
-    const { data } = await db
-      .from('registration_submissions')
-      .select('id')
-      .eq('id', id)
+    const data =
+      await sql`select id from registration_submissions where id = ${id}`
     expect(data).toEqual([])
   })
 
@@ -303,20 +257,16 @@ test.describe('Registration review', () => {
     childLastName = `ReviewReuse${suffix}`
     const seedEmail = `e2e.${suffix}.reuse@example.com`
 
-    const { data: seedGuardian } = await db
-      .from('guardians')
-      .insert({
-        first_name: 'Seed',
-        last_name: `Guardian${childLastName}`,
-        phone: '07700 900333',
-        email: seedEmail,
-        occupation: 'Old Occupation',
-        address_line_1: 'Old Guardian Address',
-        city: 'Oldtown',
-        postcode: 'OL2 2AA',
-      })
-      .select('id')
-      .single()
+    const seedGuardianId = await insertRow('guardians', {
+      first_name: 'Seed',
+      last_name: `Guardian${childLastName}`,
+      phone: '07700 900333',
+      email: seedEmail,
+      occupation: 'Old Occupation',
+      address_line_1: 'Old Guardian Address',
+      city: 'Oldtown',
+      postcode: 'OL2 2AA',
+    })
 
     const { id } = await createRegistrationSubmission({
       child_last_name: childLastName,
@@ -333,37 +283,24 @@ test.describe('Registration review', () => {
 
     await expect(page).toHaveURL(/\/students\/.+\/edit/)
 
-    const { data: submission } = await db
-      .from('registration_submissions')
-      .select('student_id')
-      .eq('id', id)
-      .single()
+    const [submission] =
+      await sql`select student_id from registration_submissions where id = ${id}`
 
-    const { data: student } = await db
-      .from('students')
-      .select('primary_guardian_id, english_school_name')
-      .eq('id', submission!.student_id)
-      .single()
-    expect(student?.primary_guardian_id).toBe(seedGuardian!.id)
+    const [student] =
+      await sql`select primary_guardian_id, english_school_name from students where id = ${submission!.student_id}`
+    expect(student?.primary_guardian_id).toBe(seedGuardianId)
     expect(student?.english_school_name).toBe('Fixture Primary')
 
-    const { data: updatedGuardian } = await db
-      .from('guardians')
-      .select('phone, address_line_1, occupation')
-      .eq('id', seedGuardian!.id)
-      .single()
+    const [updatedGuardian] =
+      await sql`select phone, address_line_1, occupation from guardians where id = ${seedGuardianId}`
     expect(updatedGuardian?.phone).toBe('07700 900000')
     expect(updatedGuardian?.address_line_1).toBe('1 Fixture St')
     // The submission's occupation is the newest statement of it, so approval
     // refreshes the stored value (the fixture supplies 'Engineer').
     expect(updatedGuardian?.occupation).toBe('Engineer')
 
-    const { data: auditRow } = await db
-      .from('audit_log')
-      .select('details')
-      .eq('action', 'registration_approved')
-      .eq('entity_id', id)
-      .single()
+    const [auditRow] =
+      await sql`select details from audit_log where action = 'registration_approved' and entity_id = ${id}`
     const details = auditRow!.details as {
       guardians: { reused: boolean; changes: Record<string, unknown> }[]
     }
@@ -380,16 +317,12 @@ test.describe('Registration review', () => {
     childLastName = `ReviewNoReuse${suffix}`
     const seedEmail = `e2e.${suffix}.noreuse@example.com`
 
-    const { data: seedGuardian } = await db
-      .from('guardians')
-      .insert({
-        first_name: 'Seed',
-        last_name: `Guardian${childLastName}`,
-        phone: '07700 900444',
-        email: seedEmail,
-      })
-      .select('id')
-      .single()
+    const seedGuardianId = await insertRow('guardians', {
+      first_name: 'Seed',
+      last_name: `Guardian${childLastName}`,
+      phone: '07700 900444',
+      email: seedEmail,
+    })
 
     const { id } = await createRegistrationSubmission({
       child_last_name: childLastName,
@@ -408,19 +341,11 @@ test.describe('Registration review', () => {
 
     await expect(page).toHaveURL(/\/students\/.+\/edit/)
 
-    const { data: submission } = await db
-      .from('registration_submissions')
-      .select('student_id')
-      .eq('id', id)
-      .single()
+    const [submission] =
+      await sql`select student_id from registration_submissions where id = ${id}`
 
-    const { data: student } = await db
-      .from('students')
-      .select('primary_guardian_id')
-      .eq('id', submission!.student_id)
-      .single()
-    expect(student?.primary_guardian_id).not.toBe(seedGuardian!.id)
-
-    await db.from('guardians').delete().eq('id', student!.primary_guardian_id)
+    const [student] =
+      await sql`select primary_guardian_id from students where id = ${submission!.student_id}`
+    expect(student?.primary_guardian_id).not.toBe(seedGuardianId)
   })
 })

@@ -9,7 +9,7 @@ import { classes, studentClasses } from './schema'
 // "Current classes" (membership): a student's stays with no end date. This
 // includes a stay that starts in the future (e.g. after being migrated into
 // next year's class), so it always matches what the enrolment writers
-// (set_enrolments, migrate_class, mark_student_as_leaver) act on. Questions
+// (setEnrolments, migrateClass, markLeaver) act on. Questions
 // about a particular date use enrolledOn (same rule as isEnrolledOn in
 // @/lib/enrolment).
 //

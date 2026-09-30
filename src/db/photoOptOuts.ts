@@ -2,13 +2,15 @@ import 'server-only'
 
 import { and, count, desc, eq } from 'drizzle-orm'
 
+import { DbError } from '@/lib/db-error'
 import { isUuid } from '@/lib/uuid'
 
 import { toCamel, toSnake, type Snake } from './casing'
-import { db, supabase } from './client'
+import { db } from './client'
 import {
   photoConsentOptOuts,
   photoOptOutStatus,
+  students,
   type NewPhotoConsentOptOut,
   type PhotoConsentOptOut,
 } from './schema'
@@ -66,18 +68,43 @@ type ApplyPhotoOptOutInput = {
   studentId: string
 }
 
+/** Withdraws the student's photo consent and marks the request actioned. */
 export async function applyPhotoOptOut({
   requestId,
   staffId,
   studentId,
 }: ApplyPhotoOptOutInput): Promise<string> {
-  const { data, error } = await supabase.rpc('apply_photo_opt_out', {
-    p_request_id: requestId,
-    p_staff_id: staffId,
-    p_student_id: studentId,
+  return db.transaction(async (tx) => {
+    const [request] = await tx
+      .select({ id: photoConsentOptOuts.id })
+      .from(photoConsentOptOuts)
+      .where(
+        and(
+          eq(photoConsentOptOuts.id, requestId),
+          eq(photoConsentOptOuts.status, 'pending'),
+        ),
+      )
+      .for('update')
+    if (!request) throw new DbError('Request not found or already actioned')
+
+    const [student] = await tx
+      .update(students)
+      .set({ consentPhotoMedia: false })
+      .where(eq(students.id, studentId))
+      .returning({ id: students.id })
+    if (!student) throw new DbError('Student not found')
+
+    await tx
+      .update(photoConsentOptOuts)
+      .set({
+        status: 'actioned',
+        actionedBy: staffId,
+        actionedAt: new Date().toISOString(),
+        studentId,
+      })
+      .where(eq(photoConsentOptOuts.id, requestId))
+    return student.id
   })
-  if (error) throw error
-  return data as string
 }
 
 type RejectPhotoOptOutInput = {

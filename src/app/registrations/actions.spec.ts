@@ -123,7 +123,7 @@ describe('approveRegistrationAction', () => {
     expect(approveRegistration).not.toHaveBeenCalled()
   })
 
-  it('returns a friendly error when the RPC throws', async () => {
+  it('returns the fallback error when approval fails unexpectedly', async () => {
     vi.mocked(approveRegistration).mockRejectedValue(
       new Error('Submission not found or already actioned'),
     )
@@ -176,7 +176,7 @@ describe('approveRegistrationAction', () => {
     expect(redirect).toHaveBeenCalledWith(`/students/${STUDENT_ID}/edit`)
   })
 
-  it('audits the guardian and student change record from the RPC result', async () => {
+  it('audits the guardian and student change record from the approval result', async () => {
     vi.mocked(approveRegistration).mockResolvedValue({
       student_id: STUDENT_ID,
       linked_existing: false,
@@ -426,7 +426,7 @@ describe('applyPhotoOptOutAction', () => {
     expect(applyPhotoOptOut).not.toHaveBeenCalled()
   })
 
-  it('returns a friendly error when the RPC throws', async () => {
+  it('returns the fallback error when applying fails unexpectedly', async () => {
     vi.mocked(applyPhotoOptOut).mockRejectedValue(
       new Error('Request not found or already actioned'),
     )

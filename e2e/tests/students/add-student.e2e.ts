@@ -1,5 +1,5 @@
 import { test, expect } from '../../fixtures/index'
-import { db } from '../../fixtures/seed'
+import { sql } from '../../fixtures/seed'
 
 // Pin to admin — only admins can create students
 test.use({ storageState: 'e2e/.auth/admin.json' })
@@ -28,26 +28,10 @@ const INVALID_GUARDIAN_LAST = 'EmailTest'
 // occasionally miss the 5s toBeVisible() timeout below.
 test.describe.serial('Add student', () => {
   test.afterEach(async () => {
-    await db
-      .from('students')
-      .delete()
-      .eq('first_name', studentFirst())
-      .eq('last_name', STUDENT_LAST)
-    await db
-      .from('guardians')
-      .delete()
-      .eq('first_name', guardianFirst())
-      .eq('last_name', GUARDIAN_LAST)
-    await db
-      .from('students')
-      .delete()
-      .eq('first_name', INVALID_STUDENT_FIRST)
-      .eq('last_name', INVALID_STUDENT_LAST)
-    await db
-      .from('guardians')
-      .delete()
-      .eq('first_name', INVALID_GUARDIAN_FIRST)
-      .eq('last_name', INVALID_GUARDIAN_LAST)
+    await sql`delete from students where first_name = ${studentFirst()} and last_name = ${STUDENT_LAST}`
+    await sql`delete from guardians where first_name = ${guardianFirst()} and last_name = ${GUARDIAN_LAST}`
+    await sql`delete from students where first_name = ${INVALID_STUDENT_FIRST} and last_name = ${INVALID_STUDENT_LAST}`
+    await sql`delete from guardians where first_name = ${INVALID_GUARDIAN_FIRST} and last_name = ${INVALID_GUARDIAN_LAST}`
   })
 
   test('creates student with address inherited from primary guardian', async ({
@@ -89,23 +73,16 @@ test.describe.serial('Add student', () => {
     ).toBeVisible()
 
     // Verify student was saved with address_guardian_id set and own address null
-    const { data: student } = await db
-      .from('students')
-      .select('address_guardian_id, address_line_1, english_school_name')
-      .eq('first_name', studentFirst())
-      .eq('last_name', STUDENT_LAST)
-      .single()
+    const [student] =
+      await sql`select address_guardian_id, address_line_1, english_school_name from students where first_name = ${studentFirst()} and last_name = ${STUDENT_LAST}`
 
     expect(student?.address_guardian_id).not.toBeNull()
     expect(student?.address_line_1).toBeNull()
     // Optional for admin data entry, unlike the public registration form.
     expect(student?.english_school_name).toBeNull()
 
-    const { data: guardian } = await db
-      .from('guardians')
-      .select('occupation')
-      .eq('id', student?.address_guardian_id ?? '')
-      .single()
+    const [guardian] =
+      await sql`select occupation from guardians where id = ${student?.address_guardian_id ?? ''}`
     expect(guardian?.occupation).toBe('Pharmacist')
   })
 

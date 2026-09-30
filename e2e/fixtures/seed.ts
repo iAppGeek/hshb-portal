@@ -1,10 +1,51 @@
-import { createClient } from '@supabase/supabase-js'
+import postgres from 'postgres'
 
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'http://127.0.0.1:54321'
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
+/**
+ * The local Supabase Postgres, for fixtures and assertions — the same
+ * DATABASE_URL the app under test uses. Tagged-template SQL:
+ *   const [row] = await sql`select active from students where id = ${id}`
+ * `date` and `timestamptz` values come back as the text Postgres prints
+ * (`2026-09-01`), not as `Date`s; `numeric` values come back as strings.
+ */
+export const sql = postgres(
+  process.env.DATABASE_URL ??
+    'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
+  {
+    max: 2,
+    idle_timeout: 5,
+    onnotice: () => {},
+    transform: { undefined: null },
+    types: {
+      date: {
+        to: 1184,
+        from: [1082, 1114, 1184],
+        serialize: (value: unknown) =>
+          value instanceof Date ? value.toISOString() : value,
+        parse: (value: string) => value,
+      },
+    },
+  },
+)
 
-export const db = createClient(supabaseUrl, supabaseKey)
+/** Inserts `row` into `table` and returns the new row's id. */
+export async function insertRow(
+  table: string,
+  row: Record<string, unknown>,
+): Promise<string> {
+  const [{ id }] = await sql<{ id: string }[]>`
+    insert into ${sql(table)} ${sql(row)} returning id`
+  return id
+}
+
+/** Inserts `rows` (all with the same columns) and returns their ids in order. */
+export async function insertRows(
+  table: string,
+  rows: Record<string, unknown>[],
+): Promise<string[]> {
+  const inserted = await sql<{ id: string }[]>`
+    insert into ${sql(table)} ${sql(rows)} returning id`
+  return inserted.map((row) => row.id)
+}
 
 // Known seed UUIDs for reliable assertions
 export const SEED_IDS = {
@@ -49,36 +90,17 @@ export const SEED_IDS = {
   },
 } as const
 
-export async function deleteStudentsByEmail(emails: string[]): Promise<void> {
-  await db.from('students').delete().in('email', emails)
-}
-
 export async function deleteStaffByEmail(email: string): Promise<void> {
-  await db.from('staff').delete().eq('email', email)
+  await sql`delete from staff where email = ${email}`
 }
 
 export async function deleteClassByName(name: string): Promise<void> {
-  await db.from('classes').delete().eq('name', name)
-}
-
-export async function deleteIncidentsByTitle(title: string): Promise<void> {
-  await db.from('incidents').delete().eq('title', title)
-}
-
-export async function deleteLessonPlansByClassAndDate(
-  classId: string,
-  date: string,
-): Promise<void> {
-  await db
-    .from('lesson_plans')
-    .delete()
-    .eq('class_id', classId)
-    .eq('lesson_date', date)
+  await sql`delete from classes where name = ${name}`
 }
 
 // Inserts a pending registration submission with a primary contact, for
 // review/approval E2E tests. Give child_last_name (and contact_last_name /
-// contact_email, since approve_registration de-dupes guardians by email) a
+// contact_email, since approveRegistration de-dupes guardians by email) a
 // project-unique suffix so parallel projects don't share a guardian row.
 export async function createRegistrationSubmission(
   overrides: {
@@ -90,26 +112,21 @@ export async function createRegistrationSubmission(
     contact_occupation?: string
   } = {},
 ): Promise<{ id: string }> {
-  const { data: submission, error } = await db
-    .from('registration_submissions')
-    .insert({
-      child_first_name: overrides.child_first_name ?? 'E2E',
-      child_last_name: overrides.child_last_name ?? 'Fixture',
-      date_of_birth: overrides.date_of_birth ?? '2020-01-01',
-      english_school_name: 'Fixture Primary',
-      address_line_1: '1 Fixture St',
-      city: 'London',
-      postcode: 'N1 1AA',
-      consent_privacy_notice: true,
-      consent_emergency_first_aid: true,
-      declaration_name: 'E2E Parent',
-    })
-    .select('id')
-    .single()
-  if (error) throw error
+  const id = await insertRow('registration_submissions', {
+    child_first_name: overrides.child_first_name ?? 'E2E',
+    child_last_name: overrides.child_last_name ?? 'Fixture',
+    date_of_birth: overrides.date_of_birth ?? '2020-01-01',
+    english_school_name: 'Fixture Primary',
+    address_line_1: '1 Fixture St',
+    city: 'London',
+    postcode: 'N1 1AA',
+    consent_privacy_notice: true,
+    consent_emergency_first_aid: true,
+    declaration_name: 'E2E Parent',
+  })
 
-  await db.from('registration_submission_contacts').insert({
-    submission_id: submission.id,
+  await insertRow('registration_submission_contacts', {
+    submission_id: id,
     contact_role: 'primary',
     first_name: 'E2E',
     last_name: overrides.contact_last_name ?? 'Parent',
@@ -118,16 +135,13 @@ export async function createRegistrationSubmission(
     occupation: overrides.contact_occupation ?? 'Engineer',
   })
 
-  return submission
+  return { id }
 }
 
 export async function deleteRegistrationSubmissionsByChildLastName(
   lastName: string,
 ): Promise<void> {
-  await db
-    .from('registration_submissions')
-    .delete()
-    .eq('child_last_name', lastName)
+  await sql`delete from registration_submissions where child_last_name = ${lastName}`
 }
 
 // Inserts a pending photo opt-out request directly, for review tests that do
@@ -135,59 +149,44 @@ export async function deleteRegistrationSubmissionsByChildLastName(
 export async function createPhotoOptOut(
   childLastName: string,
 ): Promise<{ id: string }> {
-  const { data, error } = await db
-    .from('photo_consent_opt_outs')
-    .insert({
-      child_first_name: 'E2E',
-      child_last_name: childLastName,
-      date_of_birth: '2016-03-10',
-      declaration_name: 'E2E Parent',
-    })
-    .select('id')
-    .single()
-  if (error) throw error
-  return data
+  const id = await insertRow('photo_consent_opt_outs', {
+    child_first_name: 'E2E',
+    child_last_name: childLastName,
+    date_of_birth: '2016-03-10',
+    declaration_name: 'E2E Parent',
+  })
+  return { id }
 }
 
 export async function deletePhotoOptOutsByChildLastName(
   lastName: string,
 ): Promise<void> {
-  await db
-    .from('photo_consent_opt_outs')
-    .delete()
-    .eq('child_last_name', lastName)
+  await sql`delete from photo_consent_opt_outs where child_last_name = ${lastName}`
 }
 
 export async function deleteStudentsByLastName(
   lastName: string,
 ): Promise<void> {
-  await db.from('students').delete().eq('last_name', lastName)
+  await sql`delete from students where last_name = ${lastName}`
 }
 
 // Links in fee_plan_classes cascade with the plan.
 export async function deleteFeePlansByName(name: string): Promise<void> {
-  await db.from('fee_plans').delete().eq('name', name)
+  await sql`delete from fee_plans where name = ${name}`
 }
 
 // Restores the seeded current year after a test that switches it. Two
-// filtered updates, like the app's setCurrentAcademicYear: the one-current
-// partial unique index never sees two current years, and PostgREST's
-// pg-safeupdate rejects an UPDATE without a WHERE clause.
+// updates, like the app's setCurrentAcademicYear, so the one-current partial
+// unique index never sees two current years.
 export async function setCurrentAcademicYear(id: string): Promise<void> {
-  const cleared = await db
-    .from('academic_years')
-    .update({ is_current: false })
-    .eq('is_current', true)
-  if (cleared.error) throw cleared.error
-  const set = await db
-    .from('academic_years')
-    .update({ is_current: true })
-    .eq('id', id)
-  if (set.error) throw set.error
+  await sql.begin(async (tx) => {
+    await tx`update academic_years set is_current = false where is_current and id <> ${id}`
+    await tx`update academic_years set is_current = true where id = ${id}`
+  })
 }
 
 // Classes/fee plans/payments referencing this year must be deleted first
 // (ON DELETE RESTRICT).
 export async function deleteAcademicYearByCode(code: string): Promise<void> {
-  await db.from('academic_years').delete().eq('code', code)
+  await sql`delete from academic_years where code = ${code}`
 }

@@ -26,8 +26,9 @@ enrolments as (
   select sc.student_id, sc.class_id
   from student_classes sc
   join year_classes yc on yc.id = sc.class_id
-  where sc.start_date <= public.today_london()
-    and (sc.end_date is null or sc.end_date > public.today_london())
+  cross join (select (now() at time zone 'Europe/London')::date as today) t
+  where sc.start_date <= t.today
+    and (sc.end_date is null or sc.end_date > t.today)
 ),
 
 active_students as (

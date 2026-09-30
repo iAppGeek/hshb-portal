@@ -1,5 +1,5 @@
 import { test, expect } from '../../fixtures/index'
-import { db } from '../../fixtures/seed'
+import { insertRow, sql } from '../../fixtures/seed'
 
 test.use({ storageState: 'e2e/.auth/admin.json' })
 
@@ -19,7 +19,7 @@ test.describe('Academic years admin', () => {
   })
 
   test.afterEach(async () => {
-    await db.from('academic_years').delete().eq('code', code)
+    await sql`delete from academic_years where code = ${code}`
   })
 
   test('adds a year on its own page and shows it in the list', async ({
@@ -36,14 +36,13 @@ test.describe('Academic years admin', () => {
   })
 
   test('edits a year on its own page', async ({ page }) => {
-    const { data, error } = await db
-      .from('academic_years')
-      .insert({ code, start_date: startDate, end_date: endDate })
-      .select('id')
-      .single()
-    if (error) throw error
+    const id = await insertRow('academic_years', {
+      code,
+      start_date: startDate,
+      end_date: endDate,
+    })
 
-    await page.goto(`/admin/academic-years/${data.id}/edit`)
+    await page.goto(`/admin/academic-years/${id}/edit`)
     await page
       .locator('input[name="start_date"]')
       .fill(`${startDate.slice(0, 8)}15`)

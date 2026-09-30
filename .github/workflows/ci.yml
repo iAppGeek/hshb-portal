@@ -15,8 +15,6 @@ jobs:
     env:
       AUTH_SECRET: ci-build-secret
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
-      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
       AZURE_AD_CLIENT_ID: ci-placeholder
       AZURE_AD_CLIENT_SECRET: ci-placeholder
       AZURE_AD_TENANT_ID: ci-placeholder

@@ -1,4 +1,3 @@
-export { supabase } from './client'
 export {
   getAcademicYears,
   getCurrentAcademicYear,
