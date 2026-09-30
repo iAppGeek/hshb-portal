@@ -134,7 +134,7 @@ describe('PhotoOptOutDetailPage', () => {
   it('still renders when findStudentMatches rejects', async () => {
     signInAs('admin')
     vi.mocked(getPhotoOptOutById).mockResolvedValue(request as never)
-    vi.mocked(findStudentMatches).mockRejectedValue(new Error('rpc failed'))
+    vi.mocked(findStudentMatches).mockRejectedValue(new Error('query failed'))
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     render(await renderPage())

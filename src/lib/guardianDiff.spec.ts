@@ -1,11 +1,10 @@
 import { describe, it, expect } from 'vitest'
 
-import type { GuardianMatch } from '@/db'
-import type { Tables } from '@/types/database'
+import type { GuardianMatch, RegistrationFull } from '@/db'
 
 import { guardianReuseDiff } from './guardianDiff'
 
-type Contact = Tables<'registration_submission_contacts'>
+type Contact = RegistrationFull['contacts'][number]
 
 const baseMatch: GuardianMatch = {
   id: 'guardian-1',
@@ -60,7 +59,7 @@ describe('guardianReuseDiff', () => {
     })
   })
 
-  // Mirrors COALESCE(v_con.occupation, occupation) in approve_registration: a
+  // Mirrors `contact.occupation ?? before.occupation` in approveRegistration: a
   // blank submission must never wipe an occupation already on record.
   it('keeps the existing occupation when the contact left it blank', () => {
     const diff = guardianReuseDiff(

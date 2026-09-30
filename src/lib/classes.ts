@@ -1,4 +1,4 @@
-// Pure class-status helpers. Mirrors is_class_open in the database.
+// Pure class-status helpers. Mirrors isClassOpen in src/db/enrolments.ts.
 
 /**
  * An open class is active and in the current academic year. Only open classes

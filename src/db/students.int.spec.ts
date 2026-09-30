@@ -1,7 +1,9 @@
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { asDbError } from '@/lib/db-error'
+import { todayInSchoolTz } from '@/lib/datetime'
+import { asDbError, DbError } from '@/lib/db-error'
+import type { LeavingReason } from '@/lib/schemas'
 
 import { db } from './client'
 import { studentClasses, students } from './schema'
@@ -24,7 +26,7 @@ import {
   updateStudent,
   updateStudentClasses,
 } from './students'
-import { resetDatabase, SEED } from './test-db'
+import { failWritesTo, resetDatabase, SEED } from './test-db'
 
 beforeAll(async () => {
   // Bob spent a week in Beta before settling in Alpha.
@@ -203,15 +205,22 @@ describe('writes', () => {
     })
   })
 
-  it('moves a student between classes and marks a leaver through the RPCs', async () => {
+  it('moves a student between classes', async () => {
     await updateStudentClasses(SEED.students.carol, [SEED.classes.gamma])
     expect(
       (await getStudentById(SEED.students.carol))?.student_classes.map(
         (sc) => sc.class.id,
       ),
     ).toEqual([SEED.classes.gamma])
+  })
+})
 
-    await markStudentAsLeaver(SEED.students.carol, 'graduated')
+describe('markStudentAsLeaver', () => {
+  async function carolNow(): Promise<{
+    active: boolean
+    leavingReason: string | null
+    openStays: number
+  }> {
     const [carol] = await db
       .select({
         active: students.active,
@@ -219,15 +228,120 @@ describe('writes', () => {
       })
       .from(students)
       .where(eq(students.id, SEED.students.carol))
-    expect(carol).toEqual({ active: false, leavingReason: 'graduated' })
+    const open = await db
+      .select({ id: studentClasses.id })
+      .from(studentClasses)
+      .where(
+        and(
+          eq(studentClasses.studentId, SEED.students.carol),
+          isNull(studentClasses.endDate),
+        ),
+      )
+    return { ...carol, openStays: open.length }
+  }
+
+  it('ends every current stay today and records the reason', async () => {
+    await markStudentAsLeaver(SEED.students.carol, 'graduated')
+    expect(await carolNow()).toEqual({
+      active: false,
+      leavingReason: 'graduated',
+      openStays: 0,
+    })
+    const ends = await db
+      .select({ endDate: studentClasses.endDate })
+      .from(studentClasses)
+      .where(eq(studentClasses.studentId, SEED.students.carol))
+    expect(ends.map((e) => e.endDate)).toContain(todayInSchoolTz())
   })
 
-  it('finds possible matches through the RPC', async () => {
-    const matches = await findStudentMatches({
-      firstName: 'alice',
+  it('rejects a missing student, a leaver and an unknown reason', async () => {
+    await expect(
+      markStudentAsLeaver('30000000-0000-0000-0000-0000000000ff', 'left'),
+    ).rejects.toEqual(new DbError('Student not found'))
+    await expect(
+      markStudentAsLeaver(SEED.students.carol, 'left'),
+    ).rejects.toEqual(new DbError('This student has already left.'))
+    await expect(
+      markStudentAsLeaver(SEED.students.alice, 'expelled' as LeavingReason),
+    ).rejects.toEqual(new DbError('Choose a leaving reason.'))
+  })
+
+  it('leaves nothing behind when a write fails part-way', async () => {
+    // Bob's stays are closed before the student update fails.
+    const err = await failWritesTo('students', 'active', () =>
+      markStudentAsLeaver(SEED.students.bob, 'left'),
+    )
+    expect(err).toBeDefined()
+    const [bob] = await db
+      .select({ active: students.active })
+      .from(students)
+      .where(eq(students.id, SEED.students.bob))
+    expect(bob.active).toBe(true)
+    expect(
+      (await getStudentById(SEED.students.bob))?.student_classes,
+    ).toHaveLength(1)
+  })
+})
+
+describe('findStudentMatches', () => {
+  it('matches last name plus date of birth or first name, case-insensitively', async () => {
+    const byDob = await findStudentMatches({
+      firstName: 'Someone',
       lastName: 'STUDENT',
       dateOfBirth: '2015-06-01',
     })
-    expect(matches.map((m) => m.id)).toContain(SEED.students.alice)
+    expect(byDob).toEqual([])
+
+    await db
+      .update(students)
+      .set({ dateOfBirth: '2015-06-01' })
+      .where(eq(students.id, SEED.students.alice))
+    expect(
+      (
+        await findStudentMatches({
+          firstName: 'Someone',
+          lastName: 'STUDENT',
+          dateOfBirth: '2015-06-01',
+        })
+      ).map((m) => m.id),
+    ).toEqual([SEED.students.alice])
+
+    expect(
+      await findStudentMatches({
+        firstName: 'alice',
+        lastName: 'student',
+        dateOfBirth: '2000-01-01',
+      }),
+    ).toEqual([
+      {
+        id: SEED.students.alice,
+        first_name: 'Alice',
+        last_name: 'Student',
+        date_of_birth: '2015-06-01',
+        student_code: null,
+        active: true,
+      },
+    ])
+  })
+
+  it('lists active students before leavers', async () => {
+    await db
+      .update(students)
+      .set({ active: false, leavingReason: 'left' })
+      .where(eq(students.id, SEED.students.carol))
+    await db
+      .update(students)
+      .set({ dateOfBirth: '2015-06-01' })
+      .where(eq(students.id, SEED.students.alice))
+
+    const matches = await findStudentMatches({
+      firstName: 'Carol',
+      lastName: 'Student',
+      dateOfBirth: '2015-06-01',
+    })
+    expect(matches.map((m) => [m.first_name, m.active])).toEqual([
+      ['Alice', true],
+      ['Carol', false],
+    ])
   })
 })

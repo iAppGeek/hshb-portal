@@ -1,6 +1,8 @@
 import { eq } from 'drizzle-orm'
 import { afterAll, describe, expect, it } from 'vitest'
 
+import { DbError } from '@/lib/db-error'
+
 import { db } from './client'
 import {
   applyPhotoOptOut,
@@ -12,9 +14,17 @@ import {
   rejectPhotoOptOut,
 } from './photoOptOuts'
 import { students } from './schema'
-import { resetDatabase, SEED } from './test-db'
+import { failWritesTo, resetDatabase, SEED } from './test-db'
 
 afterAll(resetDatabase)
+
+async function bobConsent(): Promise<boolean> {
+  const [bob] = await db
+    .select({ consent: students.consentPhotoMedia })
+    .from(students)
+    .where(eq(students.id, SEED.students.bob))
+  return bob.consent
+}
 
 const request = {
   child_first_name: 'Bob',
@@ -41,22 +51,69 @@ describe('photo opt-outs', () => {
     expect(await getPhotoOptOutById('not-a-uuid')).toBeNull()
   })
 
-  it('applies a request to a student through the RPC', async () => {
+  it('applies a request: withdraws the student’s consent and records who', async () => {
     const { id } = await createPhotoOptOut(request)
-    await applyPhotoOptOut({
-      requestId: id,
-      staffId: SEED.staff.admin,
-      studentId: SEED.students.bob,
-    })
+    await db
+      .update(students)
+      .set({ consentPhotoMedia: true })
+      .where(eq(students.id, SEED.students.bob))
+
+    expect(
+      await applyPhotoOptOut({
+        requestId: id,
+        staffId: SEED.staff.admin,
+        studentId: SEED.students.bob,
+      }),
+    ).toBe(SEED.students.bob)
     expect(await getPhotoOptOutById(id)).toMatchObject({
       status: 'actioned',
       student_id: SEED.students.bob,
+      actioned_by: SEED.staff.admin,
+      actioned_at: expect.any(String),
     })
-    const [bob] = await db
-      .select({ consent: students.consentPhotoMedia })
-      .from(students)
+    expect(await bobConsent()).toBe(false)
+  })
+
+  it('rejects an actioned or missing request, and a missing student', async () => {
+    const { id } = await createPhotoOptOut(request)
+    const apply = (requestId: string, studentId: string): Promise<string> =>
+      applyPhotoOptOut({ requestId, staffId: SEED.staff.admin, studentId })
+
+    await expect(
+      apply('82000000-0000-0000-0000-0000000000ff', SEED.students.bob),
+    ).rejects.toEqual(new DbError('Request not found or already actioned'))
+    await expect(
+      apply(id, '30000000-0000-0000-0000-0000000000ff'),
+    ).rejects.toEqual(new DbError('Student not found'))
+    expect(await getPhotoOptOutById(id)).toMatchObject({ status: 'pending' })
+
+    await apply(id, SEED.students.bob)
+    await expect(apply(id, SEED.students.bob)).rejects.toEqual(
+      new DbError('Request not found or already actioned'),
+    )
+  })
+
+  it('leaves nothing behind when a write fails part-way', async () => {
+    const { id } = await createPhotoOptOut(request)
+    await db
+      .update(students)
+      .set({ consentPhotoMedia: true })
       .where(eq(students.id, SEED.students.bob))
-    expect(bob.consent).toBe(false)
+
+    // The consent is withdrawn before the request update fails.
+    const err = await failWritesTo(
+      'photo_consent_opt_outs',
+      "status <> 'actioned'",
+      () =>
+        applyPhotoOptOut({
+          requestId: id,
+          staffId: SEED.staff.admin,
+          studentId: SEED.students.bob,
+        }),
+    )
+    expect(err).toBeDefined()
+    expect(await bobConsent()).toBe(true)
+    expect(await getPhotoOptOutById(id)).toMatchObject({ status: 'pending' })
   })
 
   it('rejects a pending request once, then deletes it', async () => {

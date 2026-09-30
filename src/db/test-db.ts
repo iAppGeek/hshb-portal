@@ -49,15 +49,51 @@ export const SEED = {
   payment: '93000000-0000-0000-0000-000000000001',
 } as const
 
-/** Empties every public table and loads the seed data again. */
-export async function resetDatabase(): Promise<void> {
+function connectLocal(): postgres.Sql {
   const url = process.env.DATABASE_URL ?? LOCAL_URL
   if (!/@(127\.0\.0\.1|localhost):54322\//.test(url)) {
     throw new Error(
-      `Refusing to reset ${url}: integration specs only run against the local Supabase database.`,
+      `Refusing to change ${url}: integration specs only run against the local Supabase database.`,
     )
   }
-  const sql = postgres(url, { max: 1, onnotice: () => {} })
+  return postgres(url, { max: 1, onnotice: () => {} })
+}
+
+/**
+ * Forces a write to fail part-way through a multi-statement function: while
+ * `run` runs, rows of `table` written with `condition` false are rejected (a
+ * temporary NOT VALID check constraint, code 23514). Returns what `run` threw,
+ * or undefined if it succeeded, so a spec can then assert nothing was left
+ * behind.
+ */
+export async function failWritesTo(
+  table: string,
+  condition: string,
+  run: () => Promise<unknown>,
+): Promise<unknown> {
+  const sql = connectLocal()
+  try {
+    await sql.unsafe(
+      `alter table public.${table} add constraint forced_failure check (${condition}) not valid`,
+    )
+    try {
+      return await run().then(
+        () => undefined,
+        (err: unknown) => err,
+      )
+    } finally {
+      await sql.unsafe(
+        `alter table public.${table} drop constraint forced_failure`,
+      )
+    }
+  } finally {
+    await sql.end()
+  }
+}
+
+/** Empties every public table and loads the seed data again. */
+export async function resetDatabase(): Promise<void> {
+  const sql = connectLocal()
   try {
     const tables = await sql<{ tablename: string }[]>`
       select tablename from pg_tables where schemaname = 'public'`

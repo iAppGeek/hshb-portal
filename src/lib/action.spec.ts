@@ -241,7 +241,7 @@ describe('runAction — errors from run', () => {
     const pgError = {
       code: '23505',
       message: 'duplicate key value violates unique constraint',
-      details: 'Key (student_code)=(S001) already exists.',
+      detail: 'Key (student_code)=(S001) already exists.',
     }
 
     const result = await runAction({

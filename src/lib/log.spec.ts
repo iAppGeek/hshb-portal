@@ -26,7 +26,7 @@ describe('logError', () => {
     logError('students.save', {
       code: '23505',
       message: 'duplicate key',
-      details: 'Key (student_code)=(S001) already exists.',
+      detail: 'Key (student_code)=(S001) already exists.',
     })
 
     expect(consoleError).toHaveBeenCalledWith('[students.save]', {

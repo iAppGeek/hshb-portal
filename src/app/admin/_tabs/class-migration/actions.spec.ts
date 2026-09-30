@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 
 import { getActor } from '@/auth/require'
 import { migrateClass, logAuditEvent } from '@/db'
+import { DbError } from '@/lib/db-error'
 
 import { migrateClassAction } from './actions'
 
@@ -99,16 +100,14 @@ describe('migrateClassAction', () => {
     expect(migrateClass).not.toHaveBeenCalled()
   })
 
-  it('returns user-friendly error when migrateClass throws', async () => {
-    vi.mocked(migrateClass).mockRejectedValue({
-      code: '23505',
-      message: 'duplicate key value violates unique constraint',
-      details: 'Key (name)=(Year 2A) already exists.',
-    })
+  it('returns the rule migrateClass broke as the error', async () => {
+    vi.mocked(migrateClass).mockRejectedValue(
+      new DbError('Class name "Year 2A" already exists for this academic year'),
+    )
 
     const result = await migrateClassAction(makeFormData(withNewClassFields))
     expect(result).toEqual({
-      error: 'A record with this name already exists.',
+      error: 'Class name "Year 2A" already exists for this academic year',
     })
     expect(redirect).not.toHaveBeenCalled()
   })
