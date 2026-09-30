@@ -13,7 +13,7 @@ import {
 } from '@headlessui/react'
 import clsx from 'clsx'
 
-import { formatEmailsAsCsv } from '@/lib/mailto'
+import { formatEmailsForOutlook } from '@/lib/mailto'
 
 export type EmailGroup = {
   /** Section heading; omit for a single, unlabelled group. */
@@ -49,12 +49,12 @@ function GroupSection({
   const [copied, setCopied] = useState(false)
   const [copyError, setCopyError] = useState(false)
   const hasEmails = group.emails.length > 0
-  const csv = formatEmailsAsCsv(group.emails)
+  const text = formatEmailsForOutlook(group.emails)
 
   async function copy() {
     setCopyError(false)
     try {
-      await navigator.clipboard.writeText(csv)
+      await navigator.clipboard.writeText(text)
       setCopied(true)
       window.setTimeout(() => setCopied(false), 2000)
     } catch {
@@ -73,7 +73,7 @@ function GroupSection({
             ? 'Copied'
             : copyError
               ? 'Copy failed — try again'
-              : 'Copy emails (CSV)'}
+              : 'Copy emails'}
         </button>
       </MenuItem>
       <MenuItem disabled={!hasEmails || group.mailtoHref == null}>

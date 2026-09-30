@@ -66,18 +66,6 @@ export function guardianEmailsForMailto(
   return normalizeAndDedupeEmails(raw)
 }
 
-function csvEscapeField(value: string): string {
-  if (/[",\n\r]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`
-  }
-  return value
-}
-
-/** Single-row CSV of email addresses (deduped, RFC 4180–safe fields). */
-export function formatEmailsAsCsv(emails: string[]): string {
-  return normalizeAndDedupeEmails(emails).map(csvEscapeField).join(',')
-}
-
 /**
  * Semicolon-separated addresses. Outlook uses `;` between recipients, so this
  * pastes into a To, Cc, or Bcc box as one address per person.

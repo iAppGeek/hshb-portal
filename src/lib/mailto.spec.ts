@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import {
   DEFAULT_MAX_MAILTO_LENGTH,
-  formatEmailsAsCsv,
   formatEmailsForOutlook,
   guardianEmailsForMailto,
   mailtoWithBcc,
@@ -139,19 +138,6 @@ describe('mailtoWithRecipients', () => {
   it('returns null when the href exceeds maxTotalLength', () => {
     const many = Array.from({ length: 80 }, (_, i) => `parent${i}@example.com`)
     expect(mailtoWithRecipients({ bcc: many, maxTotalLength: 500 })).toBeNull()
-  })
-})
-
-describe('formatEmailsAsCsv', () => {
-  it('joins deduped addresses with commas', () => {
-    expect(formatEmailsAsCsv(['a@x.com', 'b@x.com', 'a@x.com'])).toBe(
-      'a@x.com,b@x.com',
-    )
-  })
-
-  it('quotes fields that contain commas or quotes', () => {
-    expect(formatEmailsAsCsv(['weird,local@x.com'])).toBe('"weird,local@x.com"')
-    expect(formatEmailsAsCsv(['say"hi"@x.com'])).toBe('"say""hi""@x.com"')
   })
 })
 
