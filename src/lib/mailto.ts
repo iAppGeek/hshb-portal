@@ -52,11 +52,14 @@ export function staffEmailsForMailto(
   return normalizeAndDedupeEmails(raw)
 }
 
+/** A student with the guardian fields `guardianEmailsForMailto` reads. */
+export type GuardianEmailSource = {
+  primary_guardian?: { email?: string | null } | null
+  secondary_guardian?: { email?: string | null } | null
+}
+
 export function guardianEmailsForMailto(
-  students: ReadonlyArray<{
-    primary_guardian?: { email?: string | null } | null
-    secondary_guardian?: { email?: string | null } | null
-  }>,
+  students: ReadonlyArray<GuardianEmailSource>,
 ): string[] {
   const raw: (string | null | undefined)[] = []
   for (const s of students) {

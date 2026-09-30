@@ -1,10 +1,14 @@
 import type { ReactElement } from 'react'
 
 import EmailDropdown from '@/clientComponents/EmailDropdown'
-import { guardianEmailsForMailto, mailtoWithBcc } from '@/lib/mailto'
+import {
+  guardianEmailsForMailto,
+  mailtoWithBcc,
+  type GuardianEmailSource,
+} from '@/lib/mailto'
 
 type Props = {
-  students: Parameters<typeof guardianEmailsForMailto>[0]
+  students: ReadonlyArray<GuardianEmailSource>
   /** Subject line for "Open in default email app". */
   subject: string
 }
