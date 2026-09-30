@@ -29,6 +29,20 @@
       "when": 1791233801213,
       "tag": "20261005205641_registration_consents_v1_functions",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791238656820,
+      "tag": "20261005221736_start_date_default_without_function",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791238660187,
+      "tag": "20261005221740_drop_plpgsql",
+      "breakpoints": true
     }
   ]
 }
