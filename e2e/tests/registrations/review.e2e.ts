@@ -237,10 +237,14 @@ test.describe('Registration review', () => {
 
     await page.goto(`/registrations/${id}`)
     await page.getByRole('button', { name: 'Approve & save student' }).click()
-    await page.getByLabel('Student code').fill(dupCode)
+    const codeField = page.getByLabel('Student code')
+    await codeField.fill(dupCode)
     await page.getByRole('button', { name: 'Approve' }).click()
 
-    await expect(page.getByText(/already in use/)).toBeVisible()
+    // On the code field, offering the next free code.
+    await expect(codeField).toHaveAccessibleDescription(
+      /already in use\. The next free code is GK-\d+\./,
+    )
     await expect(page).toHaveURL(new RegExp(`/registrations/${id}$`))
 
     const { data: submission } = await db
