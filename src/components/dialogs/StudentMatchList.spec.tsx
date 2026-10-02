@@ -102,4 +102,38 @@ describe('StudentMatchList', () => {
       screen.getByRole('option', { name: 'Smith, Alice (S001)' }),
     ).toBeTruthy()
   })
+
+  it('finds students by name or student code', () => {
+    const bob: StudentMatch = {
+      ...alice,
+      id: 'student-2',
+      first_name: 'Bob',
+      last_name: 'Jones',
+      student_code: 'GK-1006',
+    }
+    const onChange = vi.fn()
+    render(
+      <StudentMatchList
+        candidates={[]}
+        students={[alice, bob]}
+        allowNew={false}
+        value={{ mode: 'existing', studentId: '' }}
+        onChange={onChange}
+      />,
+    )
+    const search = screen.getByLabelText('Search all students')
+
+    fireEvent.change(search, { target: { value: 'gk-1006' } })
+    expect(
+      screen.getByRole('button', { name: 'Jones, Bob (GK-1006)' }),
+    ).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Smith, Alice/ })).toBeNull()
+
+    fireEvent.change(search, { target: { value: 'alice smith' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Smith, Alice (S001)' }))
+    expect(onChange).toHaveBeenCalledWith({
+      mode: 'existing',
+      studentId: 'student-1',
+    })
+  })
 })

@@ -370,7 +370,7 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
 
       // Search for the joiner only: the member and leaver rows are hidden.
       await page
-        .getByPlaceholder('Filter students by name…')
+        .getByPlaceholder('Filter students by name or code…')
         .fill(`Joiner Search${suffix}`)
       await expect(
         page.locator(`input[name="student_ids"][value="${memberId}"]`),

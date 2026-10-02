@@ -90,12 +90,38 @@ describe('ClassForm', () => {
     id: 's-bob',
     first_name: 'Bob',
     last_name: 'Brown',
-    student_code: null,
+    student_code: 'GK-1006',
   }
 
   function submittedStudentIds(container: HTMLElement): FormDataEntryValue[] {
     return new FormData(container.querySelector('form')!).getAll('student_ids')
   }
+
+  it('filters students by name or student code', () => {
+    render(
+      <ClassForm
+        teachers={teachers}
+        students={[alice, bob]}
+        years={years}
+        classData={classData}
+        action={vi.fn()}
+        submitLabel="Save changes"
+      />,
+    )
+    const filter = screen.getByPlaceholderText(
+      'Filter students by name or code…',
+    )
+    const row = (name: string): string =>
+      screen.getByText(name).closest('label')!.className
+
+    fireEvent.change(filter, { target: { value: 'gk-1006' } })
+    expect(row('Brown, Bob')).not.toContain('hidden')
+    expect(row('Adams, Alice')).toContain('hidden')
+
+    fireEvent.change(filter, { target: { value: 'alice' } })
+    expect(row('Adams, Alice')).not.toContain('hidden')
+    expect(row('Brown, Bob')).toContain('hidden')
+  })
 
   it('keeps a member hidden by the search in the submitted students', () => {
     const { container } = render(
@@ -117,9 +143,12 @@ describe('ClassForm', () => {
       />,
     )
 
-    fireEvent.change(screen.getByPlaceholderText('Filter students by name…'), {
-      target: { value: 'Bob' },
-    })
+    fireEvent.change(
+      screen.getByPlaceholderText('Filter students by name or code…'),
+      {
+        target: { value: 'Bob' },
+      },
+    )
 
     expect(
       screen.getByText('Adams, Alice').closest('label')!.className,

@@ -44,7 +44,8 @@ function filterStudents(
   const tokens = trimmed.toLowerCase().split(/\s+/)
   return students
     .filter((s) => {
-      const haystack = `${s.first_name} ${s.last_name}`.toLowerCase()
+      const haystack =
+        `${s.first_name} ${s.last_name} ${s.student_code ?? ''}`.toLowerCase()
       return tokens.every((t) => haystack.includes(t))
     })
     .slice(0, SEARCH_MAX_RESULTS)

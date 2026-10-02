@@ -70,7 +70,10 @@ const SEARCH_MIN = 2
 function matchesSearch(student: ClassFormStudent, query: string): boolean {
   const q = normaliseQuery(query)
   if (q.length < SEARCH_MIN) return true
-  return matchesAny([`${student.first_name} ${student.last_name}`], q)
+  return matchesAny(
+    [`${student.first_name} ${student.last_name}`, student.student_code ?? ''],
+    q,
+  )
 }
 
 /**
@@ -199,7 +202,7 @@ export default function ClassForm({
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filter students by name…"
+            placeholder="Filter students by name or code…"
             className={formStyles.input}
           />
         </div>
