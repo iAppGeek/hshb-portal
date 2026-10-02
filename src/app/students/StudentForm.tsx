@@ -48,6 +48,8 @@ export type StudentFormData = {
 
 type Props = {
   initial?: StudentFormData
+  /** Pre-fills the code of a student who has none yet. */
+  suggestedCode?: string
   guardians: GuardianSummary[]
   classes?: ClassOption[]
   enrolledClassIds?: string[]
@@ -57,6 +59,7 @@ type Props = {
 
 export default function StudentForm({
   initial,
+  suggestedCode,
   guardians,
   classes = [],
   enrolledClassIds = [],
@@ -121,7 +124,8 @@ export default function StudentForm({
           <TextField
             label="Student code"
             name="student_code"
-            defaultValue={initial?.student_code}
+            required
+            defaultValue={initial?.student_code ?? suggestedCode}
             error={fieldError('student_code')}
           />
           <TextField

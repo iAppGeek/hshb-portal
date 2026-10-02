@@ -48,6 +48,7 @@ describe('RegistrationApproveDialog', () => {
         matches={[]}
         studentsForLinking={studentsForLinking}
         classes={classes}
+        nextStudentCode="GK-1006"
         hasGuardianMatches={false}
         onClose={vi.fn()}
       />,
@@ -68,6 +69,7 @@ describe('RegistrationApproveDialog', () => {
         matches={[studentsForLinking[0]]}
         studentsForLinking={studentsForLinking}
         classes={classes}
+        nextStudentCode="GK-1006"
         hasGuardianMatches={false}
         onClose={vi.fn()}
       />,
@@ -86,6 +88,7 @@ describe('RegistrationApproveDialog', () => {
         matches={[]}
         studentsForLinking={studentsForLinking}
         classes={classes}
+        nextStudentCode="GK-1006"
         hasGuardianMatches={false}
         onClose={vi.fn()}
       />,
@@ -110,6 +113,7 @@ describe('RegistrationApproveDialog', () => {
         matches={[]}
         studentsForLinking={studentsForLinking}
         classes={classes}
+        nextStudentCode="GK-1006"
         hasGuardianMatches={false}
         onClose={vi.fn()}
       />,
@@ -129,6 +133,7 @@ describe('RegistrationApproveDialog', () => {
         matches={[]}
         studentsForLinking={studentsForLinking}
         classes={classes}
+        nextStudentCode="GK-1006"
         hasGuardianMatches={false}
         onClose={vi.fn()}
       />,
@@ -155,6 +160,7 @@ describe('RegistrationApproveDialog', () => {
         matches={[studentsForLinking[0]]}
         studentsForLinking={studentsForLinking}
         classes={classes}
+        nextStudentCode="GK-1006"
         hasGuardianMatches={false}
         onClose={vi.fn()}
       />,
@@ -183,6 +189,7 @@ describe('RegistrationApproveDialog', () => {
         matches={[]}
         studentsForLinking={studentsForLinking}
         classes={classes}
+        nextStudentCode="GK-1006"
         hasGuardianMatches={false}
         onClose={vi.fn()}
       />,
@@ -204,6 +211,7 @@ describe('RegistrationApproveDialog', () => {
         matches={[]}
         studentsForLinking={studentsForLinking}
         classes={classes}
+        nextStudentCode="GK-1006"
         hasGuardianMatches={true}
         onClose={vi.fn()}
       />,
@@ -224,6 +232,7 @@ describe('RegistrationApproveDialog', () => {
         matches={[]}
         studentsForLinking={studentsForLinking}
         classes={classes}
+        nextStudentCode="GK-1006"
         hasGuardianMatches={false}
         onClose={vi.fn()}
       />,
@@ -233,25 +242,47 @@ describe('RegistrationApproveDialog', () => {
     ).toBeTruthy()
   })
 
-  it('pre-fills the linked student code in link mode but not in create mode', () => {
+  it('pre-fills the next code in create mode and the linked student code in link mode', () => {
     render(
       <RegistrationApproveDialog
         submissionId="sub-1"
         matches={[studentsForLinking[0]]}
         studentsForLinking={studentsForLinking}
         classes={classes}
+        nextStudentCode="GK-1006"
         hasGuardianMatches={false}
         onClose={vi.fn()}
       />,
     )
     const code = (): HTMLInputElement =>
-      screen.getByLabelText('Student code') as HTMLInputElement
-    expect(code().value).toBe('')
+      screen.getByLabelText(/Student code/) as HTMLInputElement
+    expect(code().value).toBe('GK-1006')
+    expect(code().required).toBe(true)
 
     fireEvent.click(
       screen.getByRole('radio', { name: 'Link to existing student' }),
     )
     expect(code().value).toBe('S001')
+  })
+
+  it('pre-fills the next code for a linked student who has none', () => {
+    render(
+      <RegistrationApproveDialog
+        submissionId="sub-1"
+        matches={[studentsForLinking[1]]}
+        studentsForLinking={studentsForLinking}
+        classes={classes}
+        nextStudentCode="GK-1006"
+        hasGuardianMatches={false}
+        onClose={vi.fn()}
+      />,
+    )
+    fireEvent.click(
+      screen.getByRole('radio', { name: 'Link to existing student' }),
+    )
+    expect(
+      (screen.getByLabelText(/Student code/) as HTMLInputElement).value,
+    ).toBe('GK-1006')
   })
 
   it('calls onClose when Cancel is clicked', () => {
@@ -262,6 +293,7 @@ describe('RegistrationApproveDialog', () => {
         matches={[]}
         studentsForLinking={studentsForLinking}
         classes={classes}
+        nextStudentCode="GK-1006"
         hasGuardianMatches={false}
         onClose={onClose}
       />,

@@ -32,6 +32,8 @@ export {
   getStudentsByIds,
   createStudent,
   updateStudent,
+  getNextStudentCode,
+  isStudentCodeTaken,
   updateStudentClasses,
   markStudentAsLeaver,
   findStudentMatches,

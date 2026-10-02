@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { getAllGuardians } from '@/db'
+import { getAllGuardians, getNextStudentCode } from '@/db'
 
 import AddStudentPage from './page'
 
@@ -13,6 +13,7 @@ vi.mock('@/auth', () => ({
 
 vi.mock('@/db', () => ({
   getAllGuardians: vi.fn(),
+  getNextStudentCode: vi.fn(),
 }))
 
 vi.mock('next/navigation', async (importOriginal) => ({
@@ -21,8 +22,16 @@ vi.mock('next/navigation', async (importOriginal) => ({
 }))
 
 vi.mock('../StudentForm', () => ({
-  default: ({ submitLabel }: { submitLabel: string }) => (
-    <div data-testid="student-form">{submitLabel}</div>
+  default: ({
+    submitLabel,
+    suggestedCode,
+  }: {
+    submitLabel: string
+    suggestedCode?: string
+  }) => (
+    <div data-testid="student-form" data-code={suggestedCode}>
+      {submitLabel}
+    </div>
   ),
 }))
 
@@ -30,6 +39,7 @@ vi.mock('../actions', () => ({ saveStudentAction: vi.fn() }))
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(getNextStudentCode).mockResolvedValue('GK-1006')
 })
 
 describe('AddStudentPage', () => {
@@ -51,6 +61,16 @@ describe('AddStudentPage', () => {
 
     render(await AddStudentPage())
     expect(screen.getByTestId('student-form').textContent).toBe('Save student')
+  })
+
+  it('suggests the next student code', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
+    vi.mocked(getAllGuardians).mockResolvedValue([])
+
+    render(await AddStudentPage())
+    expect(screen.getByTestId('student-form').dataset.code).toBe('GK-1006')
   })
 
   it('redirects teacher to students list', async () => {

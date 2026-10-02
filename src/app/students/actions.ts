@@ -6,6 +6,7 @@ import {
   createStudent,
   getGuardianById,
   getStudentById,
+  isStudentCodeTaken,
   markStudentAsLeaver,
   updateStudent,
   updateStudentClasses,
@@ -20,7 +21,9 @@ import {
   parseGuardianSlot,
   resolveGuardian,
 } from '@/lib/guardians/resolveGuardian'
+import { asDbError } from '@/lib/db-error'
 import { canCreateStudents, canEditStudents } from '@/lib/permissions'
+import { studentCodeInUseMessage } from '@/lib/student-code'
 import {
   createStudentSchema,
   updateStudentSchema,
@@ -49,20 +52,38 @@ async function assertGuardianHasAddress(
     )
 }
 
+function studentCodeInUse(code: string): ActionError {
+  const message = studentCodeInUseMessage(code)
+  return new ActionError(message, { student_code: message })
+}
+
+/** A write refused by the unique constraint on the code, as a field error. */
+function studentCodeError(err: unknown, code: string): unknown {
+  return asDbError(err)?.constraint === 'students_student_code_key'
+    ? studentCodeInUse(code)
+    : err
+}
+
 /**
  * The columns both creating and editing write: the student's own details,
  * the guardian links and the address source. Like `resolveGuardian`, this
  * writes: any guardian entered as new is created before the row is returned.
  *
- * Every guardian block is parsed and the address rule checked before the first
- * guardian row is written: there is no transaction around the guardian inserts
- * and the student write, so a rejection after an insert would leave orphaned
- * guardians behind and the user's retry would duplicate them.
+ * The student code is checked, every guardian block parsed and the address
+ * rule checked before the first guardian row is written: there is no
+ * transaction around the guardian inserts and the student write, so a
+ * rejection after an insert would leave orphaned guardians behind and the
+ * user's retry would duplicate them. (A code taken by someone else between the
+ * check and the write is still refused by the unique constraint.)
  */
 async function resolveStudentRow(
   formData: FormData,
   d: z.infer<typeof createStudentSchema>,
+  id: string | null,
 ): Promise<Parameters<typeof createStudent>[0]> {
+  if (await isStudentCodeTaken(d.student_code, id))
+    throw studentCodeInUse(d.student_code)
+
   const primary = parseGuardianSlot(
     formData,
     'primary',
@@ -151,19 +172,23 @@ export async function saveStudentAction(
       if (isCreate) {
         const d = parseOrThrow(createStudentSchema, fields)
         const student = await createStudent(
-          await resolveStudentRow(formData, d),
-        )
+          await resolveStudentRow(formData, d, null),
+        ).catch((err: unknown) => {
+          throw studentCodeError(err, d.student_code)
+        })
         return { id: student.id, details: d as Record<string, unknown> }
       }
 
       const d = parseOrThrow(updateStudentSchema, fields)
       await updateStudent(id, {
-        ...(await resolveStudentRow(formData, d)),
+        ...(await resolveStudentRow(formData, d, id)),
         consent_privacy_notice: d.consent_privacy_notice,
         consent_emergency_first_aid: d.consent_emergency_first_aid,
         consent_photo_media: d.consent_photo_media,
         consent_home_school: d.consent_home_school,
         consent_comms_email_sms: d.consent_comms_email_sms,
+      }).catch((err: unknown) => {
+        throw studentCodeError(err, d.student_code)
       })
 
       const student = await getStudentById(id)

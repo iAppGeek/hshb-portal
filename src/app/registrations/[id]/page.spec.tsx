@@ -8,6 +8,7 @@ import {
   findStudentMatches,
   getStudentsForLinking,
   getAllClasses,
+  getNextStudentCode,
   findGuardianMatches,
 } from '@/db'
 
@@ -20,6 +21,7 @@ vi.mock('@/db', () => ({
   findStudentMatches: vi.fn(),
   getStudentsForLinking: vi.fn(),
   getAllClasses: vi.fn(),
+  getNextStudentCode: vi.fn(),
   findGuardianMatches: vi.fn(),
 }))
 
@@ -32,15 +34,17 @@ vi.mock('./RegistrationReview', () => ({
   default: ({
     matches,
     studentsForLinking,
+    nextStudentCode,
     guardianMatchesByContact,
   }: {
     matches: unknown[]
     studentsForLinking: unknown[]
+    nextStudentCode: string
     guardianMatchesByContact: Record<string, unknown[]>
   }) => (
     <div data-testid="review">
-      matches={matches.length} linking={studentsForLinking.length}{' '}
-      guardianMatches=
+      matches={matches.length} linking={studentsForLinking.length} code=
+      {nextStudentCode} guardianMatches=
       {Object.values(guardianMatchesByContact ?? {}).flat().length}
     </div>
   ),
@@ -57,6 +61,7 @@ const submission = {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(findGuardianMatches).mockResolvedValue([])
+  vi.mocked(getNextStudentCode).mockResolvedValue('GK-1006')
 })
 
 describe('RegistrationDetailPage', () => {
@@ -126,6 +131,7 @@ describe('RegistrationDetailPage', () => {
     expect(screen.getByTestId('review').textContent).toContain(
       'matches=1 linking=1',
     )
+    expect(screen.getByTestId('review').textContent).toContain('code=GK-1006')
   })
 
   it('does not fetch matches or linking candidates for non-admin reviewers', async () => {
@@ -145,6 +151,7 @@ describe('RegistrationDetailPage', () => {
     expect(findStudentMatches).not.toHaveBeenCalled()
     expect(getStudentsForLinking).not.toHaveBeenCalled()
     expect(getAllClasses).not.toHaveBeenCalled()
+    expect(getNextStudentCode).not.toHaveBeenCalled()
     expect(screen.getByTestId('review').textContent).toContain(
       'matches=0 linking=0',
     )

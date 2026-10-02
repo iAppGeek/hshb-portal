@@ -2,7 +2,7 @@ import { type Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
 import { requireSession } from '@/auth/require'
-import { getAllGuardians } from '@/db'
+import { getAllGuardians, getNextStudentCode } from '@/db'
 import { canCreateStudents } from '@/lib/permissions'
 
 import PageHeader, { RequiredFieldsNote } from '../../_components/PageHeader'
@@ -19,7 +19,10 @@ export default async function AddStudentPage() {
     redirect('/students')
   }
 
-  const guardians = await getAllGuardians()
+  const [guardians, suggestedCode] = await Promise.all([
+    getAllGuardians(),
+    getNextStudentCode(),
+  ])
 
   return (
     <div className="max-w-2xl">
@@ -32,6 +35,7 @@ export default async function AddStudentPage() {
 
       <StudentForm
         guardians={guardians}
+        suggestedCode={suggestedCode}
         action={saveStudentAction.bind(null, null)}
         submitLabel="Save student"
       />

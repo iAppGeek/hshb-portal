@@ -66,11 +66,24 @@ beforeEach(() => {
 
 describe('approveRegistrationAction', () => {
   const validFields = {
-    student_code: '',
+    student_code: 'GK-1001',
     class_id: CLASS_ID,
     existing_student_id: '',
     reuse_guardians: 'on',
   }
+
+  it('requires a student code', async () => {
+    const result = await approveRegistrationAction(
+      SUBMISSION_ID,
+      makeFormData({ ...validFields, student_code: ' ' }),
+    )
+
+    expect(result).toEqual({
+      error: 'Required',
+      fieldErrors: { student_code: 'Required' },
+    })
+    expect(approveRegistration).not.toHaveBeenCalled()
+  })
 
   it('returns error when not authenticated', async () => {
     vi.mocked(getActor).mockResolvedValue(null as never)
@@ -154,7 +167,7 @@ describe('approveRegistrationAction', () => {
     expect(approveRegistration).toHaveBeenCalledWith({
       submissionId: SUBMISSION_ID,
       staffId: STAFF_ID,
-      studentCode: null,
+      studentCode: 'GK-1001',
       classId: CLASS_ID,
       existingStudentId: null,
       reuseGuardians: true,

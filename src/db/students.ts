@@ -10,9 +10,11 @@ import {
   isNotNull,
   ne,
   or,
+  sql,
 } from 'drizzle-orm'
 
 import type { LeavingReason } from '@/lib/schemas'
+import { nextStudentCode, studentCodePattern } from '@/lib/student-code'
 import { isUuid } from '@/lib/uuid'
 import type { Database } from '@/types/database'
 
@@ -404,6 +406,39 @@ type StudentInsert = {
   consent_photo_media?: boolean
   consent_home_school?: boolean
   consent_comms_email_sms?: boolean
+}
+
+/**
+ * The code to offer a new student: one after the highest `<prefix><number>`
+ * held by any student, leavers included, so a code is never reused.
+ */
+export async function getNextStudentCode(): Promise<string> {
+  const [row] = await db
+    .select({
+      highest: sql<
+        number | null
+      >`max(substring(${students.studentCode} from ${studentCodePattern()})::int)`,
+    })
+    .from(students)
+  return nextStudentCode(row.highest)
+}
+
+/** Whether a student other than `exceptId` (leavers included) holds `code`. */
+export async function isStudentCodeTaken(
+  code: string,
+  exceptId: string | null,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: students.id })
+    .from(students)
+    .where(
+      and(
+        eq(students.studentCode, code),
+        exceptId === null ? undefined : ne(students.id, exceptId),
+      ),
+    )
+    .limit(1)
+  return row !== undefined
 }
 
 export async function createStudent(

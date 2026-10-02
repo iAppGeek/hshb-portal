@@ -58,6 +58,10 @@ test.describe.serial('Add student', () => {
     // Student details
     await page.locator('input[name="student_first_name"]').fill(studentFirst())
     await page.locator('input[name="student_last_name"]').fill(STUDENT_LAST)
+    // The pre-filled next code would be shared by parallel projects.
+    await page
+      .locator('input[name="student_code"]')
+      .fill(`E2E-ADD-${projectTag()}`)
 
     // Address mode defaults to "Same as guardian" (primary) — no interaction needed
 
@@ -120,6 +124,9 @@ test.describe.serial('Add student', () => {
     await page
       .locator('input[name="student_last_name"]')
       .fill(INVALID_STUDENT_LAST)
+    await page
+      .locator('input[name="student_code"]')
+      .fill(`E2E-ADD-INVALID-${projectTag()}`)
     await page
       .locator('input[name="primary_first_name"]')
       .fill(INVALID_GUARDIAN_FIRST)

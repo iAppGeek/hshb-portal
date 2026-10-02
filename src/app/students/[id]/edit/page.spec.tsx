@@ -3,7 +3,12 @@ import { render, screen } from '@testing-library/react'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { getStudentById, getAllGuardians, getAllClasses } from '@/db'
+import {
+  getStudentById,
+  getAllGuardians,
+  getAllClasses,
+  getNextStudentCode,
+} from '@/db'
 
 import EditStudentPage from './page'
 
@@ -15,6 +20,7 @@ vi.mock('@/db', () => ({
   getStudentById: vi.fn(),
   getAllGuardians: vi.fn(),
   getAllClasses: vi.fn(),
+  getNextStudentCode: vi.fn(),
 }))
 
 vi.mock('next/navigation', async (importOriginal) => ({
@@ -26,10 +32,16 @@ vi.mock('next/navigation', async (importOriginal) => ({
 vi.mock('../../StudentForm', () => ({
   default: ({
     initial,
+    suggestedCode,
   }: {
     initial: { first_name: string; last_name: string; active: boolean }
+    suggestedCode?: string
   }) => (
-    <div data-testid="student-form" data-active={String(initial.active)}>
+    <div
+      data-testid="student-form"
+      data-active={String(initial.active)}
+      data-code={suggestedCode}
+    >
       {initial.last_name}, {initial.first_name}
     </div>
   ),
@@ -94,6 +106,26 @@ describe('EditStudentPage', () => {
     )
     expect(screen.getByTestId('student-form')).toBeTruthy()
     expect(screen.getByRole('heading', { name: /Edit Student/ })).toBeTruthy()
+    expect(screen.getByTestId('student-form').dataset.code).toBeUndefined()
+    expect(getNextStudentCode).not.toHaveBeenCalled()
+  })
+
+  it('suggests the next code for a student who has none', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
+    vi.mocked(getStudentById).mockResolvedValue({
+      ...mockStudent,
+      student_code: null,
+    } as any)
+    vi.mocked(getAllGuardians).mockResolvedValue([])
+    vi.mocked(getAllClasses).mockResolvedValue([])
+    vi.mocked(getNextStudentCode).mockResolvedValue('GK-1006')
+
+    render(
+      await EditStudentPage({ params: Promise.resolve({ id: 'student-1' }) }),
+    )
+    expect(screen.getByTestId('student-form').dataset.code).toBe('GK-1006')
   })
 
   it('redirects teacher to students list', async () => {

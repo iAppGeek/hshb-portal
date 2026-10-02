@@ -7,6 +7,7 @@ import {
   createStudent,
   getGuardianById,
   getStudentById,
+  isStudentCodeTaken,
   updateStudent,
   updateStudentClasses,
   markStudentAsLeaver,
@@ -24,6 +25,7 @@ vi.mock('@/db', () => ({
   createStudent: vi.fn(),
   getGuardianById: vi.fn(),
   getStudentById: vi.fn(),
+  isStudentCodeTaken: vi.fn(),
   updateStudent: vi.fn(),
   updateStudentClasses: vi.fn(),
   markStudentAsLeaver: vi.fn(),
@@ -50,6 +52,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(getActor).mockResolvedValue(adminSession as any)
   vi.mocked(getStudentById).mockResolvedValue({ active: true } as any)
+  vi.mocked(isStudentCodeTaken).mockResolvedValue(false)
 })
 
 function makeFormData(fields: Record<string, string | string[]>): FormData {
@@ -68,7 +71,7 @@ function makeFormData(fields: Record<string, string | string[]>): FormData {
 const createFields = {
   student_first_name: 'Anna',
   student_last_name: 'Smith',
-  student_code: '',
+  student_code: ' GK-1001 ',
   student_english_school_name: 'St Marys Primary',
   student_date_of_birth: '',
   address_guardian_id: '',
@@ -303,6 +306,62 @@ describe('saveStudentAction (create)', () => {
     )
   })
 
+  it('saves the trimmed student code', async () => {
+    vi.mocked(createGuardian).mockResolvedValue({ id: GUARDIAN_1 } as any)
+    vi.mocked(createStudent).mockResolvedValue({ id: STUDENT_ID } as any)
+
+    await saveStudentAction(null, makeFormData(createFields))
+
+    expect(isStudentCodeTaken).toHaveBeenCalledWith('GK-1001', null)
+    expect(createStudent).toHaveBeenCalledWith(
+      expect.objectContaining({ student_code: 'GK-1001' }),
+    )
+  })
+
+  it('requires a student code', async () => {
+    const result = await saveStudentAction(
+      null,
+      makeFormData({ ...createFields, student_code: '  ' }),
+    )
+
+    expect(result).toEqual({
+      error: 'Required',
+      fieldErrors: { student_code: 'Required' },
+    })
+    expect(createGuardian).not.toHaveBeenCalled()
+    expect(createStudent).not.toHaveBeenCalled()
+  })
+
+  it('refuses a code another student holds before writing anything', async () => {
+    vi.mocked(isStudentCodeTaken).mockResolvedValue(true)
+
+    const result = await saveStudentAction(null, makeFormData(createFields))
+
+    const message = 'Student code "GK-1001" is already in use'
+    expect(result).toEqual({
+      error: message,
+      fieldErrors: { student_code: message },
+    })
+    expect(createGuardian).not.toHaveBeenCalled()
+    expect(createStudent).not.toHaveBeenCalled()
+  })
+
+  it('shows a code clash caught by the database', async () => {
+    vi.mocked(createGuardian).mockResolvedValue({ id: GUARDIAN_1 } as any)
+    vi.mocked(createStudent).mockRejectedValue({
+      code: '23505',
+      constraint_name: 'students_student_code_key',
+    })
+
+    const result = await saveStudentAction(null, makeFormData(createFields))
+
+    const message = 'Student code "GK-1001" is already in use'
+    expect(result).toEqual({
+      error: message,
+      fieldErrors: { student_code: message },
+    })
+  })
+
   it('returns an error object when creation fails', async () => {
     vi.mocked(createGuardian).mockRejectedValue(new Error('DB error'))
 
@@ -322,7 +381,6 @@ describe('saveStudentAction (create)', () => {
 
     expect(createStudent).toHaveBeenCalledWith(
       expect.objectContaining({
-        student_code: null,
         allergies: null,
         notes: null,
       }),
@@ -525,6 +583,38 @@ describe('saveStudentAction (update)', () => {
       }),
     )
     expect(redirect).toHaveBeenCalledWith('/students')
+  })
+
+  it('checks the code against every student but this one', async () => {
+    vi.mocked(redirect).mockImplementation(() => {
+      throw new Error('NEXT_REDIRECT')
+    })
+
+    await expect(
+      saveStudentAction(STUDENT_ID, makeFormData(updateFields)),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(isStudentCodeTaken).toHaveBeenCalledWith('S001', STUDENT_ID)
+    expect(updateStudent).toHaveBeenCalledWith(
+      STUDENT_ID,
+      expect.objectContaining({ student_code: 'S001' }),
+    )
+  })
+
+  it('refuses a code another student holds', async () => {
+    vi.mocked(isStudentCodeTaken).mockResolvedValue(true)
+
+    const result = await saveStudentAction(
+      STUDENT_ID,
+      makeFormData(updateFields),
+    )
+
+    const message = 'Student code "S001" is already in use'
+    expect(result).toEqual({
+      error: message,
+      fieldErrors: { student_code: message },
+    })
+    expect(updateStudent).not.toHaveBeenCalled()
   })
 
   it('forwards the submitted consent booleans to updateStudent', async () => {

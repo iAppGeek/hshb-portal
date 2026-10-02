@@ -6,6 +6,7 @@ import {
   getStudentById,
   getAllGuardians,
   getAllClasses,
+  getNextStudentCode,
   type ClassOption,
 } from '@/db'
 import LeaverBadge from '@/components/LeaverBadge'
@@ -44,6 +45,11 @@ export default async function EditStudentPage({
     notFound()
   }
 
+  // Codes became required after some students were saved without one.
+  const suggestedCode = student.student_code
+    ? undefined
+    : await getNextStudentCode()
+
   const enrolledClassIds = (
     student.student_classes as Array<{ class: { id: string } | null }>
   )
@@ -81,6 +87,7 @@ export default async function EditStudentPage({
       <StudentForm
         initial={student}
         guardians={guardians}
+        suggestedCode={suggestedCode}
         classes={classes as ClassOption[]}
         enrolledClassIds={enrolledClassIds}
         action={saveStudentAction.bind(null, id)}

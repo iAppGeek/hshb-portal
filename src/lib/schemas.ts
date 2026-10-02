@@ -309,7 +309,7 @@ const studentBaseSchema = z
   .object({
     student_first_name: requiredString,
     student_last_name: requiredString,
-    student_code: optionalString,
+    student_code: requiredString,
     student_date_of_birth: optionalString,
     // Optional for admin data entry: there is a backlog of existing students
     // whose English school is unknown. Required on the public form.
@@ -411,7 +411,7 @@ export const registrationSubmissionSchema = z.object({
 })
 
 export const approveRegistrationSchema = z.object({
-  student_code: optionalString,
+  student_code: requiredString,
   class_id: optionalString.pipe(uuid.nullable()),
   existing_student_id: optionalString.pipe(uuid.nullable()),
   reuse_guardians: checkbox,

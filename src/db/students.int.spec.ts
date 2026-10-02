@@ -9,6 +9,7 @@ import {
   createStudent,
   findStudentMatches,
   getAllStudents,
+  getNextStudentCode,
   getStudentById,
   getStudentCount,
   getStudentIdsByTeacher,
@@ -19,6 +20,7 @@ import {
   getStudentsForList,
   getStudentSummaries,
   getStudentsWithAllergiesCount,
+  isStudentCodeTaken,
   markStudentAsLeaver,
   searchStudents,
   updateStudent,
@@ -229,5 +231,49 @@ describe('writes', () => {
       dateOfBirth: '2015-06-01',
     })
     expect(matches.map((m) => m.id)).toContain(SEED.students.alice)
+  })
+})
+
+describe('student codes', () => {
+  async function setCode(
+    id: string,
+    studentCode: string | null,
+    active = true,
+  ): Promise<void> {
+    await db
+      .update(students)
+      .set({ studentCode, active })
+      .where(eq(students.id, id))
+  }
+
+  it('starts at GK-1001 when no code has the prefix', async () => {
+    await setCode(SEED.students.alice, 'XX-5000')
+    expect(await getNextStudentCode()).toBe('GK-1001')
+  })
+
+  it('offers one after the highest number, leavers included', async () => {
+    await setCode(SEED.students.alice, 'GK-999')
+    await setCode(SEED.students.bob, 'GK-1004')
+    await setCode(SEED.students.carol, 'GK-1005', false)
+    expect(await getNextStudentCode()).toBe('GK-1006')
+  })
+
+  it('finds a code held by another student, a leaver included', async () => {
+    await setCode(SEED.students.carol, 'GK-1005', false)
+    expect(await isStudentCodeTaken('GK-1005', null)).toBe(true)
+    expect(await isStudentCodeTaken('GK-1005', SEED.students.alice)).toBe(true)
+    expect(await isStudentCodeTaken('GK-1005', SEED.students.carol)).toBe(false)
+    expect(await isStudentCodeTaken('GK-7777', null)).toBe(false)
+  })
+
+  it('refuses a second student with the same code', async () => {
+    await setCode(SEED.students.carol, 'GK-1005', false)
+    const err = await updateStudent(SEED.students.alice, {
+      student_code: 'GK-1005',
+    }).catch((e: unknown) => e)
+    expect(asDbError(err)).toMatchObject({
+      code: '23505',
+      constraint: 'students_student_code_key',
+    })
   })
 })

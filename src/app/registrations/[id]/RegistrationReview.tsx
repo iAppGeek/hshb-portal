@@ -23,6 +23,8 @@ type Props = {
   matches: StudentMatch[]
   studentsForLinking: StudentMatch[]
   classes: ClassOption[]
+  /** Empty for staff who can't approve. */
+  nextStudentCode: string
   guardianMatchesByContact: Record<string, GuardianMatch[]>
 }
 
@@ -58,6 +60,7 @@ export default function RegistrationReview({
   matches,
   studentsForLinking,
   classes,
+  nextStudentCode,
   guardianMatchesByContact,
 }: Props) {
   const approveDialog = useDialog()
@@ -340,6 +343,7 @@ export default function RegistrationReview({
           matches={matches}
           studentsForLinking={studentsForLinking}
           classes={classes}
+          nextStudentCode={nextStudentCode}
           hasGuardianMatches={Object.values(guardianMatchesByContact).some(
             (m) => m.length > 0,
           )}

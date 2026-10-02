@@ -75,6 +75,7 @@ function renderNew(action = vi.fn()): ReturnType<typeof render> {
     <StudentForm
       guardians={[]}
       classes={classes}
+      suggestedCode="GK-1006"
       action={action}
       submitLabel="Save student"
     />,
@@ -117,6 +118,15 @@ describe('StudentForm without initial (new student)', () => {
     expect(screen.queryByText('Consents')).toBeNull()
     expect(container.querySelector('[name="class_ids"]')).toBeNull()
     expect(container.querySelector('[name^="consent_"]')).toBeNull()
+  })
+
+  it('pre-fills a required student code with the suggestion', () => {
+    const { container } = renderNew()
+    const input = container.querySelector(
+      'input[name="student_code"]',
+    ) as HTMLInputElement
+    expect(input.value).toBe('GK-1006')
+    expect(input.required).toBe(true)
   })
 
   // Optional for admin data entry, unlike the public registration form.
@@ -223,6 +233,31 @@ describe('StudentForm with initial (editing)', () => {
     ) as HTMLInputElement
     expect(school.value).toBe('St Marys Primary')
     expect(school.required).toBe(false)
+  })
+
+  it('keeps the student code over the suggestion', () => {
+    const { container } = renderEdit(baseStudent, { suggestedCode: 'GK-1006' })
+    expect(
+      (
+        container.querySelector(
+          'input[name="student_code"]',
+        ) as HTMLInputElement
+      ).value,
+    ).toBe('S001')
+  })
+
+  it('suggests a code for a student who has none', () => {
+    const { container } = renderEdit(
+      { ...baseStudent, student_code: null },
+      { suggestedCode: 'GK-1006' },
+    )
+    expect(
+      (
+        container.querySelector(
+          'input[name="student_code"]',
+        ) as HTMLInputElement
+      ).value,
+    ).toBe('GK-1006')
   })
 
   it('starts on the own address when the student has one', () => {
