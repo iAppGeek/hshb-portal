@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
 import {
-  compareClassNames,
   compareClasses,
   compareYearGroups,
   isClassOpen,
@@ -123,18 +122,26 @@ describe('compareClasses', () => {
   })
 })
 
-describe('compareClassNames', () => {
-  it('orders names by school stage', () => {
-    expect(compareClassNames('Reception', 'Nursery')).toBeGreaterThan(0)
-    expect(compareClassNames('Year 6', 'GCSE I')).toBeLessThan(0)
+describe('compareClasses with no class', () => {
+  it('puts no class last', () => {
+    const classes = [null, { name: 'Year 2' }, null, { name: 'Nursery' }]
+    expect([...classes].sort(compareClasses)).toEqual([
+      { name: 'Nursery' },
+      { name: 'Year 2' },
+      null,
+      null,
+    ])
   })
 
-  it('puts no class last', () => {
-    const names = [null, 'Year 2', null, 'Nursery']
-    expect([...names].sort(compareClassNames)).toEqual([
-      'Nursery',
-      'Year 2',
+  it('puts a class without a stage, ranked by its year group, before no class', () => {
+    const classes = [
       null,
+      { name: 'Alpha', year_group: '1' },
+      { name: 'A Level' },
+    ]
+    expect([...classes].sort(compareClasses)).toEqual([
+      { name: 'Alpha', year_group: '1' },
+      { name: 'A Level' },
       null,
     ])
   })

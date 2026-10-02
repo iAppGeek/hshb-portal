@@ -63,22 +63,22 @@ function compareText(a: string, b: string): number {
 
 /**
  * Orders classes youngest to oldest (Nursery, Reception, Year 1–6, GCSE I–III,
- * A Level, Test), then by name. Use this wherever classes are listed.
+ * A Level, Test), then by name, with no class (null) last. Pass `year_group`
+ * so a class whose name isn't a stage still sorts by its year group. Use this
+ * wherever classes are listed.
  */
-export function compareClasses(a: SortableClass, b: SortableClass): number {
+export function compareClasses(
+  a: SortableClass | null,
+  b: SortableClass | null,
+): number {
+  if (a === b) return 0
+  if (a === null) return 1
+  if (b === null) return -1
   return (
     classRank(a) - classRank(b) ||
     compareText(a.name, b.name) ||
     compareText(a.year_group ?? '', b.year_group ?? '')
   )
-}
-
-/** {@link compareClasses} for bare class names, with no class last. */
-export function compareClassNames(a: string | null, b: string | null): number {
-  if (a === b) return 0
-  if (a === null) return 1
-  if (b === null) return -1
-  return compareClasses({ name: a }, { name: b })
 }
 
 /** {@link compareClasses} for year group labels ('pre-school', '3', 'GCSE'…). */

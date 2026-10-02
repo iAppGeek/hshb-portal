@@ -174,6 +174,27 @@ describe('StudentsTable', () => {
     ).toBeGreaterThan(0)
   })
 
+  it('sorts a non-stage class by its year group within a row', () => {
+    const classOf = (id: string, name: string, year_group: string) => ({
+      class: { ...students[0].student_classes[0].class, id, name, year_group },
+    })
+    render(
+      <StudentsTable
+        students={[
+          {
+            ...students[0],
+            student_classes: [
+              classOf('c1', 'A Level', 'A Level'),
+              classOf('c2', 'Alpha', '1'),
+            ],
+          },
+        ]}
+        role="admin"
+      />,
+    )
+    expect(screen.getAllByText('Alpha, A Level').length).toBeGreaterThan(0)
+  })
+
   it('renders primary guardian name', () => {
     render(<StudentsTable students={students} role="admin" />)
     expect(screen.getByText('Maria Papadopoulos')).toBeTruthy()

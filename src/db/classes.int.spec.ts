@@ -134,6 +134,7 @@ describe('getEnrolmentsInRange', () => {
     expect(row.class).toStrictEqual({
       id: expect.any(String),
       name: expect.any(String),
+      yearGroup: expect.any(String),
       active: true,
       yearCode: '2026-27',
     })

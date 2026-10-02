@@ -33,6 +33,7 @@ const staffA = {
   last_name: 'Smith',
   display_name: null,
   class_name: 'Year 3A',
+  class_year_group: '3',
   room_number: '12',
 }
 
@@ -42,6 +43,7 @@ const staffB = {
   last_name: 'Jones',
   display_name: 'BJ',
   class_name: null,
+  class_year_group: null,
   room_number: null,
 }
 

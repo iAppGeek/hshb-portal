@@ -15,16 +15,23 @@ import {
   nowTimeInSchoolTz,
   todayInSchoolTz,
 } from '@/lib/datetime'
-import { compareClassNames } from '@/lib/classes'
+import { compareClasses, type SortableClass } from '@/lib/classes'
 import { isTeacher, showsOnSignInSheet } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
 import PageHeader from '../_components/PageHeader'
 
 import PrintButton from './PrintButton'
-import StaffAttendanceTable from './StaffAttendanceTable'
+import StaffAttendanceTable, { type StaffMember } from './StaffAttendanceTable'
 
 export const metadata: Metadata = { title: 'Staff Sign-In' }
+
+/** A sign-in row's class, for sorting; null when the staff member has none. */
+function classOf(staff: StaffMember): SortableClass | null {
+  return staff.class_name === null
+    ? null
+    : { name: staff.class_name, year_group: staff.class_year_group }
+}
 
 export default async function StaffAttendancePage({
   searchParams,
@@ -51,6 +58,7 @@ export default async function StaffAttendancePage({
       last_name: actor.name?.split(' ').slice(1).join(' ') ?? '',
       display_name: actor.name ?? null,
       class_name: myClass?.name ?? null,
+      class_year_group: myClass?.year_group ?? null,
       room_number: myClass?.room_number ?? null,
     }
 
@@ -99,12 +107,13 @@ export default async function StaffAttendancePage({
           last_name: s.last_name,
           display_name: s.display_name,
           class_name: cls?.name ?? null,
+          class_year_group: cls?.year_group ?? null,
           room_number: cls?.room_number ?? null,
         },
         record: recordByStaffId[s.id] ?? null,
       }
     })
-    .sort((a, b) => compareClassNames(a.staff.class_name, b.staff.class_name))
+    .sort((a, b) => compareClasses(classOf(a.staff), classOf(b.staff)))
 
   const formattedDate = formatCalendarDate(selectedDate, {
     weekday: 'long',

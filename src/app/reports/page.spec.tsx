@@ -45,6 +45,8 @@ import {
   getIncidentCountsByDateRange,
 } from '@/db'
 
+import DayReport from './_components/DayReport'
+import PeriodReport from './_components/PeriodReport'
 import ReportsPage, { PeriodReportSection } from './page'
 
 const defaultSearchParams = Promise.resolve({})
@@ -228,5 +230,50 @@ describe('ReportsPage', () => {
     render(await ReportsPage({ searchParams }))
     const selector = screen.getByTestId('mode-selector')
     expect(selector.getAttribute('data-mode')).toBe('month')
+  })
+
+  describe('class order', () => {
+    // Alpha isn't a stage name, so it sorts by its year group (1), before GCSE.
+    const enrolments = [
+      { id: 'alevel', name: 'A Level', yearGroup: 'A Level' },
+      { id: 'alpha', name: 'Alpha', yearGroup: '1' },
+      { id: 'gcse', name: 'GCSE I', yearGroup: 'GCSE' },
+    ].map((cls) => ({
+      classId: cls.id,
+      studentId: `student-${cls.id}`,
+      startDate: '2024-01-01',
+      endDate: null,
+      class: { ...cls, yearCode: '2023-24', active: true },
+    }))
+
+    beforeEach(() => {
+      vi.mocked(getEnrolmentsInRange).mockResolvedValue(enrolments)
+    })
+
+    it('sorts a non-stage class by its year group in day mode', async () => {
+      const searchParams = Promise.resolve({ mode: 'day', date: '2024-01-15' })
+      render(await ReportsPage({ searchParams }))
+      const props = vi.mocked(DayReport).mock.calls[0][0]
+      expect(props.enrolmentByClass.map((c) => c.name)).toEqual([
+        'Alpha',
+        'GCSE I',
+        'A Level',
+      ])
+    })
+
+    it('sorts a non-stage class by its year group in period mode', async () => {
+      render(
+        await PeriodReportSection({
+          startDate: '2024-01-01',
+          endDate: '2024-01-31',
+        }),
+      )
+      const props = vi.mocked(PeriodReport).mock.calls[0][0]
+      expect(props.classSummary.map((c) => c.name)).toEqual([
+        'Alpha',
+        'GCSE I',
+        'A Level',
+      ])
+    })
   })
 })

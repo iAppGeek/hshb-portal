@@ -94,6 +94,7 @@ describe('attendance', () => {
       class: {
         id: SEED.classes.alpha,
         name: 'Alpha',
+        yearGroup: 'Year 1',
         active: true,
         yearCode: '2026-27',
       },
