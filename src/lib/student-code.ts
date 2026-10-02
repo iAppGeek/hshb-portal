@@ -2,6 +2,7 @@
  * New students are offered the code after the highest `<prefix><number>` in
  * use (e.g. GK-1005 → GK-1006). Changing the prefix starts numbering again
  * from FIRST_NUMBER for codes with the new prefix; existing codes are kept.
+ * Codes are saved upper-cased, so the prefix must be upper case too.
  */
 export const STUDENT_CODE_PREFIX = 'GK-'
 
@@ -24,6 +25,6 @@ export function nextStudentCode(
   return `${prefix}${highest === null ? FIRST_NUMBER : highest + 1}`
 }
 
-export function studentCodeInUseMessage(code: string): string {
-  return `Student code "${code}" is already in use`
+export function studentCodeInUseMessage(code: string, next: string): string {
+  return `Student code "${code}" is already in use. The next free code is ${next}.`
 }

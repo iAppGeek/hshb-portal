@@ -13,6 +13,10 @@ import {
 import { runAction, type ActionResult } from '@/lib/action'
 import { canApproveRegistrations } from '@/lib/permissions'
 import {
+  assertStudentCodeFree,
+  guardStudentCode,
+} from '@/lib/student-code-check'
+import {
   applyPhotoOptOutSchema,
   approveRegistrationSchema,
   rejectReasonSchema,
@@ -38,15 +42,21 @@ export async function approveRegistrationAction(
     permission: canApproveRegistrations,
     schema: approveRegistrationSchema,
     formData,
-    run: (input, { actor }) =>
-      approveRegistration({
-        submissionId: id,
-        staffId: actor.staffId,
-        studentCode: input.student_code,
-        classId: input.class_id,
-        existingStudentId: input.existing_student_id,
-        reuseGuardians: input.reuse_guardians,
-      }),
+    run: async (input, { actor }) => {
+      // Linking an existing student gives it this code, so it may keep its own.
+      await assertStudentCodeFree(input.student_code, input.existing_student_id)
+      return guardStudentCode(
+        input.student_code,
+        approveRegistration({
+          submissionId: id,
+          staffId: actor.staffId,
+          studentCode: input.student_code,
+          classId: input.class_id,
+          existingStudentId: input.existing_student_id,
+          reuseGuardians: input.reuse_guardians,
+        }),
+      )
+    },
     audit: {
       entity: 'registration_submission',
       action: 'registration_approved',

@@ -177,6 +177,17 @@ describe('asDbError', () => {
     })
   })
 
+  it('reads the constraint of a PostgREST error from its message', () => {
+    expect(
+      asDbError({
+        code: '23505',
+        message:
+          'duplicate key value violates unique constraint "students_student_code_key"',
+        details: 'Key (student_code)=(GK-1001) already exists.',
+      }),
+    ).toMatchObject({ constraint: 'students_student_code_key' })
+  })
+
   it('returns null for errors without a code', () => {
     expect(asDbError(new Error('boom'))).toBeNull()
     expect(asDbError('boom')).toBeNull()

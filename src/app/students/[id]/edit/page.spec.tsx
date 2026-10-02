@@ -100,6 +100,7 @@ describe('EditStudentPage', () => {
     vi.mocked(getStudentById).mockResolvedValue(mockStudent as any)
     vi.mocked(getAllGuardians).mockResolvedValue([])
     vi.mocked(getAllClasses).mockResolvedValue([])
+    vi.mocked(getNextStudentCode).mockResolvedValue('GK-1006')
 
     render(
       await EditStudentPage({ params: Promise.resolve({ id: 'student-1' }) }),
@@ -107,7 +108,6 @@ describe('EditStudentPage', () => {
     expect(screen.getByTestId('student-form')).toBeTruthy()
     expect(screen.getByRole('heading', { name: /Edit Student/ })).toBeTruthy()
     expect(screen.getByTestId('student-form').dataset.code).toBeUndefined()
-    expect(getNextStudentCode).not.toHaveBeenCalled()
   })
 
   it('suggests the next code for a student who has none', async () => {

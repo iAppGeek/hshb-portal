@@ -11,7 +11,7 @@ import { db, supabase } from './client'
 import { isCurrentStay } from './membership'
 import { guardians, students } from './schema'
 
-type GuardianInsert = {
+export type GuardianInsert = {
   first_name: string
   last_name: string
   phone: string

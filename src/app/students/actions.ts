@@ -3,12 +3,10 @@
 import type { z } from 'zod'
 
 import {
-  createStudent,
   getGuardianById,
   getStudentById,
-  isStudentCodeTaken,
   markStudentAsLeaver,
-  updateStudent,
+  saveStudent,
   updateStudentClasses,
 } from '@/db'
 import {
@@ -17,13 +15,12 @@ import {
   runAction,
   type ActionResult,
 } from '@/lib/action'
-import {
-  parseGuardianSlot,
-  resolveGuardian,
-} from '@/lib/guardians/resolveGuardian'
-import { asDbError } from '@/lib/db-error'
+import { parseGuardianSlot, toGuardianSlot } from '@/lib/guardians/guardianSlot'
 import { canCreateStudents, canEditStudents } from '@/lib/permissions'
-import { studentCodeInUseMessage } from '@/lib/student-code'
+import {
+  assertStudentCodeFree,
+  guardStudentCode,
+} from '@/lib/student-code-check'
 import {
   createStudentSchema,
   updateStudentSchema,
@@ -52,37 +49,25 @@ async function assertGuardianHasAddress(
     )
 }
 
-function studentCodeInUse(code: string): ActionError {
-  const message = studentCodeInUseMessage(code)
-  return new ActionError(message, { student_code: message })
-}
-
-/** A write refused by the unique constraint on the code, as a field error. */
-function studentCodeError(err: unknown, code: string): unknown {
-  return asDbError(err)?.constraint === 'students_student_code_key'
-    ? studentCodeInUse(code)
-    : err
-}
+type SaveStudentArgs = Parameters<typeof saveStudent>
 
 /**
- * The columns both creating and editing write: the student's own details,
- * the guardian links and the address source. Like `resolveGuardian`, this
- * writes: any guardian entered as new is created before the row is returned.
- *
- * The student code is checked, every guardian block parsed and the address
- * rule checked before the first guardian row is written: there is no
- * transaction around the guardian inserts and the student write, so a
- * rejection after an insert would leave orphaned guardians behind and the
- * user's retry would duplicate them. (A code taken by someone else between the
- * check and the write is still refused by the unique constraint.)
+ * What both creating and editing save: the student's own details, the
+ * guardians to link (any entered as new are created by `saveStudent`, in the
+ * same transaction as the student) and the address source. The code and every
+ * guardian block are checked first, so a form with several mistakes is
+ * refused before anything is written.
  */
-async function resolveStudentRow(
+async function parseStudentForm(
   formData: FormData,
   d: z.infer<typeof createStudentSchema>,
   id: string | null,
-): Promise<Parameters<typeof createStudent>[0]> {
-  if (await isStudentCodeTaken(d.student_code, id))
-    throw studentCodeInUse(d.student_code)
+): Promise<{
+  data: SaveStudentArgs[1]
+  slots: SaveStudentArgs[2]
+  addressFromPrimary: boolean
+}> {
+  await assertStudentCodeFree(d.student_code, id)
 
   const primary = parseGuardianSlot(
     formData,
@@ -116,42 +101,38 @@ async function resolveStudentRow(
     )
   }
 
-  const primaryGuardianId = await resolveGuardian(primary)
-  const secondaryGuardianId = secondary
-    ? await resolveGuardian(secondary)
-    : null
-  const contact1Id = contact1 ? await resolveGuardian(contact1) : null
-  const contact2Id = contact2 ? await resolveGuardian(contact2) : null
-  const addressGuardianId = sharesPrimaryAddress ? primaryGuardianId : null
-
   return {
-    first_name: d.student_first_name,
-    last_name: d.student_last_name,
-    student_code: d.student_code,
-    date_of_birth: d.student_date_of_birth,
-    english_school_name: d.student_english_school_name,
-    address_guardian_id: addressGuardianId,
-    address_line_1: addressGuardianId ? null : d.student_address_line_1,
-    address_line_2: addressGuardianId ? null : d.student_address_line_2,
-    city: addressGuardianId ? null : d.student_city,
-    postcode: addressGuardianId ? null : d.student_postcode,
-    allergies: d.student_allergies,
-    medical_details: d.student_medical_details,
-    notes: d.student_notes,
-    primary_guardian_id: primaryGuardianId,
-    primary_guardian_relationship: d.primary_relationship,
-    secondary_guardian_id: secondaryGuardianId,
-    secondary_guardian_relationship: secondaryGuardianId
-      ? (d.secondary_relationship ?? null)
-      : null,
-    additional_contact_1_id: contact1Id,
-    additional_contact_1_relationship: contact1Id
-      ? (d.contact1_relationship ?? null)
-      : null,
-    additional_contact_2_id: contact2Id,
-    additional_contact_2_relationship: contact2Id
-      ? (d.contact2_relationship ?? null)
-      : null,
+    data: {
+      first_name: d.student_first_name,
+      last_name: d.student_last_name,
+      student_code: d.student_code,
+      date_of_birth: d.student_date_of_birth,
+      english_school_name: d.student_english_school_name,
+      address_line_1: sharesPrimaryAddress ? null : d.student_address_line_1,
+      address_line_2: sharesPrimaryAddress ? null : d.student_address_line_2,
+      city: sharesPrimaryAddress ? null : d.student_city,
+      postcode: sharesPrimaryAddress ? null : d.student_postcode,
+      allergies: d.student_allergies,
+      medical_details: d.student_medical_details,
+      notes: d.student_notes,
+      primary_guardian_relationship: d.primary_relationship,
+      secondary_guardian_relationship: secondary
+        ? (d.secondary_relationship ?? null)
+        : null,
+      additional_contact_1_relationship: contact1
+        ? (d.contact1_relationship ?? null)
+        : null,
+      additional_contact_2_relationship: contact2
+        ? (d.contact2_relationship ?? null)
+        : null,
+    },
+    slots: {
+      primary: toGuardianSlot(primary),
+      secondary: secondary && toGuardianSlot(secondary),
+      contact1: contact1 && toGuardianSlot(contact1),
+      contact2: contact2 && toGuardianSlot(contact2),
+    },
+    addressFromPrimary: sharesPrimaryAddress,
   }
 }
 
@@ -171,25 +152,40 @@ export async function saveStudentAction(
 
       if (isCreate) {
         const d = parseOrThrow(createStudentSchema, fields)
-        const student = await createStudent(
-          await resolveStudentRow(formData, d, null),
-        ).catch((err: unknown) => {
-          throw studentCodeError(err, d.student_code)
-        })
+        const { data, slots, addressFromPrimary } = await parseStudentForm(
+          formData,
+          d,
+          null,
+        )
+        const student = await guardStudentCode(
+          d.student_code,
+          saveStudent(null, data, slots, addressFromPrimary),
+        )
         return { id: student.id, details: d as Record<string, unknown> }
       }
 
       const d = parseOrThrow(updateStudentSchema, fields)
-      await updateStudent(id, {
-        ...(await resolveStudentRow(formData, d, id)),
-        consent_privacy_notice: d.consent_privacy_notice,
-        consent_emergency_first_aid: d.consent_emergency_first_aid,
-        consent_photo_media: d.consent_photo_media,
-        consent_home_school: d.consent_home_school,
-        consent_comms_email_sms: d.consent_comms_email_sms,
-      }).catch((err: unknown) => {
-        throw studentCodeError(err, d.student_code)
-      })
+      const { data, slots, addressFromPrimary } = await parseStudentForm(
+        formData,
+        d,
+        id,
+      )
+      await guardStudentCode(
+        d.student_code,
+        saveStudent(
+          id,
+          {
+            ...data,
+            consent_privacy_notice: d.consent_privacy_notice,
+            consent_emergency_first_aid: d.consent_emergency_first_aid,
+            consent_photo_media: d.consent_photo_media,
+            consent_home_school: d.consent_home_school,
+            consent_comms_email_sms: d.consent_comms_email_sms,
+          },
+          slots,
+          addressFromPrimary,
+        ),
+      )
 
       const student = await getStudentById(id)
       if (student?.active) {

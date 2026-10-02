@@ -25,6 +25,11 @@ function stringOr(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined
 }
 
+/** PostgREST drops `constraint_name`; Postgres names it in the message. */
+function constraintInMessage(message: string): string | undefined {
+  return /constraint "([^"]+)"/.exec(message)?.[1]
+}
+
 /**
  * The Postgres error behind `err`, or null when it isn't one. Understands
  * postgres.js errors (`detail`, `constraint_name`), including when Drizzle
@@ -36,11 +41,13 @@ export function asDbError(err: unknown): DbError | null {
   const source =
     typeof outer?.code === 'string' ? outer : fieldsOf(outer?.cause)
   if (!source || typeof source.code !== 'string') return null
+  const message = stringOr(source.message) ?? ''
   return {
     code: source.code,
-    message: stringOr(source.message) ?? '',
+    message,
     details: stringOr(source.detail) ?? stringOr(source.details),
-    constraint: stringOr(source.constraint_name),
+    constraint:
+      stringOr(source.constraint_name) ?? constraintInMessage(message),
   }
 }
 

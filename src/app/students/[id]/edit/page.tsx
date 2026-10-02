@@ -35,10 +35,13 @@ export default async function EditStudentPage({
 
   const { id } = await params
 
-  const [student, guardians, classes] = await Promise.all([
+  // The next code is fetched alongside the student rather than after it: the
+  // query is cheap, and is only used when the student has no code yet.
+  const [student, guardians, classes, nextStudentCode] = await Promise.all([
     getStudentById(id),
     getAllGuardians(),
     getAllClasses(),
+    getNextStudentCode(),
   ])
 
   if (!student) {
@@ -46,9 +49,7 @@ export default async function EditStudentPage({
   }
 
   // Codes became required after some students were saved without one.
-  const suggestedCode = student.student_code
-    ? undefined
-    : await getNextStudentCode()
+  const suggestedCode = student.student_code ? undefined : nextStudentCode
 
   const enrolledClassIds = (
     student.student_classes as Array<{ class: { id: string } | null }>

@@ -32,6 +32,7 @@ export {
   getStudentsByIds,
   createStudent,
   updateStudent,
+  saveStudent,
   getNextStudentCode,
   isStudentCodeTaken,
   updateStudentClasses,
@@ -39,7 +40,7 @@ export {
   findStudentMatches,
   getStudentsForLinking,
 } from './students'
-export type { StudentMatch } from './students'
+export type { GuardianSlot, StudentMatch } from './students'
 export {
   createRegistrationSubmission,
   getRegistrationSubmissions,

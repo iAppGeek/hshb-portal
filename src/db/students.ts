@@ -19,9 +19,11 @@ import { isUuid } from '@/lib/uuid'
 import type { Database } from '@/types/database'
 
 import { toCamel, toSnake, type Snake } from './casing'
-import { db, supabase } from './client'
+import { db, supabase, type Tx } from './client'
+import type { GuardianInsert } from './guardians'
 import { isCurrentStay, studentIdsTaughtBy } from './membership'
 import {
+  guardians,
   studentClasses,
   students,
   type Class,
@@ -410,20 +412,24 @@ type StudentInsert = {
 
 /**
  * The code to offer a new student: one after the highest `<prefix><number>`
- * held by any student, leavers included, so a code is never reused.
+ * held by any student, leavers included, so a code is never reused. Codes
+ * saved in lower case before input was upper-cased still count.
  */
 export async function getNextStudentCode(): Promise<string> {
   const [row] = await db
     .select({
       highest: sql<
         number | null
-      >`max(substring(${students.studentCode} from ${studentCodePattern()})::int)`,
+      >`max(substring(upper(${students.studentCode}) from ${studentCodePattern()})::int)`,
     })
     .from(students)
   return nextStudentCode(row.highest)
 }
 
-/** Whether a student other than `exceptId` (leavers included) holds `code`. */
+/**
+ * Whether a student other than `exceptId` (leavers included) holds `code`,
+ * ignoring case.
+ */
 export async function isStudentCodeTaken(
   code: string,
   exceptId: string | null,
@@ -433,7 +439,7 @@ export async function isStudentCodeTaken(
     .from(students)
     .where(
       and(
-        eq(students.studentCode, code),
+        sql`upper(${students.studentCode}) = upper(${code})`,
         exceptId === null ? undefined : ne(students.id, exceptId),
       ),
     )
@@ -458,6 +464,76 @@ export async function updateStudent(
   data: StudentUpdate,
 ): Promise<void> {
   await db.update(students).set(toCamel(data)).where(eq(students.id, id))
+}
+
+/** A guardian link on a student: an existing guardian, or one to create. */
+export type GuardianSlot = { id: string } | { create: GuardianInsert }
+
+type StudentGuardianSlots = {
+  primary: GuardianSlot
+  secondary: GuardianSlot | null
+  contact1: GuardianSlot | null
+  contact2: GuardianSlot | null
+}
+
+type StudentGuardianIds = Pick<
+  StudentInsert,
+  | 'primary_guardian_id'
+  | 'secondary_guardian_id'
+  | 'additional_contact_1_id'
+  | 'additional_contact_2_id'
+  | 'address_guardian_id'
+>
+
+async function guardianIdOf(tx: Tx, slot: GuardianSlot): Promise<string> {
+  if ('id' in slot) return slot.id
+  const [row] = await tx
+    .insert(guardians)
+    .values(toCamel(slot.create))
+    .returning({ id: guardians.id })
+  return row.id
+}
+
+/**
+ * Creates the student (`id` null) or updates it, first creating any guardian
+ * entered as new. One transaction, so a refused student write (such as a code
+ * another student took a moment earlier) leaves no orphaned guardians behind.
+ * With `addressFromPrimary` the student shares the primary guardian's address.
+ */
+export async function saveStudent(
+  id: string | null,
+  data: Omit<StudentInsert, keyof StudentGuardianIds>,
+  slots: StudentGuardianSlots,
+  addressFromPrimary: boolean,
+): Promise<{ id: string }> {
+  return db.transaction(async (tx) => {
+    const primaryId = await guardianIdOf(tx, slots.primary)
+    const values = toCamel({
+      ...data,
+      primary_guardian_id: primaryId,
+      secondary_guardian_id: slots.secondary
+        ? await guardianIdOf(tx, slots.secondary)
+        : null,
+      additional_contact_1_id: slots.contact1
+        ? await guardianIdOf(tx, slots.contact1)
+        : null,
+      additional_contact_2_id: slots.contact2
+        ? await guardianIdOf(tx, slots.contact2)
+        : null,
+      address_guardian_id: addressFromPrimary ? primaryId : null,
+    })
+
+    if (id === null) {
+      const [row] = await tx
+        .insert(students)
+        .values(values)
+        .returning({ id: students.id })
+      return row
+    }
+
+    await tx.update(students).set(values).where(eq(students.id, id))
+    return { id }
+  })
 }
 
 export async function updateStudentClasses(

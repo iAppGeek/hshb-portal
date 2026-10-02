@@ -305,11 +305,14 @@ export const guardianSchemaWithOccupation = z.discriminatedUnion('mode', [
   guardianExistingSchema,
 ])
 
+/** Upper-cased, so `gk-1006` and `GK-1006` are saved as the same code. */
+const studentCode = shortText.transform((code) => code.toUpperCase())
+
 const studentBaseSchema = z
   .object({
     student_first_name: requiredString,
     student_last_name: requiredString,
-    student_code: requiredString,
+    student_code: studentCode,
     student_date_of_birth: optionalString,
     // Optional for admin data entry: there is a backlog of existing students
     // whose English school is unknown. Required on the public form.
@@ -411,7 +414,7 @@ export const registrationSubmissionSchema = z.object({
 })
 
 export const approveRegistrationSchema = z.object({
-  student_code: requiredString,
+  student_code: studentCode,
   class_id: optionalString.pipe(uuid.nullable()),
   existing_student_id: optionalString.pipe(uuid.nullable()),
   reuse_guardians: checkbox,

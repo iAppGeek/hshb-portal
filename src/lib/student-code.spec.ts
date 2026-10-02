@@ -51,9 +51,9 @@ describe('nextStudentCode', () => {
 })
 
 describe('studentCodeInUseMessage', () => {
-  it('names the code', () => {
-    expect(studentCodeInUseMessage('GK-1005')).toBe(
-      'Student code "GK-1005" is already in use',
+  it('names the code and offers the next free one', () => {
+    expect(studentCodeInUseMessage('GK-1005', 'GK-1007')).toBe(
+      'Student code "GK-1005" is already in use. The next free code is GK-1007.',
     )
   })
 })
