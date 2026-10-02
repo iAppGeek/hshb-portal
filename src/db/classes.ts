@@ -3,6 +3,7 @@ import 'server-only'
 import { and, asc, eq, inArray } from 'drizzle-orm'
 
 import type { EnrolmentRangeRow } from '@/lib/attendanceSummary'
+import { sortClasses } from '@/lib/classes'
 import { toClassEmailRoster, type ClassEmailRoster } from '@/lib/communication'
 import type { EnrolmentRow } from '@/lib/enrolment'
 import { isUuid } from '@/lib/uuid'
@@ -101,9 +102,8 @@ export async function getAllClasses(): Promise<ClassRow[]> {
       eq(classes.active, true),
       inArray(classes.academicYearId, currentYearId),
     ),
-    orderBy: asc(classes.yearGroup),
   })
-  return toSnake(rows.map(withYearCode))
+  return sortClasses(toSnake(rows.map(withYearCode)))
 }
 
 /** Active classes in the current year, with the teacher school email and guardian emails. */
@@ -146,17 +146,9 @@ export async function getClassEmailRosters(): Promise<{
   })
   if (!year) throw new Error('No current academic year is set')
 
-  const rows = toSnake(year.classes).sort((a, b) => {
-    const byYear = a.year_group.localeCompare(b.year_group, 'en', {
-      numeric: true,
-    })
-    if (byYear !== 0) return byYear
-    return a.name.localeCompare(b.name, 'en')
-  })
-
   return {
     yearCode: year.code,
-    classes: rows.map(toClassEmailRoster),
+    classes: sortClasses(toSnake(year.classes)).map(toClassEmailRoster),
   }
 }
 
@@ -166,9 +158,8 @@ export async function getClassesByAcademicYear(
   const rows = await db.query.classes.findMany({
     with: classWith,
     where: eq(classes.academicYearId, yearId),
-    orderBy: asc(classes.yearGroup),
   })
-  return toSnake(rows.map(withYearCode))
+  return sortClasses(toSnake(rows.map(withYearCode)))
 }
 
 export async function getClassById(
@@ -214,9 +205,8 @@ export async function getClassesByTeacher(
       eq(classes.active, true),
       inArray(classes.academicYearId, currentYearId),
     ),
-    orderBy: asc(classes.yearGroup),
   })
-  return toSnake(rows.map(withYearCode))
+  return sortClasses(toSnake(rows.map(withYearCode)))
 }
 
 export async function getClassWithStudents(

@@ -13,6 +13,7 @@ import {
   sql,
 } from 'drizzle-orm'
 
+import { compareClassNames } from '@/lib/classes'
 import type { LeavingReason } from '@/lib/schemas'
 import { nextStudentCode, studentCodePattern } from '@/lib/student-code'
 import { isUuid } from '@/lib/uuid'
@@ -148,9 +149,10 @@ const recordWith = {
   },
 } as const
 
-type ClassWithYear = { academicYear: { code: string } }
+type ClassWithYear = { name: string; academicYear: { code: string } }
 
-/** Keeps the flat `class.academic_year: string` shape display components already use. */
+/** Keeps the flat `class.academic_year: string` shape display components
+ * already use, with the classes in school order. */
 function withClassYearCodes<R extends object, C extends ClassWithYear>(
   row: R & { studentClasses: { class: C }[] },
 ): Omit<R, 'studentClasses'> & {
@@ -161,9 +163,11 @@ function withClassYearCodes<R extends object, C extends ClassWithYear>(
   const { studentClasses: links, ...rest } = row
   return {
     ...rest,
-    studentClasses: links.map(({ class: { academicYear, ...cls } }) => ({
-      class: { ...cls, academicYear: academicYear.code },
-    })),
+    studentClasses: [...links]
+      .sort((a, b) => compareClassNames(a.class.name, b.class.name))
+      .map(({ class: { academicYear, ...cls } }) => ({
+        class: { ...cls, academicYear: academicYear.code },
+      })),
   }
 }
 

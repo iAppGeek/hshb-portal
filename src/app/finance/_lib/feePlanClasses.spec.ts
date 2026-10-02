@@ -55,6 +55,24 @@ describe('toClassOptions', () => {
     ])
     expect(toClassOptions(withExtras)[0]).not.toHaveProperty('teacher_id')
   })
+
+  it('lists classes in school order, youngest first', () => {
+    const named = ['GCSE I', 'Year 2', 'Nursery', 'A Level', 'Reception'].map(
+      (name, i) => ({
+        id: `c${i}`,
+        name,
+        year_group: '',
+        academic_year_id: YEAR.id,
+      }),
+    )
+    expect(toClassOptions(named).map((c) => c.name)).toEqual([
+      'Nursery',
+      'Reception',
+      'Year 2',
+      'GCSE I',
+      'A Level',
+    ])
+  })
 })
 
 describe('planLabel', () => {

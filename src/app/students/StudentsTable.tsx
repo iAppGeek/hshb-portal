@@ -7,6 +7,7 @@ import FunctionalGrid, {
 } from '@/clientComponents/grid/FunctionalGrid'
 import LeaverBadge from '@/components/LeaverBadge'
 import PermissionedLink from '@/components/PermissionedLink'
+import { compareClassNames } from '@/lib/classes'
 import { personName } from '@/lib/format'
 import type { StackedRowSpec } from '@/lib/grid/columns'
 import { fullName, matchesAny, normaliseQuery } from '@/lib/grid/search'
@@ -30,13 +31,15 @@ type Props = {
   role: StaffRole
 }
 
+/** The student's class names in school order, youngest first. */
+function sortedClassNames(student: Student): string[] {
+  return student.student_classes
+    .flatMap((sc) => (sc.class ? [sc.class.name] : []))
+    .sort(compareClassNames)
+}
+
 function classNames(student: Student): string {
-  return (
-    student.student_classes
-      .map((sc) => sc.class?.name)
-      .filter(Boolean)
-      .join(', ') || '—'
-  )
+  return sortedClassNames(student).join(', ') || '—'
 }
 
 function guardianName(student: Student): string {
@@ -110,9 +113,9 @@ export default function StudentsTable({
       header: 'Classes',
       cell: (info) => classNames(info.row.original),
       sortFn: (rowA, rowB) =>
-        compareNullableText(
-          classNames(rowA.original),
-          classNames(rowB.original),
+        compareClassNames(
+          sortedClassNames(rowA.original)[0] ?? null,
+          sortedClassNames(rowB.original)[0] ?? null,
         ),
     },
     {

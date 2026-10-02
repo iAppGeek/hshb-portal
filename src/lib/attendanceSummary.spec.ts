@@ -218,4 +218,35 @@ describe('summariseAttendance', () => {
       classesTaken: 0,
     })
   })
+
+  it('lists classes in school order, then by year code', () => {
+    const named = (
+      id: string,
+      name: string,
+      yearCode: string,
+    ): SummaryClass => ({
+      id,
+      name,
+      yearCode,
+      active: true,
+    })
+    const classes = [
+      named('g', 'GCSE I', '2026-27'),
+      named('y1new', 'Year 1', '2026-27'),
+      named('n', 'Nursery', '2026-27'),
+      named('y1old', 'Year 1', '2025-26'),
+    ]
+    const enrolmentRows = classes.map((cls) =>
+      enrolment({ class: cls, studentId: cls.id }),
+    )
+
+    const result = summariseAttendance([], enrolmentRows, ['2026-09-01'])
+
+    expect(result.classes.map((c) => c.class.id)).toEqual([
+      'n',
+      'y1old',
+      'y1new',
+      'g',
+    ])
+  })
 })

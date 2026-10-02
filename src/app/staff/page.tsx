@@ -4,7 +4,7 @@ import { requireSession } from '@/auth/require'
 import EmailDropdown from '@/clientComponents/EmailDropdown'
 import PermissionedLink from '@/components/PermissionedLink'
 import { getAllStaffWithClasses } from '@/db'
-import { compareNullableText } from '@/lib/grid/sort'
+import { compareClassNames, sortClasses } from '@/lib/classes'
 import { mailtoWithBcc, staffEmailsForMailto } from '@/lib/mailto'
 import {
   canEditStaff,
@@ -33,11 +33,11 @@ export default async function StaffPage() {
   const staffRaw = await getAllStaffWithClasses()
 
   const firstClassName = (member: (typeof staffRaw)[number]): string | null =>
-    (member.classes as { name: string }[] | null)?.[0]?.name.toLowerCase() ||
+    sortClasses((member.classes as { name: string }[] | null) ?? [])[0]?.name ??
     null
 
   const staff = [...staffRaw].sort((a, b) =>
-    compareNullableText(firstClassName(a), firstClassName(b)),
+    compareClassNames(firstClassName(a), firstClassName(b)),
   )
 
   const teachingMembers = staff.filter((m) =>

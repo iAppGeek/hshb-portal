@@ -27,6 +27,19 @@ describe('distinctYearGroups', () => {
     expect(distinctYearGroups(classes)).toEqual(['Year 1', 'Year 2', 'Year 3'])
   })
 
+  it('orders year groups youngest first, not alphabetically', () => {
+    const classes = ['A Level', 'GCSE', '10', '2', 'pre-school'].map(
+      (year_group) => ({ year_group }),
+    )
+    expect(distinctYearGroups(classes)).toEqual([
+      'pre-school',
+      '2',
+      '10',
+      'GCSE',
+      'A Level',
+    ])
+  })
+
   it('returns an empty array for no classes', () => {
     expect(distinctYearGroups([])).toEqual([])
   })

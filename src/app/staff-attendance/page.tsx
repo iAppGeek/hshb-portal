@@ -15,7 +15,7 @@ import {
   nowTimeInSchoolTz,
   todayInSchoolTz,
 } from '@/lib/datetime'
-import { compareNullableText } from '@/lib/grid/sort'
+import { compareClassNames } from '@/lib/classes'
 import { isTeacher, showsOnSignInSheet } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -104,7 +104,7 @@ export default async function StaffAttendancePage({
         record: recordByStaffId[s.id] ?? null,
       }
     })
-    .sort((a, b) => compareNullableText(a.staff.class_name, b.staff.class_name))
+    .sort((a, b) => compareClassNames(a.staff.class_name, b.staff.class_name))
 
   const formattedDate = formatCalendarDate(selectedDate, {
     weekday: 'long',

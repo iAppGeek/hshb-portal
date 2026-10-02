@@ -2,6 +2,7 @@ import 'server-only'
 
 import { and, asc, desc, eq, sql, sum } from 'drizzle-orm'
 
+import { sortClasses } from '@/lib/classes'
 import { feeClassesForYear } from '@/lib/enrolment'
 import {
   feeStatus,
@@ -108,10 +109,12 @@ function classesOfYear(yearId: string) {
 
 /** The classes whose fee plan applies, from a student's stays in one year. */
 function feeClasses(stays: Stay[]): FeeClass[] {
-  return feeClassesForYear(stays).map((s) => ({
-    id: s.class.id,
-    name: s.class.name,
-  }))
+  return sortClasses(
+    feeClassesForYear(stays).map((s) => ({
+      id: s.class.id,
+      name: s.class.name,
+    })),
+  )
 }
 
 function toPaymentSummary(p: {
