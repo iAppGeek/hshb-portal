@@ -11,6 +11,8 @@ import {
   rejectPhotoOptOut,
   deletePhotoOptOut,
   getPhotoOptOutById,
+  getNextStudentCode,
+  isStudentCodeTaken,
   logAuditEvent,
 } from '@/db'
 
@@ -37,6 +39,8 @@ vi.mock('@/db', () => ({
   rejectPhotoOptOut: vi.fn(),
   deletePhotoOptOut: vi.fn(),
   getPhotoOptOutById: vi.fn(),
+  getNextStudentCode: vi.fn(),
+  isStudentCodeTaken: vi.fn(),
   logAuditEvent: vi.fn(),
 }))
 
@@ -59,18 +63,36 @@ function makeFormData(fields: Record<string, string>): FormData {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(getActor).mockResolvedValue(adminSession as never)
+  vi.mocked(getNextStudentCode).mockResolvedValue('GK-1002')
+  vi.mocked(isStudentCodeTaken).mockResolvedValue(false)
   vi.mocked(redirect).mockImplementation(() => {
     throw new Error('NEXT_REDIRECT')
   })
 })
 
 describe('approveRegistrationAction', () => {
+  const IN_USE =
+    'Student code "GK-1001" is already in use. The next free code is GK-1002.'
+
   const validFields = {
-    student_code: '',
+    student_code: 'GK-1001',
     class_id: CLASS_ID,
     existing_student_id: '',
     reuse_guardians: 'on',
   }
+
+  it('requires a student code', async () => {
+    const result = await approveRegistrationAction(
+      SUBMISSION_ID,
+      makeFormData({ ...validFields, student_code: ' ' }),
+    )
+
+    expect(result).toEqual({
+      error: 'Required',
+      fieldErrors: { student_code: 'Required' },
+    })
+    expect(approveRegistration).not.toHaveBeenCalled()
+  })
 
   it('returns error when not authenticated', async () => {
     vi.mocked(getActor).mockResolvedValue(null as never)
@@ -123,6 +145,97 @@ describe('approveRegistrationAction', () => {
     expect(approveRegistration).not.toHaveBeenCalled()
   })
 
+  it('saves the code in upper case', async () => {
+    vi.mocked(approveRegistration).mockResolvedValue({
+      student_id: STUDENT_ID,
+      linked_existing: false,
+      guardians: [],
+      student_changes: {},
+    })
+
+    await expect(
+      approveRegistrationAction(
+        SUBMISSION_ID,
+        makeFormData({ ...validFields, student_code: 'gk-1001' }),
+      ),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(approveRegistration).toHaveBeenCalledWith(
+      expect.objectContaining({ studentCode: 'GK-1001' }),
+    )
+  })
+
+  it('refuses a code another student holds on the code field', async () => {
+    vi.mocked(isStudentCodeTaken).mockResolvedValue(true)
+
+    const result = await approveRegistrationAction(
+      SUBMISSION_ID,
+      makeFormData(validFields),
+    )
+
+    expect(result).toEqual({
+      error: IN_USE,
+      fieldErrors: { student_code: IN_USE },
+    })
+    expect(isStudentCodeTaken).toHaveBeenCalledWith('GK-1001', null)
+    expect(approveRegistration).not.toHaveBeenCalled()
+  })
+
+  it('lets a linked existing student keep its own code', async () => {
+    const existingId = '00000000-0000-4000-8000-000000000099'
+    vi.mocked(approveRegistration).mockResolvedValue({
+      student_id: existingId,
+      linked_existing: true,
+      guardians: [],
+      student_changes: {},
+    })
+
+    await expect(
+      approveRegistrationAction(
+        SUBMISSION_ID,
+        makeFormData({ ...validFields, existing_student_id: existingId }),
+      ),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(isStudentCodeTaken).toHaveBeenCalledWith('GK-1001', existingId)
+  })
+
+  it('shows a code clash caught by the database on the code field', async () => {
+    vi.mocked(approveRegistration).mockRejectedValue({
+      code: '23505',
+      message:
+        'duplicate key value violates unique constraint "students_student_code_key"',
+    })
+
+    const result = await approveRegistrationAction(
+      SUBMISSION_ID,
+      makeFormData(validFields),
+    )
+
+    expect(result).toEqual({
+      error: IN_USE,
+      fieldErrors: { student_code: IN_USE },
+    })
+  })
+
+  it('does not blame the code for another unique clash', async () => {
+    vi.mocked(approveRegistration).mockRejectedValue({
+      code: '23505',
+      message:
+        'duplicate key value violates unique constraint "student_classes_one_open"',
+    })
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const result = await approveRegistrationAction(
+      SUBMISSION_ID,
+      makeFormData(validFields),
+    )
+
+    expect(result).not.toHaveProperty('fieldErrors')
+    expect(result?.error).not.toContain('Student code')
+    consoleSpy.mockRestore()
+  })
+
   it('returns a friendly error when the RPC throws', async () => {
     vi.mocked(approveRegistration).mockRejectedValue(
       new Error('Submission not found or already actioned'),
@@ -154,7 +267,7 @@ describe('approveRegistrationAction', () => {
     expect(approveRegistration).toHaveBeenCalledWith({
       submissionId: SUBMISSION_ID,
       staffId: STAFF_ID,
-      studentCode: null,
+      studentCode: 'GK-1001',
       classId: CLASS_ID,
       existingStudentId: null,
       reuseGuardians: true,

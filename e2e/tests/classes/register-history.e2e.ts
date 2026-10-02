@@ -103,6 +103,9 @@ async function createStudent(
     .insert({
       first_name: firstName,
       last_name: lastName,
+      // Its own code: the edit form would otherwise pre-fill the next code,
+      // which parallel projects would share.
+      student_code: `E2E-${crypto.randomUUID()}`,
       primary_guardian_id: guardian.id,
       primary_guardian_relationship: 'Guardian',
       address_guardian_id: guardian.id,
@@ -367,7 +370,7 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
 
       // Search for the joiner only: the member and leaver rows are hidden.
       await page
-        .getByPlaceholder('Filter students by name…')
+        .getByPlaceholder('Filter students by name or code…')
         .fill(`Joiner Search${suffix}`)
       await expect(
         page.locator(`input[name="student_ids"][value="${memberId}"]`),
@@ -800,6 +803,7 @@ test.describe('Enrolment history — registers, leavers, migration', () => {
         .insert({
           first_name: 'E2E',
           last_name: childLastName,
+          student_code: `E2E-${childLastName}`,
           date_of_birth: '2019-06-01',
           address_line_1: 'Old Address',
           city: 'Oldtown',

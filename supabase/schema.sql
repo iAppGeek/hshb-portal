@@ -296,8 +296,6 @@ BEGIN
   );
 
 EXCEPTION
-  WHEN unique_violation THEN
-    RAISE EXCEPTION 'Student code "%" is already in use', p_student_code;
   WHEN check_violation THEN
     RAISE EXCEPTION 'Student address is incomplete — cannot approve';
   WHEN foreign_key_violation THEN

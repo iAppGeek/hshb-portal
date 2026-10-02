@@ -8,6 +8,7 @@ import {
   findStudentMatches,
   getStudentsForLinking,
   getAllClasses,
+  getNextStudentCode,
   findGuardianMatches,
   type StudentMatch,
   type GuardianMatch,
@@ -34,20 +35,22 @@ export default async function RegistrationDetailPage({
 
   const isAdmin = canApproveRegistrations(role)
 
-  const [matches, studentsForLinking, classes] = await Promise.all([
-    isAdmin
-      ? findStudentMatches({
-          firstName: submission.child_first_name,
-          lastName: submission.child_last_name,
-          dateOfBirth: submission.date_of_birth,
-        }).catch((err: unknown) => {
-          logError('registrations.detail.findStudentMatches', err)
-          return [] as StudentMatch[]
-        })
-      : Promise.resolve([]),
-    isAdmin ? getStudentsForLinking() : Promise.resolve([]),
-    isAdmin ? getAllClasses() : Promise.resolve([]),
-  ])
+  const [matches, studentsForLinking, classes, nextStudentCode] =
+    await Promise.all([
+      isAdmin
+        ? findStudentMatches({
+            firstName: submission.child_first_name,
+            lastName: submission.child_last_name,
+            dateOfBirth: submission.date_of_birth,
+          }).catch((err: unknown) => {
+            logError('registrations.detail.findStudentMatches', err)
+            return [] as StudentMatch[]
+          })
+        : Promise.resolve([]),
+      isAdmin ? getStudentsForLinking() : Promise.resolve([]),
+      isAdmin ? getAllClasses() : Promise.resolve([]),
+      isAdmin ? getNextStudentCode() : Promise.resolve(''),
+    ])
 
   const guardianMatchesByContact: Record<string, GuardianMatch[]> = {}
   if (isAdmin) {
@@ -75,6 +78,7 @@ export default async function RegistrationDetailPage({
       matches={matches}
       studentsForLinking={studentsForLinking}
       classes={classes}
+      nextStudentCode={nextStudentCode}
       guardianMatchesByContact={guardianMatchesByContact}
     />
   )

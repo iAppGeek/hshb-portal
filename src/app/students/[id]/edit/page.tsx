@@ -6,6 +6,7 @@ import {
   getStudentById,
   getAllGuardians,
   getAllClasses,
+  getNextStudentCode,
   type ClassOption,
 } from '@/db'
 import LeaverBadge from '@/components/LeaverBadge'
@@ -34,15 +35,21 @@ export default async function EditStudentPage({
 
   const { id } = await params
 
-  const [student, guardians, classes] = await Promise.all([
+  // The next code is fetched alongside the student rather than after it: the
+  // query is cheap, and is only used when the student has no code yet.
+  const [student, guardians, classes, nextStudentCode] = await Promise.all([
     getStudentById(id),
     getAllGuardians(),
     getAllClasses(),
+    getNextStudentCode(),
   ])
 
   if (!student) {
     notFound()
   }
+
+  // Codes became required after some students were saved without one.
+  const suggestedCode = student.student_code ? undefined : nextStudentCode
 
   const enrolledClassIds = (
     student.student_classes as Array<{ class: { id: string } | null }>
@@ -81,6 +88,7 @@ export default async function EditStudentPage({
       <StudentForm
         initial={student}
         guardians={guardians}
+        suggestedCode={suggestedCode}
         classes={classes as ClassOption[]}
         enrolledClassIds={enrolledClassIds}
         action={saveStudentAction.bind(null, id)}

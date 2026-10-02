@@ -1,3 +1,5 @@
+import type { Page } from '@playwright/test'
+
 import { test, expect } from '../../fixtures/index'
 import {
   db,
@@ -16,6 +18,14 @@ test.describe('Registration review', () => {
     suffix = testInfo.project.name.replace(/[^a-z0-9]/gi, '')
     childLastName = ''
   })
+
+  /**
+   * Approval pre-fills the next code, which parallel projects would share.
+   * Call it last: choosing a student resets the field.
+   */
+  async function fillUniqueCode(page: Page): Promise<void> {
+    await page.getByLabel('Student code').fill(`E2E-${childLastName}`)
+  }
 
   test.afterEach(async () => {
     if (!childLastName) return
@@ -58,6 +68,7 @@ test.describe('Registration review', () => {
 
     await page.goto(`/registrations/${id}`)
     await page.getByRole('button', { name: 'Approve & save student' }).click()
+    await fillUniqueCode(page)
     await page.getByRole('button', { name: 'Approve' }).click()
 
     await expect(page).toHaveURL(/\/students\/.+\/edit/)
@@ -95,6 +106,7 @@ test.describe('Registration review', () => {
 
     await page.goto(`/registrations/${id}`)
     await page.getByRole('button', { name: 'Approve & save student' }).click()
+    await fillUniqueCode(page)
     await page.getByRole('button', { name: 'Approve' }).click()
 
     await expect(page).toHaveURL(/\/students\/.+\/edit/)
@@ -169,6 +181,7 @@ test.describe('Registration review', () => {
 
     await page.getByRole('button', { name: 'Approve & save student' }).click()
     await page.getByRole('radio', { name: 'Link to existing student' }).click()
+    await fillUniqueCode(page)
     await page.getByRole('button', { name: 'Approve' }).click()
 
     await expect(page).toHaveURL(`/students/${existingStudent!.id}/edit`)
@@ -224,10 +237,14 @@ test.describe('Registration review', () => {
 
     await page.goto(`/registrations/${id}`)
     await page.getByRole('button', { name: 'Approve & save student' }).click()
-    await page.getByLabel('Student code').fill(dupCode)
+    const codeField = page.getByLabel('Student code')
+    await codeField.fill(dupCode)
     await page.getByRole('button', { name: 'Approve' }).click()
 
-    await expect(page.getByText(/already in use/)).toBeVisible()
+    // On the code field, offering the next free code.
+    await expect(codeField).toHaveAccessibleDescription(
+      /already in use\. The next free code is GK-\d+\./,
+    )
     await expect(page).toHaveURL(new RegExp(`/registrations/${id}$`))
 
     const { data: submission } = await db
@@ -329,6 +346,7 @@ test.describe('Registration review', () => {
 
     await page.getByRole('button', { name: 'Approve & save student' }).click()
     // "Reuse matching guardian records" is checked by default.
+    await fillUniqueCode(page)
     await page.getByRole('button', { name: 'Approve' }).click()
 
     await expect(page).toHaveURL(/\/students\/.+\/edit/)
@@ -404,6 +422,7 @@ test.describe('Registration review', () => {
     await page
       .getByRole('checkbox', { name: /Reuse matching guardian records/ })
       .uncheck()
+    await fillUniqueCode(page)
     await page.getByRole('button', { name: 'Approve' }).click()
 
     await expect(page).toHaveURL(/\/students\/.+\/edit/)

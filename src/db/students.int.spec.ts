@@ -4,11 +4,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { asDbError } from '@/lib/db-error'
 
 import { db } from './client'
-import { studentClasses, students } from './schema'
+import { guardians, studentClasses, students } from './schema'
 import {
   createStudent,
   findStudentMatches,
   getAllStudents,
+  getNextStudentCode,
   getStudentById,
   getStudentCount,
   getStudentIdsByTeacher,
@@ -19,10 +20,13 @@ import {
   getStudentsForList,
   getStudentSummaries,
   getStudentsWithAllergiesCount,
+  isStudentCodeTaken,
   markStudentAsLeaver,
+  saveStudent,
   searchStudents,
   updateStudent,
   updateStudentClasses,
+  type GuardianSlot,
 } from './students'
 import { resetDatabase, SEED } from './test-db'
 
@@ -229,5 +233,141 @@ describe('writes', () => {
       dateOfBirth: '2015-06-01',
     })
     expect(matches.map((m) => m.id)).toContain(SEED.students.alice)
+  })
+})
+
+describe('saveStudent', () => {
+  const newGuardian = (firstName: string): GuardianSlot => ({
+    create: { first_name: firstName, last_name: 'Saved', phone: '07700900000' },
+  })
+
+  async function guardianNamed(firstName: string): Promise<string | undefined> {
+    const [row] = await db
+      .select({ id: guardians.id })
+      .from(guardians)
+      .where(eq(guardians.firstName, firstName))
+    return row?.id
+  }
+
+  it('creates new guardians and the student linked to them', async () => {
+    const { id } = await saveStudent(
+      null,
+      { first_name: 'Sam', last_name: 'Saved', student_code: 'SV-1' },
+      {
+        primary: newGuardian('Petra'),
+        secondary: null,
+        contact1: { id: SEED.guardians.greg },
+        contact2: null,
+      },
+      true,
+    )
+    const petra = await guardianNamed('Petra')
+    expect(await getStudentById(id)).toMatchObject({
+      student_code: 'SV-1',
+      primary_guardian_id: petra,
+      additional_contact_1_id: SEED.guardians.greg,
+      address_guardian_id: petra,
+    })
+  })
+
+  it('updates a student, creating a guardian entered as new', async () => {
+    const { id } = await saveStudent(
+      SEED.students.bob,
+      {
+        first_name: 'Bob',
+        last_name: 'Student',
+        student_code: 'SV-2',
+        address_line_1: '1 Road',
+        city: 'Town',
+        postcode: 'AB1 2CD',
+      },
+      {
+        primary: { id: SEED.guardians.grace },
+        secondary: newGuardian('Simon'),
+        contact1: null,
+        contact2: null,
+      },
+      false,
+    )
+    expect(id).toBe(SEED.students.bob)
+    expect(await getStudentById(id)).toMatchObject({
+      student_code: 'SV-2',
+      secondary_guardian_id: await guardianNamed('Simon'),
+      address_guardian_id: null,
+      city: 'Town',
+    })
+  })
+
+  it('creates no guardians when the student write is refused', async () => {
+    const err = await saveStudent(
+      null,
+      { first_name: 'Dup', last_name: 'Code', student_code: 'SV-1' },
+      {
+        primary: newGuardian('Orphan'),
+        secondary: null,
+        contact1: null,
+        contact2: null,
+      },
+      true,
+    ).catch((e: unknown) => e)
+    expect(asDbError(err)).toMatchObject({
+      code: '23505',
+      constraint: 'students_student_code_key',
+    })
+    expect(await guardianNamed('Orphan')).toBeUndefined()
+  })
+})
+
+describe('student codes', () => {
+  async function setCode(
+    id: string,
+    studentCode: string | null,
+    active = true,
+  ): Promise<void> {
+    await db
+      .update(students)
+      .set({ studentCode, active })
+      .where(eq(students.id, id))
+  }
+
+  it('starts at GK-1001 when no code has the prefix', async () => {
+    await setCode(SEED.students.alice, 'XX-5000')
+    expect(await getNextStudentCode()).toBe('GK-1001')
+  })
+
+  it('offers one after the highest number, leavers included', async () => {
+    await setCode(SEED.students.alice, 'GK-999')
+    await setCode(SEED.students.bob, 'GK-1004')
+    await setCode(SEED.students.carol, 'GK-1005', false)
+    expect(await getNextStudentCode()).toBe('GK-1006')
+  })
+
+  it('counts a code saved in lower case', async () => {
+    await setCode(SEED.students.alice, 'gk-1010')
+    expect(await getNextStudentCode()).toBe('GK-1011')
+  })
+
+  it('finds a code held by another student, a leaver included', async () => {
+    await setCode(SEED.students.carol, 'GK-1005', false)
+    expect(await isStudentCodeTaken('GK-1005', null)).toBe(true)
+    expect(await isStudentCodeTaken('GK-1005', SEED.students.alice)).toBe(true)
+    expect(await isStudentCodeTaken('GK-1005', SEED.students.carol)).toBe(false)
+    expect(await isStudentCodeTaken('GK-7777', null)).toBe(false)
+  })
+
+  it('finds a code whatever its case', async () => {
+    await setCode(SEED.students.bob, 'gk-1020')
+    expect(await isStudentCodeTaken('GK-1020', null)).toBe(true)
+  })
+
+  it('refuses a second student with the same code', async () => {
+    await setCode(SEED.students.carol, 'GK-1005', false)
+    const err = await updateStudent(SEED.students.alice, {
+      student_code: 'GK-1005',
+    }).catch((e: unknown) => e)
+    expect(asDbError(err)).toMatchObject({
+      code: '23505',
+      constraint: 'students_student_code_key',
+    })
   })
 })

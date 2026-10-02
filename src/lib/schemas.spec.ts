@@ -796,7 +796,7 @@ describe('createStudentSchema', () => {
   const validWithGuardianRef = {
     student_first_name: 'Anna',
     student_last_name: 'Smith',
-    student_code: '',
+    student_code: 'GK-1001',
     student_date_of_birth: '',
     student_english_school_name: '',
     address_guardian_id: 'primary',
@@ -854,6 +854,21 @@ describe('createStudentSchema', () => {
       }),
     ).toThrow()
   })
+
+  it('requires a student code, trimmed', () => {
+    expect(
+      createStudentSchema.safeParse({
+        ...validWithOwnAddress,
+        student_code: '  ',
+      }).success,
+    ).toBe(false)
+    expect(
+      createStudentSchema.parse({
+        ...validWithOwnAddress,
+        student_code: ' GK-1001 ',
+      }).student_code,
+    ).toBe('GK-1001')
+  })
 })
 
 describe('updateStudentSchema', () => {
@@ -861,7 +876,7 @@ describe('updateStudentSchema', () => {
     const result = updateStudentSchema.parse({
       student_first_name: 'Anna',
       student_last_name: 'Smith',
-      student_code: '',
+      student_code: 'GK-1001',
       student_date_of_birth: '',
       student_english_school_name: '',
       address_guardian_id: 'primary',
@@ -885,7 +900,7 @@ describe('updateStudentSchema', () => {
     const result = updateStudentSchema.parse({
       student_first_name: 'Anna',
       student_last_name: 'Smith',
-      student_code: '',
+      student_code: 'GK-1001',
       student_date_of_birth: '',
       student_english_school_name: '',
       address_guardian_id: 'primary',
@@ -1242,13 +1257,22 @@ describe('registrationSubmissionSchema', () => {
 describe('approveRegistrationSchema', () => {
   it('turns empty strings into nulls', () => {
     const result = approveRegistrationSchema.parse({
-      student_code: '',
+      student_code: 'GK-1001',
       class_id: '',
       existing_student_id: '',
     })
-    expect(result.student_code).toBeNull()
     expect(result.class_id).toBeNull()
     expect(result.existing_student_id).toBeNull()
+  })
+
+  it('requires a student code', () => {
+    expect(
+      approveRegistrationSchema.safeParse({
+        student_code: '  ',
+        class_id: '',
+        existing_student_id: '',
+      }).success,
+    ).toBe(false)
   })
 
   it('accepts valid values', () => {
@@ -1263,7 +1287,7 @@ describe('approveRegistrationSchema', () => {
   it('rejects an invalid uuid', () => {
     expect(() =>
       approveRegistrationSchema.parse({
-        student_code: '',
+        student_code: 'GK-1001',
         class_id: 'not-a-uuid',
         existing_student_id: '',
       }),
@@ -1272,7 +1296,7 @@ describe('approveRegistrationSchema', () => {
 
   it('defaults reuse_guardians to false when absent', () => {
     const result = approveRegistrationSchema.parse({
-      student_code: '',
+      student_code: 'GK-1001',
       class_id: '',
       existing_student_id: '',
     })
@@ -1281,7 +1305,7 @@ describe('approveRegistrationSchema', () => {
 
   it('parses "on" as true for reuse_guardians', () => {
     const result = approveRegistrationSchema.parse({
-      student_code: '',
+      student_code: 'GK-1001',
       class_id: '',
       existing_student_id: '',
       reuse_guardians: 'on',

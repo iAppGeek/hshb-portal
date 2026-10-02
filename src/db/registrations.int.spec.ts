@@ -1,5 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest'
 
+import { asDbError } from '@/lib/db-error'
+
 import {
   approveRegistration,
   createRegistrationSubmission,
@@ -121,6 +123,22 @@ describe('registration review', () => {
     expect((await getRegistrationSubmissionById(id))?.student_id).toBe(
       result.student_id,
     )
+  })
+
+  it('names the code constraint when the code is taken', async () => {
+    const id = await submit('Bea')
+    const err = await approveRegistration({
+      submissionId: id,
+      staffId: SEED.staff.admin,
+      studentCode: 'AVA-1',
+      classId: null,
+      existingStudentId: null,
+      reuseGuardians: true,
+    }).catch((e: unknown) => e)
+    expect(asDbError(err)).toMatchObject({
+      code: '23505',
+      constraint: 'students_student_code_key',
+    })
   })
 
   it('deletes a submission, and fails for a missing one', async () => {

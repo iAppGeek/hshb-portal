@@ -24,6 +24,8 @@ type Props = {
   matches: StudentMatch[]
   studentsForLinking: StudentMatch[]
   classes: ClassOption[]
+  /** Pre-fills the code of a new student, or a linked one who has none. */
+  nextStudentCode: string
   hasGuardianMatches: boolean
   onClose: () => void
 }
@@ -34,6 +36,7 @@ export default function RegistrationApproveDialog({
   matches,
   studentsForLinking,
   classes,
+  nextStudentCode,
   hasGuardianMatches,
   onClose,
 }: Props): React.ReactElement {
@@ -78,7 +81,8 @@ export default function RegistrationApproveDialog({
           key={selectedExisting?.id ?? 'new'}
           label="Student code"
           name="student_code"
-          defaultValue={selectedExisting?.student_code}
+          required
+          defaultValue={selectedExisting?.student_code ?? nextStudentCode}
           error={fieldError('student_code')}
         />
 

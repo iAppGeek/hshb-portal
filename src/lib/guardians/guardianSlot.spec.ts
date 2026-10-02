@@ -1,19 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 
-import { createGuardian } from '@/db'
 import { ActionError } from '@/lib/action'
 import { guardianSchema, guardianSchemaWithOccupation } from '@/lib/schemas'
 
-import { parseGuardianSlot, resolveGuardian } from './resolveGuardian'
+import { parseGuardianSlot, toGuardianSlot } from './guardianSlot'
 
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
-vi.mock('@/db', () => ({
-  createGuardian: vi.fn(),
-  logAuditEvent: vi.fn(),
-}))
+vi.mock('@/db', () => ({ logAuditEvent: vi.fn() }))
 
 const EXISTING_ID = '00000000-0000-4000-8000-000000000001'
-const NEW_ID = '00000000-0000-4000-8000-000000000002'
 
 function catchActionError(fn: () => unknown): ActionError {
   try {
@@ -39,22 +34,16 @@ const newGuardianFields = {
   contact1_relationship: 'Aunt',
 }
 
-beforeEach(() => {
-  vi.clearAllMocks()
-  vi.mocked(createGuardian).mockResolvedValue({ id: NEW_ID } as any)
-})
-
-describe('resolveGuardian', () => {
-  it('returns an existing guardian without creating one', async () => {
-    await expect(
-      resolveGuardian({ mode: 'existing', existing_id: EXISTING_ID }),
-    ).resolves.toBe(EXISTING_ID)
-    expect(createGuardian).not.toHaveBeenCalled()
+describe('toGuardianSlot', () => {
+  it('links an existing guardian by id', () => {
+    expect(
+      toGuardianSlot({ mode: 'existing', existing_id: EXISTING_ID }),
+    ).toEqual({ id: EXISTING_ID })
   })
 
-  it('creates a new guardian, passing empty optionals as undefined', async () => {
-    await expect(
-      resolveGuardian({
+  it('describes a new guardian, passing empty optionals as undefined', () => {
+    expect(
+      toGuardianSlot({
         mode: 'new',
         first_name: 'Maria',
         last_name: 'Smith',
@@ -66,24 +55,24 @@ describe('resolveGuardian', () => {
         city: 'London',
         postcode: 'EC1A 1BB',
       }),
-    ).resolves.toBe(NEW_ID)
-
-    expect(createGuardian).toHaveBeenCalledWith({
-      first_name: 'Maria',
-      last_name: 'Smith',
-      phone: '07700 900000',
-      email: undefined,
-      occupation: 'Teacher',
-      address_line_1: '1 Main Street',
-      address_line_2: undefined,
-      city: 'London',
-      postcode: 'EC1A 1BB',
+    ).toEqual({
+      create: {
+        first_name: 'Maria',
+        last_name: 'Smith',
+        phone: '07700 900000',
+        email: undefined,
+        occupation: 'Teacher',
+        address_line_1: '1 Main Street',
+        address_line_2: undefined,
+        city: 'London',
+        postcode: 'EC1A 1BB',
+      },
     })
   })
 })
 
 describe('parseGuardianSlot', () => {
-  it('reads the prefixed block without writing a guardian row', () => {
+  it('reads the prefixed block', () => {
     expect(
       parseGuardianSlot(
         makeFormData(newGuardianFields),
@@ -91,7 +80,6 @@ describe('parseGuardianSlot', () => {
         guardianSchema,
       ),
     ).toMatchObject({ mode: 'new', first_name: 'Maria', last_name: 'Smith' })
-    expect(createGuardian).not.toHaveBeenCalled()
   })
 
   it('reads an existing guardian reference from the prefixed block', () => {
@@ -114,7 +102,6 @@ describe('parseGuardianSlot', () => {
 
     expect(err).toBeInstanceOf(ActionError)
     expect(err.fieldErrors).toHaveProperty('contact1_phone')
-    expect(createGuardian).not.toHaveBeenCalled()
   })
 
   it('requires an occupation only with the parent/carer schema', () => {

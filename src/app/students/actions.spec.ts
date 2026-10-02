@@ -3,11 +3,11 @@ import { redirect } from 'next/navigation'
 
 import { getActor } from '@/auth/require'
 import {
-  createGuardian,
-  createStudent,
   getGuardianById,
+  getNextStudentCode,
   getStudentById,
-  updateStudent,
+  isStudentCodeTaken,
+  saveStudent,
   updateStudentClasses,
   markStudentAsLeaver,
 } from '@/db'
@@ -20,20 +20,17 @@ vi.mock('next/navigation', async (importOriginal) => ({
   redirect: vi.fn(),
 }))
 vi.mock('@/db', () => ({
-  createGuardian: vi.fn(),
-  createStudent: vi.fn(),
   getGuardianById: vi.fn(),
+  getNextStudentCode: vi.fn(),
   getStudentById: vi.fn(),
-  updateStudent: vi.fn(),
+  isStudentCodeTaken: vi.fn(),
+  saveStudent: vi.fn(),
   updateStudentClasses: vi.fn(),
   markStudentAsLeaver: vi.fn(),
   logAuditEvent: vi.fn(),
 }))
 
 const GUARDIAN_1 = '00000000-0000-4000-8000-000000000001'
-const GUARDIAN_2 = '00000000-0000-4000-8000-000000000002'
-const CONTACT_1 = '00000000-0000-4000-8000-000000000003'
-const NEW_GUARDIAN = '00000000-0000-4000-8000-000000000020'
 const CLASS_1 = '00000000-0000-4000-8000-000000000030'
 const CLASS_2 = '00000000-0000-4000-8000-000000000040'
 const GUARDIAN_EXISTING = '00000000-0000-4000-8000-000000000099'
@@ -50,7 +47,23 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(getActor).mockResolvedValue(adminSession as any)
   vi.mocked(getStudentById).mockResolvedValue({ active: true } as any)
+  vi.mocked(isStudentCodeTaken).mockResolvedValue(false)
+  vi.mocked(getNextStudentCode).mockResolvedValue('GK-1002')
+  vi.mocked(saveStudent).mockResolvedValue({ id: STUDENT_ID })
 })
+
+/** The arguments of the one `saveStudent` call. */
+function saved(): {
+  id: string | null
+  data: Parameters<typeof saveStudent>[1]
+  slots: Parameters<typeof saveStudent>[2]
+  addressFromPrimary: boolean
+} {
+  expect(saveStudent).toHaveBeenCalledTimes(1)
+  const [id, data, slots, addressFromPrimary] =
+    vi.mocked(saveStudent).mock.calls[0]
+  return { id, data, slots, addressFromPrimary }
+}
 
 function makeFormData(fields: Record<string, string | string[]>): FormData {
   const fd = new FormData()
@@ -68,7 +81,7 @@ function makeFormData(fields: Record<string, string | string[]>): FormData {
 const createFields = {
   student_first_name: 'Anna',
   student_last_name: 'Smith',
-  student_code: '',
+  student_code: ' GK-1001 ',
   student_english_school_name: 'St Marys Primary',
   student_date_of_birth: '',
   address_guardian_id: '',
@@ -136,7 +149,7 @@ describe('saveStudentAction (create)', () => {
 
     const result = await saveStudentAction(null, makeFormData(createFields))
     expect(result).toEqual({ error: 'Not authenticated' })
-    expect(createStudent).not.toHaveBeenCalled()
+    expect(saveStudent).not.toHaveBeenCalled()
   })
 
   it('returns error when not authorised', async () => {
@@ -149,72 +162,59 @@ describe('saveStudentAction (create)', () => {
 
     const result = await saveStudentAction(null, makeFormData(createFields))
     expect(result).toEqual({ error: 'Not authorised' })
-    expect(createStudent).not.toHaveBeenCalled()
+    expect(saveStudent).not.toHaveBeenCalled()
   })
 
-  it('creates primary guardian and student, then redirects', async () => {
-    vi.mocked(createGuardian).mockResolvedValue({ id: GUARDIAN_1 } as any)
-    vi.mocked(createStudent).mockResolvedValue({ id: STUDENT_ID } as any)
-
+  it('saves the student with a new primary guardian, then redirects', async () => {
     await saveStudentAction(null, makeFormData(createFields))
 
-    expect(createGuardian).toHaveBeenCalledWith(
-      expect.objectContaining({
-        first_name: 'Maria',
-        last_name: 'Smith',
-        phone: '07700 900000',
-        email: 'maria@example.com',
-      }),
-    )
-    expect(createStudent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        first_name: 'Anna',
-        last_name: 'Smith',
-        primary_guardian_id: GUARDIAN_1,
-        primary_guardian_relationship: 'Mother',
-        secondary_guardian_id: null,
-        additional_contact_1_id: null,
-        additional_contact_2_id: null,
-      }),
-    )
+    const { id, data, slots } = saved()
+    expect(id).toBeNull()
+    expect(data).toMatchObject({
+      first_name: 'Anna',
+      last_name: 'Smith',
+      primary_guardian_relationship: 'Mother',
+    })
+    expect(slots).toEqual({
+      primary: {
+        create: expect.objectContaining({
+          first_name: 'Maria',
+          last_name: 'Smith',
+          phone: '07700 900000',
+          email: 'maria@example.com',
+        }),
+      },
+      secondary: null,
+      contact1: null,
+      contact2: null,
+    })
     expect(redirect).toHaveBeenCalledWith('/students')
   })
 
-  it('passes the English school name through to createStudent', async () => {
-    vi.mocked(createGuardian).mockResolvedValue({ id: GUARDIAN_1 } as any)
-    vi.mocked(createStudent).mockResolvedValue({ id: STUDENT_ID } as any)
-
+  it('passes the English school name through to saveStudent', async () => {
     await saveStudentAction(null, makeFormData(createFields))
 
-    expect(createStudent).toHaveBeenCalledWith(
-      expect.objectContaining({ english_school_name: 'St Marys Primary' }),
-    )
+    expect(saved().data).toMatchObject({
+      english_school_name: 'St Marys Primary',
+    })
   })
 
   it('creates a student without an English school name', async () => {
-    vi.mocked(createGuardian).mockResolvedValue({ id: GUARDIAN_1 } as any)
-    vi.mocked(createStudent).mockResolvedValue({ id: STUDENT_ID } as any)
-
     const result = await saveStudentAction(
       null,
       makeFormData({ ...createFields, student_english_school_name: '' }),
     )
 
     expect(result).toBeUndefined()
-    expect(createStudent).toHaveBeenCalledWith(
-      expect.objectContaining({ english_school_name: null }),
-    )
+    expect(saved().data).toMatchObject({ english_school_name: null })
   })
 
-  it('passes the primary guardian occupation through to createGuardian', async () => {
-    vi.mocked(createGuardian).mockResolvedValue({ id: GUARDIAN_1 } as any)
-    vi.mocked(createStudent).mockResolvedValue({ id: STUDENT_ID } as any)
-
+  it('passes the primary guardian occupation through to the new guardian', async () => {
     await saveStudentAction(null, makeFormData(createFields))
 
-    expect(createGuardian).toHaveBeenCalledWith(
-      expect.objectContaining({ occupation: 'Teacher' }),
-    )
+    expect(saved().slots.primary).toEqual({
+      create: expect.objectContaining({ occupation: 'Teacher' }),
+    })
   })
 
   it('rejects a blank occupation for the primary guardian', async () => {
@@ -224,16 +224,11 @@ describe('saveStudentAction (create)', () => {
     )
 
     expect(result?.error).toBeDefined()
-    expect(createGuardian).not.toHaveBeenCalled()
+    expect(saveStudent).not.toHaveBeenCalled()
   })
 
   // Emergency contacts are not asked for an occupation.
   it('accepts an additional contact without an occupation', async () => {
-    vi.mocked(createGuardian)
-      .mockResolvedValueOnce({ id: GUARDIAN_1 } as any)
-      .mockResolvedValueOnce({ id: CONTACT_1 } as any)
-    vi.mocked(createStudent).mockResolvedValue({ id: STUDENT_ID } as any)
-
     const result = await saveStudentAction(
       null,
       makeFormData({
@@ -247,17 +242,15 @@ describe('saveStudentAction (create)', () => {
     )
 
     expect(result).toBeUndefined()
-    expect(createStudent).toHaveBeenCalledWith(
-      expect.objectContaining({ additional_contact_1_id: CONTACT_1 }),
-    )
+    expect(saved().slots.contact1).toEqual({
+      create: expect.objectContaining({
+        first_name: 'Uncle',
+        occupation: undefined,
+      }),
+    })
   })
 
   it('creates secondary guardian when has_secondary is true', async () => {
-    vi.mocked(createGuardian)
-      .mockResolvedValueOnce({ id: GUARDIAN_1 } as any)
-      .mockResolvedValueOnce({ id: GUARDIAN_2 } as any)
-    vi.mocked(createStudent).mockResolvedValue({ id: STUDENT_ID } as any)
-
     await saveStudentAction(
       null,
       makeFormData({
@@ -275,18 +268,15 @@ describe('saveStudentAction (create)', () => {
       }),
     )
 
-    expect(createGuardian).toHaveBeenCalledTimes(2)
-    expect(createStudent).toHaveBeenCalledWith(
-      expect.objectContaining({ secondary_guardian_id: GUARDIAN_2 }),
-    )
+    expect(saved().slots.secondary).toEqual({
+      create: expect.objectContaining({
+        first_name: 'George',
+        occupation: 'Chef',
+      }),
+    })
   })
 
   it('creates additional contact 1 when has_contact1 is true', async () => {
-    vi.mocked(createGuardian)
-      .mockResolvedValueOnce({ id: GUARDIAN_1 } as any)
-      .mockResolvedValueOnce({ id: CONTACT_1 } as any)
-    vi.mocked(createStudent).mockResolvedValue({ id: STUDENT_ID } as any)
-
     await saveStudentAction(
       null,
       makeFormData({
@@ -298,13 +288,76 @@ describe('saveStudentAction (create)', () => {
       }),
     )
 
-    expect(createStudent).toHaveBeenCalledWith(
-      expect.objectContaining({ additional_contact_1_id: CONTACT_1 }),
+    expect(saved().slots.contact1).toEqual({
+      create: expect.objectContaining({
+        first_name: 'Uncle',
+        last_name: 'Bob',
+      }),
+    })
+  })
+
+  it('saves the trimmed student code', async () => {
+    await saveStudentAction(null, makeFormData(createFields))
+
+    expect(isStudentCodeTaken).toHaveBeenCalledWith('GK-1001', null)
+    expect(saved().data).toMatchObject({ student_code: 'GK-1001' })
+  })
+
+  it('saves the student code in upper case', async () => {
+    await saveStudentAction(
+      null,
+      makeFormData({ ...createFields, student_code: 'gk-1001' }),
     )
+
+    expect(isStudentCodeTaken).toHaveBeenCalledWith('GK-1001', null)
+    expect(saved().data).toMatchObject({ student_code: 'GK-1001' })
+  })
+
+  it('requires a student code', async () => {
+    const result = await saveStudentAction(
+      null,
+      makeFormData({ ...createFields, student_code: '  ' }),
+    )
+
+    expect(result).toEqual({
+      error: 'Required',
+      fieldErrors: { student_code: 'Required' },
+    })
+    expect(saveStudent).not.toHaveBeenCalled()
+  })
+
+  it('refuses a code another student holds before writing anything', async () => {
+    vi.mocked(isStudentCodeTaken).mockResolvedValue(true)
+
+    const result = await saveStudentAction(null, makeFormData(createFields))
+
+    const message =
+      'Student code "GK-1001" is already in use. The next free code is GK-1002.'
+    expect(result).toEqual({
+      error: message,
+      fieldErrors: { student_code: message },
+    })
+    expect(saveStudent).not.toHaveBeenCalled()
+  })
+
+  it('shows a code clash caught by the database', async () => {
+    vi.mocked(saveStudent).mockRejectedValue({
+      code: '23505',
+      constraint_name: 'students_student_code_key',
+    })
+
+    const result = await saveStudentAction(null, makeFormData(createFields))
+
+    const message =
+      'Student code "GK-1001" is already in use. The next free code is GK-1002.'
+    expect(result).toEqual({
+      error: message,
+      fieldErrors: { student_code: message },
+    })
   })
 
   it('returns an error object when creation fails', async () => {
-    vi.mocked(createGuardian).mockRejectedValue(new Error('DB error'))
+    vi.mocked(saveStudent).mockRejectedValue(new Error('DB error'))
 
     const result = await saveStudentAction(null, makeFormData(createFields))
 
@@ -315,23 +368,12 @@ describe('saveStudentAction (create)', () => {
   })
 
   it('converts empty strings to null for optional fields', async () => {
-    vi.mocked(createGuardian).mockResolvedValue({ id: GUARDIAN_1 } as any)
-    vi.mocked(createStudent).mockResolvedValue({ id: STUDENT_ID } as any)
-
     await saveStudentAction(null, makeFormData(createFields))
 
-    expect(createStudent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        student_code: null,
-        allergies: null,
-        notes: null,
-      }),
-    )
+    expect(saved().data).toMatchObject({ allergies: null, notes: null })
   })
 
-  it('uses existing guardian id without calling createGuardian', async () => {
-    vi.mocked(createStudent).mockResolvedValue({ id: STUDENT_ID } as any)
-
+  it('links an existing guardian by id', async () => {
     await saveStudentAction(
       null,
       makeFormData({
@@ -342,14 +384,10 @@ describe('saveStudentAction (create)', () => {
       }),
     )
 
-    expect(createGuardian).not.toHaveBeenCalled()
-    expect(createStudent).toHaveBeenCalledWith(
-      expect.objectContaining({ primary_guardian_id: GUARDIAN_EXISTING }),
-    )
+    expect(saved().slots.primary).toEqual({ id: GUARDIAN_EXISTING })
   })
 
-  it('sets address_guardian_id to primary guardian id when slot is primary', async () => {
-    vi.mocked(createGuardian).mockResolvedValue({ id: GUARDIAN_1 } as any)
+  it('shares the new primary guardian address when the slot is primary', async () => {
     vi.mocked(getGuardianById).mockResolvedValue({
       id: GUARDIAN_1,
       first_name: 'Maria',
@@ -359,18 +397,16 @@ describe('saveStudentAction (create)', () => {
       city: 'Bristol',
       postcode: 'BS1 1AA',
     } as any)
-    vi.mocked(createStudent).mockResolvedValue({ id: STUDENT_ID } as any)
 
     await saveStudentAction(null, makeFormData(createGuardianAddressFields))
 
-    expect(createStudent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        address_guardian_id: GUARDIAN_1,
-        address_line_1: null,
-        city: null,
-        postcode: null,
-      }),
-    )
+    const { data, addressFromPrimary } = saved()
+    expect(addressFromPrimary).toBe(true)
+    expect(data).toMatchObject({
+      address_line_1: null,
+      city: null,
+      postcode: null,
+    })
   })
 
   it('returns error when the existing guardian chosen has no address', async () => {
@@ -396,7 +432,7 @@ describe('saveStudentAction (create)', () => {
     expect(result).toEqual({
       error: expect.stringContaining('does not have an address'),
     })
-    expect(createStudent).not.toHaveBeenCalled()
+    expect(saveStudent).not.toHaveBeenCalled()
   })
 
   // The address rule is checked before any insert, so a rejection leaves no
@@ -415,9 +451,8 @@ describe('saveStudentAction (create)', () => {
     expect(result).toEqual({
       error: expect.stringContaining('does not have an address'),
     })
-    expect(createGuardian).not.toHaveBeenCalled()
     expect(getGuardianById).not.toHaveBeenCalled()
-    expect(createStudent).not.toHaveBeenCalled()
+    expect(saveStudent).not.toHaveBeenCalled()
   })
 
   it('writes no guardian when a later slot fails validation', async () => {
@@ -436,8 +471,7 @@ describe('saveStudentAction (create)', () => {
     expect(result).toMatchObject({
       fieldErrors: { contact1_phone: expect.any(String) },
     })
-    expect(createGuardian).not.toHaveBeenCalled()
-    expect(createStudent).not.toHaveBeenCalled()
+    expect(saveStudent).not.toHaveBeenCalled()
   })
 
   it('returns error when both address_guardian_id and own address are absent', async () => {
@@ -455,23 +489,19 @@ describe('saveStudentAction (create)', () => {
     expect(result).toEqual({
       error: expect.stringContaining('Enter an address'),
     })
-    expect(createStudent).not.toHaveBeenCalled()
+    expect(saveStudent).not.toHaveBeenCalled()
   })
 
   it('passes own address fields when address_guardian_id is empty', async () => {
-    vi.mocked(createGuardian).mockResolvedValue({ id: GUARDIAN_1 } as any)
-    vi.mocked(createStudent).mockResolvedValue({ id: STUDENT_ID } as any)
-
     await saveStudentAction(null, makeFormData(createFields))
 
-    expect(createStudent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        address_guardian_id: null,
-        address_line_1: '1 Main Street',
-        city: 'London',
-        postcode: 'EC1A 1BB',
-      }),
-    )
+    const { data, addressFromPrimary } = saved()
+    expect(addressFromPrimary).toBe(false)
+    expect(data).toMatchObject({
+      address_line_1: '1 Main Street',
+      city: 'London',
+      postcode: 'EC1A 1BB',
+    })
   })
 })
 
@@ -486,7 +516,7 @@ describe('saveStudentAction (update)', () => {
       makeFormData(updateFields),
     )
     expect(result).toEqual({ error: 'Not authenticated' })
-    expect(updateStudent).not.toHaveBeenCalled()
+    expect(saveStudent).not.toHaveBeenCalled()
   })
 
   it('returns error when not authorised', async () => {
@@ -502,11 +532,10 @@ describe('saveStudentAction (update)', () => {
       makeFormData(updateFields),
     )
     expect(result).toEqual({ error: 'Not authorised' })
-    expect(updateStudent).not.toHaveBeenCalled()
+    expect(saveStudent).not.toHaveBeenCalled()
   })
 
   it('updates student and redirects on success', async () => {
-    vi.mocked(updateStudent).mockResolvedValue(undefined)
     vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
     vi.mocked(redirect).mockImplementation(() => {
       throw new Error('NEXT_REDIRECT')
@@ -516,19 +545,44 @@ describe('saveStudentAction (update)', () => {
       saveStudentAction(STUDENT_ID, makeFormData(updateFields)),
     ).rejects.toThrow('NEXT_REDIRECT')
 
-    expect(updateStudent).toHaveBeenCalledWith(
-      STUDENT_ID,
-      expect.objectContaining({
-        first_name: 'Anna',
-        last_name: 'Smith',
-        primary_guardian_id: GUARDIAN_1,
-      }),
-    )
+    const { id, data, slots } = saved()
+    expect(id).toBe(STUDENT_ID)
+    expect(data).toMatchObject({ first_name: 'Anna', last_name: 'Smith' })
+    expect(slots.primary).toEqual({ id: GUARDIAN_1 })
     expect(redirect).toHaveBeenCalledWith('/students')
   })
 
-  it('forwards the submitted consent booleans to updateStudent', async () => {
-    vi.mocked(updateStudent).mockResolvedValue(undefined)
+  it('checks the code against every student but this one', async () => {
+    vi.mocked(redirect).mockImplementation(() => {
+      throw new Error('NEXT_REDIRECT')
+    })
+
+    await expect(
+      saveStudentAction(STUDENT_ID, makeFormData(updateFields)),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(isStudentCodeTaken).toHaveBeenCalledWith('S001', STUDENT_ID)
+    expect(saved().data).toMatchObject({ student_code: 'S001' })
+  })
+
+  it('refuses a code another student holds', async () => {
+    vi.mocked(isStudentCodeTaken).mockResolvedValue(true)
+
+    const result = await saveStudentAction(
+      STUDENT_ID,
+      makeFormData(updateFields),
+    )
+
+    const message =
+      'Student code "S001" is already in use. The next free code is GK-1002.'
+    expect(result).toEqual({
+      error: message,
+      fieldErrors: { student_code: message },
+    })
+    expect(saveStudent).not.toHaveBeenCalled()
+  })
+
+  it('forwards the submitted consent booleans to saveStudent', async () => {
     vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
     vi.mocked(redirect).mockImplementation(() => {
       throw new Error('NEXT_REDIRECT')
@@ -544,20 +598,16 @@ describe('saveStudentAction (update)', () => {
       saveStudentAction(STUDENT_ID, makeFormData(fields)),
     ).rejects.toThrow('NEXT_REDIRECT')
 
-    expect(updateStudent).toHaveBeenCalledWith(
-      STUDENT_ID,
-      expect.objectContaining({
-        consent_privacy_notice: true,
-        consent_emergency_first_aid: true,
-        consent_photo_media: false,
-        consent_home_school: false,
-        consent_comms_email_sms: false,
-      }),
-    )
+    expect(saved().data).toMatchObject({
+      consent_privacy_notice: true,
+      consent_emergency_first_aid: true,
+      consent_photo_media: false,
+      consent_home_school: false,
+      consent_comms_email_sms: false,
+    })
   })
 
   it('updates class enrollments with submitted class ids', async () => {
-    vi.mocked(updateStudent).mockResolvedValue(undefined)
     vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
     vi.mocked(redirect).mockImplementation(() => {
       throw new Error('NEXT_REDIRECT')
@@ -576,8 +626,6 @@ describe('saveStudentAction (update)', () => {
   })
 
   it('creates a new guardian when mode is new', async () => {
-    vi.mocked(createGuardian).mockResolvedValue({ id: NEW_GUARDIAN })
-    vi.mocked(updateStudent).mockResolvedValue(undefined)
     vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
     vi.mocked(redirect).mockImplementation(() => {
       throw new Error('NEXT_REDIRECT')
@@ -597,23 +645,17 @@ describe('saveStudentAction (update)', () => {
       saveStudentAction(STUDENT_ID, makeFormData(fields)),
     ).rejects.toThrow('NEXT_REDIRECT')
 
-    expect(createGuardian).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(saved().slots.primary).toEqual({
+      create: expect.objectContaining({
         first_name: 'Jane',
         last_name: 'Doe',
         occupation: 'Teacher',
       }),
-    )
-    expect(updateStudent).toHaveBeenCalledWith(
-      STUDENT_ID,
-      expect.objectContaining({
-        primary_guardian_id: NEW_GUARDIAN,
-      }),
-    )
+    })
   })
 
   it('returns error when update throws', async () => {
-    vi.mocked(updateStudent).mockRejectedValue(new Error('DB error'))
+    vi.mocked(saveStudent).mockRejectedValue(new Error('DB error'))
     vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
 
     const result = await saveStudentAction(
@@ -626,7 +668,7 @@ describe('saveStudentAction (update)', () => {
     expect(redirect).not.toHaveBeenCalled()
   })
 
-  it('sets address_guardian_id to primary guardian id when slot is primary', async () => {
+  it('shares the primary guardian address when the slot is primary', async () => {
     vi.mocked(getGuardianById).mockResolvedValue({
       id: GUARDIAN_1,
       first_name: 'Maria',
@@ -636,7 +678,6 @@ describe('saveStudentAction (update)', () => {
       city: 'London',
       postcode: 'EC1A 1BB',
     } as any)
-    vi.mocked(updateStudent).mockResolvedValue(undefined)
     vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
     vi.mocked(redirect).mockImplementation(() => {
       throw new Error('NEXT_REDIRECT')
@@ -655,15 +696,13 @@ describe('saveStudentAction (update)', () => {
       ),
     ).rejects.toThrow('NEXT_REDIRECT')
 
-    expect(updateStudent).toHaveBeenCalledWith(
-      STUDENT_ID,
-      expect.objectContaining({
-        address_guardian_id: GUARDIAN_1,
-        address_line_1: null,
-        city: null,
-        postcode: null,
-      }),
-    )
+    const { data, addressFromPrimary } = saved()
+    expect(addressFromPrimary).toBe(true)
+    expect(data).toMatchObject({
+      address_line_1: null,
+      city: null,
+      postcode: null,
+    })
   })
 
   it('returns error when selected guardian has no address', async () => {
@@ -691,7 +730,7 @@ describe('saveStudentAction (update)', () => {
     expect(result).toEqual({
       error: expect.stringContaining('does not have an address'),
     })
-    expect(updateStudent).not.toHaveBeenCalled()
+    expect(saveStudent).not.toHaveBeenCalled()
   })
 
   it('returns error when both address_guardian_id and own address are absent', async () => {
@@ -709,12 +748,11 @@ describe('saveStudentAction (update)', () => {
     expect(result).toEqual({
       error: expect.stringContaining('Enter an address'),
     })
-    expect(updateStudent).not.toHaveBeenCalled()
+    expect(saveStudent).not.toHaveBeenCalled()
   })
 
   it('does not touch class enrolments for an inactive student', async () => {
     vi.mocked(getStudentById).mockResolvedValue({ active: false } as any)
-    vi.mocked(updateStudent).mockResolvedValue(undefined)
     vi.mocked(redirect).mockImplementation(() => {
       throw new Error('NEXT_REDIRECT')
     })
