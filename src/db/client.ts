@@ -14,7 +14,12 @@ const sql =
   globalForDb.sql ??
   postgres(env.DATABASE_URL, {
     prepare: false,
-    max: 1,
+    // Room for a page's parallel queries (Promise.all) to each take their own
+    // connection. With fewer, postgres.js pipelines the extras onto a busy
+    // connection, and through the Supavisor transaction pooler a pipelined
+    // query with parameters can be stranded half-sent: the request then hangs
+    // until the function times out. Connections open only when needed.
+    max: 10,
     idle_timeout: 20,
     connect_timeout: 10,
   })
