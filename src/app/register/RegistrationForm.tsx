@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 
 import TurnstileWidget from '@/clientComponents/TurnstileWidget'
-import { PRIVACY_NOTICE_URL, YEAR_GROUP_NOT_SURE } from '@/lib/registration'
+import { YEAR_GROUP_NOT_SURE } from '@/lib/registration'
+import { PRIVACY_NOTICE_URL } from '@/lib/schoolWebsite'
 import {
   SHORT_TEXT_MAX,
   ADDRESS_TEXT_MAX,
@@ -285,7 +286,7 @@ export default function RegistrationForm({
             <a
               href={PRIVACY_NOTICE_URL}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="text-blue-600 underline"
             >
               privacy notice
