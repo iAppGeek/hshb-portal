@@ -1,7 +1,5 @@
 import { compareYearGroups } from './classes'
 
-export const PRIVACY_NOTICE_URL = 'https://hshb.org.uk/privacy-notice'
-
 export const YEAR_GROUP_NOT_SURE = 'Not sure'
 
 export function distinctYearGroups(

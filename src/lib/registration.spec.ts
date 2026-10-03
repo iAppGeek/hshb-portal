@@ -1,16 +1,8 @@
 import { describe, it, expect } from 'vitest'
 
-import {
-  PRIVACY_NOTICE_URL,
-  YEAR_GROUP_NOT_SURE,
-  distinctYearGroups,
-} from './registration'
+import { YEAR_GROUP_NOT_SURE, distinctYearGroups } from './registration'
 
 describe('constants', () => {
-  it('exports a placeholder privacy notice URL', () => {
-    expect(PRIVACY_NOTICE_URL).toMatch(/^https:\/\//)
-  })
-
   it('exports the "Not sure" year group option', () => {
     expect(YEAR_GROUP_NOT_SURE).toBe('Not sure')
   })
