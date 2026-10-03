@@ -22,6 +22,8 @@ vi.mock('@heroicons/react/24/outline', () => ({
   BookOpenIcon: () => <svg />,
   AcademicCapIcon: () => <svg />,
   InboxIcon: () => <svg />,
+  ArrowTopRightOnSquareIcon: () => <svg />,
+  ShareIcon: () => <svg />,
 }))
 
 import { getDashboardStats, type DashboardStats as Stats } from '@/db'
@@ -65,7 +67,14 @@ async function renderStats(
   stats: Stats,
 ) {
   vi.mocked(getDashboardStats).mockResolvedValue(stats)
-  render(await DashboardStats({ role, staffId: 'staff-1', today }))
+  render(
+    await DashboardStats({
+      role,
+      staffId: 'staff-1',
+      email: 'jsmith@hshb.org.uk',
+      today,
+    }),
+  )
 }
 
 describe('DashboardStats', () => {
@@ -170,4 +179,19 @@ describe('DashboardStats', () => {
     await renderStats('teacher', teacherStats)
     expect(screen.queryByText('Pending registrations')).toBeNull()
   })
+
+  it.each(['admin', 'teacher'] as const)(
+    'shows a Linktree tile for %s that opens the personalised page in a new tab',
+    async (role) => {
+      await renderStats(role, role === 'teacher' ? teacherStats : adminStats)
+
+      const tile = screen.getByRole('link', { name: /linktree/i })
+      expect(tile).toHaveAttribute(
+        'href',
+        'https://www.hshb.org.uk/linktree?t=jsmith',
+      )
+      expect(tile).toHaveAttribute('target', '_blank')
+      expect(tile).toHaveAttribute('rel', 'noreferrer')
+    },
+  )
 })
