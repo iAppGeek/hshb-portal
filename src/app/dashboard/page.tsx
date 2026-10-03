@@ -3,12 +3,12 @@ import { type Metadata } from 'next'
 
 import { requireSession } from '@/auth/require'
 import { todayInSchoolTz } from '@/lib/datetime'
-import { POLICIES_URL } from '@/lib/registration'
 import { roleLabels } from '@/lib/roleLabels'
 
 import PageHeader from '../_components/PageHeader'
 
 import DashboardStats, { StatCardsSkeleton } from './DashboardStats'
+import PoliciesLink from './PoliciesLink'
 
 export const metadata: Metadata = { title: 'Dashboard' }
 
@@ -28,16 +28,7 @@ export default async function DashboardPage() {
         <DashboardStats role={role} staffId={actor.staffId} today={today} />
       </Suspense>
 
-      <p className="mt-6 text-sm">
-        <a
-          href={POLICIES_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="text-blue-600 underline"
-        >
-          School policies
-        </a>
-      </p>
+      <PoliciesLink />
     </>
   )
 }

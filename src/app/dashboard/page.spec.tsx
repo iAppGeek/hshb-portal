@@ -22,6 +22,7 @@ vi.mock('@/db', () => ({
 import { auth } from '@/auth'
 
 import DashboardPage from './page'
+import PoliciesLink from './PoliciesLink'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -37,11 +38,7 @@ async function renderHeader(role: string, name: string, staffId: string) {
   // that on the client, so (like layout.spec.tsx) we render only the
   // header element from the returned tree instead of the whole page.
   const page = (await DashboardPage()) as ReactElement<{
-    children: [
-      ReactElement,
-      ReactElement<{ children: ReactElement }>,
-      ReactElement,
-    ]
+    children: [ReactElement, ReactElement<{ children: ReactElement }>]
   }>
   const [header, suspense] = page.props.children
   render(header)
@@ -71,7 +68,7 @@ describe('DashboardPage', () => {
     )
   })
 
-  it('links to the school policies on the website in a new tab', async () => {
+  it('renders the school policies link', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { name: 'Teacher User', role: 'teacher', staffId: 'staff-2' },
     } as never)
@@ -79,10 +76,6 @@ describe('DashboardPage', () => {
     const page = (await DashboardPage()) as ReactElement<{
       children: ReactElement[]
     }>
-    render(page.props.children[2])
-
-    const link = screen.getByRole('link', { name: 'School policies' })
-    expect(link).toHaveAttribute('href', 'https://www.hshb.org.uk/policies')
-    expect(link).toHaveAttribute('target', '_blank')
+    expect(page.props.children.some((c) => c.type === PoliciesLink)).toBe(true)
   })
 })
