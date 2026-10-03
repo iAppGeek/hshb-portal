@@ -3,6 +3,7 @@ import { type Metadata } from 'next'
 
 import { requireSession } from '@/auth/require'
 import { todayInSchoolTz } from '@/lib/datetime'
+import { POLICIES_URL } from '@/lib/registration'
 import { roleLabels } from '@/lib/roleLabels'
 
 import PageHeader from '../_components/PageHeader'
@@ -31,6 +32,17 @@ export default async function DashboardPage() {
           today={today}
         />
       </Suspense>
+
+      <p className="mt-6 text-sm">
+        <a
+          href={POLICIES_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="text-blue-600 underline"
+        >
+          School policies
+        </a>
+      </p>
     </>
   )
 }

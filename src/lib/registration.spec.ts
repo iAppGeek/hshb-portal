@@ -1,14 +1,18 @@
 import { describe, it, expect } from 'vitest'
 
 import {
+  POLICIES_URL,
   PRIVACY_NOTICE_URL,
   YEAR_GROUP_NOT_SURE,
   distinctYearGroups,
 } from './registration'
 
 describe('constants', () => {
-  it('exports a placeholder privacy notice URL', () => {
-    expect(PRIVACY_NOTICE_URL).toMatch(/^https:\/\//)
+  it('links to the privacy notice and policies on the school website', () => {
+    expect(PRIVACY_NOTICE_URL).toBe(
+      'https://www.hshb.org.uk/policies/privacy-policy',
+    )
+    expect(POLICIES_URL).toBe('https://www.hshb.org.uk/policies')
   })
 
   it('exports the "Not sure" year group option', () => {
