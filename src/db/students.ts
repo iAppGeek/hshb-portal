@@ -13,6 +13,7 @@ import {
   sql,
 } from 'drizzle-orm'
 
+import { compareClasses } from '@/lib/classes'
 import type { LeavingReason } from '@/lib/schemas'
 import { nextStudentCode, studentCodePattern } from '@/lib/student-code'
 import { isUuid } from '@/lib/uuid'
@@ -148,9 +149,24 @@ const recordWith = {
   },
 } as const
 
-type ClassWithYear = { academicYear: { code: string } }
+type ClassWithYear = {
+  name: string
+  yearGroup: string
+  academicYear: { code: string }
+}
 
-/** Keeps the flat `class.academic_year: string` shape display components already use. */
+type ClassLink = { class: { name: string; yearGroup: string } }
+
+/** Orders a student's class links in school order, youngest first. */
+function compareClassLinks(a: ClassLink, b: ClassLink): number {
+  return compareClasses(
+    { name: a.class.name, year_group: a.class.yearGroup },
+    { name: b.class.name, year_group: b.class.yearGroup },
+  )
+}
+
+/** Keeps the flat `class.academic_year: string` shape display components
+ * already use, with the classes in school order. */
 function withClassYearCodes<R extends object, C extends ClassWithYear>(
   row: R & { studentClasses: { class: C }[] },
 ): Omit<R, 'studentClasses'> & {
@@ -161,9 +177,11 @@ function withClassYearCodes<R extends object, C extends ClassWithYear>(
   const { studentClasses: links, ...rest } = row
   return {
     ...rest,
-    studentClasses: links.map(({ class: { academicYear, ...cls } }) => ({
-      class: { ...cls, academicYear: academicYear.code },
-    })),
+    studentClasses: [...links]
+      .sort(compareClassLinks)
+      .map(({ class: { academicYear, ...cls } }) => ({
+        class: { ...cls, academicYear: academicYear.code },
+      })),
   }
 }
 
@@ -316,6 +334,7 @@ export async function getStudentById(
     ...student,
     studentClasses: stays
       .filter((stay) => stay.endDate === null)
+      .sort(compareClassLinks)
       .map(({ class: { academicYear, ...cls } }) => ({
         class: { ...cls, academicYear: academicYear.code },
       })),

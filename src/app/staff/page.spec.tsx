@@ -171,4 +171,28 @@ describe('StaffPage', () => {
     // Contact number appears in both mobile card and desktop column
     expect(screen.getAllByText('07700 900001').length).toBeGreaterThan(0)
   })
+
+  it('sorts a non-stage class by its year group, with no class last', async () => {
+    const member = (id: string, last: string, cls: object | null) => ({
+      ...mockStaff[1],
+      id,
+      last_name: last,
+      classes: cls ? [{ id: `class-${id}`, room_number: null, ...cls }] : [],
+    })
+    vi.mocked(getAllStaffWithClasses).mockResolvedValue([
+      member('s1', 'Zeta', { name: 'A Level', year_group: 'A Level' }),
+      member('s2', 'Yarrow', null),
+      member('s3', 'Xylo', { name: 'Alpha', year_group: '1' }),
+      member('s4', 'Walsh', { name: 'GCSE I', year_group: 'GCSE' }),
+    ] as any)
+
+    render(await StaffPage())
+
+    const text = document.body.textContent ?? ''
+    const order = ['Xylo', 'Walsh', 'Zeta', 'Yarrow'].map((name) =>
+      text.indexOf(name),
+    )
+    expect(order.every((at) => at >= 0)).toBe(true)
+    expect(order).toEqual([...order].sort((a, b) => a - b))
+  })
 })

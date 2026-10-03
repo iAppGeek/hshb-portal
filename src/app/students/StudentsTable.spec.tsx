@@ -150,6 +150,51 @@ describe('StudentsTable', () => {
     expect(screen.getAllByText('Year 1A')).toHaveLength(2)
   })
 
+  it("lists a student's classes in school order, youngest first", () => {
+    const classOf = (id: string, name: string) => ({
+      class: { ...students[0].student_classes[0].class, id, name },
+    })
+    render(
+      <StudentsTable
+        students={[
+          {
+            ...students[0],
+            student_classes: [
+              classOf('c1', 'GCSE II'),
+              classOf('c2', 'Year 5'),
+              classOf('c3', 'Reception'),
+            ],
+          },
+        ]}
+        role="admin"
+      />,
+    )
+    expect(
+      screen.getAllByText('Reception, Year 5, GCSE II').length,
+    ).toBeGreaterThan(0)
+  })
+
+  it('sorts a non-stage class by its year group within a row', () => {
+    const classOf = (id: string, name: string, year_group: string) => ({
+      class: { ...students[0].student_classes[0].class, id, name, year_group },
+    })
+    render(
+      <StudentsTable
+        students={[
+          {
+            ...students[0],
+            student_classes: [
+              classOf('c1', 'A Level', 'A Level'),
+              classOf('c2', 'Alpha', '1'),
+            ],
+          },
+        ]}
+        role="admin"
+      />,
+    )
+    expect(screen.getAllByText('Alpha, A Level').length).toBeGreaterThan(0)
+  })
+
   it('renders primary guardian name', () => {
     render(<StudentsTable students={students} role="admin" />)
     expect(screen.getByText('Maria Papadopoulos')).toBeTruthy()

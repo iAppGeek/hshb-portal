@@ -1,4 +1,5 @@
 import type { FeePlanWithClasses } from '@/db'
+import { sortClasses } from '@/lib/classes'
 
 export type FeePlanClassOption = {
   id: string
@@ -10,14 +11,14 @@ export type FeePlanClassOption = {
 export function toClassOptions(
   classes: FeePlanClassOption[],
 ): FeePlanClassOption[] {
-  return classes
-    .map(({ id, name, year_group, academic_year_id }) => ({
+  return sortClasses(
+    classes.map(({ id, name, year_group, academic_year_id }) => ({
       id,
       name,
       year_group,
       academic_year_id,
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name))
+    })),
+  )
 }
 
 export function planLabel(plan: {

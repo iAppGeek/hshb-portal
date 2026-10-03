@@ -3,6 +3,7 @@ import type { ReactElement } from 'react'
 import SimpleGrid from '@/components/grid/SimpleGrid'
 import PermissionedLink from '@/components/PermissionedLink'
 import type { getAllStaffWithClasses } from '@/db'
+import { sortClasses } from '@/lib/classes'
 import type { GridColumn, StackedRowSpec } from '@/lib/grid/columns'
 import { rowLink } from '@/lib/grid/styles'
 import { canSeeAllData } from '@/lib/permissions'
@@ -23,7 +24,7 @@ type Props = {
 }
 
 function classesOf(member: StaffMember): StaffClass[] {
-  return (member.classes as StaffClass[] | null) ?? []
+  return sortClasses((member.classes as StaffClass[] | null) ?? [])
 }
 
 function classesText(member: StaffMember): string {

@@ -30,6 +30,7 @@ export type StaffMember = {
   last_name: string
   display_name: string | null
   class_name: string | null
+  class_year_group: string | null
   room_number: string | null
 }
 

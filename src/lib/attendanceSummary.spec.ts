@@ -10,12 +10,14 @@ import {
 const classA: SummaryClass = {
   id: 'A',
   name: 'Alpha',
+  yearGroup: 'Year 1',
   yearCode: '2026-27',
   active: true,
 }
 const classB: SummaryClass = {
   id: 'B',
   name: 'Beta',
+  yearGroup: 'Year 2',
   yearCode: '2026-27',
   active: true,
 }
@@ -217,5 +219,67 @@ describe('summariseAttendance', () => {
       distinctLate: 0,
       classesTaken: 0,
     })
+  })
+
+  it('lists classes in school order, then by year code', () => {
+    const named = (
+      id: string,
+      name: string,
+      yearCode: string,
+    ): SummaryClass => ({
+      id,
+      name,
+      yearGroup: '',
+      yearCode,
+      active: true,
+    })
+    const classes = [
+      named('g', 'GCSE I', '2026-27'),
+      named('y1new', 'Year 1', '2026-27'),
+      named('n', 'Nursery', '2026-27'),
+      named('y1old', 'Year 1', '2025-26'),
+    ]
+    const enrolmentRows = classes.map((cls) =>
+      enrolment({ class: cls, studentId: cls.id }),
+    )
+
+    const result = summariseAttendance([], enrolmentRows, ['2026-09-01'])
+
+    expect(result.classes.map((c) => c.class.id)).toEqual([
+      'n',
+      'y1old',
+      'y1new',
+      'g',
+    ])
+  })
+
+  it('sorts a class whose name is not a stage by its year group', () => {
+    const cls = (
+      id: string,
+      name: string,
+      yearGroup: string,
+    ): SummaryClass => ({
+      id,
+      name,
+      yearGroup,
+      yearCode: '2026-27',
+      active: true,
+    })
+    const classes = [
+      cls('alevel', 'A Level', 'A Level'),
+      cls('alpha', 'Alpha', '1'),
+      cls('gcse', 'GCSE I', 'GCSE'),
+    ]
+    const enrolmentRows = classes.map((c) =>
+      enrolment({ class: c, studentId: c.id }),
+    )
+
+    const result = summariseAttendance([], enrolmentRows, ['2026-09-01'])
+
+    expect(result.classes.map((c) => c.class.id)).toEqual([
+      'alpha',
+      'gcse',
+      'alevel',
+    ])
   })
 })

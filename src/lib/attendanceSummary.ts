@@ -1,11 +1,13 @@
 // Pure attendance-summary helpers, built on dated enrolment rows so past
 // dates reflect who was actually enrolled at the time. See plans/enrolment-history.md.
 
+import { compareClasses } from './classes'
 import { buildRegisterRoster, type EnrolmentRow } from './enrolment'
 
 export type SummaryClass = {
   id: string
   name: string
+  yearGroup: string
   yearCode: string | null
   active: boolean
 }
@@ -141,8 +143,11 @@ export function summariseAttendance(
   }
 
   const classes = [...summariesByClass.values()].sort((a, b) => {
-    const byName = a.class.name.localeCompare(b.class.name)
-    if (byName !== 0) return byName
+    const byClass = compareClasses(
+      { name: a.class.name, year_group: a.class.yearGroup },
+      { name: b.class.name, year_group: b.class.yearGroup },
+    )
+    if (byClass !== 0) return byClass
     return (a.class.yearCode ?? '').localeCompare(b.class.yearCode ?? '')
   })
 

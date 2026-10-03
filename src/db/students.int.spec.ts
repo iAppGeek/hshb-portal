@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { asDbError } from '@/lib/db-error'
 
 import { db } from './client'
-import { guardians, studentClasses, students } from './schema'
+import { classes, guardians, studentClasses, students } from './schema'
 import {
   createStudent,
   findStudentMatches,
@@ -369,5 +369,35 @@ describe('student codes', () => {
       code: '23505',
       constraint: 'students_student_code_key',
     })
+  })
+})
+
+describe('class order', () => {
+  it('sorts a non-stage class by its year group', async () => {
+    // Kappa isn't a stage name, so its year group (Year 2) puts it before
+    // A Level. Earlier specs move Carol between classes, so only these two
+    // are checked.
+    const created = await db
+      .insert(classes)
+      .values(
+        [
+          { name: 'A Level', yearGroup: 'A Level' },
+          { name: 'Kappa', yearGroup: 'Year 2' },
+        ].map((cls) => ({ ...cls, academicYearId: SEED.years.current })),
+      )
+      .returning({ id: classes.id })
+    await db.insert(studentClasses).values(
+      created.map((cls) => ({
+        studentId: SEED.students.carol,
+        classId: cls.id,
+        startDate: '2026-09-01',
+      })),
+    )
+
+    const carol = await getStudentById(SEED.students.carol)
+    const names = carol?.student_classes.map((sc) => sc.class.name) ?? []
+    expect(names.filter((name) => ['A Level', 'Kappa'].includes(name))).toEqual(
+      ['Kappa', 'A Level'],
+    )
   })
 })

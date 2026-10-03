@@ -7,6 +7,7 @@ import FunctionalGrid, {
 } from '@/clientComponents/grid/FunctionalGrid'
 import LeaverBadge from '@/components/LeaverBadge'
 import PermissionedLink from '@/components/PermissionedLink'
+import { compareClasses, sortClasses } from '@/lib/classes'
 import { personName } from '@/lib/format'
 import type { StackedRowSpec } from '@/lib/grid/columns'
 import { fullName, matchesAny, normaliseQuery } from '@/lib/grid/search'
@@ -21,7 +22,9 @@ type Student = {
   student_code: string | null
   active: boolean
   leaving_reason: string | null
-  student_classes: Array<{ class: { name: string } | null }>
+  student_classes: Array<{
+    class: { name: string; year_group: string } | null
+  }>
   primary_guardian: { first_name: string; last_name: string } | null
 }
 
@@ -30,11 +33,19 @@ type Props = {
   role: StaffRole
 }
 
+type StudentClass = NonNullable<Student['student_classes'][number]['class']>
+
+/** The student's classes in school order, youngest first. */
+function sortedClasses(student: Student): StudentClass[] {
+  return sortClasses(
+    student.student_classes.flatMap((sc) => (sc.class ? [sc.class] : [])),
+  )
+}
+
 function classNames(student: Student): string {
   return (
-    student.student_classes
-      .map((sc) => sc.class?.name)
-      .filter(Boolean)
+    sortedClasses(student)
+      .map((cls) => cls.name)
       .join(', ') || '—'
   )
 }
@@ -110,9 +121,9 @@ export default function StudentsTable({
       header: 'Classes',
       cell: (info) => classNames(info.row.original),
       sortFn: (rowA, rowB) =>
-        compareNullableText(
-          classNames(rowA.original),
-          classNames(rowB.original),
+        compareClasses(
+          sortedClasses(rowA.original)[0] ?? null,
+          sortedClasses(rowB.original)[0] ?? null,
         ),
     },
     {

@@ -3,6 +3,7 @@ import 'server-only'
 import { and, asc, count, eq, or, type SQL } from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 
+import { sortClasses } from '@/lib/classes'
 import { isUuid } from '@/lib/uuid'
 import type { Database } from '@/types/database'
 
@@ -310,7 +311,7 @@ export async function getFamilyForGuardian(
       leaving_reason: student.leavingReason,
       relationship: matched?.relationship ?? null,
       slot: matched?.slot ?? 'primary',
-      classes: student.studentClasses.map((sc) => sc.class),
+      classes: sortClasses(student.studentClasses.map((sc) => sc.class)),
     })
 
     // A guardian occupying more than one slot on the same child (e.g.

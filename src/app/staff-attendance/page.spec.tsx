@@ -275,4 +275,40 @@ describe('StaffAttendancePage', () => {
       ).rejects.toThrow('DB unavailable')
     })
   })
+
+  describe('class order', () => {
+    const staff = ['alevel', 'none', 'alpha', 'gcse'].map((id) => ({
+      ...mockStaff[0],
+      id,
+      last_name: id,
+    }))
+    const classes = [
+      {
+        id: 'c1',
+        name: 'A Level',
+        year_group: 'A Level',
+        teacher_id: 'alevel',
+      },
+      { id: 'c2', name: 'Alpha', year_group: '1', teacher_id: 'alpha' },
+      { id: 'c3', name: 'GCSE I', year_group: 'GCSE', teacher_id: 'gcse' },
+    ].map((cls) => ({ ...cls, room_number: null }))
+
+    it('sorts a non-stage class by its year group, with no class last', async () => {
+      vi.mocked(auth).mockResolvedValue(adminSession as any)
+      vi.mocked(getAllStaff).mockResolvedValue(staff as any)
+      vi.mocked(getStaffAttendanceByDate).mockResolvedValue([])
+      vi.mocked(getAllClasses).mockResolvedValue(classes as any)
+
+      render(await StaffAttendancePage({ searchParams: makeSearchParams() }))
+
+      const { rows } = vi.mocked(StaffAttendanceTable).mock.calls[0][0]
+      expect(rows.map((r) => r.staff.id)).toEqual([
+        'alpha',
+        'gcse',
+        'alevel',
+        'none',
+      ])
+      expect(rows[0].staff.class_year_group).toBe('1')
+    })
+  })
 })

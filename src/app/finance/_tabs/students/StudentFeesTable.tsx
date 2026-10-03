@@ -7,6 +7,7 @@ import FunctionalGrid, {
   type FunctionalGridColumn,
 } from '@/clientComponents/grid/FunctionalGrid'
 import LeaverBadge from '@/components/LeaverBadge'
+import { sortClasses } from '@/lib/classes'
 import { FEE_STATUS_LABELS, formatGbp, PAYMENT_PLAN_LABELS } from '@/lib/fees'
 import { matchesAny, normaliseQuery } from '@/lib/grid/search'
 import { compareNullableNumber, compareNullableText } from '@/lib/grid/sort'
@@ -35,9 +36,9 @@ function matchesStudentFeeSearch(
 }
 
 function facetsFor(rows: StudentFeeRow[]): FacetConfig[] {
-  const classOptions = [
+  const classOptions = sortClasses([
     ...new Map(rows.flatMap((r) => r.classes).map((c) => [c.id, c])).values(),
-  ].sort((a, b) => a.name.localeCompare(b.name))
+  ])
 
   return [
     {

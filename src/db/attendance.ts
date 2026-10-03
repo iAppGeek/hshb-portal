@@ -47,6 +47,7 @@ export async function getAttendanceByDateRange(
       class: {
         id: classes.id,
         name: classes.name,
+        yearGroup: classes.yearGroup,
         active: classes.active,
         yearCode: academicYears.code,
       },
