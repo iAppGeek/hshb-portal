@@ -22,6 +22,7 @@ vi.mock('@/db', () => ({
 import { auth } from '@/auth'
 
 import DashboardPage from './page'
+import PoliciesLink from './PoliciesLink'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -69,5 +70,16 @@ describe('DashboardPage', () => {
         email: '',
       }),
     )
+  })
+
+  it('renders the school policies link', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { name: 'Teacher User', role: 'teacher', staffId: 'staff-2' },
+    } as never)
+
+    const page = (await DashboardPage()) as ReactElement<{
+      children: ReactElement[]
+    }>
+    expect(page.props.children.some((c) => c.type === PoliciesLink)).toBe(true)
   })
 })

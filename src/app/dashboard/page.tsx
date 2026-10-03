@@ -8,6 +8,7 @@ import { roleLabels } from '@/lib/roleLabels'
 import PageHeader from '../_components/PageHeader'
 
 import DashboardStats, { StatCardsSkeleton } from './DashboardStats'
+import PoliciesLink from './PoliciesLink'
 
 export const metadata: Metadata = { title: 'Dashboard' }
 
@@ -31,6 +32,8 @@ export default async function DashboardPage() {
           today={today}
         />
       </Suspense>
+
+      <PoliciesLink />
     </>
   )
 }
