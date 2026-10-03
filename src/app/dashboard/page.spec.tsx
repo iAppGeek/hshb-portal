@@ -37,7 +37,11 @@ async function renderHeader(role: string, name: string, staffId: string) {
   // that on the client, so (like layout.spec.tsx) we render only the
   // header element from the returned tree instead of the whole page.
   const page = (await DashboardPage()) as ReactElement<{
-    children: [ReactElement, ReactElement<{ children: ReactElement }>]
+    children: [
+      ReactElement,
+      ReactElement<{ children: ReactElement }>,
+      ReactElement,
+    ]
   }>
   const [header, suspense] = page.props.children
   render(header)
@@ -65,5 +69,20 @@ describe('DashboardPage', () => {
     expect(suspense.props.children.props).toEqual(
       expect.objectContaining({ role: 'admin', staffId: 'staff-1' }),
     )
+  })
+
+  it('links to the school policies on the website in a new tab', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { name: 'Teacher User', role: 'teacher', staffId: 'staff-2' },
+    } as never)
+
+    const page = (await DashboardPage()) as ReactElement<{
+      children: ReactElement[]
+    }>
+    render(page.props.children[2])
+
+    const link = screen.getByRole('link', { name: 'School policies' })
+    expect(link).toHaveAttribute('href', 'https://www.hshb.org.uk/policies')
+    expect(link).toHaveAttribute('target', '_blank')
   })
 })
