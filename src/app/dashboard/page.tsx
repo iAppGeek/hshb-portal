@@ -24,7 +24,12 @@ export default async function DashboardPage() {
       />
 
       <Suspense fallback={<StatCardsSkeleton />}>
-        <DashboardStats role={role} staffId={actor.staffId} today={today} />
+        <DashboardStats
+          role={role}
+          staffId={actor.staffId}
+          email={actor.email}
+          today={today}
+        />
       </Suspense>
     </>
   )

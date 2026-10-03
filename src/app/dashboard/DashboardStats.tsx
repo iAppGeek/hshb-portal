@@ -6,9 +6,12 @@ import {
   ExclamationTriangleIcon,
   AcademicCapIcon,
   InboxIcon,
+  ArrowTopRightOnSquareIcon,
+  ShareIcon,
 } from '@heroicons/react/24/outline'
 
 import { getDashboardStats } from '@/db'
+import { linktreeUrlFor } from '@/lib/linktree'
 import { isTeacher } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
@@ -40,10 +43,12 @@ export function StatCardsSkeleton(): ReactElement {
 export default async function DashboardStats({
   role,
   staffId,
+  email,
   today,
 }: {
   role: StaffRole
   staffId: string
+  email: string
   today: string
 }): Promise<ReactElement> {
   const teacherOnly = isTeacher(role)
@@ -212,6 +217,28 @@ export default async function DashboardStats({
           </div>
         </Link>
       )}
+
+      {/* Opens the public website, so it leaves the portal in a new tab. */}
+      <a
+        href={linktreeUrlFor(email)}
+        target="_blank"
+        rel="noreferrer"
+        className="group flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
+      >
+        <div className="rounded-lg bg-blue-50 p-3 transition group-hover:bg-blue-100">
+          <ShareIcon className="h-6 w-6 text-blue-600" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-gray-500">Linktree</p>
+          <p className="mt-0.5 text-base font-semibold text-gray-900">
+            Share with parents
+          </p>
+        </div>
+        <ArrowTopRightOnSquareIcon
+          aria-hidden="true"
+          className="h-4 w-4 shrink-0 self-start text-gray-400"
+        />
+      </a>
     </div>
   )
 }

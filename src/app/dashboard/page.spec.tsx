@@ -63,7 +63,11 @@ describe('DashboardPage', () => {
   it('passes role, staffId and today to a Suspense-wrapped DashboardStats', async () => {
     const suspense = await renderHeader('admin', 'Admin User', 'staff-1')
     expect(suspense.props.children.props).toEqual(
-      expect.objectContaining({ role: 'admin', staffId: 'staff-1' }),
+      expect.objectContaining({
+        role: 'admin',
+        staffId: 'staff-1',
+        email: '',
+      }),
     )
   })
 })
