@@ -11,6 +11,9 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
+# Netlify applies these only to files served from its CDN (static assets),
+# not to server-rendered pages: next.config.js sets the same headers on those.
+# Keep the two lists in sync.
 [[headers]]
   for = "/*"
   [headers.values]
