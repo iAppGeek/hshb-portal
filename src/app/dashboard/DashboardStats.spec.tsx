@@ -22,8 +22,14 @@ vi.mock('@heroicons/react/24/outline', () => ({
   BookOpenIcon: () => <svg />,
   AcademicCapIcon: () => <svg />,
   InboxIcon: () => <svg />,
-  ArrowTopRightOnSquareIcon: () => <svg />,
-  ShareIcon: () => <svg />,
+}))
+
+// The tile and its QR modal are tested in LinktreeTile.spec.tsx; here we
+// only check which URL it is given.
+vi.mock('./LinktreeTile', () => ({
+  default: ({ url }: { url: string }) => (
+    <p data-testid="linktree-tile">{url}</p>
+  ),
 }))
 
 import { getDashboardStats, type DashboardStats as Stats } from '@/db'
@@ -181,17 +187,13 @@ describe('DashboardStats', () => {
   })
 
   it.each(['admin', 'teacher'] as const)(
-    'shows a Linktree tile for %s that opens the personalised page in a new tab',
+    'shows a Linktree tile for %s with the personalised page',
     async (role) => {
       await renderStats(role, role === 'teacher' ? teacherStats : adminStats)
 
-      const tile = screen.getByRole('link', { name: /linktree/i })
-      expect(tile).toHaveAttribute(
-        'href',
+      expect(screen.getByTestId('linktree-tile')).toHaveTextContent(
         'https://www.hshb.org.uk/linktree?t=jsmith',
       )
-      expect(tile).toHaveAttribute('target', '_blank')
-      expect(tile).toHaveAttribute('rel', 'noreferrer')
     },
   )
 })
