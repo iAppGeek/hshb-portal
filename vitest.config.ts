@@ -12,6 +12,8 @@ export default defineConfig({
     exclude: [
       '**/node_modules/**',
       '.netlify/**',
+      // Agent worktrees hold other branches' copies of the suite.
+      '.claude/**',
       'e2e/**',
       'src/**/*.int.spec.ts',
     ],

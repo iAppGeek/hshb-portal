@@ -2,4 +2,3 @@
 // policies and privacy notices are published from Contentful.
 export const PRIVACY_NOTICE_URL =
   'https://www.hshb.org.uk/policies/privacy-policy'
-export const POLICIES_URL = 'https://www.hshb.org.uk/policies'
