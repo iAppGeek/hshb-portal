@@ -30,6 +30,7 @@ export type StudentFormData = {
   postcode: string | null
   allergies: string | null
   medical_details: string | null
+  sen_details: string | null
   notes: string | null
   primary_guardian_id: string | null
   primary_guardian_relationship: string | null
@@ -39,11 +40,11 @@ export type StudentFormData = {
   additional_contact_1_relationship: string | null
   additional_contact_2_id: string | null
   additional_contact_2_relationship: string | null
-  consent_privacy_notice: boolean
-  consent_emergency_first_aid: boolean
-  consent_photo_media: boolean
-  consent_home_school: boolean
-  consent_comms_email_sms: boolean
+  privacy_notice_read: boolean
+  first_aid_consent: boolean
+  photo_video_consent: boolean
+  home_school_agreement: boolean
+  email_sms_contact_ack: boolean
 }
 
 type Props = {
@@ -204,6 +205,12 @@ export default function StudentForm({
               error={fieldError('student_medical_details')}
             />
             <TextField
+              label="Special educational needs or disability"
+              name="student_sen_details"
+              defaultValue={initial?.sen_details}
+              error={fieldError('student_sen_details')}
+            />
+            <TextField
               label="Notes"
               name="student_notes"
               defaultValue={initial?.notes}
@@ -344,29 +351,30 @@ export default function StudentForm({
           </p>
           <div className="space-y-2">
             <CheckboxField
-              name="consent_privacy_notice"
-              label="Privacy notice"
-              defaultChecked={initial.consent_privacy_notice}
+              name="privacy_notice_read"
+              label="Read the Privacy Notice"
+              defaultChecked={initial.privacy_notice_read}
             />
             <CheckboxField
-              name="consent_emergency_first_aid"
+              name="first_aid_consent"
               label="Emergency first aid"
-              defaultChecked={initial.consent_emergency_first_aid}
+              defaultChecked={initial.first_aid_consent}
             />
             <CheckboxField
-              name="consent_photo_media"
-              label="Photo & media"
-              defaultChecked={initial.consent_photo_media}
+              name="email_sms_contact_ack"
+              label="Email & SMS contact understood"
+              defaultChecked={initial.email_sms_contact_ack}
             />
             <CheckboxField
-              name="consent_home_school"
+              name="photo_video_consent"
+              label="Photos & video"
+              description="Unticking records you as withdrawing consent, with the time."
+              defaultChecked={initial.photo_video_consent}
+            />
+            <CheckboxField
+              name="home_school_agreement"
               label="Home–school agreement"
-              defaultChecked={initial.consent_home_school}
-            />
-            <CheckboxField
-              name="consent_comms_email_sms"
-              label="Email & SMS"
-              defaultChecked={initial.consent_comms_email_sms}
+              defaultChecked={initial.home_school_agreement}
             />
           </div>
         </FormSection>

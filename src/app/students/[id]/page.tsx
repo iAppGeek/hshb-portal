@@ -2,9 +2,12 @@ import { type Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
 import { requireSession } from '@/auth/require'
-import { getStudentById, getStudentIdsByTeacher } from '@/db'
+import { getStaffById, getStudentById, getStudentIdsByTeacher } from '@/db'
 import DefinitionList from '@/components/DefinitionList'
 import PermissionedLink from '@/components/PermissionedLink'
+import { consentItems } from '@/lib/consents'
+import { formatDateTimeInSchoolTz } from '@/lib/datetime'
+import { personName } from '@/lib/format'
 import {
   canEditStudents,
   canSeeStudentMedical,
@@ -17,6 +20,7 @@ import SectionCard from '../../_components/SectionCard'
 
 import AddressBlock from './_components/AddressBlock'
 import GuardianCard from './_components/GuardianCard'
+import WithdrawPhotoConsentButton from './_components/WithdrawPhotoConsentButton'
 
 export const metadata: Metadata = { title: 'Student' }
 
@@ -37,6 +41,11 @@ export default async function StudentPage({
 
   const student = await getStudentById(id)
   if (!student) notFound()
+
+  const withdrawnBy =
+    student.photo_video_consent_withdrawn_by && canSeeStudentMedical(role)
+      ? await getStaffById(student.photo_video_consent_withdrawn_by)
+      : null
 
   const resolvedAddress = resolveStudentAddress(student)
   const hasStudentAddress = Boolean(
@@ -200,6 +209,10 @@ export default async function StudentPage({
                   label: 'Medical details',
                   value: student.medical_details ?? '—',
                 },
+                {
+                  label: 'Special educational needs or disability',
+                  value: student.sen_details ?? '—',
+                },
               ]}
             />
           </SectionCard>
@@ -207,28 +220,22 @@ export default async function StudentPage({
           <SectionCard title="Consents">
             <DefinitionList
               items={[
-                {
-                  label: 'Privacy notice',
-                  value: student.consent_privacy_notice ? 'Yes' : 'No',
-                },
-                {
-                  label: 'Emergency first aid',
-                  value: student.consent_emergency_first_aid ? 'Yes' : 'No',
-                },
-                {
-                  label: 'Photo & media',
-                  value: student.consent_photo_media ? 'Yes' : 'No',
-                },
-                {
-                  label: 'Home–school agreement',
-                  value: student.consent_home_school ? 'Yes' : 'No',
-                },
-                {
-                  label: 'Email & SMS',
-                  value: student.consent_comms_email_sms ? 'Yes' : 'No',
-                },
+                ...consentItems(student),
+                ...(student.photo_video_consent_withdrawn_at
+                  ? [
+                      {
+                        label: 'Photo consent withdrawn',
+                        value: `${formatDateTimeInSchoolTz(student.photo_video_consent_withdrawn_at)}${withdrawnBy ? ` by ${personName(withdrawnBy)}` : ''}`,
+                      },
+                    ]
+                  : []),
               ]}
             />
+            {student.photo_video_consent && canEditStudents(role) && (
+              <div className="border-t border-gray-100 px-6 py-4">
+                <WithdrawPhotoConsentButton studentId={student.id} />
+              </div>
+            )}
           </SectionCard>
 
           <SectionCard title="Notes">

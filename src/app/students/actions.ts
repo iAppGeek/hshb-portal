@@ -8,6 +8,7 @@ import {
   markStudentAsLeaver,
   saveStudent,
   updateStudentClasses,
+  withdrawPhotoVideoConsent,
 } from '@/db'
 import {
   ActionError,
@@ -114,6 +115,7 @@ async function parseStudentForm(
       postcode: sharesPrimaryAddress ? null : d.student_postcode,
       allergies: d.student_allergies,
       medical_details: d.student_medical_details,
+      sen_details: d.student_sen_details,
       notes: d.student_notes,
       primary_guardian_relationship: d.primary_relationship,
       secondary_guardian_relationship: secondary
@@ -147,7 +149,7 @@ export async function saveStudentAction(
     name: isCreate ? 'students.create' : 'students.update',
     permission: isCreate ? canCreateStudents : canEditStudents,
     formData,
-    run: async (_input, { formData }) => {
+    run: async (_input, { formData, actor }) => {
       const fields = extractFormFields(formData, ['class_ids'])
 
       if (isCreate) {
@@ -176,14 +178,15 @@ export async function saveStudentAction(
           id,
           {
             ...data,
-            consent_privacy_notice: d.consent_privacy_notice,
-            consent_emergency_first_aid: d.consent_emergency_first_aid,
-            consent_photo_media: d.consent_photo_media,
-            consent_home_school: d.consent_home_school,
-            consent_comms_email_sms: d.consent_comms_email_sms,
+            privacy_notice_read: d.privacy_notice_read,
+            first_aid_consent: d.first_aid_consent,
+            photo_video_consent: d.photo_video_consent,
+            home_school_agreement: d.home_school_agreement,
+            email_sms_contact_ack: d.email_sms_contact_ack,
           },
           slots,
           addressFromPrimary,
+          actor.staffId,
         ),
       )
 
@@ -223,5 +226,29 @@ export async function markStudentAsLeaverAction(
     },
     redirectTo: '/students',
     fallbackError: 'Failed to mark student as a leaver. Please try again.',
+  })
+}
+
+/**
+ * A parent has withdrawn photo/video consent: turns it off on the student and
+ * records who did so and when, then reloads the student's page.
+ */
+export async function withdrawPhotoVideoConsentAction(
+  studentId: string,
+): Promise<ActionResult> {
+  return runAction({
+    name: 'students.withdraw-photo-consent',
+    permission: canEditStudents,
+    formData: new FormData(),
+    run: (_input, { actor }) =>
+      withdrawPhotoVideoConsent(studentId, actor.staffId),
+    audit: {
+      entity: 'student',
+      action: 'update',
+      entityId: () => studentId,
+      details: () => ({ photo_video_consent: false }),
+    },
+    redirectTo: `/students/${studentId}`,
+    fallbackError: 'Failed to withdraw photo consent. Please try again.',
   })
 }

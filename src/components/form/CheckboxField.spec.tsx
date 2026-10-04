@@ -8,7 +8,7 @@ describe('CheckboxField', () => {
     render(
       <CheckboxField
         label="Consent to photos"
-        name="consent_photo_media"
+        name="photo_video_consent"
         description="You can change this later"
       />,
     )

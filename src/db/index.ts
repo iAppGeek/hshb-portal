@@ -37,6 +37,7 @@ export {
   isStudentCodeTaken,
   updateStudentClasses,
   markStudentAsLeaver,
+  withdrawPhotoVideoConsent,
   findStudentMatches,
   getStudentsForLinking,
 } from './students'

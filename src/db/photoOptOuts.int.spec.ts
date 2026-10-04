@@ -53,10 +53,18 @@ describe('photo opt-outs', () => {
       student_id: SEED.students.bob,
     })
     const [bob] = await db
-      .select({ consent: students.consentPhotoMedia })
+      .select({
+        consent: students.photoVideoConsent,
+        withdrawnAt: students.photoVideoConsentWithdrawnAt,
+        withdrawnBy: students.photoVideoConsentWithdrawnBy,
+      })
       .from(students)
       .where(eq(students.id, SEED.students.bob))
-    expect(bob.consent).toBe(false)
+    expect(bob).toEqual({
+      consent: false,
+      withdrawnAt: expect.any(String),
+      withdrawnBy: SEED.staff.admin,
+    })
   })
 
   it('rejects a pending request once, then deletes it', async () => {

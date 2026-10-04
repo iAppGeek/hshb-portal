@@ -10,6 +10,7 @@ export type RegisterStudent = {
   first_name: string
   last_name: string
   allergies: string | null
+  photo_video_consent: boolean
   primary_guardian: {
     first_name: string
     last_name: string
@@ -35,7 +36,9 @@ export default function ClassRegisterCard({
   academicYear: string | null
   students: RegisterStudent[]
   emptyMessage: string
-}) {
+}): React.ReactElement {
+  const noPhotos = students.filter((s) => !s.photo_video_consent).length
+
   return (
     <>
       <div className="mb-6 grid grid-cols-2 gap-4 rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200 sm:grid-cols-4 print:mb-4 print:rounded-none print:p-px print:shadow-none print:ring-0">
@@ -76,89 +79,114 @@ export default function ClassRegisterCard({
           <EmptyState message={emptyMessage} />
         </div>
       ) : (
-        <div className="mb-6 overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-gray-200 print:overflow-visible print:rounded-none print:shadow-none print:ring-0">
-          <table className={printTable}>
-            <thead className="bg-gray-50 print:bg-white">
-              <tr>
-                {[
-                  { label: '#', mobileHidden: true },
-                  { label: 'Student ID', mobileHidden: true },
-                  { label: 'First Name', mobileHidden: false },
-                  { label: 'Surname', mobileHidden: false },
-                  { label: 'Primary Contact', mobileHidden: false },
-                  { label: 'Allergies', mobileHidden: false },
-                  { label: 'Attendance', mobileHidden: false },
-                ].map(({ label, mobileHidden }) => (
-                  <th
-                    key={label}
-                    className={clsx(
-                      printTh,
-                      mobileHidden && 'hidden sm:table-cell',
-                    )}
-                  >
-                    {label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {students.map((student, i) => (
-                <tr
-                  key={student.id}
-                  className="hover:bg-gray-50 print:hover:bg-white"
-                >
-                  <td
-                    className={clsx(
-                      printTd,
-                      'hidden text-gray-500 sm:table-cell print:table-cell',
-                    )}
-                  >
-                    {i + 1}
-                  </td>
-                  <td
-                    className={clsx(
-                      printTd,
-                      'hidden text-gray-700 sm:table-cell print:table-cell',
-                    )}
-                  >
-                    {student.student_code ?? '—'}
-                  </td>
-                  <td className={clsx(printTd, 'text-gray-900')}>
-                    {student.first_name}
-                  </td>
-                  <td className={clsx(printTd, 'font-medium text-gray-900')}>
-                    {student.last_name}
-                  </td>
-                  <td className={clsx(printTd, 'text-gray-700')}>
-                    {student.primary_guardian ? (
-                      <>
-                        <span className="block">
-                          {student.primary_guardian.first_name}{' '}
-                          {student.primary_guardian.last_name}
-                        </span>
-                        {student.primary_guardian.phone && (
-                          <a
-                            href={`tel:${student.primary_guardian.phone}`}
-                            className="block text-blue-600 hover:text-blue-800"
-                          >
-                            {student.primary_guardian.phone}
-                          </a>
-                        )}
-                      </>
-                    ) : (
-                      '—'
-                    )}
-                  </td>
-                  <td className={clsx(printTd, 'text-gray-700')}>
-                    {student.allergies ?? '—'}
-                  </td>
-                  <td className={clsx(printTd, 'w-16 print:w-16')} />
+        <>
+          {noPhotos > 0 && (
+            <p className="mb-3 text-sm text-gray-700">
+              <NoPhotosBadge />{' '}
+              {noPhotos === 1
+                ? '1 child in this class must not be photographed or filmed.'
+                : `${noPhotos} children in this class must not be photographed or filmed.`}
+            </p>
+          )}
+          <div className="mb-6 overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-gray-200 print:overflow-visible print:rounded-none print:shadow-none print:ring-0">
+            <table className={printTable}>
+              <thead className="bg-gray-50 print:bg-white">
+                <tr>
+                  {[
+                    { label: '#', mobileHidden: true },
+                    { label: 'Student ID', mobileHidden: true },
+                    { label: 'First Name', mobileHidden: false },
+                    { label: 'Surname', mobileHidden: false },
+                    { label: 'Primary Contact', mobileHidden: false },
+                    { label: 'Allergies', mobileHidden: false },
+                    { label: 'Attendance', mobileHidden: false },
+                  ].map(({ label, mobileHidden }) => (
+                    <th
+                      key={label}
+                      className={clsx(
+                        printTh,
+                        mobileHidden && 'hidden sm:table-cell',
+                      )}
+                    >
+                      {label}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {students.map((student, i) => (
+                  <tr
+                    key={student.id}
+                    className="hover:bg-gray-50 print:hover:bg-white"
+                  >
+                    <td
+                      className={clsx(
+                        printTd,
+                        'hidden text-gray-500 sm:table-cell print:table-cell',
+                      )}
+                    >
+                      {i + 1}
+                    </td>
+                    <td
+                      className={clsx(
+                        printTd,
+                        'hidden text-gray-700 sm:table-cell print:table-cell',
+                      )}
+                    >
+                      {student.student_code ?? '—'}
+                    </td>
+                    <td className={clsx(printTd, 'text-gray-900')}>
+                      {student.first_name}
+                    </td>
+                    <td className={clsx(printTd, 'font-medium text-gray-900')}>
+                      {student.last_name}
+                      {!student.photo_video_consent && (
+                        <>
+                          {' '}
+                          <NoPhotosBadge />
+                        </>
+                      )}
+                    </td>
+                    <td className={clsx(printTd, 'text-gray-700')}>
+                      {student.primary_guardian ? (
+                        <>
+                          <span className="block">
+                            {student.primary_guardian.first_name}{' '}
+                            {student.primary_guardian.last_name}
+                          </span>
+                          {student.primary_guardian.phone && (
+                            <a
+                              href={`tel:${student.primary_guardian.phone}`}
+                              className="block text-blue-600 hover:text-blue-800"
+                            >
+                              {student.primary_guardian.phone}
+                            </a>
+                          )}
+                        </>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td className={clsx(printTd, 'text-gray-700')}>
+                      {student.allergies ?? '—'}
+                    </td>
+                    <td className={clsx(printTd, 'w-16 print:w-16')} />
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </>
+  )
+}
+
+/** Marks a child without photo/video consent; outlined so it survives printing. */
+function NoPhotosBadge(): React.ReactElement {
+  return (
+    <span className="inline-block rounded border border-red-300 bg-red-50 px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap text-red-800 print:border-gray-900 print:bg-white print:text-gray-900">
+      No photos
+    </span>
   )
 }

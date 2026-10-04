@@ -44,9 +44,10 @@ Notes:
 - `staff` has no active/archived flag, so a teacher stays in the list until
   their staff record is removed or their role changes.
 - Additional (emergency) contacts are **not** included in the parents list.
-- `students.consent_comms_email_sms` is not used as a filter. It is currently
-  false for every student, so filtering on it would empty the parents list.
-  Decide whether it should apply before relying on it.
+- `students.email_sms_contact_ack` is not used as a filter. Since Privacy
+  Notice v1.0 it is a required acknowledgement on the registration form, not
+  an opt-in, and it is false for students registered before then, so filtering
+  on it would drop most of the parents list.
 - Admins and secretaries are not synced. See
   [Adding a new role or list](#adding-a-new-role-or-list).
 

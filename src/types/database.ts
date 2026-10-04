@@ -619,21 +619,25 @@ export type Database = {
           city: string
           collect_authorised: string | null
           collect_password: string | null
-          consent_comms_email_sms: boolean
-          consent_emergency_first_aid: boolean
-          consent_home_school: boolean
-          consent_photo_media: boolean
-          consent_privacy_notice: boolean
+          consents_recorded_at: string | null
           created_at: string
           date_of_birth: string
           declaration_name: string
+          email_sms_contact_ack: boolean
           english_school_name: string | null
+          first_aid_consent: boolean
+          home_school_agreement: boolean
           id: string
           linked_existing: boolean
+          may_leave_unaccompanied: boolean | null
           medical_details: string | null
+          photo_video_consent: boolean
           postcode: string
           preferred_year_group: string | null
+          privacy_notice_read: boolean
+          privacy_notice_version: string | null
           rejected_reason: string | null
+          sen_details: string | null
           status: Database['public']['Enums']['submission_status']
           student_id: string | null
           submitted_at: string
@@ -650,21 +654,25 @@ export type Database = {
           city: string
           collect_authorised?: string | null
           collect_password?: string | null
-          consent_comms_email_sms?: boolean
-          consent_emergency_first_aid?: boolean
-          consent_home_school?: boolean
-          consent_photo_media?: boolean
-          consent_privacy_notice?: boolean
+          consents_recorded_at?: string | null
           created_at?: string
           date_of_birth: string
           declaration_name: string
+          email_sms_contact_ack?: boolean
           english_school_name?: string | null
+          first_aid_consent?: boolean
+          home_school_agreement?: boolean
           id?: string
           linked_existing?: boolean
+          may_leave_unaccompanied?: boolean | null
           medical_details?: string | null
+          photo_video_consent?: boolean
           postcode: string
           preferred_year_group?: string | null
+          privacy_notice_read?: boolean
+          privacy_notice_version?: string | null
           rejected_reason?: string | null
+          sen_details?: string | null
           status?: Database['public']['Enums']['submission_status']
           student_id?: string | null
           submitted_at?: string
@@ -681,21 +689,25 @@ export type Database = {
           city?: string
           collect_authorised?: string | null
           collect_password?: string | null
-          consent_comms_email_sms?: boolean
-          consent_emergency_first_aid?: boolean
-          consent_home_school?: boolean
-          consent_photo_media?: boolean
-          consent_privacy_notice?: boolean
+          consents_recorded_at?: string | null
           created_at?: string
           date_of_birth?: string
           declaration_name?: string
+          email_sms_contact_ack?: boolean
           english_school_name?: string | null
+          first_aid_consent?: boolean
+          home_school_agreement?: boolean
           id?: string
           linked_existing?: boolean
+          may_leave_unaccompanied?: boolean | null
           medical_details?: string | null
+          photo_video_consent?: boolean
           postcode?: string
           preferred_year_group?: string | null
+          privacy_notice_read?: boolean
+          privacy_notice_version?: string | null
           rejected_reason?: string | null
+          sen_details?: string | null
           status?: Database['public']['Enums']['submission_status']
           student_id?: string | null
           submitted_at?: string
@@ -1125,26 +1137,32 @@ export type Database = {
           address_line_2: string | null
           allergies: string | null
           city: string | null
-          consent_comms_email_sms: boolean
-          consent_emergency_first_aid: boolean
-          consent_home_school: boolean
-          consent_photo_media: boolean
-          consent_privacy_notice: boolean
+          consents_recorded_at: string | null
           created_at: string | null
           date_of_birth: string | null
+          email_sms_contact_ack: boolean
           english_school_name: string | null
           enrollment_date: string | null
+          first_aid_consent: boolean
           first_name: string
+          home_school_agreement: boolean
           id: string
           last_name: string
           leaving_reason: string | null
+          may_leave_unaccompanied: boolean | null
           medical_details: string | null
           notes: string | null
+          photo_video_consent: boolean
+          photo_video_consent_withdrawn_at: string | null
+          photo_video_consent_withdrawn_by: string | null
           postcode: string | null
           primary_guardian_id: string
           primary_guardian_relationship: string | null
+          privacy_notice_read: boolean
+          privacy_notice_version: string | null
           secondary_guardian_id: string | null
           secondary_guardian_relationship: string | null
+          sen_details: string | null
           student_code: string | null
           updated_at: string | null
         }
@@ -1159,26 +1177,32 @@ export type Database = {
           address_line_2?: string | null
           allergies?: string | null
           city?: string | null
-          consent_comms_email_sms?: boolean
-          consent_emergency_first_aid?: boolean
-          consent_home_school?: boolean
-          consent_photo_media?: boolean
-          consent_privacy_notice?: boolean
+          consents_recorded_at?: string | null
           created_at?: string | null
           date_of_birth?: string | null
+          email_sms_contact_ack?: boolean
           english_school_name?: string | null
           enrollment_date?: string | null
+          first_aid_consent?: boolean
           first_name: string
+          home_school_agreement?: boolean
           id?: string
           last_name: string
           leaving_reason?: string | null
+          may_leave_unaccompanied?: boolean | null
           medical_details?: string | null
           notes?: string | null
+          photo_video_consent?: boolean
+          photo_video_consent_withdrawn_at?: string | null
+          photo_video_consent_withdrawn_by?: string | null
           postcode?: string | null
           primary_guardian_id: string
           primary_guardian_relationship?: string | null
+          privacy_notice_read?: boolean
+          privacy_notice_version?: string | null
           secondary_guardian_id?: string | null
           secondary_guardian_relationship?: string | null
+          sen_details?: string | null
           student_code?: string | null
           updated_at?: string | null
         }
@@ -1193,26 +1217,32 @@ export type Database = {
           address_line_2?: string | null
           allergies?: string | null
           city?: string | null
-          consent_comms_email_sms?: boolean
-          consent_emergency_first_aid?: boolean
-          consent_home_school?: boolean
-          consent_photo_media?: boolean
-          consent_privacy_notice?: boolean
+          consents_recorded_at?: string | null
           created_at?: string | null
           date_of_birth?: string | null
+          email_sms_contact_ack?: boolean
           english_school_name?: string | null
           enrollment_date?: string | null
+          first_aid_consent?: boolean
           first_name?: string
+          home_school_agreement?: boolean
           id?: string
           last_name?: string
           leaving_reason?: string | null
+          may_leave_unaccompanied?: boolean | null
           medical_details?: string | null
           notes?: string | null
+          photo_video_consent?: boolean
+          photo_video_consent_withdrawn_at?: string | null
+          photo_video_consent_withdrawn_by?: string | null
           postcode?: string | null
           primary_guardian_id?: string
           primary_guardian_relationship?: string | null
+          privacy_notice_read?: boolean
+          privacy_notice_version?: string | null
           secondary_guardian_id?: string | null
           secondary_guardian_relationship?: string | null
+          sen_details?: string | null
           student_code?: string | null
           updated_at?: string | null
         }
@@ -1236,6 +1266,13 @@ export type Database = {
             columns: ['address_guardian_id']
             isOneToOne: false
             referencedRelation: 'guardians'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'students_photo_video_consent_withdrawn_by_fkey'
+            columns: ['photo_video_consent_withdrawn_by']
+            isOneToOne: false
+            referencedRelation: 'staff'
             referencedColumns: ['id']
           },
           {

@@ -84,13 +84,11 @@ test.describe('Registration review', () => {
 
     const { data: student } = await db
       .from('students')
-      .select(
-        'id, consent_privacy_notice, consent_emergency_first_aid, primary_guardian_id',
-      )
+      .select('id, privacy_notice_read, first_aid_consent, primary_guardian_id')
       .eq('id', submission!.student_id)
       .single()
-    expect(student?.consent_privacy_notice).toBe(true)
-    expect(student?.consent_emergency_first_aid).toBe(true)
+    expect(student?.privacy_notice_read).toBe(true)
+    expect(student?.first_aid_consent).toBe(true)
     expect(student?.primary_guardian_id).not.toBeNull()
   })
 

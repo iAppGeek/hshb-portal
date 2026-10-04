@@ -16,12 +16,17 @@ vi.mock('next/navigation', async (importOriginal) => ({
 }))
 
 vi.mock('@/db', () => ({
+  getStaffById: vi.fn(),
   getStudentById: vi.fn(),
   getStudentIdsByTeacher: vi.fn(),
 }))
 
+vi.mock('../actions', () => ({
+  withdrawPhotoVideoConsentAction: vi.fn(),
+}))
+
 import { auth } from '@/auth'
-import { getStudentById, getStudentIdsByTeacher } from '@/db'
+import { getStaffById, getStudentById, getStudentIdsByTeacher } from '@/db'
 
 import StudentPage from './page'
 
@@ -44,6 +49,7 @@ const baseStudent = {
   allergies: null,
   notes: 'Likes reading',
   medical_details: 'None',
+  sen_details: null,
   primary_guardian_id: 'guardian-1',
   primary_guardian: {
     first_name: 'Maria',
@@ -67,11 +73,16 @@ const baseStudent = {
   additional_contact_2_id: null,
   additional_contact_2: null,
   additional_contact_2_relationship: null,
-  consent_privacy_notice: true,
-  consent_emergency_first_aid: false,
-  consent_photo_media: true,
-  consent_home_school: false,
-  consent_comms_email_sms: true,
+  privacy_notice_read: true,
+  first_aid_consent: false,
+  photo_video_consent: true,
+  home_school_agreement: false,
+  email_sms_contact_ack: true,
+  may_leave_unaccompanied: null,
+  consents_recorded_at: null,
+  privacy_notice_version: null,
+  photo_video_consent_withdrawn_at: null,
+  photo_video_consent_withdrawn_by: null,
   student_classes: [{ class: { name: 'Year 1A', academic_year: null } }],
 }
 
@@ -123,6 +134,102 @@ describe('StudentPage', () => {
 
     expect(screen.queryByText('Consents')).toBeNull()
     expect(screen.queryByText('Medical')).toBeNull()
+  })
+
+  describe('consents', () => {
+    type Student = Awaited<ReturnType<typeof getStudentById>>
+
+    function signInAs(role: string): void {
+      // `auth` is overloaded (it is also middleware), so mock the session form.
+      const session = vi.mocked(auth as () => Promise<unknown>)
+      session.mockResolvedValue({ user: { role, staffId: 'staff-1' } })
+    }
+
+    function consentRows(): string[][] {
+      const card = screen.getByText('Consents').closest('div')!.parentElement!
+      return Array.from(card.querySelectorAll('dt')).map((dt) => [
+        dt.textContent ?? '',
+        dt.nextElementSibling?.textContent ?? '',
+      ])
+    }
+
+    it('shows all six consents, when they were recorded and the notice version', async () => {
+      signInAs('admin')
+      vi.mocked(getStudentById).mockResolvedValue({
+        ...baseStudent,
+        may_leave_unaccompanied: false,
+        consents_recorded_at: '2026-10-04T09:30:00Z',
+        privacy_notice_version: '1.0',
+        sen_details: 'Dyslexia',
+      } as unknown as Student)
+
+      render(await renderPage())
+
+      expect(consentRows()).toEqual([
+        ['Read the Privacy Notice', 'Yes'],
+        ['Emergency first aid', 'No'],
+        ['Email & SMS contact understood', 'Yes'],
+        ['Photos & video', 'Yes'],
+        ['Home–school agreement', 'No'],
+        ['May leave on their own', 'No'],
+        ['Consents recorded', '04/10/2026, 10:30'],
+        ['Privacy Notice version', '1.0'],
+      ])
+      expect(screen.getByText('Dyslexia')).toBeTruthy()
+    })
+
+    it('lets an admin withdraw photo consent while it is given', async () => {
+      signInAs('admin')
+      vi.mocked(getStudentById).mockResolvedValue(
+        baseStudent as unknown as Student,
+      )
+
+      render(await renderPage())
+
+      expect(
+        screen.getByRole('button', { name: 'Withdraw photo consent' }),
+      ).toBeTruthy()
+    })
+
+    it('offers no withdraw button to a headteacher', async () => {
+      signInAs('headteacher')
+      vi.mocked(getStudentById).mockResolvedValue(
+        baseStudent as unknown as Student,
+      )
+
+      render(await renderPage())
+
+      expect(screen.getByText('Consents')).toBeTruthy()
+      expect(
+        screen.queryByRole('button', { name: 'Withdraw photo consent' }),
+      ).toBeNull()
+    })
+
+    it('shows who withdrew photo consent and when', async () => {
+      signInAs('admin')
+      vi.mocked(getStudentById).mockResolvedValue({
+        ...baseStudent,
+        photo_video_consent: false,
+        photo_video_consent_withdrawn_at: '2026-10-04T13:05:00Z',
+        photo_video_consent_withdrawn_by: 'staff-9',
+      } as unknown as Student)
+      vi.mocked(getStaffById).mockResolvedValue({
+        first_name: 'Olga',
+        last_name: 'Office',
+        display_name: null,
+      } as Awaited<ReturnType<typeof getStaffById>>)
+
+      render(await renderPage())
+
+      expect(getStaffById).toHaveBeenCalledWith('staff-9')
+      expect(consentRows()).toContainEqual([
+        'Photo consent withdrawn',
+        '04/10/2026, 14:05 by Olga Office',
+      ])
+      expect(
+        screen.queryByRole('button', { name: 'Withdraw photo consent' }),
+      ).toBeNull()
+    })
   })
 
   it('404s for a teacher viewing a student outside their classes', async () => {

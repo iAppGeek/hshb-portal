@@ -54,6 +54,7 @@ const baseStudent: StudentFormData = {
   postcode: 'EC1A 1BB',
   allergies: null,
   medical_details: null,
+  sen_details: null,
   notes: null,
   primary_guardian_id: 'guardian-1',
   primary_guardian_relationship: 'Mother',
@@ -63,11 +64,11 @@ const baseStudent: StudentFormData = {
   additional_contact_1_relationship: null,
   additional_contact_2_id: null,
   additional_contact_2_relationship: null,
-  consent_privacy_notice: false,
-  consent_emergency_first_aid: false,
-  consent_photo_media: false,
-  consent_home_school: false,
-  consent_comms_email_sms: false,
+  privacy_notice_read: false,
+  first_aid_consent: false,
+  photo_video_consent: false,
+  home_school_agreement: false,
+  email_sms_contact_ack: false,
 }
 
 function renderNew(action = vi.fn()): ReturnType<typeof render> {
@@ -339,23 +340,41 @@ describe('StudentForm with initial (editing)', () => {
   it('renders consent checkboxes pre-checked from the student record', () => {
     renderEdit({
       ...baseStudent,
-      consent_privacy_notice: true,
-      consent_emergency_first_aid: true,
+      privacy_notice_read: true,
+      first_aid_consent: true,
     })
 
     expect(
       (
         screen.getByRole('checkbox', {
-          name: 'Privacy notice',
+          name: 'Read the Privacy Notice',
         }) as HTMLInputElement
       ).checked,
     ).toBe(true)
     expect(
       (
         screen.getByRole('checkbox', {
-          name: 'Photo & media',
+          name: 'Photos & video',
         }) as HTMLInputElement
       ).checked,
     ).toBe(false)
+  })
+
+  it('warns that unticking photo consent records a withdrawal', () => {
+    renderEdit({ ...baseStudent, photo_video_consent: true })
+
+    expect(
+      screen.getByRole('checkbox', { name: 'Photos & video' }),
+    ).toHaveAccessibleDescription(
+      'Unticking records you as withdrawing consent, with the time.',
+    )
+  })
+
+  it('edits the SEN details', () => {
+    renderEdit({ ...baseStudent, sen_details: 'Dyslexia' })
+
+    expect(
+      screen.getByLabelText('Special educational needs or disability'),
+    ).toHaveValue('Dyslexia')
   })
 })

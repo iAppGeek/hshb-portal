@@ -53,16 +53,17 @@ const baseFields = {
   postcode: 'N1 2AA',
   allergies: '',
   medical_details: '',
+  sen_details: '',
   collect_authorised: '',
   collect_password: '',
   has_secondary: 'false',
   has_contact1: 'false',
   has_contact2: 'false',
-  consent_privacy_notice: 'on',
-  consent_emergency_first_aid: 'on',
-  consent_photo_media: 'on',
-  consent_home_school: 'on',
-  consent_comms_email_sms: 'on',
+  privacy_notice_read: 'on',
+  first_aid_consent: 'on',
+  email_sms_contact_ack: 'on',
+  photo_video_consent: 'on',
+  home_school_agreement: 'on',
   declaration_name: 'Petra Pending',
   turnstile_token: 'test-token',
   primary_first_name: 'Petra',
@@ -225,6 +226,131 @@ describe('submitRegistrationAction', () => {
       entityId: 'sub-1',
     })
     expect(redirect).toHaveBeenCalledWith('/register/success')
+  })
+
+  describe('consents', () => {
+    /** The fields with `names` left out, as an unticked checkbox is. */
+    function without(
+      fields: Record<string, string>,
+      ...names: string[]
+    ): Record<string, string> {
+      return Object.fromEntries(
+        Object.entries(fields).filter(([name]) => !names.includes(name)),
+      )
+    }
+
+    function submitted(): Record<string, unknown> {
+      return vi.mocked(createRegistrationSubmission).mock.calls[0][0].submission
+    }
+
+    it.each([
+      'privacy_notice_read',
+      'first_aid_consent',
+      'email_sms_contact_ack',
+    ])('blocks submission when %s is unticked', async (field) => {
+      const result = await submitRegistrationAction(
+        makeFormData(without(baseFields, field)),
+      )
+
+      expect(result).toEqual({
+        error: 'Please tick this box to continue — it is required to register.',
+        fieldErrors: {
+          [field]:
+            'Please tick this box to continue — it is required to register.',
+        },
+      })
+      expect(createRegistrationSubmission).not.toHaveBeenCalled()
+    })
+
+    it('stores each consent as its own boolean', async () => {
+      await submitRegistrationAction(
+        makeFormData(
+          without(baseFields, 'photo_video_consent', 'home_school_agreement'),
+        ),
+      )
+
+      expect(submitted()).toMatchObject({
+        privacy_notice_read: true,
+        first_aid_consent: true,
+        email_sms_contact_ack: true,
+        photo_video_consent: false,
+        home_school_agreement: false,
+      })
+    })
+
+    it('stores the consent timestamp and Privacy Notice version', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-10-04T09:30:00Z'))
+      try {
+        await submitRegistrationAction(makeFormData(baseFields))
+      } finally {
+        vi.useRealTimers()
+      }
+
+      expect(submitted()).toMatchObject({
+        consents_recorded_at: '2026-10-04T09:30:00.000Z',
+        privacy_notice_version: '1.0',
+      })
+    })
+
+    it('ignores a consent timestamp or version sent by the browser', async () => {
+      await submitRegistrationAction(
+        makeFormData({
+          ...baseFields,
+          consents_recorded_at: '2000-01-01T00:00:00Z',
+          privacy_notice_version: '0.1',
+        }),
+      )
+
+      expect(submitted().privacy_notice_version).toBe('1.0')
+      expect(submitted().consents_recorded_at).not.toBe('2000-01-01T00:00:00Z')
+    })
+
+    it.each(['GCSE 1', 'GCSE 2', 'GCSE 3', 'A Level'])(
+      'stores may_leave_unaccompanied for %s',
+      async (yearGroup) => {
+        await submitRegistrationAction(
+          makeFormData({
+            ...baseFields,
+            preferred_year_group: yearGroup,
+            may_leave_unaccompanied: 'on',
+          }),
+        )
+
+        expect(submitted().may_leave_unaccompanied).toBe(true)
+      },
+    )
+
+    it('stores may_leave_unaccompanied as false when a GCSE parent leaves it unticked', async () => {
+      await submitRegistrationAction(
+        makeFormData({ ...baseFields, preferred_year_group: 'GCSE 1' }),
+      )
+
+      expect(submitted().may_leave_unaccompanied).toBe(false)
+    })
+
+    it.each(['Year 1', 'Not sure'])(
+      'stores may_leave_unaccompanied as false for %s even if sent',
+      async (yearGroup) => {
+        await submitRegistrationAction(
+          makeFormData({
+            ...baseFields,
+            preferred_year_group: yearGroup,
+            may_leave_unaccompanied: 'on',
+          }),
+        )
+
+        expect(submitted().may_leave_unaccompanied).toBe(false)
+      },
+    )
+
+    it('carries the SEN details into the submission', async () => {
+      await submitRegistrationAction(
+        makeFormData({ ...baseFields, sen_details: 'Dyslexia' }),
+      )
+
+      expect(submitted().sen_details).toBe('Dyslexia')
+    })
   })
 
   it('verifies the Turnstile token with the client IP', async () => {

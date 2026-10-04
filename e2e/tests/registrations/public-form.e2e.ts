@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 
 import {
   db,
@@ -8,6 +8,15 @@ import {
 // Clear storageState so all tests in this file run as unauthenticated,
 // like login.e2e.ts.
 test.use({ storageState: { cookies: [], origins: [] } })
+
+const REQUIRED_MESSAGE =
+  'Please tick this box to continue — it is required to register.'
+
+async function tickRequiredConsents(page: Page): Promise<void> {
+  await page.getByLabel(/I confirm I have read the School's/).check()
+  await page.getByLabel(/I consent to emergency first aid/).check()
+  await page.getByLabel(/I understand the School will contact me/).check()
+}
 
 test.describe('Public registration form', () => {
   test.describe('happy path', () => {
@@ -41,8 +50,7 @@ test.describe('Public registration form', () => {
       await page.getByLabel('Phone').fill('07700 900000')
       await page.locator('input[name="primary_occupation"]').fill('Bus driver')
 
-      await page.getByLabel(/I have read and accept the school's/).check()
-      await page.getByLabel(/I consent to emergency first aid/).check()
+      await tickRequiredConsents(page)
 
       await page.getByLabel('Your full name').fill('Gary Guardian')
 
@@ -56,12 +64,23 @@ test.describe('Public registration form', () => {
       const { data } = await db
         .from('registration_submissions')
         .select(
-          'id, child_last_name, english_school_name, registration_submission_contacts(contact_role, occupation)',
+          'id, child_last_name, english_school_name, privacy_notice_read, first_aid_consent, email_sms_contact_ack, photo_video_consent, home_school_agreement, may_leave_unaccompanied, consents_recorded_at, privacy_notice_version, registration_submission_contacts(contact_role, occupation)',
         )
         .eq('child_last_name', childLastName)
         .single()
       expect(data).not.toBeNull()
       expect(data?.english_school_name).toBe('St Marys Primary')
+      // The optional consents were left unticked.
+      expect(data).toMatchObject({
+        privacy_notice_read: true,
+        first_aid_consent: true,
+        email_sms_contact_ack: true,
+        photo_video_consent: false,
+        home_school_agreement: false,
+        may_leave_unaccompanied: false,
+        consents_recorded_at: expect.any(String),
+        privacy_notice_version: '1.0',
+      })
       expect(data?.registration_submission_contacts).toHaveLength(1)
       expect(data?.registration_submission_contacts[0].contact_role).toBe(
         'primary',
@@ -122,8 +141,7 @@ test.describe('Public registration form', () => {
       await page.getByLabel('Last name').nth(3).fill('Emergency')
       await page.getByLabel('Phone').nth(2).fill('07700 900002')
 
-      await page.getByLabel(/I have read and accept the school's/).check()
-      await page.getByLabel(/I consent to emergency first aid/).check()
+      await tickRequiredConsents(page)
       await page.getByLabel('Your full name').fill('Gary Guardian')
 
       const submit = page.getByRole('button', { name: 'Submit registration' })
@@ -178,7 +196,9 @@ test.describe('Public registration form', () => {
     await page.getByLabel('Phone').fill('07700 900000')
     await page.locator('input[name="primary_occupation"]').fill('Bus driver')
     await page.getByLabel('Your full name').fill('Gary Guardian')
-    // Deliberately leave both required consents unticked.
+    // Tick two of the three required consents, leaving the email/SMS one.
+    await page.getByLabel(/I confirm I have read the School's/).check()
+    await page.getByLabel(/I consent to emergency first aid/).check()
 
     const submit = page.getByRole('button', { name: 'Submit registration' })
     await expect(submit).toBeEnabled({ timeout: 15000 })
@@ -187,6 +207,12 @@ test.describe('Public registration form', () => {
     await submit.click()
 
     await expect(page).toHaveURL(/\/register$/)
+    const contact = page.getByLabel(/I understand the School will contact me/)
+    await expect(contact).toBeFocused()
+    await expect(contact).toHaveAccessibleDescription(REQUIRED_MESSAGE)
+    await expect(
+      page.getByRole('alert').filter({ hasText: REQUIRED_MESSAGE }),
+    ).toHaveCount(1)
     const { data } = await db
       .from('registration_submissions')
       .select('id')

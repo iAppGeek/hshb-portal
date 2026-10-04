@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { addYears, DBS_RENEWAL_YEARS } from './compliance'
+import { REQUIRED_CONSENT_MESSAGE } from './consents'
 
 // ─── Reusable field schemas ──────────────────────────────────────────────────
 
@@ -324,6 +325,7 @@ const studentBaseSchema = z
     student_postcode: optionalString.optional(),
     student_allergies: optionalString,
     student_medical_details: optionalString,
+    student_sen_details: optionalString,
     student_notes: optionalString,
     primary_relationship: optionalString,
     has_secondary: booleanFromString,
@@ -352,11 +354,11 @@ export const createStudentSchema = studentBaseSchema
 
 export const updateStudentSchema = studentBaseSchema.extend({
   class_ids: z.array(uuid).default([]),
-  consent_privacy_notice: checkbox,
-  consent_emergency_first_aid: checkbox,
-  consent_photo_media: checkbox,
-  consent_home_school: checkbox,
-  consent_comms_email_sms: checkbox,
+  privacy_notice_read: checkbox,
+  first_aid_consent: checkbox,
+  email_sms_contact_ack: checkbox,
+  photo_video_consent: checkbox,
+  home_school_agreement: checkbox,
 })
 
 const registrationContactBase = z.object({
@@ -394,21 +396,21 @@ export const registrationSubmissionSchema = z.object({
   postcode: addressText,
   allergies: optionalLongText,
   medical_details: optionalLongText,
+  sen_details: optionalLongText,
   // Only rendered on the form once an emergency contact is added.
   collect_authorised: optionalLongText.optional(),
   collect_password: optionalLongText.optional(),
+  // Only rendered for GCSE and A Level year groups; the action stores false
+  // for any other year group.
+  may_leave_unaccompanied: checkbox,
   has_secondary: booleanFromString,
   has_contact1: booleanFromString,
   has_contact2: booleanFromString,
-  consent_privacy_notice: requiredCheckbox(
-    'You must accept the privacy notice',
-  ),
-  consent_emergency_first_aid: requiredCheckbox(
-    'Emergency first aid consent is required',
-  ),
-  consent_photo_media: checkbox,
-  consent_home_school: checkbox,
-  consent_comms_email_sms: checkbox,
+  privacy_notice_read: requiredCheckbox(REQUIRED_CONSENT_MESSAGE),
+  first_aid_consent: requiredCheckbox(REQUIRED_CONSENT_MESSAGE),
+  email_sms_contact_ack: requiredCheckbox(REQUIRED_CONSENT_MESSAGE),
+  photo_video_consent: checkbox,
+  home_school_agreement: checkbox,
   declaration_name: shortText,
   turnstile_token: requiredString.max(2048),
 })

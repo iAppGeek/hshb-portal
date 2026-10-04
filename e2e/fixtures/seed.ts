@@ -100,8 +100,8 @@ export async function createRegistrationSubmission(
       address_line_1: '1 Fixture St',
       city: 'London',
       postcode: 'N1 1AA',
-      consent_privacy_notice: true,
-      consent_emergency_first_aid: true,
+      privacy_notice_read: true,
+      first_aid_consent: true,
       declaration_name: 'E2E Parent',
     })
     .select('id')

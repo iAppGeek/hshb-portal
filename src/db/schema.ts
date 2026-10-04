@@ -158,13 +158,23 @@ export const students = pgTable(
     additionalContact2Relationship: text('additional_contact_2_relationship'),
     medicalDetails: text(),
     addressGuardianId: uuid(),
-    consentPrivacyNotice: boolean().default(false).notNull(),
-    consentEmergencyFirstAid: boolean().default(false).notNull(),
-    consentPhotoMedia: boolean().default(false).notNull(),
-    consentHomeSchool: boolean().default(false).notNull(),
-    consentCommsEmailSms: boolean().default(false).notNull(),
+    privacyNoticeRead: boolean().default(false).notNull(),
+    firstAidConsent: boolean().default(false).notNull(),
+    photoVideoConsent: boolean().default(false).notNull(),
+    homeSchoolAgreement: boolean().default(false).notNull(),
+    emailSmsContactAck: boolean().default(false).notNull(),
     englishSchoolName: text(),
     leavingReason: text(),
+    senDetails: text(),
+    // Null on records from before the question was asked.
+    mayLeaveUnaccompanied: boolean(),
+    // When the parent gave the consents above, and which Privacy Notice they
+    // read. Null on records from before versions were tracked.
+    consentsRecordedAt: timestamptz(),
+    privacyNoticeVersion: text(),
+    // Set when photo/video consent is withdrawn; cleared if it is given again.
+    photoVideoConsentWithdrawnAt: timestamptz(),
+    photoVideoConsentWithdrawnBy: uuid(),
   },
   (t) => [
     unique('students_student_code_key').on(t.studentCode),
@@ -210,6 +220,11 @@ export const students = pgTable(
       name: 'students_address_guardian_id_fkey',
       columns: [t.addressGuardianId],
       foreignColumns: [guardians.id],
+    }).onDelete('set null'),
+    foreignKey({
+      name: 'students_photo_video_consent_withdrawn_by_fkey',
+      columns: [t.photoVideoConsentWithdrawnBy],
+      foreignColumns: [staff.id],
     }).onDelete('set null'),
     check(
       'students_address_source_check',
@@ -600,11 +615,11 @@ export const registrationSubmissions = pgTable(
     medicalDetails: text(),
     collectAuthorised: text(),
     collectPassword: text(),
-    consentPrivacyNotice: boolean().default(false).notNull(),
-    consentEmergencyFirstAid: boolean().default(false).notNull(),
-    consentPhotoMedia: boolean().default(false).notNull(),
-    consentHomeSchool: boolean().default(false).notNull(),
-    consentCommsEmailSms: boolean().default(false).notNull(),
+    privacyNoticeRead: boolean().default(false).notNull(),
+    firstAidConsent: boolean().default(false).notNull(),
+    photoVideoConsent: boolean().default(false).notNull(),
+    homeSchoolAgreement: boolean().default(false).notNull(),
+    emailSmsContactAck: boolean().default(false).notNull(),
     declarationName: text().notNull(),
     actionedBy: uuid(),
     actionedAt: timestamptz(),
@@ -618,6 +633,13 @@ export const registrationSubmissions = pgTable(
       .default(sql`now()`)
       .notNull(),
     englishSchoolName: text(),
+    senDetails: text(),
+    // Null on submissions from before the question was asked.
+    mayLeaveUnaccompanied: boolean(),
+    // Set by the server on submit. Null on submissions from before versions
+    // were tracked.
+    consentsRecordedAt: timestamptz(),
+    privacyNoticeVersion: text(),
   },
   (t) => [
     index('registration_submissions_status_idx').using('btree', t.status),

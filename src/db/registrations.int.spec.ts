@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest'
 
 import { asDbError } from '@/lib/db-error'
+import type { Database } from '@/types/database'
 
 import {
   approveRegistration,
@@ -11,13 +12,33 @@ import {
   getRegistrationSubmissions,
   rejectRegistration,
 } from './registrations'
+import { getStudentById, withdrawPhotoVideoConsent } from './students'
 import { resetDatabase, SEED } from './test-db'
 
 afterAll(resetDatabase)
 
-async function submit(childFirstName: string): Promise<string> {
+type SubmissionInsert =
+  Database['public']['Tables']['registration_submissions']['Insert']
+
+const V1_CONSENTS = {
+  privacy_notice_read: true,
+  first_aid_consent: true,
+  email_sms_contact_ack: true,
+  photo_video_consent: false,
+  home_school_agreement: true,
+  may_leave_unaccompanied: true,
+  sen_details: 'Dyslexia',
+  consents_recorded_at: '2026-10-04T09:30:00.000Z',
+  privacy_notice_version: '1.0',
+} satisfies Partial<SubmissionInsert>
+
+async function submit(
+  childFirstName: string,
+  consents: Partial<SubmissionInsert> = {},
+): Promise<string> {
   const { id } = await createRegistrationSubmission({
     submission: {
+      ...consents,
       child_first_name: childFirstName,
       child_last_name: 'Applicant',
       date_of_birth: '2019-05-05',
@@ -25,7 +46,7 @@ async function submit(childFirstName: string): Promise<string> {
       city: 'London',
       postcode: 'N4 4AA',
       declaration_name: 'Pat Parent',
-      consent_privacy_notice: true,
+      privacy_notice_read: true,
     },
     contacts: [
       {
@@ -148,5 +169,84 @@ describe('registration review', () => {
     await expect(deleteRegistrationSubmission(id)).rejects.toThrow(
       'Submission not found',
     )
+  })
+})
+
+describe('registration consents', () => {
+  it('stores each consent separately with the time recorded and the notice version', async () => {
+    const id = await submit('Cleo', V1_CONSENTS)
+
+    expect(await getRegistrationSubmissionById(id)).toMatchObject({
+      privacy_notice_read: true,
+      first_aid_consent: true,
+      email_sms_contact_ack: true,
+      photo_video_consent: false,
+      home_school_agreement: true,
+      may_leave_unaccompanied: true,
+      sen_details: 'Dyslexia',
+      consents_recorded_at: '2026-10-04T09:30:00+00:00',
+      privacy_notice_version: '1.0',
+    })
+  })
+
+  it('leaves the new fields unknown on submissions from before v1.0', async () => {
+    expect(
+      await getRegistrationSubmissionById(SEED.registrations.pending),
+    ).toMatchObject({
+      privacy_notice_read: true,
+      first_aid_consent: true,
+      may_leave_unaccompanied: null,
+      consents_recorded_at: null,
+      privacy_notice_version: null,
+    })
+  })
+
+  it('copies the consents, SEN details and notice version onto a new student', async () => {
+    const id = await submit('Dora', V1_CONSENTS)
+    const { student_id } = await approveRegistration({
+      submissionId: id,
+      staffId: SEED.staff.admin,
+      studentCode: 'DORA-1',
+      classId: null,
+      existingStudentId: null,
+      reuseGuardians: true,
+    })
+
+    expect(await getStudentById(student_id)).toMatchObject({
+      privacy_notice_read: true,
+      first_aid_consent: true,
+      email_sms_contact_ack: true,
+      photo_video_consent: false,
+      home_school_agreement: true,
+      may_leave_unaccompanied: true,
+      sen_details: 'Dyslexia',
+      consents_recorded_at: '2026-10-04T09:30:00+00:00',
+      privacy_notice_version: '1.0',
+      photo_video_consent_withdrawn_at: null,
+    })
+  })
+
+  it('clears a recorded withdrawal when a returning child is registered with photo consent', async () => {
+    await withdrawPhotoVideoConsent(SEED.students.carol, SEED.staff.admin)
+    const id = await submit('Carol', {
+      ...V1_CONSENTS,
+      photo_video_consent: true,
+    })
+
+    await approveRegistration({
+      submissionId: id,
+      staffId: SEED.staff.admin,
+      studentCode: null,
+      classId: null,
+      existingStudentId: SEED.students.carol,
+      reuseGuardians: true,
+    })
+
+    expect(await getStudentById(SEED.students.carol)).toMatchObject({
+      photo_video_consent: true,
+      photo_video_consent_withdrawn_at: null,
+      photo_video_consent_withdrawn_by: null,
+      privacy_notice_version: '1.0',
+    })
   })
 })

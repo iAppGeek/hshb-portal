@@ -10,9 +10,15 @@ import {
   saveStudent,
   updateStudentClasses,
   markStudentAsLeaver,
+  withdrawPhotoVideoConsent,
+  logAuditEvent,
 } from '@/db'
 
-import { saveStudentAction, markStudentAsLeaverAction } from './actions'
+import {
+  saveStudentAction,
+  markStudentAsLeaverAction,
+  withdrawPhotoVideoConsentAction,
+} from './actions'
 
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('next/navigation', async (importOriginal) => ({
@@ -27,6 +33,7 @@ vi.mock('@/db', () => ({
   saveStudent: vi.fn(),
   updateStudentClasses: vi.fn(),
   markStudentAsLeaver: vi.fn(),
+  withdrawPhotoVideoConsent: vi.fn(),
   logAuditEvent: vi.fn(),
 }))
 
@@ -91,6 +98,7 @@ const createFields = {
   student_postcode: 'EC1A 1BB',
   student_allergies: '',
   student_medical_details: '',
+  student_sen_details: '',
   student_notes: '',
   primary_first_name: 'Maria',
   primary_last_name: 'Smith',
@@ -132,6 +140,7 @@ const updateFields: Record<string, string> = {
   student_postcode: 'EC1A 1BB',
   student_allergies: '',
   student_medical_details: '',
+  student_sen_details: '',
   student_notes: '',
   primary_mode: 'existing',
   primary_existing_id: GUARDIAN_1,
@@ -590,8 +599,8 @@ describe('saveStudentAction (update)', () => {
 
     const fields = {
       ...updateFields,
-      consent_privacy_notice: 'on',
-      consent_emergency_first_aid: 'on',
+      privacy_notice_read: 'on',
+      first_aid_consent: 'on',
     }
 
     await expect(
@@ -599,12 +608,41 @@ describe('saveStudentAction (update)', () => {
     ).rejects.toThrow('NEXT_REDIRECT')
 
     expect(saved().data).toMatchObject({
-      consent_privacy_notice: true,
-      consent_emergency_first_aid: true,
-      consent_photo_media: false,
-      consent_home_school: false,
-      consent_comms_email_sms: false,
+      privacy_notice_read: true,
+      first_aid_consent: true,
+      photo_video_consent: false,
+      home_school_agreement: false,
+      email_sms_contact_ack: false,
     })
+  })
+
+  it('passes the admin to saveStudent so a photo consent withdrawal records them', async () => {
+    vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
+    vi.mocked(redirect).mockImplementation(() => {
+      throw new Error('NEXT_REDIRECT')
+    })
+
+    await expect(
+      saveStudentAction(STUDENT_ID, makeFormData(updateFields)),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(vi.mocked(saveStudent).mock.calls[0][4]).toBe('admin-1')
+  })
+
+  it('saves the SEN details', async () => {
+    vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
+    vi.mocked(redirect).mockImplementation(() => {
+      throw new Error('NEXT_REDIRECT')
+    })
+
+    await expect(
+      saveStudentAction(
+        STUDENT_ID,
+        makeFormData({ ...updateFields, student_sen_details: 'Dyslexia' }),
+      ),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(saved().data).toMatchObject({ sen_details: 'Dyslexia' })
   })
 
   it('updates class enrollments with submitted class ids', async () => {
@@ -834,5 +872,43 @@ describe('markStudentAsLeaverAction', () => {
       error: 'Failed to mark student as a leaver. Please try again.',
     })
     expect(redirect).not.toHaveBeenCalled()
+  })
+})
+
+describe('withdrawPhotoVideoConsentAction', () => {
+  it('withdraws consent as the signed-in admin, logs and reloads the student', async () => {
+    vi.mocked(withdrawPhotoVideoConsent).mockResolvedValue(undefined)
+    vi.mocked(redirect).mockImplementation(() => {
+      throw new Error('NEXT_REDIRECT')
+    })
+
+    await expect(withdrawPhotoVideoConsentAction(STUDENT_ID)).rejects.toThrow(
+      'NEXT_REDIRECT',
+    )
+
+    expect(withdrawPhotoVideoConsent).toHaveBeenCalledWith(
+      STUDENT_ID,
+      'admin-1',
+    )
+    expect(logAuditEvent).toHaveBeenCalledWith({
+      staffId: 'admin-1',
+      action: 'update',
+      entity: 'student',
+      entityId: STUDENT_ID,
+      details: { photo_video_consent: false },
+    })
+    expect(redirect).toHaveBeenCalledWith(`/students/${STUDENT_ID}`)
+  })
+
+  it('refuses staff who cannot edit students', async () => {
+    vi.mocked(getActor).mockResolvedValue({
+      ...adminSession,
+      role: 'teacher',
+    } as Awaited<ReturnType<typeof getActor>>)
+
+    const result = await withdrawPhotoVideoConsentAction(STUDENT_ID)
+
+    expect(result).toEqual({ error: 'Not authorised' })
+    expect(withdrawPhotoVideoConsent).not.toHaveBeenCalled()
   })
 })
