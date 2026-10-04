@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type ReactElement } from 'react'
+import type { ReactElement } from 'react'
 import { ChevronDownIcon } from '@heroicons/react/24/outline'
 import {
   Menu,
@@ -13,6 +13,7 @@ import {
 } from '@headlessui/react'
 import clsx from 'clsx'
 
+import { useCopyToClipboard } from '@/components/useCopyToClipboard'
 import { formatEmailsForOutlook } from '@/lib/mailto'
 
 export type EmailGroup = {
@@ -46,21 +47,9 @@ function GroupSection({
   group: EmailGroup
   mailtoUnavailableReason: string
 }): ReactElement {
-  const [copied, setCopied] = useState(false)
-  const [copyError, setCopyError] = useState(false)
+  const { status, copy } = useCopyToClipboard()
   const hasEmails = group.emails.length > 0
   const clipboardText = formatEmailsForOutlook(group.emails)
-
-  async function copy(): Promise<void> {
-    setCopyError(false)
-    try {
-      await navigator.clipboard.writeText(clipboardText)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 2000)
-    } catch {
-      setCopyError(true)
-    }
-  }
 
   return (
     <MenuSection>
@@ -68,10 +57,14 @@ function GroupSection({
         <MenuHeading className={headingClass}>{group.label}</MenuHeading>
       )}
       <MenuItem disabled={!hasEmails}>
-        <button type="button" className={itemClass} onClick={copy}>
-          {copied
+        <button
+          type="button"
+          className={itemClass}
+          onClick={() => void copy(clipboardText)}
+        >
+          {status === 'copied'
             ? 'Copied'
-            : copyError
+            : status === 'failed'
               ? 'Copy failed — try again'
               : 'Copy emails'}
         </button>

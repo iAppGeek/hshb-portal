@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline'
 import { QRCodeSVG } from 'qrcode.react'
 
-import { DialogFrame } from '@/components/dialogs'
+import DialogFrame from '@/components/dialogs/DialogFrame'
+import { useCopyToClipboard } from '@/components/useCopyToClipboard'
 
 /**
  * Shares the website linktree with a parent in person: a QR code to scan, the
@@ -18,19 +18,7 @@ export default function LinktreeDialog({
   url: string
   onClose: () => void
 }): React.ReactElement {
-  const [copied, setCopied] = useState(false)
-  const [copyError, setCopyError] = useState(false)
-
-  async function copy(): Promise<void> {
-    setCopyError(false)
-    try {
-      await navigator.clipboard.writeText(url)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 2000)
-    } catch {
-      setCopyError(true)
-    }
-  }
+  const { status, copy } = useCopyToClipboard()
 
   return (
     <DialogFrame
@@ -57,10 +45,14 @@ export default function LinktreeDialog({
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
           type="button"
-          onClick={copy}
+          onClick={() => void copy(url)}
           className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
         >
-          {copied ? 'Copied' : copyError ? 'Copy failed' : 'Copy link'}
+          {status === 'copied'
+            ? 'Copied'
+            : status === 'failed'
+              ? 'Copy failed'
+              : 'Copy link'}
         </button>
         <a
           href={url}

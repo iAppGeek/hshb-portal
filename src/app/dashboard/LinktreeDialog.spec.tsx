@@ -7,6 +7,10 @@ import LinktreeDialog from './LinktreeDialog'
 const LINKTREE_URL = 'https://www.hshb.org.uk/linktree?t=jsmith'
 
 describe('LinktreeDialog', () => {
+  const originalClipboard = Object.getOwnPropertyDescriptor(
+    navigator,
+    'clipboard',
+  )
   let clipboardWriteText: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
@@ -15,6 +19,11 @@ describe('LinktreeDialog', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    if (originalClipboard) {
+      Object.defineProperty(navigator, 'clipboard', originalClipboard)
+    } else {
+      Reflect.deleteProperty(navigator, 'clipboard')
+    }
   })
 
   function renderDialog(onClose = vi.fn()): ReturnType<typeof userEvent.setup> {

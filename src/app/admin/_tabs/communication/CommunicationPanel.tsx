@@ -4,6 +4,7 @@ import { useState } from 'react'
 import clsx from 'clsx'
 
 import SelectField from '@/components/form/SelectField'
+import { useCopyToClipboard } from '@/components/useCopyToClipboard'
 import {
   recipientFields,
   type ClassEmailRoster,
@@ -220,19 +221,7 @@ function AddressField({
   emails: string[]
 }): React.ReactElement {
   const text = formatEmailsForOutlook(emails)
-  const [copied, setCopied] = useState(false)
-  const [copyError, setCopyError] = useState(false)
-
-  async function copy() {
-    setCopyError(false)
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 2000)
-    } catch {
-      setCopyError(true)
-    }
-  }
+  const { status, copy } = useCopyToClipboard()
 
   const count = emails.length === 1 ? '1 address' : `${emails.length} addresses`
 
@@ -255,18 +244,22 @@ function AddressField({
       </div>
       <button
         type="button"
-        onClick={copy}
+        onClick={() => void copy(text)}
         disabled={emails.length === 0}
         aria-label={
-          copied
+          status === 'copied'
             ? `Copied ${label}`
-            : copyError
+            : status === 'failed'
               ? `Copy ${label} failed`
               : `Copy ${label}`
         }
         className="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {copied ? 'Copied' : copyError ? 'Copy failed' : 'Copy'}
+        {status === 'copied'
+          ? 'Copied'
+          : status === 'failed'
+            ? 'Copy failed'
+            : 'Copy'}
       </button>
     </div>
   )

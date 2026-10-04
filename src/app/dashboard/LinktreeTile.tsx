@@ -1,15 +1,16 @@
 'use client'
 
-import dynamic from 'next/dynamic'
+import { useState } from 'react'
 import { QrCodeIcon } from '@heroicons/react/24/outline'
 
 import { useDialog } from '@/components/dialogs/useDialog'
+
+type LinktreeDialogComponent = typeof import('./LinktreeDialog').default
 
 // The dialog (with the QR library and Headless UI's Dialog) is its own chunk,
 // fetched on hover or focus so it is usually ready by the time of the click.
 const loadDialog = (): Promise<typeof import('./LinktreeDialog')> =>
   import('./LinktreeDialog')
-const LinktreeDialog = dynamic(loadDialog, { ssr: false })
 
 /** Dashboard tile that opens LinktreeDialog for sharing with parents. */
 export default function LinktreeTile({
@@ -18,14 +19,35 @@ export default function LinktreeTile({
   url: string
 }): React.ReactElement {
   const dialog = useDialog()
+  // Loaded by hand rather than with next/dynamic so a failed chunk fetch
+  // (a stale tab after a deploy, flaky Wi-Fi) shows a retry message on the
+  // tile instead of throwing to the error boundary and losing the dashboard.
+  const [Dialog, setDialog] = useState<LinktreeDialogComponent | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
+
+  function prefetch(): void {
+    // Best effort only: a failure here is reported when the tile is clicked.
+    loadDialog().catch(() => undefined)
+  }
+
+  async function open(): Promise<void> {
+    setLoadFailed(false)
+    try {
+      const { default: loaded } = await loadDialog()
+      setDialog(() => loaded)
+      dialog.open()
+    } catch {
+      setLoadFailed(true)
+    }
+  }
 
   return (
     <>
       <button
         type="button"
-        onClick={() => dialog.open()}
-        onPointerEnter={() => void loadDialog()}
-        onFocus={() => void loadDialog()}
+        onClick={() => void open()}
+        onPointerEnter={prefetch}
+        onFocus={prefetch}
         className="group flex items-center gap-3 rounded-xl bg-white p-4 text-left shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
       >
         <div className="rounded-lg bg-blue-50 p-3 transition group-hover:bg-blue-100">
@@ -36,10 +58,14 @@ export default function LinktreeTile({
           <p className="mt-0.5 text-base font-semibold text-gray-900">
             Share with parents
           </p>
+          <p role="status" className="text-sm text-red-600 empty:hidden">
+            {loadFailed &&
+              "Couldn't open. Check your connection and try again."}
+          </p>
         </div>
       </button>
 
-      {dialog.isOpen && <LinktreeDialog url={url} onClose={dialog.close} />}
+      {dialog.isOpen && Dialog && <Dialog url={url} onClose={dialog.close} />}
     </>
   )
 }
