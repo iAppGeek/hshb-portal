@@ -18,4 +18,7 @@ ALTER TABLE "students" ADD COLUMN "consents_recorded_at" timestamp with time zon
 ALTER TABLE "students" ADD COLUMN "privacy_notice_version" text;--> statement-breakpoint
 ALTER TABLE "students" ADD COLUMN "photo_video_consent_withdrawn_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "students" ADD COLUMN "photo_video_consent_withdrawn_by" uuid;--> statement-breakpoint
-ALTER TABLE "students" ADD CONSTRAINT "students_photo_video_consent_withdrawn_by_fkey" FOREIGN KEY ("photo_video_consent_withdrawn_by") REFERENCES "public"."staff"("id") ON DELETE set null ON UPDATE no action;
+ALTER TABLE "students" ADD COLUMN "may_leave_unaccompanied_changed_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "students" ADD COLUMN "may_leave_unaccompanied_changed_by" uuid;--> statement-breakpoint
+ALTER TABLE "students" ADD CONSTRAINT "students_photo_video_consent_withdrawn_by_fkey" FOREIGN KEY ("photo_video_consent_withdrawn_by") REFERENCES "public"."staff"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "students" ADD CONSTRAINT "students_may_leave_unaccompanied_changed_by_fkey" FOREIGN KEY ("may_leave_unaccompanied_changed_by") REFERENCES "public"."staff"("id") ON DELETE set null ON UPDATE no action;

@@ -1150,6 +1150,8 @@ export type Database = {
           last_name: string
           leaving_reason: string | null
           may_leave_unaccompanied: boolean | null
+          may_leave_unaccompanied_changed_at: string | null
+          may_leave_unaccompanied_changed_by: string | null
           medical_details: string | null
           notes: string | null
           photo_video_consent: boolean
@@ -1190,6 +1192,8 @@ export type Database = {
           last_name: string
           leaving_reason?: string | null
           may_leave_unaccompanied?: boolean | null
+          may_leave_unaccompanied_changed_at?: string | null
+          may_leave_unaccompanied_changed_by?: string | null
           medical_details?: string | null
           notes?: string | null
           photo_video_consent?: boolean
@@ -1230,6 +1234,8 @@ export type Database = {
           last_name?: string
           leaving_reason?: string | null
           may_leave_unaccompanied?: boolean | null
+          may_leave_unaccompanied_changed_at?: string | null
+          may_leave_unaccompanied_changed_by?: string | null
           medical_details?: string | null
           notes?: string | null
           photo_video_consent?: boolean
@@ -1266,6 +1272,13 @@ export type Database = {
             columns: ['address_guardian_id']
             isOneToOne: false
             referencedRelation: 'guardians'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'students_may_leave_unaccompanied_changed_by_fkey'
+            columns: ['may_leave_unaccompanied_changed_by']
+            isOneToOne: false
+            referencedRelation: 'staff'
             referencedColumns: ['id']
           },
           {

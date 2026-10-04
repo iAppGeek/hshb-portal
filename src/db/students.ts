@@ -423,6 +423,7 @@ type StudentInsert = {
   allergies?: string | null
   medical_details?: string | null
   sen_details?: string | null
+  may_leave_unaccompanied?: boolean | null
   notes?: string | null
   privacy_notice_read?: boolean
   first_aid_consent?: boolean
@@ -526,7 +527,10 @@ export async function saveStudent(
   data: Omit<StudentInsert, keyof StudentGuardianIds>,
   slots: StudentGuardianSlots,
   addressFromPrimary: boolean,
-  /** Recorded as who withdrew photo/video consent, if this save does so. */
+  /**
+   * Recorded as who withdrew photo/video consent or changed whether the child
+   * may leave on their own, if this save does so.
+   */
   savedBy: string | null = null,
 ): Promise<{ id: string }> {
   return db.transaction(async (tx) => {
@@ -561,10 +565,33 @@ export async function saveStudent(
         ...(data.photo_video_consent !== undefined &&
           savedBy !== null &&
           photoConsentChange(data.photo_video_consent, savedBy)),
+        ...(data.may_leave_unaccompanied != null &&
+          savedBy !== null &&
+          leaveAloneChange(data.may_leave_unaccompanied, savedBy)),
       })
       .where(eq(students.id, id))
     return { id }
   })
+}
+
+/**
+ * The change columns for an update that sets may_leave_unaccompanied to
+ * `allowed`: a different answer from the one on record (including a first
+ * answer where none was recorded) records when and by whom; the same answer
+ * keeps the existing record. The CASE reads the row from before the update.
+ */
+function leaveAloneChange(
+  allowed: boolean,
+  staffId: string,
+): {
+  mayLeaveUnaccompaniedChangedAt: SQL
+  mayLeaveUnaccompaniedChangedBy: SQL
+} {
+  const changed = sql`${students.mayLeaveUnaccompanied} IS DISTINCT FROM ${allowed}::boolean`
+  return {
+    mayLeaveUnaccompaniedChangedAt: sql`CASE WHEN ${changed} THEN now() ELSE ${students.mayLeaveUnaccompaniedChangedAt} END`,
+    mayLeaveUnaccompaniedChangedBy: sql`CASE WHEN ${changed} THEN ${staffId}::uuid ELSE ${students.mayLeaveUnaccompaniedChangedBy} END`,
+  }
 }
 
 /**

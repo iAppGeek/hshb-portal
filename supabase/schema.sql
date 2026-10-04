@@ -252,6 +252,9 @@ BEGIN
       -- Consent given again on the new form supersedes an earlier withdrawal.
       photo_video_consent_withdrawn_at = CASE WHEN v_sub.photo_video_consent THEN NULL ELSE photo_video_consent_withdrawn_at END,
       photo_video_consent_withdrawn_by = CASE WHEN v_sub.photo_video_consent THEN NULL ELSE photo_video_consent_withdrawn_by END,
+      -- The parent's answer on the new form replaces any staff change.
+      may_leave_unaccompanied_changed_at = NULL,
+      may_leave_unaccompanied_changed_by = NULL,
       primary_guardian_id = v_primary,     primary_guardian_relationship = v_rel_primary,
       secondary_guardian_id = v_secondary, secondary_guardian_relationship = v_rel_secondary,
       additional_contact_1_id = v_add1,    additional_contact_1_relationship = v_rel_add1,
@@ -1231,6 +1234,8 @@ CREATE TABLE IF NOT EXISTS "public"."students" (
     "privacy_notice_version" "text",
     "photo_video_consent_withdrawn_at" timestamp with time zone,
     "photo_video_consent_withdrawn_by" "uuid",
+    "may_leave_unaccompanied_changed_at" timestamp with time zone,
+    "may_leave_unaccompanied_changed_by" "uuid",
     CONSTRAINT "students_address_source_check" CHECK ((("address_guardian_id" IS NOT NULL) OR (("address_line_1" IS NOT NULL) AND ("city" IS NOT NULL) AND ("postcode" IS NOT NULL)))),
     CONSTRAINT "students_leaving_reason_check" CHECK (("leaving_reason" = ANY (ARRAY['left'::"text", 'graduated'::"text", 'transferred'::"text"])))
 );
@@ -1806,6 +1811,11 @@ ALTER TABLE ONLY "public"."students"
 
 ALTER TABLE ONLY "public"."students"
     ADD CONSTRAINT "students_address_guardian_id_fkey" FOREIGN KEY ("address_guardian_id") REFERENCES "public"."guardians"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."students"
+    ADD CONSTRAINT "students_may_leave_unaccompanied_changed_by_fkey" FOREIGN KEY ("may_leave_unaccompanied_changed_by") REFERENCES "public"."staff"("id") ON DELETE SET NULL;
 
 
 

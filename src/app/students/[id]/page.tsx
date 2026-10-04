@@ -7,7 +7,7 @@ import DefinitionList from '@/components/DefinitionList'
 import PermissionedLink from '@/components/PermissionedLink'
 import { consentItems } from '@/lib/consents'
 import { formatDateTimeInSchoolTz } from '@/lib/datetime'
-import { personName } from '@/lib/format'
+import { personName, type NamedPerson } from '@/lib/format'
 import {
   canEditStudents,
   canSeeStudentMedical,
@@ -42,10 +42,14 @@ export default async function StudentPage({
   const student = await getStudentById(id)
   if (!student) notFound()
 
-  const withdrawnBy =
-    student.photo_video_consent_withdrawn_by && canSeeStudentMedical(role)
-      ? await getStaffById(student.photo_video_consent_withdrawn_by)
-      : null
+  // Who made the staff-recorded consent changes; only shown to staff who can
+  // see consents.
+  const [withdrawnBy, leaveAloneChangedBy] = canSeeStudentMedical(role)
+    ? await Promise.all([
+        staffOrNull(student.photo_video_consent_withdrawn_by),
+        staffOrNull(student.may_leave_unaccompanied_changed_by),
+      ])
+    : [null, null]
 
   const resolvedAddress = resolveStudentAddress(student)
   const hasStudentAddress = Boolean(
@@ -221,14 +225,16 @@ export default async function StudentPage({
             <DefinitionList
               items={[
                 ...consentItems(student),
-                ...(student.photo_video_consent_withdrawn_at
-                  ? [
-                      {
-                        label: 'Photo consent withdrawn',
-                        value: `${formatDateTimeInSchoolTz(student.photo_video_consent_withdrawn_at)}${withdrawnBy ? ` by ${personName(withdrawnBy)}` : ''}`,
-                      },
-                    ]
-                  : []),
+                ...staffChangeItem(
+                  'Photo consent withdrawn',
+                  student.photo_video_consent_withdrawn_at,
+                  withdrawnBy,
+                ),
+                ...staffChangeItem(
+                  'Leaving on their own changed',
+                  student.may_leave_unaccompanied_changed_at,
+                  leaveAloneChangedBy,
+                ),
               ]}
             />
             {student.photo_video_consent && canEditStudents(role) && (
@@ -247,4 +253,19 @@ export default async function StudentPage({
       )}
     </div>
   )
+}
+
+async function staffOrNull(id: string | null): Promise<NamedPerson | null> {
+  return id ? getStaffById(id) : null
+}
+
+/** A "<when> by <who>" row for a change staff made, or none if never made. */
+function staffChangeItem(
+  label: string,
+  at: string | null,
+  by: NamedPerson | null,
+): { label: string; value: string }[] {
+  if (!at) return []
+  const when = formatDateTimeInSchoolTz(at)
+  return [{ label, value: by ? `${when} by ${personName(by)}` : when }]
 }

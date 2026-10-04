@@ -183,6 +183,7 @@ export async function saveStudentAction(
             photo_video_consent: d.photo_video_consent,
             home_school_agreement: d.home_school_agreement,
             email_sms_contact_ack: d.email_sms_contact_ack,
+            may_leave_unaccompanied: d.may_leave_unaccompanied,
           },
           slots,
           addressFromPrimary,

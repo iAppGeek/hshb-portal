@@ -359,6 +359,12 @@ export const updateStudentSchema = studentBaseSchema.extend({
   email_sms_contact_ack: checkbox,
   photo_video_consent: checkbox,
   home_school_agreement: checkbox,
+  // Only on the form for GCSE and A Level students, or once an answer is on
+  // record. Absent or blank leaves the answer as it is.
+  may_leave_unaccompanied: z
+    .enum(['yes', 'no', ''])
+    .optional()
+    .transform((v) => (v === 'yes' ? true : v === 'no' ? false : undefined)),
 })
 
 const registrationContactBase = z.object({

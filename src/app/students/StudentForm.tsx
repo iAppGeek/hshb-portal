@@ -14,6 +14,7 @@ import {
   useServerForm,
 } from '@/components/form'
 import type { ActionResult } from '@/lib/action'
+import { isGcseOrALevel } from '@/lib/classes'
 
 export type StudentFormData = {
   id: string
@@ -45,6 +46,7 @@ export type StudentFormData = {
   photo_video_consent: boolean
   home_school_agreement: boolean
   email_sms_contact_ack: boolean
+  may_leave_unaccompanied: boolean | null
 }
 
 type Props = {
@@ -377,6 +379,16 @@ export default function StudentForm({
               defaultChecked={initial.home_school_agreement}
             />
           </div>
+          {(initial.may_leave_unaccompanied !== null ||
+            classes.some(
+              (cls) =>
+                enrolledClassIds.includes(cls.id) &&
+                (isGcseOrALevel(cls.year_group) || isGcseOrALevel(cls.name)),
+            )) && (
+            <div className="mt-4">
+              <LeaveAloneField initial={initial.may_leave_unaccompanied} />
+            </div>
+          )}
         </FormSection>
       )}
 
@@ -388,5 +400,38 @@ export default function StudentForm({
         error={error ?? undefined}
       />
     </form>
+  )
+}
+
+/**
+ * Whether the child may leave on their own. Yes/No only: a record with no
+ * answer starts with neither chosen and is left as it is unless one is picked.
+ */
+function LeaveAloneField({
+  initial,
+}: {
+  initial: boolean | null
+}): React.ReactElement {
+  const [value, setValue] = useState(
+    initial === null ? '' : initial ? 'yes' : 'no',
+  )
+
+  return (
+    <>
+      <RadioGroup
+        name="may_leave_unaccompanied_choice"
+        legend="May leave the School on their own at the end of the session"
+        options={[
+          { value: 'yes', label: 'Yes' },
+          { value: 'no', label: 'No' },
+        ]}
+        value={value}
+        onChange={setValue}
+      />
+      <input type="hidden" name="may_leave_unaccompanied" value={value} />
+      <p className="mt-1 text-xs text-gray-500">
+        Changing this records you as making the change, with the time.
+      </p>
+    </>
   )
 }

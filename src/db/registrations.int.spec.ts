@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm'
 import { afterAll, describe, expect, it } from 'vitest'
 
 import { asDbError } from '@/lib/db-error'
@@ -12,6 +13,8 @@ import {
   getRegistrationSubmissions,
   rejectRegistration,
 } from './registrations'
+import { db } from './client'
+import { students } from './schema'
 import { getStudentById, withdrawPhotoVideoConsent } from './students'
 import { resetDatabase, SEED } from './test-db'
 
@@ -226,8 +229,16 @@ describe('registration consents', () => {
     })
   })
 
-  it('clears a recorded withdrawal when a returning child is registered with photo consent', async () => {
+  it('lets a returning child’s new form replace earlier staff changes', async () => {
     await withdrawPhotoVideoConsent(SEED.students.carol, SEED.staff.admin)
+    await db
+      .update(students)
+      .set({
+        mayLeaveUnaccompanied: false,
+        mayLeaveUnaccompaniedChangedAt: '2026-09-01T10:00:00Z',
+        mayLeaveUnaccompaniedChangedBy: SEED.staff.admin,
+      })
+      .where(eq(students.id, SEED.students.carol))
     const id = await submit('Carol', {
       ...V1_CONSENTS,
       photo_video_consent: true,
@@ -247,6 +258,10 @@ describe('registration consents', () => {
       photo_video_consent_withdrawn_at: null,
       photo_video_consent_withdrawn_by: null,
       privacy_notice_version: '1.0',
+      // The parent's answer on the new form replaces the staff change.
+      may_leave_unaccompanied: true,
+      may_leave_unaccompanied_changed_at: null,
+      may_leave_unaccompanied_changed_by: null,
     })
   })
 })

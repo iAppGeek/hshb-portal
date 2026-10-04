@@ -69,6 +69,7 @@ const baseStudent: StudentFormData = {
   photo_video_consent: false,
   home_school_agreement: false,
   email_sms_contact_ack: false,
+  may_leave_unaccompanied: null,
 }
 
 function renderNew(action = vi.fn()): ReturnType<typeof render> {
@@ -368,6 +369,60 @@ describe('StudentForm with initial (editing)', () => {
     ).toHaveAccessibleDescription(
       'Unticking records you as withdrawing consent, with the time.',
     )
+  })
+
+  describe('may leave on their own', () => {
+    const LEGEND = 'May leave the School on their own at the end of the session'
+    const gcse = { id: 'class-g', name: 'GCSE 1', year_group: 'GCSE' }
+
+    function hiddenValue(container: HTMLElement): string | undefined {
+      return (
+        container.querySelector(
+          'input[name="may_leave_unaccompanied"]',
+        ) as HTMLInputElement | null
+      )?.value
+    }
+
+    it('is not asked for a younger child with no answer on record', () => {
+      const { container } = renderEdit(baseStudent, {
+        classes,
+        enrolledClassIds: ['class-1'],
+      })
+
+      expect(screen.queryByRole('group', { name: LEGEND })).toBeNull()
+      expect(hiddenValue(container)).toBeUndefined()
+    })
+
+    it('is asked for a GCSE or A Level student, with no answer chosen', () => {
+      const { container } = renderEdit(baseStudent, {
+        classes: [...classes, gcse],
+        enrolledClassIds: ['class-g'],
+      })
+
+      expect(screen.getByRole('group', { name: LEGEND })).toBeTruthy()
+      expect(
+        screen.getByText(
+          'Changing this records you as making the change, with the time.',
+        ),
+      ).toBeTruthy()
+      expect(screen.getByRole('radio', { name: 'Yes' })).not.toBeChecked()
+      expect(screen.getByRole('radio', { name: 'No' })).not.toBeChecked()
+      expect(hiddenValue(container)).toBe('')
+    })
+
+    it('shows and submits the answer on record, and a new choice', () => {
+      const { container } = renderEdit({
+        ...baseStudent,
+        may_leave_unaccompanied: true,
+      })
+
+      expect(screen.getByRole('radio', { name: 'Yes' })).toBeChecked()
+      expect(hiddenValue(container)).toBe('yes')
+
+      fireEvent.click(screen.getByRole('radio', { name: 'No' }))
+
+      expect(hiddenValue(container)).toBe('no')
+    })
   })
 
   it('edits the SEN details', () => {

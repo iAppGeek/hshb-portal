@@ -406,6 +406,82 @@ describe('photo/video consent withdrawal', () => {
   })
 })
 
+describe('may leave unaccompanied changes', () => {
+  async function leaveAlone(id: string): Promise<{
+    allowed: boolean | null
+    at: string | null
+    by: string | null
+  }> {
+    const [row] = await db
+      .select({
+        allowed: students.mayLeaveUnaccompanied,
+        at: students.mayLeaveUnaccompaniedChangedAt,
+        by: students.mayLeaveUnaccompaniedChangedBy,
+      })
+      .from(students)
+      .where(eq(students.id, id))
+    return row
+  }
+
+  async function save(
+    allowed: boolean | undefined,
+    savedBy: string,
+  ): Promise<void> {
+    await saveStudent(
+      SEED.students.alice,
+      {
+        first_name: 'Alice',
+        last_name: 'Student',
+        address_line_1: '1 Road',
+        city: 'Town',
+        postcode: 'AB1 2CD',
+        may_leave_unaccompanied: allowed,
+      },
+      {
+        primary: { id: SEED.guardians.gary },
+        secondary: null,
+        contact1: null,
+        contact2: null,
+      },
+      false,
+      savedBy,
+    )
+  }
+
+  it('records who changed the answer and when, in either direction', async () => {
+    expect(await leaveAlone(SEED.students.alice)).toEqual({
+      allowed: null,
+      at: null,
+      by: null,
+    })
+
+    await save(true, SEED.staff.secretary)
+    const granted = await leaveAlone(SEED.students.alice)
+    expect(granted).toEqual({
+      allowed: true,
+      at: expect.any(String),
+      by: SEED.staff.secretary,
+    })
+
+    await save(false, SEED.staff.admin)
+    expect(await leaveAlone(SEED.students.alice)).toEqual({
+      allowed: false,
+      at: expect.any(String),
+      by: SEED.staff.admin,
+    })
+  })
+
+  it('keeps the record when the same answer is saved again or the form does not ask', async () => {
+    const before = await leaveAlone(SEED.students.alice)
+
+    await save(false, SEED.staff.headteacher)
+    expect(await leaveAlone(SEED.students.alice)).toEqual(before)
+
+    await save(undefined, SEED.staff.headteacher)
+    expect(await leaveAlone(SEED.students.alice)).toEqual(before)
+  })
+})
+
 describe('student codes', () => {
   async function setCode(
     id: string,

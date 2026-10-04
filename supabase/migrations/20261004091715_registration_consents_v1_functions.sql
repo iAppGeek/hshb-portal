@@ -7,8 +7,10 @@
 --     consents_recorded_at and privacy_notice_version from the submission JSON.
 --     A key missing from the column list is dropped with no error, so the list
 --     must be kept in step with registrationSubmissionSchema.
---   * approve_registration copies them onto the student, and clears a recorded
---     photo/video withdrawal when a new submission gives that consent again.
+--   * approve_registration copies them onto the student. A returning child's
+--     new form replaces any staff change to may_leave_unaccompanied (so its
+--     changed_at/by are cleared), and clears a recorded photo/video withdrawal
+--     when it gives that consent again.
 --   * apply_photo_opt_out records who withdrew photo/video consent and when.
 
 CREATE OR REPLACE FUNCTION "public"."create_registration_submission"("p_submission" "jsonb", "p_contacts" "jsonb") RETURNS "uuid"
@@ -256,6 +258,9 @@ BEGIN
       -- Consent given again on the new form supersedes an earlier withdrawal.
       photo_video_consent_withdrawn_at = CASE WHEN v_sub.photo_video_consent THEN NULL ELSE photo_video_consent_withdrawn_at END,
       photo_video_consent_withdrawn_by = CASE WHEN v_sub.photo_video_consent THEN NULL ELSE photo_video_consent_withdrawn_by END,
+      -- The parent's answer on the new form replaces any staff change.
+      may_leave_unaccompanied_changed_at = NULL,
+      may_leave_unaccompanied_changed_by = NULL,
       primary_guardian_id = v_primary,     primary_guardian_relationship = v_rel_primary,
       secondary_guardian_id = v_secondary, secondary_guardian_relationship = v_rel_secondary,
       additional_contact_1_id = v_add1,    additional_contact_1_relationship = v_rel_add1,

@@ -175,6 +175,10 @@ export const students = pgTable(
     // Set when photo/video consent is withdrawn; cleared if it is given again.
     photoVideoConsentWithdrawnAt: timestamptz(),
     photoVideoConsentWithdrawnBy: uuid(),
+    // Set when staff change may_leave_unaccompanied; cleared when a new
+    // registration form from the parent replaces it.
+    mayLeaveUnaccompaniedChangedAt: timestamptz(),
+    mayLeaveUnaccompaniedChangedBy: uuid(),
   },
   (t) => [
     unique('students_student_code_key').on(t.studentCode),
@@ -224,6 +228,11 @@ export const students = pgTable(
     foreignKey({
       name: 'students_photo_video_consent_withdrawn_by_fkey',
       columns: [t.photoVideoConsentWithdrawnBy],
+      foreignColumns: [staff.id],
+    }).onDelete('set null'),
+    foreignKey({
+      name: 'students_may_leave_unaccompanied_changed_by_fkey',
+      columns: [t.mayLeaveUnaccompaniedChangedBy],
       foreignColumns: [staff.id],
     }).onDelete('set null'),
     check(

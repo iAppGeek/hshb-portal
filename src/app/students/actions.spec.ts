@@ -616,7 +616,7 @@ describe('saveStudentAction (update)', () => {
     })
   })
 
-  it('passes the admin to saveStudent so a photo consent withdrawal records them', async () => {
+  it('passes the admin to saveStudent so a consent change records them', async () => {
     vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
     vi.mocked(redirect).mockImplementation(() => {
       throw new Error('NEXT_REDIRECT')
@@ -627,6 +627,35 @@ describe('saveStudentAction (update)', () => {
     ).rejects.toThrow('NEXT_REDIRECT')
 
     expect(vi.mocked(saveStudent).mock.calls[0][4]).toBe('admin-1')
+  })
+
+  it('saves a changed may_leave_unaccompanied answer', async () => {
+    vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
+    vi.mocked(redirect).mockImplementation(() => {
+      throw new Error('NEXT_REDIRECT')
+    })
+
+    await expect(
+      saveStudentAction(
+        STUDENT_ID,
+        makeFormData({ ...updateFields, may_leave_unaccompanied: 'yes' }),
+      ),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(saved().data).toMatchObject({ may_leave_unaccompanied: true })
+  })
+
+  it('leaves may_leave_unaccompanied alone when the form does not ask it', async () => {
+    vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
+    vi.mocked(redirect).mockImplementation(() => {
+      throw new Error('NEXT_REDIRECT')
+    })
+
+    await expect(
+      saveStudentAction(STUDENT_ID, makeFormData(updateFields)),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(saved().data.may_leave_unaccompanied).toBeUndefined()
   })
 
   it('saves the SEN details', async () => {
