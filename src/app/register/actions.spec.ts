@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { redirect } from 'next/navigation'
 
 import { createRegistrationSubmission, logAuditEvent } from '@/db'
@@ -306,43 +306,48 @@ describe('submitRegistrationAction', () => {
       expect(submitted().consents_recorded_at).not.toBe('2000-01-01T00:00:00Z')
     })
 
-    it.each(['GCSE 1', 'GCSE 2', 'GCSE 3', 'A Level'])(
-      'stores may_leave_unaccompanied for %s',
-      async (yearGroup) => {
+    describe('may leave on their own', () => {
+      // 4 Oct 2026: a child born on 4 Oct 2014 turns 12 that day.
+      beforeEach(() => {
+        vi.useFakeTimers({ toFake: ['Date'] })
+        vi.setSystemTime(new Date('2026-10-04T09:30:00Z'))
+      })
+      afterEach(() => {
+        vi.useRealTimers()
+      })
+
+      it('stores a tick for a child aged 12 or over', async () => {
         await submitRegistrationAction(
           makeFormData({
             ...baseFields,
-            preferred_year_group: yearGroup,
+            date_of_birth: '2014-10-04',
             may_leave_unaccompanied: 'on',
           }),
         )
 
         expect(submitted().may_leave_unaccompanied).toBe(true)
-      },
-    )
+      })
 
-    it('stores may_leave_unaccompanied as false when a GCSE parent leaves it unticked', async () => {
-      await submitRegistrationAction(
-        makeFormData({ ...baseFields, preferred_year_group: 'GCSE 1' }),
-      )
+      it('stores false when the box is left unticked', async () => {
+        await submitRegistrationAction(
+          makeFormData({ ...baseFields, date_of_birth: '2010-05-01' }),
+        )
 
-      expect(submitted().may_leave_unaccompanied).toBe(false)
-    })
+        expect(submitted().may_leave_unaccompanied).toBe(false)
+      })
 
-    it.each(['Year 1', 'Not sure'])(
-      'stores may_leave_unaccompanied as false for %s even if sent',
-      async (yearGroup) => {
+      it('stores false for a child under 12 even if a tick is sent', async () => {
         await submitRegistrationAction(
           makeFormData({
             ...baseFields,
-            preferred_year_group: yearGroup,
+            date_of_birth: '2014-10-05',
             may_leave_unaccompanied: 'on',
           }),
         )
 
         expect(submitted().may_leave_unaccompanied).toBe(false)
-      },
-    )
+      })
+    })
 
     it('carries the SEN details into the submission', async () => {
       await submitRegistrationAction(

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 
 import StudentForm, { type StudentFormData } from './StudentForm'
@@ -69,7 +69,7 @@ const baseStudent: StudentFormData = {
   photo_video_consent: false,
   home_school_agreement: false,
   email_sms_contact_ack: false,
-  may_leave_unaccompanied: null,
+  may_leave_unaccompanied: false,
 }
 
 function renderNew(action = vi.fn()): ReturnType<typeof render> {
@@ -371,57 +371,73 @@ describe('StudentForm with initial (editing)', () => {
     )
   })
 
-  describe('may leave on their own', () => {
-    const LEGEND = 'May leave the School on their own at the end of the session'
-    const gcse = { id: 'class-g', name: 'GCSE 1', year_group: 'GCSE' }
+  it('sends what the photo box showed on load with the form', () => {
+    const { container } = renderEdit({
+      ...baseStudent,
+      photo_video_consent: true,
+    })
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Photos & video' }))
 
-    function hiddenValue(container: HTMLElement): string | undefined {
-      return (
-        container.querySelector(
-          'input[name="may_leave_unaccompanied"]',
-        ) as HTMLInputElement | null
-      )?.value
+    const data = new FormData(container.querySelector('form')!)
+    expect(data.get('photo_video_consent_initial')).toBe('on')
+    expect(data.has('photo_video_consent')).toBe(false)
+  })
+
+  describe('may leave on their own', () => {
+    const LABEL = 'May leave on their own at the end of the session'
+    const HINT = 'Only for children aged 12 or over.'
+
+    // 4 Oct 2026: a child born on 4 Oct 2014 turns 12 that day.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-10-04T09:30:00Z'))
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    function box(): HTMLInputElement {
+      return screen.getByRole('checkbox', { name: LABEL })
     }
 
-    it('is not asked for a younger child with no answer on record', () => {
-      const { container } = renderEdit(baseStudent, {
-        classes,
-        enrolledClassIds: ['class-1'],
-      })
+    it.each([
+      ['with no date of birth', null],
+      ['under 12', '2014-10-05'],
+    ])('is disabled with the age hint for a student %s', (_case, dob) => {
+      renderEdit({ ...baseStudent, date_of_birth: dob })
 
-      expect(screen.queryByRole('group', { name: LEGEND })).toBeNull()
-      expect(hiddenValue(container)).toBeUndefined()
+      expect(box()).toBeDisabled()
+      expect(box()).not.toBeChecked()
+      expect(box()).toHaveAccessibleDescription(HINT)
     })
 
-    it('is asked for a GCSE or A Level student, with no answer chosen', () => {
-      const { container } = renderEdit(baseStudent, {
-        classes: [...classes, gcse],
-        enrolledClassIds: ['class-g'],
-      })
-
-      expect(screen.getByRole('group', { name: LEGEND })).toBeTruthy()
-      expect(
-        screen.getByText(
-          'Changing this records you as making the change, with the time.',
-        ),
-      ).toBeTruthy()
-      expect(screen.getByRole('radio', { name: 'Yes' })).not.toBeChecked()
-      expect(screen.getByRole('radio', { name: 'No' })).not.toBeChecked()
-      expect(hiddenValue(container)).toBe('')
-    })
-
-    it('shows and submits the answer on record, and a new choice', () => {
-      const { container } = renderEdit({
+    it('is enabled and shows the answer on record for a student aged 12 or over', () => {
+      renderEdit({
         ...baseStudent,
+        date_of_birth: '2014-10-04',
         may_leave_unaccompanied: true,
       })
 
-      expect(screen.getByRole('radio', { name: 'Yes' })).toBeChecked()
-      expect(hiddenValue(container)).toBe('yes')
+      expect(box()).toBeEnabled()
+      expect(box()).toBeChecked()
+      expect(screen.queryByText(HINT)).toBeNull()
+    })
 
-      fireEvent.click(screen.getByRole('radio', { name: 'No' }))
+    it('follows a date of birth changed on the form', () => {
+      const { container } = renderEdit({
+        ...baseStudent,
+        date_of_birth: '2010-01-01',
+        may_leave_unaccompanied: true,
+      })
 
-      expect(hiddenValue(container)).toBe('no')
+      fireEvent.change(screen.getByLabelText('Date of birth'), {
+        target: { value: '2020-01-01' },
+      })
+
+      expect(box()).toBeDisabled()
+      expect(box()).not.toBeChecked()
+      const data = new FormData(container.querySelector('form')!)
+      expect(data.has('may_leave_unaccompanied')).toBe(false)
     })
   })
 

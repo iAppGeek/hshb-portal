@@ -2,7 +2,10 @@
 
 import type { z } from 'zod'
 
-import { createRegistrationSubmission } from '@/db'
+import {
+  createRegistrationSubmission,
+  type RegistrationSubmissionInsert,
+} from '@/db'
 import {
   ActionError,
   firstFieldErrors,
@@ -10,10 +13,7 @@ import {
   runAction,
   type ActionResult,
 } from '@/lib/action'
-import {
-  asksMayLeaveUnaccompanied,
-  PRIVACY_NOTICE_VERSION,
-} from '@/lib/consents'
+import { isOldEnoughToLeaveAlone, PRIVACY_NOTICE_VERSION } from '@/lib/consents'
 import { getClientIp } from '@/lib/request-ip'
 import {
   registrationSubmissionSchema,
@@ -23,11 +23,8 @@ import {
   extractRegistrationContact,
 } from '@/lib/schemas'
 import { verifyTurnstileToken, omitTurnstileToken } from '@/lib/turnstile'
-import type { Database } from '@/types/database'
 
 type ParsedSubmission = z.infer<typeof registrationSubmissionSchema>
-type SubmissionInsert =
-  Database['public']['Tables']['registration_submissions']['Insert']
 
 type Contact = z.infer<typeof registrationContactSchema> & {
   contact_role: 'primary' | 'secondary' | 'additional_1' | 'additional_2'
@@ -36,9 +33,12 @@ type Contact = z.infer<typeof registrationContactSchema> & {
 /**
  * The row to store. The consent timestamp and Privacy Notice version are set
  * here, never taken from the form, and the leave-alone answer only counts for
- * the year groups that are asked it.
+ * a child old enough to be offered it.
  */
-function toInsert(data: ParsedSubmission, now: Date): SubmissionInsert {
+function toInsert(
+  data: ParsedSubmission,
+  now: Date,
+): RegistrationSubmissionInsert {
   const {
     has_secondary: _hasSecondary,
     has_contact1: _hasContact1,
@@ -48,7 +48,7 @@ function toInsert(data: ParsedSubmission, now: Date): SubmissionInsert {
   return {
     ...rest,
     may_leave_unaccompanied:
-      asksMayLeaveUnaccompanied(data.preferred_year_group) &&
+      isOldEnoughToLeaveAlone(data.date_of_birth) &&
       data.may_leave_unaccompanied,
     consents_recorded_at: now.toISOString(),
     privacy_notice_version: PRIVACY_NOTICE_VERSION,

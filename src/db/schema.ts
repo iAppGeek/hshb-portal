@@ -166,8 +166,8 @@ export const students = pgTable(
     englishSchoolName: text(),
     leavingReason: text(),
     senDetails: text(),
-    // Null on records from before the question was asked.
-    mayLeaveUnaccompanied: boolean(),
+    // True only when the parent has said so; offered from age 12.
+    mayLeaveUnaccompanied: boolean().default(false).notNull(),
     // When the parent gave the consents above, and which Privacy Notice they
     // read. Null on records from before versions were tracked.
     consentsRecordedAt: timestamptz(),
@@ -175,10 +175,6 @@ export const students = pgTable(
     // Set when photo/video consent is withdrawn; cleared if it is given again.
     photoVideoConsentWithdrawnAt: timestamptz(),
     photoVideoConsentWithdrawnBy: uuid(),
-    // Set when staff change may_leave_unaccompanied; cleared when a new
-    // registration form from the parent replaces it.
-    mayLeaveUnaccompaniedChangedAt: timestamptz(),
-    mayLeaveUnaccompaniedChangedBy: uuid(),
   },
   (t) => [
     unique('students_student_code_key').on(t.studentCode),
@@ -228,11 +224,6 @@ export const students = pgTable(
     foreignKey({
       name: 'students_photo_video_consent_withdrawn_by_fkey',
       columns: [t.photoVideoConsentWithdrawnBy],
-      foreignColumns: [staff.id],
-    }).onDelete('set null'),
-    foreignKey({
-      name: 'students_may_leave_unaccompanied_changed_by_fkey',
-      columns: [t.mayLeaveUnaccompaniedChangedBy],
       foreignColumns: [staff.id],
     }).onDelete('set null'),
     check(
@@ -643,8 +634,8 @@ export const registrationSubmissions = pgTable(
       .notNull(),
     englishSchoolName: text(),
     senDetails: text(),
-    // Null on submissions from before the question was asked.
-    mayLeaveUnaccompanied: boolean(),
+    // True only when the parent ticked it; the box is offered from age 12.
+    mayLeaveUnaccompanied: boolean().default(false).notNull(),
     // Set by the server on submit. Null on submissions from before versions
     // were tracked.
     consentsRecordedAt: timestamptz(),

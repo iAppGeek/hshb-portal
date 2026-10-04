@@ -15,7 +15,7 @@ import {
 } from './registrations'
 import { db } from './client'
 import { students } from './schema'
-import { getStudentById, withdrawPhotoVideoConsent } from './students'
+import { getStudentById } from './students'
 import { resetDatabase, SEED } from './test-db'
 
 afterAll(resetDatabase)
@@ -192,15 +192,24 @@ describe('registration consents', () => {
     })
   })
 
-  it('leaves the new fields unknown on submissions from before v1.0', async () => {
+  it('leaves the time and version unknown on submissions from before v1.0', async () => {
     expect(
       await getRegistrationSubmissionById(SEED.registrations.pending),
     ).toMatchObject({
       privacy_notice_read: true,
       first_aid_consent: true,
-      may_leave_unaccompanied: null,
+      may_leave_unaccompanied: false,
       consents_recorded_at: null,
       privacy_notice_version: null,
+    })
+  })
+
+  it('stores a missing leave-alone answer as not given', async () => {
+    const { may_leave_unaccompanied: _omitted, ...rest } = V1_CONSENTS
+    const id = await submit('Iris', rest)
+
+    expect(await getRegistrationSubmissionById(id)).toMatchObject({
+      may_leave_unaccompanied: false,
     })
   })
 
@@ -229,39 +238,80 @@ describe('registration consents', () => {
     })
   })
 
-  it('lets a returning child’s new form replace earlier staff changes', async () => {
-    await withdrawPhotoVideoConsent(SEED.students.carol, SEED.staff.admin)
-    await db
-      .update(students)
-      .set({
-        mayLeaveUnaccompanied: false,
-        mayLeaveUnaccompaniedChangedAt: '2026-09-01T10:00:00Z',
-        mayLeaveUnaccompaniedChangedBy: SEED.staff.admin,
+  describe('a returning child’s photo/video consent', () => {
+    /** Carol with consent withdrawn by the admin at `at`. */
+    async function withdrawnAt(at: string): Promise<void> {
+      await db
+        .update(students)
+        .set({
+          photoVideoConsent: false,
+          photoVideoConsentWithdrawnAt: at,
+          photoVideoConsentWithdrawnBy: SEED.staff.admin,
+        })
+        .where(eq(students.id, SEED.students.carol))
+    }
+
+    async function approveOntoCarol(
+      consents: Partial<SubmissionInsert>,
+    ): Promise<void> {
+      const id = await submit('Carol', consents)
+      await approveRegistration({
+        submissionId: id,
+        staffId: SEED.staff.admin,
+        studentCode: null,
+        classId: null,
+        existingStudentId: SEED.students.carol,
+        reuseGuardians: true,
       })
-      .where(eq(students.id, SEED.students.carol))
-    const id = await submit('Carol', {
-      ...V1_CONSENTS,
-      photo_video_consent: true,
+    }
+
+    it('is given again, clearing the withdrawal, by a form filled in after it', async () => {
+      await withdrawnAt('2026-09-01T10:00:00Z')
+
+      await approveOntoCarol({ ...V1_CONSENTS, photo_video_consent: true })
+
+      expect(await getStudentById(SEED.students.carol)).toMatchObject({
+        photo_video_consent: true,
+        photo_video_consent_withdrawn_at: null,
+        photo_video_consent_withdrawn_by: null,
+        privacy_notice_version: '1.0',
+        may_leave_unaccompanied: true,
+      })
     })
 
-    await approveRegistration({
-      submissionId: id,
-      staffId: SEED.staff.admin,
-      studentCode: null,
-      classId: null,
-      existingStudentId: SEED.students.carol,
-      reuseGuardians: true,
+    it('stays withdrawn when the form was filled in before the withdrawal', async () => {
+      // The form below was filled in on 4 Oct 2026 at 09:30 UTC.
+      await withdrawnAt('2026-10-04T15:00:00Z')
+
+      await approveOntoCarol({ ...V1_CONSENTS, photo_video_consent: true })
+
+      expect(await getStudentById(SEED.students.carol)).toMatchObject({
+        photo_video_consent: false,
+        photo_video_consent_withdrawn_at: '2026-10-04T15:00:00+00:00',
+        photo_video_consent_withdrawn_by: SEED.staff.admin,
+      })
     })
 
-    expect(await getStudentById(SEED.students.carol)).toMatchObject({
-      photo_video_consent: true,
-      photo_video_consent_withdrawn_at: null,
-      photo_video_consent_withdrawn_by: null,
-      privacy_notice_version: '1.0',
-      // The parent's answer on the new form replaces the staff change.
-      may_leave_unaccompanied: true,
-      may_leave_unaccompanied_changed_at: null,
-      may_leave_unaccompanied_changed_by: null,
+    it('uses the submission time for a form from before v1.0', async () => {
+      await withdrawnAt('2000-01-01T00:00:00Z')
+
+      await approveOntoCarol({ photo_video_consent: true })
+
+      expect(await getStudentById(SEED.students.carol)).toMatchObject({
+        photo_video_consent: true,
+        photo_video_consent_withdrawn_at: null,
+      })
+    })
+
+    it('keeps the withdrawal on record when the new form does not give consent', async () => {
+      await withdrawnAt('2026-09-01T10:00:00Z')
+
+      await approveOntoCarol({ ...V1_CONSENTS, photo_video_consent: false })
+
+      expect(await getStudentById(SEED.students.carol)).toMatchObject({
+        photo_video_consent: false,
+        photo_video_consent_withdrawn_at: '2026-09-01T10:00:00+00:00',
+      })
     })
   })
 })

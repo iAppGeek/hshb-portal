@@ -16,6 +16,7 @@ import {
   runAction,
   type ActionResult,
 } from '@/lib/action'
+import { isOldEnoughToLeaveAlone } from '@/lib/consents'
 import { parseGuardianSlot, toGuardianSlot } from '@/lib/guardians/guardianSlot'
 import { canCreateStudents, canEditStudents } from '@/lib/permissions'
 import {
@@ -180,10 +181,17 @@ export async function saveStudentAction(
             ...data,
             privacy_notice_read: d.privacy_notice_read,
             first_aid_consent: d.first_aid_consent,
-            photo_video_consent: d.photo_video_consent,
+            // Only an edit to the box is saved, so a form opened before a
+            // withdrawal was recorded cannot turn consent back on.
+            photo_video_consent:
+              d.photo_video_consent === d.photo_video_consent_initial
+                ? undefined
+                : d.photo_video_consent,
             home_school_agreement: d.home_school_agreement,
             email_sms_contact_ack: d.email_sms_contact_ack,
-            may_leave_unaccompanied: d.may_leave_unaccompanied,
+            may_leave_unaccompanied:
+              isOldEnoughToLeaveAlone(d.student_date_of_birth) &&
+              d.may_leave_unaccompanied,
           },
           slots,
           addressFromPrimary,

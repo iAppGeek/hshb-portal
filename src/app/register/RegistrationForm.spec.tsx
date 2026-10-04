@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   act,
   render,
@@ -240,66 +240,78 @@ describe('RegistrationForm', () => {
   describe('may leave unaccompanied', () => {
     const LABEL =
       'My child may leave the School on their own at the end of the session.'
+    const HINT = 'Only for children aged 12 or over.'
 
-    function renderWithYearGroups(): void {
-      render(
-        <RegistrationForm
-          yearGroups={['Year 6', 'GCSE 1', 'GCSE 2', 'GCSE 3', 'A Level']}
-          turnstileSiteKey="test-site-key"
-        />,
-      )
-    }
+    // 4 Oct 2026: a child born on 4 Oct 2014 turns 12 that day.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-10-04T09:30:00Z'))
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
 
-    function selectYearGroup(value: string): void {
-      fireEvent.change(screen.getByLabelText('Year group / class preference'), {
+    function enterDateOfBirth(value: string): void {
+      fireEvent.change(screen.getByLabelText(/Date of birth/), {
         target: { value },
       })
     }
 
-    it('is hidden for other year groups', () => {
-      renderWithYearGroups()
+    function box(): HTMLInputElement {
+      return screen.getByRole('checkbox', { name: LABEL })
+    }
 
-      expect(screen.queryByRole('checkbox', { name: LABEL })).toBeNull()
-      selectYearGroup('Not sure')
-      expect(screen.queryByRole('checkbox', { name: LABEL })).toBeNull()
+    it('is always in the Collection section, disabled with the age hint until a date of birth is entered', () => {
+      renderForm()
+
+      expect(sectionOf('Collection arrangements')).toContainElement(box())
+      expect(box()).toBeDisabled()
+      expect(box()).toHaveAccessibleDescription(HINT)
     })
 
-    it.each(['GCSE 1', 'GCSE 2', 'GCSE 3', 'A Level'])(
-      'is shown, unticked and optional, in the Collection section for %s',
-      (yearGroup) => {
-        renderWithYearGroups()
+    it('stays disabled for a child under 12', () => {
+      renderForm()
 
-        selectYearGroup(yearGroup)
+      enterDateOfBirth('2014-10-05')
 
-        const box = screen.getByRole('checkbox', { name: LABEL })
-        expect(box).not.toBeChecked()
-        expect(box).not.toBeRequired()
-        expect(box).toHaveAttribute('name', 'may_leave_unaccompanied')
-        expect(sectionOf('Collection arrangements')).toContainElement(box)
-      },
-    )
+      expect(box()).toBeDisabled()
+      expect(box()).toHaveAccessibleDescription(HINT)
+    })
 
-    it('is removed, and so not submitted, when the year group changes away from GCSE', () => {
-      renderWithYearGroups()
-      selectYearGroup('GCSE 1')
-      fireEvent.click(screen.getByRole('checkbox', { name: LABEL }))
+    it('is enabled, unticked and optional for a child aged 12 or over', () => {
+      renderForm()
 
-      selectYearGroup('Year 6')
+      enterDateOfBirth('2014-10-04')
 
-      expect(screen.queryByRole('checkbox', { name: LABEL })).toBeNull()
+      expect(box()).toBeEnabled()
+      expect(box()).not.toBeChecked()
+      expect(box()).not.toBeRequired()
+      expect(box()).toHaveAttribute('name', 'may_leave_unaccompanied')
+      expect(screen.queryByText(HINT)).toBeNull()
+    })
+
+    it('is unticked, and so not submitted, when the date of birth changes to a younger child', () => {
+      const { container } = renderForm()
+      enterDateOfBirth('2010-01-01')
+      fireEvent.click(box())
+      expect(box()).toBeChecked()
+
+      enterDateOfBirth('2020-01-01')
+
+      expect(box()).toBeDisabled()
+      expect(box()).not.toBeChecked()
+      const data = new FormData(container.querySelector('form')!)
+      expect(data.has('may_leave_unaccompanied')).toBe(false)
     })
 
     it('sits alongside the collection fields once an emergency contact is added', () => {
-      renderWithYearGroups()
-      selectYearGroup('A Level')
+      renderForm()
       fireEvent.click(
         screen.getByRole('button', { name: '+ Add an emergency contact' }),
       )
 
       const section = sectionOf('Collection arrangements')
-      expect(section).toContainElement(
-        screen.getByRole('checkbox', { name: LABEL }),
-      )
+      expect(section).toContainElement(box())
       expect(within(section).getByLabelText('Collection password')).toBeTruthy()
     })
   })

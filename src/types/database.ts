@@ -629,7 +629,7 @@ export type Database = {
           home_school_agreement: boolean
           id: string
           linked_existing: boolean
-          may_leave_unaccompanied: boolean | null
+          may_leave_unaccompanied: boolean
           medical_details: string | null
           photo_video_consent: boolean
           postcode: string
@@ -664,7 +664,7 @@ export type Database = {
           home_school_agreement?: boolean
           id?: string
           linked_existing?: boolean
-          may_leave_unaccompanied?: boolean | null
+          may_leave_unaccompanied?: boolean
           medical_details?: string | null
           photo_video_consent?: boolean
           postcode: string
@@ -699,7 +699,7 @@ export type Database = {
           home_school_agreement?: boolean
           id?: string
           linked_existing?: boolean
-          may_leave_unaccompanied?: boolean | null
+          may_leave_unaccompanied?: boolean
           medical_details?: string | null
           photo_video_consent?: boolean
           postcode?: string
@@ -1149,9 +1149,7 @@ export type Database = {
           id: string
           last_name: string
           leaving_reason: string | null
-          may_leave_unaccompanied: boolean | null
-          may_leave_unaccompanied_changed_at: string | null
-          may_leave_unaccompanied_changed_by: string | null
+          may_leave_unaccompanied: boolean
           medical_details: string | null
           notes: string | null
           photo_video_consent: boolean
@@ -1191,9 +1189,7 @@ export type Database = {
           id?: string
           last_name: string
           leaving_reason?: string | null
-          may_leave_unaccompanied?: boolean | null
-          may_leave_unaccompanied_changed_at?: string | null
-          may_leave_unaccompanied_changed_by?: string | null
+          may_leave_unaccompanied?: boolean
           medical_details?: string | null
           notes?: string | null
           photo_video_consent?: boolean
@@ -1233,9 +1229,7 @@ export type Database = {
           id?: string
           last_name?: string
           leaving_reason?: string | null
-          may_leave_unaccompanied?: boolean | null
-          may_leave_unaccompanied_changed_at?: string | null
-          may_leave_unaccompanied_changed_by?: string | null
+          may_leave_unaccompanied?: boolean
           medical_details?: string | null
           notes?: string | null
           photo_video_consent?: boolean
@@ -1272,13 +1266,6 @@ export type Database = {
             columns: ['address_guardian_id']
             isOneToOne: false
             referencedRelation: 'guardians'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'students_may_leave_unaccompanied_changed_by_fkey'
-            columns: ['may_leave_unaccompanied_changed_by']
-            isOneToOne: false
-            referencedRelation: 'staff'
             referencedColumns: ['id']
           },
           {

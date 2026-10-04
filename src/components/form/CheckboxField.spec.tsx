@@ -55,4 +55,9 @@ describe('CheckboxField', () => {
     fireEvent.click(checkbox)
     expect(onChange).toHaveBeenCalledWith(true)
   })
+
+  it('can be disabled', () => {
+    render(<CheckboxField label="Agree" name="agree" disabled />)
+    expect(screen.getByLabelText('Agree')).toBeDisabled()
+  })
 })

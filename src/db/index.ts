@@ -58,6 +58,7 @@ export type {
   RegistrationFull,
   GuardianChange,
   ApproveRegistrationResult,
+  RegistrationSubmissionInsert,
 } from './registrations'
 export {
   createPhotoOptOut,

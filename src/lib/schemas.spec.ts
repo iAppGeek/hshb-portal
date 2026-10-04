@@ -925,13 +925,13 @@ describe('updateStudentSchema', () => {
     expect(result.privacy_notice_read).toBe(true)
     expect(result.first_aid_consent).toBe(false)
     expect(result.photo_video_consent).toBe(false)
-    expect(result.may_leave_unaccompanied).toBeUndefined()
+    expect(result.photo_video_consent_initial).toBe(false)
+    expect(result.may_leave_unaccompanied).toBe(false)
   })
 
   it.each([
-    ['yes', true],
-    ['no', false],
-    ['', undefined],
+    ['on', true],
+    [undefined, false],
   ] as const)('parses may_leave_unaccompanied %j as %s', (value, expected) => {
     const result = updateStudentSchema.parse({
       student_first_name: 'Anna',

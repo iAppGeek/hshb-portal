@@ -14,7 +14,7 @@ import {
   useServerForm,
 } from '@/components/form'
 import type { ActionResult } from '@/lib/action'
-import { isGcseOrALevel } from '@/lib/classes'
+import { isOldEnoughToLeaveAlone, LEAVE_ALONE_AGE_HINT } from '@/lib/consents'
 
 export type StudentFormData = {
   id: string
@@ -46,7 +46,7 @@ export type StudentFormData = {
   photo_video_consent: boolean
   home_school_agreement: boolean
   email_sms_contact_ack: boolean
-  may_leave_unaccompanied: boolean | null
+  may_leave_unaccompanied: boolean
 }
 
 type Props = {
@@ -86,6 +86,12 @@ export default function StudentForm({
       ? 'own'
       : 'guardian',
   )
+  // Controlled so the leave-alone box can follow the child's age.
+  const [dateOfBirth, setDateOfBirth] = useState(initial?.date_of_birth ?? '')
+  const oldEnoughToLeaveAlone = isOldEnoughToLeaveAlone(dateOfBirth)
+  const [leaveAlone, setLeaveAlone] = useState(
+    initial?.may_leave_unaccompanied ?? false,
+  )
   const { handleSubmit, isPending, error, fieldError } = useServerForm(action)
 
   return (
@@ -121,7 +127,8 @@ export default function StudentForm({
             label="Date of birth"
             name="student_date_of_birth"
             type="date"
-            defaultValue={initial?.date_of_birth}
+            value={dateOfBirth}
+            onChange={setDateOfBirth}
             error={fieldError('student_date_of_birth')}
           />
           <TextField
@@ -373,22 +380,29 @@ export default function StudentForm({
               description="Unticking records you as withdrawing consent, with the time."
               defaultChecked={initial.photo_video_consent}
             />
+            {/* What the box showed on load, so saving other changes cannot
+                undo a withdrawal recorded while this form was open. */}
+            <input
+              type="hidden"
+              name="photo_video_consent_initial"
+              value={initial.photo_video_consent ? 'on' : ''}
+            />
             <CheckboxField
               name="home_school_agreement"
               label="Home–school agreement"
               defaultChecked={initial.home_school_agreement}
             />
+            <CheckboxField
+              name="may_leave_unaccompanied"
+              label="May leave on their own at the end of the session"
+              description={
+                oldEnoughToLeaveAlone ? undefined : LEAVE_ALONE_AGE_HINT
+              }
+              disabled={!oldEnoughToLeaveAlone}
+              checked={leaveAlone && oldEnoughToLeaveAlone}
+              onChange={setLeaveAlone}
+            />
           </div>
-          {(initial.may_leave_unaccompanied !== null ||
-            classes.some(
-              (cls) =>
-                enrolledClassIds.includes(cls.id) &&
-                (isGcseOrALevel(cls.year_group) || isGcseOrALevel(cls.name)),
-            )) && (
-            <div className="mt-4">
-              <LeaveAloneField initial={initial.may_leave_unaccompanied} />
-            </div>
-          )}
         </FormSection>
       )}
 
@@ -400,38 +414,5 @@ export default function StudentForm({
         error={error ?? undefined}
       />
     </form>
-  )
-}
-
-/**
- * Whether the child may leave on their own. Yes/No only: a record with no
- * answer starts with neither chosen and is left as it is unless one is picked.
- */
-function LeaveAloneField({
-  initial,
-}: {
-  initial: boolean | null
-}): React.ReactElement {
-  const [value, setValue] = useState(
-    initial === null ? '' : initial ? 'yes' : 'no',
-  )
-
-  return (
-    <>
-      <RadioGroup
-        name="may_leave_unaccompanied_choice"
-        legend="May leave the School on their own at the end of the session"
-        options={[
-          { value: 'yes', label: 'Yes' },
-          { value: 'no', label: 'No' },
-        ]}
-        value={value}
-        onChange={setValue}
-      />
-      <input type="hidden" name="may_leave_unaccompanied" value={value} />
-      <p className="mt-1 text-xs text-gray-500">
-        Changing this records you as making the change, with the time.
-      </p>
-    </>
   )
 }

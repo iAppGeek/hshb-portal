@@ -4,7 +4,6 @@ import {
   compareClasses,
   compareYearGroups,
   isClassOpen,
-  isGcseOrALevel,
   sortClasses,
 } from './classes'
 
@@ -145,32 +144,6 @@ describe('compareClasses with no class', () => {
       { name: 'A Level' },
       null,
     ])
-  })
-})
-
-describe('isGcseOrALevel', () => {
-  it.each([
-    'GCSE',
-    'GCSE 1',
-    'GCSE 2',
-    'GCSE 3',
-    'GCSE III',
-    'A Level',
-    'A-Levels',
-  ])('is true for %s', (label) => {
-    expect(isGcseOrALevel(label)).toBe(true)
-  })
-
-  it.each([
-    'pre-school',
-    'Reception',
-    'Year 6',
-    '6',
-    'All',
-    'Test',
-    'Not sure',
-  ])('is false for %s', (label) => {
-    expect(isGcseOrALevel(label)).toBe(false)
   })
 })
 

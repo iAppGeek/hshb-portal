@@ -11,6 +11,8 @@ type Props = {
   description?: string
   error?: string
   required?: boolean
+  /** A disabled checkbox is not submitted with the form. */
+  disabled?: boolean
 }
 
 export default function CheckboxField({
@@ -22,6 +24,7 @@ export default function CheckboxField({
   description,
   error,
   required = false,
+  disabled = false,
 }: Props): React.ReactElement {
   const descriptionId = `${name}-hint`
   const errorId = `${name}-error`
@@ -39,6 +42,7 @@ export default function CheckboxField({
           type="checkbox"
           value="on"
           required={required}
+          disabled={disabled}
           {...(checked !== undefined
             ? { checked, onChange: (e) => onChange?.(e.target.checked) }
             : { defaultChecked })}

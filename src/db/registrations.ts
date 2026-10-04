@@ -32,8 +32,12 @@ export type RegistrationFull = SubmissionRow & {
   contacts: ContactRow[]
 }
 
+/** A submission row as `create_registration_submission` takes it. */
+export type RegistrationSubmissionInsert =
+  Database['public']['Tables']['registration_submissions']['Insert']
+
 type CreateRegistrationInput = {
-  submission: Database['public']['Tables']['registration_submissions']['Insert']
+  submission: RegistrationSubmissionInsert
   contacts: Omit<
     Database['public']['Tables']['registration_submission_contacts']['Insert'],
     'submission_id'

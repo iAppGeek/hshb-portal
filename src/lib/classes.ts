@@ -46,15 +46,6 @@ function stageRank(label: string): number | null {
   return null
 }
 
-/**
- * Whether a year group or class name is a GCSE (any year) or A Level stage,
- * in any of the spellings {@link stageRank} accepts.
- */
-export function isGcseOrALevel(label: string): boolean {
-  const rank = stageRank(label)
-  return rank !== null && rank >= 100 && rank <= 200
-}
-
 export type SortableClass = { name: string; year_group?: string | null }
 
 /** A class ranks by its name, or by its year group if the name isn't a stage. */

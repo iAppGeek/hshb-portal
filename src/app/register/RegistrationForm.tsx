@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 
 import TurnstileWidget from '@/clientComponents/TurnstileWidget'
 import {
-  asksMayLeaveUnaccompanied,
+  isOldEnoughToLeaveAlone,
+  LEAVE_ALONE_AGE_HINT,
   REQUIRED_CONSENT_MESSAGE,
 } from '@/lib/consents'
 import { YEAR_GROUP_NOT_SURE } from '@/lib/registration'
@@ -42,11 +43,9 @@ export default function RegistrationForm({
   const [showSecondary, setShowSecondary] = useState(false)
   const [showContact1, setShowContact1] = useState(false)
   const [showContact2, setShowContact2] = useState(false)
-  // Controlled so the leave-alone question can follow the year group.
-  const [yearGroup, setYearGroup] = useState(
-    yearGroups[0] ?? YEAR_GROUP_NOT_SURE,
-  )
-  const asksLeaveAlone = asksMayLeaveUnaccompanied(yearGroup)
+  // Controlled so the leave-alone box can follow the child's age.
+  const [dateOfBirth, setDateOfBirth] = useState('')
+  const oldEnoughToLeaveAlone = isOldEnoughToLeaveAlone(dateOfBirth)
   const [token, setToken] = useState<string | null>(null)
   const [captchaError, setCaptchaError] = useState(false)
   const { handleSubmit, isPending, error, fieldError } = useServerForm(
@@ -97,6 +96,8 @@ export default function RegistrationForm({
             type="date"
             required
             autoComplete="off"
+            value={dateOfBirth}
+            onChange={setDateOfBirth}
             error={fieldError('date_of_birth')}
           />
           <TextField
@@ -118,8 +119,6 @@ export default function RegistrationForm({
             <select
               id="preferred_year_group"
               name="preferred_year_group"
-              value={yearGroup}
-              onChange={(e) => setYearGroup(e.target.value)}
               autoComplete="off"
               className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
             >
@@ -283,37 +282,35 @@ export default function RegistrationForm({
           </button>
         ))}
 
-      {(showContact1 || asksLeaveAlone) && (
-        <FormSection title="Collection arrangements">
-          {showContact1 && (
-            <FormGrid>
-              <TextAreaField
-                label="Who is authorised to collect the child?"
-                name="collect_authorised"
-                maxLength={LONG_TEXT_MAX}
-                error={fieldError('collect_authorised')}
-              />
-              <TextField
-                label="Collection password"
-                name="collect_password"
-                maxLength={LONG_TEXT_MAX}
-                error={fieldError('collect_password')}
-              />
-            </FormGrid>
-          )}
-          {asksLeaveAlone && (
-            <div className={showContact1 ? 'mt-4' : undefined}>
-              <ConsentCheckbox
-                name="may_leave_unaccompanied"
-                error={fieldError('may_leave_unaccompanied')}
-              >
-                My child may leave the School on their own at the end of the
-                session.
-              </ConsentCheckbox>
-            </div>
-          )}
-        </FormSection>
-      )}
+      <FormSection title="Collection arrangements">
+        {showContact1 && (
+          <FormGrid>
+            <TextAreaField
+              label="Who is authorised to collect the child?"
+              name="collect_authorised"
+              maxLength={LONG_TEXT_MAX}
+              error={fieldError('collect_authorised')}
+            />
+            <TextField
+              label="Collection password"
+              name="collect_password"
+              maxLength={LONG_TEXT_MAX}
+              error={fieldError('collect_password')}
+            />
+          </FormGrid>
+        )}
+        <div className={showContact1 ? 'mt-4' : undefined}>
+          <ConsentCheckbox
+            name="may_leave_unaccompanied"
+            disabled={!oldEnoughToLeaveAlone}
+            hint={oldEnoughToLeaveAlone ? undefined : LEAVE_ALONE_AGE_HINT}
+            error={fieldError('may_leave_unaccompanied')}
+          >
+            My child may leave the School on their own at the end of the
+            session.
+          </ConsentCheckbox>
+        </div>
+      </FormSection>
 
       {/* ── Consents ─────────────────────────────────────────────────── */}
       <FormSection title="Consents">
@@ -576,48 +573,60 @@ function ScrollSection({
 /**
  * Always unticked to start with. A required box that is submitted unticked
  * shows {@link REQUIRED_CONSENT_MESSAGE} in the browser's own prompt and
- * beneath the box, where `role="alert"` announces it to screen readers.
+ * beneath the box, where `role="alert"` announces it to screen readers. A
+ * disabled box shows unticked, with `hint` beneath saying why, and is not
+ * submitted.
  */
 function ConsentCheckbox({
   name,
   required = false,
+  disabled = false,
+  hint,
   error,
   children,
 }: {
   name: string
   required?: boolean
+  disabled?: boolean
+  hint?: string
   error?: string
   children: React.ReactNode
 }): React.ReactElement {
-  const [checked, setChecked] = useState(false)
+  const [ticked, setTicked] = useState(false)
   const [blocked, setBlocked] = useState(false)
+  const checked = ticked && !disabled
+  const hintId = `${name}-hint`
   const errorId = `${name}-error`
   const shownError = checked
     ? undefined
     : (error ?? (blocked ? REQUIRED_CONSENT_MESSAGE : undefined))
+  const describedBy =
+    [hint && hintId, shownError && errorId].filter(Boolean).join(' ') ||
+    undefined
 
   return (
     <div>
       <label
         htmlFor={name}
-        className="flex cursor-pointer items-start gap-2 text-sm text-gray-700"
+        className={`flex items-start gap-2 text-sm ${disabled ? 'cursor-not-allowed text-gray-400' : 'cursor-pointer text-gray-700'}`}
       >
         <input
           id={name}
           type="checkbox"
           name={name}
           required={required}
+          disabled={disabled}
           checked={checked}
           onChange={(e) => {
             e.currentTarget.setCustomValidity('')
-            setChecked(e.currentTarget.checked)
+            setTicked(e.currentTarget.checked)
           }}
           onInvalid={(e) => {
             e.currentTarget.setCustomValidity(REQUIRED_CONSENT_MESSAGE)
             setBlocked(true)
           }}
           aria-invalid={shownError ? true : undefined}
-          aria-describedby={shownError ? errorId : undefined}
+          aria-describedby={describedBy}
           className="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
         />
         <span>
@@ -629,6 +638,11 @@ function ConsentCheckbox({
           )}
         </span>
       </label>
+      {hint && (
+        <p id={hintId} className="mt-1 ml-6 text-xs text-gray-500">
+          {hint}
+        </p>
+      )}
       {shownError && (
         <p id={errorId} role="alert" className="mt-1 ml-6 text-sm text-red-600">
           {shownError}

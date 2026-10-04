@@ -104,6 +104,7 @@ DECLARE
   v_rel_primary TEXT; v_rel_secondary TEXT; v_rel_add1 TEXT; v_rel_add2 TEXT;
   v_old_g      guardians%ROWTYPE;
   v_old_s      students%ROWTYPE;
+  v_photo      BOOLEAN;
   v_matched_on TEXT;
   v_gchanges   JSONB;
   v_guardians  JSONB := '[]'::JSONB;
@@ -231,6 +232,12 @@ BEGIN
       RAISE EXCEPTION 'Existing student not found';
     END IF;
 
+    -- A withdrawal made after the parent filled in this form still stands.
+    v_photo := v_sub.photo_video_consent AND (
+      v_old_s.photo_video_consent_withdrawn_at IS NULL
+      OR COALESCE(v_sub.consents_recorded_at, v_sub.submitted_at)
+         > v_old_s.photo_video_consent_withdrawn_at);
+
     UPDATE students SET
       student_code  = COALESCE(p_student_code, student_code),
       first_name    = v_sub.child_first_name,
@@ -244,17 +251,14 @@ BEGIN
       may_leave_unaccompanied = v_sub.may_leave_unaccompanied,
       privacy_notice_read = v_sub.privacy_notice_read,
       first_aid_consent = v_sub.first_aid_consent,
-      photo_video_consent = v_sub.photo_video_consent,
+      photo_video_consent = v_photo,
       home_school_agreement = v_sub.home_school_agreement,
       email_sms_contact_ack = v_sub.email_sms_contact_ack,
       consents_recorded_at = v_sub.consents_recorded_at,
       privacy_notice_version = v_sub.privacy_notice_version,
-      -- Consent given again on the new form supersedes an earlier withdrawal.
-      photo_video_consent_withdrawn_at = CASE WHEN v_sub.photo_video_consent THEN NULL ELSE photo_video_consent_withdrawn_at END,
-      photo_video_consent_withdrawn_by = CASE WHEN v_sub.photo_video_consent THEN NULL ELSE photo_video_consent_withdrawn_by END,
-      -- The parent's answer on the new form replaces any staff change.
-      may_leave_unaccompanied_changed_at = NULL,
-      may_leave_unaccompanied_changed_by = NULL,
+      -- Consent given again on a newer form supersedes the withdrawal.
+      photo_video_consent_withdrawn_at = CASE WHEN v_photo THEN NULL ELSE photo_video_consent_withdrawn_at END,
+      photo_video_consent_withdrawn_by = CASE WHEN v_photo THEN NULL ELSE photo_video_consent_withdrawn_by END,
       primary_guardian_id = v_primary,     primary_guardian_relationship = v_rel_primary,
       secondary_guardian_id = v_secondary, secondary_guardian_relationship = v_rel_secondary,
       additional_contact_1_id = v_add1,    additional_contact_1_relationship = v_rel_add1,
@@ -1044,7 +1048,7 @@ CREATE TABLE IF NOT EXISTS "public"."registration_submissions" (
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "english_school_name" "text",
     "sen_details" "text",
-    "may_leave_unaccompanied" boolean,
+    "may_leave_unaccompanied" boolean DEFAULT false NOT NULL,
     "consents_recorded_at" timestamp with time zone,
     "privacy_notice_version" "text"
 );
@@ -1229,13 +1233,11 @@ CREATE TABLE IF NOT EXISTS "public"."students" (
     "english_school_name" "text",
     "leaving_reason" "text",
     "sen_details" "text",
-    "may_leave_unaccompanied" boolean,
+    "may_leave_unaccompanied" boolean DEFAULT false NOT NULL,
     "consents_recorded_at" timestamp with time zone,
     "privacy_notice_version" "text",
     "photo_video_consent_withdrawn_at" timestamp with time zone,
     "photo_video_consent_withdrawn_by" "uuid",
-    "may_leave_unaccompanied_changed_at" timestamp with time zone,
-    "may_leave_unaccompanied_changed_by" "uuid",
     CONSTRAINT "students_address_source_check" CHECK ((("address_guardian_id" IS NOT NULL) OR (("address_line_1" IS NOT NULL) AND ("city" IS NOT NULL) AND ("postcode" IS NOT NULL)))),
     CONSTRAINT "students_leaving_reason_check" CHECK (("leaving_reason" = ANY (ARRAY['left'::"text", 'graduated'::"text", 'transferred'::"text"])))
 );
@@ -1811,11 +1813,6 @@ ALTER TABLE ONLY "public"."students"
 
 ALTER TABLE ONLY "public"."students"
     ADD CONSTRAINT "students_address_guardian_id_fkey" FOREIGN KEY ("address_guardian_id") REFERENCES "public"."guardians"("id") ON DELETE SET NULL;
-
-
-
-ALTER TABLE ONLY "public"."students"
-    ADD CONSTRAINT "students_may_leave_unaccompanied_changed_by_fkey" FOREIGN KEY ("may_leave_unaccompanied_changed_by") REFERENCES "public"."staff"("id") ON DELETE SET NULL;
 
 
 

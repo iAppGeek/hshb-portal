@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { redirect } from 'next/navigation'
 
 import { getActor } from '@/auth/require'
@@ -610,10 +610,60 @@ describe('saveStudentAction (update)', () => {
     expect(saved().data).toMatchObject({
       privacy_notice_read: true,
       first_aid_consent: true,
-      photo_video_consent: false,
       home_school_agreement: false,
       email_sms_contact_ack: false,
     })
+  })
+
+  describe('photo/video consent', () => {
+    beforeEach(() => {
+      vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
+      vi.mocked(redirect).mockImplementation(() => {
+        throw new Error('NEXT_REDIRECT')
+      })
+    })
+
+    it.each([
+      ['unticked', 'on', '', false],
+      ['ticked', '', 'on', true],
+    ])(
+      'saves the box when the admin %s it',
+      async (_change, initial, box, expected) => {
+        await expect(
+          saveStudentAction(
+            STUDENT_ID,
+            makeFormData({
+              ...updateFields,
+              photo_video_consent_initial: initial,
+              ...(box ? { photo_video_consent: box } : {}),
+            }),
+          ),
+        ).rejects.toThrow('NEXT_REDIRECT')
+
+        expect(saved().data.photo_video_consent).toBe(expected)
+      },
+    )
+
+    it.each([
+      ['ticked', 'on'],
+      ['unticked', ''],
+    ])(
+      'leaves consent as it is when the box is still %s as loaded',
+      async (_state, value) => {
+        await expect(
+          saveStudentAction(
+            STUDENT_ID,
+            makeFormData({
+              ...updateFields,
+              photo_video_consent_initial: value,
+              ...(value ? { photo_video_consent: value } : {}),
+            }),
+          ),
+        ).rejects.toThrow('NEXT_REDIRECT')
+
+        expect(saved().data.photo_video_consent).toBeUndefined()
+      },
+    )
   })
 
   it('passes the admin to saveStudent so a consent change records them', async () => {
@@ -629,33 +679,58 @@ describe('saveStudentAction (update)', () => {
     expect(vi.mocked(saveStudent).mock.calls[0][4]).toBe('admin-1')
   })
 
-  it('saves a changed may_leave_unaccompanied answer', async () => {
-    vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
-    vi.mocked(redirect).mockImplementation(() => {
-      throw new Error('NEXT_REDIRECT')
+  describe('may leave on their own', () => {
+    // 4 Oct 2026: a child born on 4 Oct 2014 turns 12 that day.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-10-04T09:30:00Z'))
+      vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
+      vi.mocked(redirect).mockImplementation(() => {
+        throw new Error('NEXT_REDIRECT')
+      })
+    })
+    afterEach(() => {
+      vi.useRealTimers()
     })
 
-    await expect(
-      saveStudentAction(
-        STUDENT_ID,
-        makeFormData({ ...updateFields, may_leave_unaccompanied: 'yes' }),
-      ),
-    ).rejects.toThrow('NEXT_REDIRECT')
+    async function saveWith(fields: Record<string, string>): Promise<void> {
+      await expect(
+        saveStudentAction(
+          STUDENT_ID,
+          makeFormData({ ...updateFields, ...fields }),
+        ),
+      ).rejects.toThrow('NEXT_REDIRECT')
+    }
 
-    expect(saved().data).toMatchObject({ may_leave_unaccompanied: true })
-  })
+    it('saves a tick for a student aged 12 or over', async () => {
+      await saveWith({
+        student_date_of_birth: '2014-10-04',
+        may_leave_unaccompanied: 'on',
+      })
 
-  it('leaves may_leave_unaccompanied alone when the form does not ask it', async () => {
-    vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
-    vi.mocked(redirect).mockImplementation(() => {
-      throw new Error('NEXT_REDIRECT')
+      expect(saved().data.may_leave_unaccompanied).toBe(true)
     })
 
-    await expect(
-      saveStudentAction(STUDENT_ID, makeFormData(updateFields)),
-    ).rejects.toThrow('NEXT_REDIRECT')
+    it('saves an unticked box as not given', async () => {
+      await saveWith({ student_date_of_birth: '2010-01-01' })
 
-    expect(saved().data.may_leave_unaccompanied).toBeUndefined()
+      expect(saved().data.may_leave_unaccompanied).toBe(false)
+    })
+
+    it.each([
+      ['under 12', '2014-10-05'],
+      ['with no date of birth', ''],
+    ])(
+      'saves not given for a student %s even if a tick is sent',
+      async (_case, dob) => {
+        await saveWith({
+          student_date_of_birth: dob,
+          may_leave_unaccompanied: 'on',
+        })
+
+        expect(saved().data.may_leave_unaccompanied).toBe(false)
+      },
+    )
   })
 
   it('saves the SEN details', async () => {

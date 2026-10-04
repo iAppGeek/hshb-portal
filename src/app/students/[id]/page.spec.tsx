@@ -78,13 +78,11 @@ const baseStudent = {
   photo_video_consent: true,
   home_school_agreement: false,
   email_sms_contact_ack: true,
-  may_leave_unaccompanied: null,
+  may_leave_unaccompanied: false,
   consents_recorded_at: null,
   privacy_notice_version: null,
   photo_video_consent_withdrawn_at: null,
   photo_video_consent_withdrawn_by: null,
-  may_leave_unaccompanied_changed_at: null,
-  may_leave_unaccompanied_changed_by: null,
   student_classes: [{ class: { name: 'Year 1A', academic_year: null } }],
 }
 
@@ -169,11 +167,11 @@ describe('StudentPage', () => {
 
       expect(consentRows()).toEqual([
         ['Read the Privacy Notice', 'Yes'],
-        ['Emergency first aid', 'No'],
+        ['Emergency first aid', 'Not given'],
         ['Email & SMS contact understood', 'Yes'],
         ['Photos & video', 'Yes'],
-        ['Home–school agreement', 'No'],
-        ['May leave on their own', 'No'],
+        ['Home–school agreement', 'Not given'],
+        ['May leave on their own', 'Not given'],
         ['Consents recorded', '04/10/2026, 10:30'],
         ['Privacy Notice version', '1.0'],
       ])
@@ -232,30 +230,6 @@ describe('StudentPage', () => {
         screen.queryByRole('button', { name: 'Withdraw photo consent' }),
       ).toBeNull()
     })
-  })
-
-  it('shows who last changed whether the child may leave on their own', async () => {
-    const session = vi.mocked(auth as () => Promise<unknown>)
-    session.mockResolvedValue({ user: { role: 'admin', staffId: 'staff-1' } })
-    vi.mocked(getStudentById).mockResolvedValue({
-      ...baseStudent,
-      may_leave_unaccompanied: true,
-      may_leave_unaccompanied_changed_at: '2026-10-04T15:20:00Z',
-      may_leave_unaccompanied_changed_by: 'staff-7',
-    } as unknown as Awaited<ReturnType<typeof getStudentById>>)
-    vi.mocked(getStaffById).mockResolvedValue({
-      first_name: 'Hara',
-      last_name: 'Head',
-      display_name: null,
-    } as Awaited<ReturnType<typeof getStaffById>>)
-
-    render(await renderPage())
-
-    expect(getStaffById).toHaveBeenCalledWith('staff-7')
-    const row = screen.getByText('Leaving on their own changed')
-    expect(row.nextElementSibling?.textContent).toBe(
-      '04/10/2026, 16:20 by Hara Head',
-    )
   })
 
   it('404s for a teacher viewing a student outside their classes', async () => {

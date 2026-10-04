@@ -7,10 +7,10 @@
 --     consents_recorded_at and privacy_notice_version from the submission JSON.
 --     A key missing from the column list is dropped with no error, so the list
 --     must be kept in step with registrationSubmissionSchema.
---   * approve_registration copies them onto the student. A returning child's
---     new form replaces any staff change to may_leave_unaccompanied (so its
---     changed_at/by are cleared), and clears a recorded photo/video withdrawal
---     when it gives that consent again.
+--   * approve_registration copies them onto the student. For a returning
+--     child the newest statement wins: photo/video consent on the form only
+--     counts (and clears a recorded withdrawal) if the form was filled in after
+--     that withdrawal.
 --   * apply_photo_opt_out records who withdrew photo/video consent and when.
 
 CREATE OR REPLACE FUNCTION "public"."create_registration_submission"("p_submission" "jsonb", "p_contacts" "jsonb") RETURNS "uuid"
@@ -110,6 +110,7 @@ DECLARE
   v_rel_primary TEXT; v_rel_secondary TEXT; v_rel_add1 TEXT; v_rel_add2 TEXT;
   v_old_g      guardians%ROWTYPE;
   v_old_s      students%ROWTYPE;
+  v_photo      BOOLEAN;
   v_matched_on TEXT;
   v_gchanges   JSONB;
   v_guardians  JSONB := '[]'::JSONB;
@@ -237,6 +238,12 @@ BEGIN
       RAISE EXCEPTION 'Existing student not found';
     END IF;
 
+    -- A withdrawal made after the parent filled in this form still stands.
+    v_photo := v_sub.photo_video_consent AND (
+      v_old_s.photo_video_consent_withdrawn_at IS NULL
+      OR COALESCE(v_sub.consents_recorded_at, v_sub.submitted_at)
+         > v_old_s.photo_video_consent_withdrawn_at);
+
     UPDATE students SET
       student_code  = COALESCE(p_student_code, student_code),
       first_name    = v_sub.child_first_name,
@@ -250,17 +257,14 @@ BEGIN
       may_leave_unaccompanied = v_sub.may_leave_unaccompanied,
       privacy_notice_read = v_sub.privacy_notice_read,
       first_aid_consent = v_sub.first_aid_consent,
-      photo_video_consent = v_sub.photo_video_consent,
+      photo_video_consent = v_photo,
       home_school_agreement = v_sub.home_school_agreement,
       email_sms_contact_ack = v_sub.email_sms_contact_ack,
       consents_recorded_at = v_sub.consents_recorded_at,
       privacy_notice_version = v_sub.privacy_notice_version,
-      -- Consent given again on the new form supersedes an earlier withdrawal.
-      photo_video_consent_withdrawn_at = CASE WHEN v_sub.photo_video_consent THEN NULL ELSE photo_video_consent_withdrawn_at END,
-      photo_video_consent_withdrawn_by = CASE WHEN v_sub.photo_video_consent THEN NULL ELSE photo_video_consent_withdrawn_by END,
-      -- The parent's answer on the new form replaces any staff change.
-      may_leave_unaccompanied_changed_at = NULL,
-      may_leave_unaccompanied_changed_by = NULL,
+      -- Consent given again on a newer form supersedes the withdrawal.
+      photo_video_consent_withdrawn_at = CASE WHEN v_photo THEN NULL ELSE photo_video_consent_withdrawn_at END,
+      photo_video_consent_withdrawn_by = CASE WHEN v_photo THEN NULL ELSE photo_video_consent_withdrawn_by END,
       primary_guardian_id = v_primary,     primary_guardian_relationship = v_rel_primary,
       secondary_guardian_id = v_secondary, secondary_guardian_relationship = v_rel_secondary,
       additional_contact_1_id = v_add1,    additional_contact_1_relationship = v_rel_add1,
