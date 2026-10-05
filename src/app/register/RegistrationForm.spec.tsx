@@ -87,10 +87,7 @@ describe('RegistrationForm', () => {
       renderForm()
 
       expect(
-        consentBoxes().map((box) => [
-          box.name,
-          box.closest('label')!.textContent,
-        ]),
+        consentBoxes().map((box) => [box.name, box.labels![0].textContent]),
       ).toEqual([
         [
           'privacy_notice_read',
@@ -302,6 +299,18 @@ describe('RegistrationForm', () => {
       expect(box()).not.toBeChecked()
       const data = new FormData(container.querySelector('form')!)
       expect(data.has('may_leave_unaccompanied')).toBe(false)
+    })
+
+    it('stays unticked when the date of birth changes back to an older child', () => {
+      renderForm()
+      enterDateOfBirth('2010-01-01')
+      fireEvent.click(box())
+      enterDateOfBirth('2020-01-01')
+
+      enterDateOfBirth('2010-01-01')
+
+      expect(box()).toBeEnabled()
+      expect(box()).not.toBeChecked()
     })
 
     it('sits alongside the collection fields once an emergency contact is added', () => {

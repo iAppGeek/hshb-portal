@@ -1,3 +1,4 @@
+import { addYears } from './compliance'
 import { formatDateTimeInSchoolTz, todayInSchoolTz } from './datetime'
 
 /**
@@ -17,7 +18,7 @@ export const LEAVE_ALONE_MIN_AGE = 12
 /** Shown beside the leave-alone box while the child is too young for it. */
 export const LEAVE_ALONE_AGE_HINT = `Only for children aged ${LEAVE_ALONE_MIN_AGE} or over.`
 
-const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 /**
  * Whether a child born on `dateOfBirth` may be allowed to leave the School on
@@ -28,13 +29,8 @@ export function isOldEnoughToLeaveAlone(
   dateOfBirth: string | null | undefined,
   today: string = todayInSchoolTz(),
 ): boolean {
-  const born = ISO_DATE.exec(dateOfBirth ?? '')
-  const now = ISO_DATE.exec(today)
-  if (!born || !now) return false
-  const [, by, bm, bd] = born.map(Number)
-  const [, ty, tm, td] = now.map(Number)
-  const hadBirthday = tm > bm || (tm === bm && td >= bd)
-  return ty - by - (hadBirthday ? 0 : 1) >= LEAVE_ALONE_MIN_AGE
+  if (!dateOfBirth || !ISO_DATE.test(dateOfBirth)) return false
+  return addYears(dateOfBirth, LEAVE_ALONE_MIN_AGE) <= today
 }
 
 /** The consent fields a registration submission and a student both carry. */

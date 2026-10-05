@@ -22,6 +22,7 @@ import {
   EMAIL_MAX,
 } from '@/lib/schemas'
 import {
+  CheckboxField,
   FormGrid,
   FormSection,
   TextAreaField,
@@ -46,6 +47,14 @@ export default function RegistrationForm({
   // Controlled so the leave-alone box can follow the child's age.
   const [dateOfBirth, setDateOfBirth] = useState('')
   const oldEnoughToLeaveAlone = isOldEnoughToLeaveAlone(dateOfBirth)
+  const [leaveAlone, setLeaveAlone] = useState(false)
+
+  function handleDateOfBirth(value: string): void {
+    setDateOfBirth(value)
+    // A box disabled for a younger child comes back unticked, so the parent
+    // decides afresh.
+    if (!isOldEnoughToLeaveAlone(value)) setLeaveAlone(false)
+  }
   const [token, setToken] = useState<string | null>(null)
   const [captchaError, setCaptchaError] = useState(false)
   const { handleSubmit, isPending, error, fieldError } = useServerForm(
@@ -97,7 +106,7 @@ export default function RegistrationForm({
             required
             autoComplete="off"
             value={dateOfBirth}
-            onChange={setDateOfBirth}
+            onChange={handleDateOfBirth}
             error={fieldError('date_of_birth')}
           />
           <TextField
@@ -300,64 +309,82 @@ export default function RegistrationForm({
           </FormGrid>
         )}
         <div className={showContact1 ? 'mt-4' : undefined}>
-          <ConsentCheckbox
+          <CheckboxField
             name="may_leave_unaccompanied"
+            label="My child may leave the School on their own at the end of the session."
             disabled={!oldEnoughToLeaveAlone}
-            hint={oldEnoughToLeaveAlone ? undefined : LEAVE_ALONE_AGE_HINT}
+            checked={leaveAlone}
+            onChange={setLeaveAlone}
+            description={
+              oldEnoughToLeaveAlone ? undefined : LEAVE_ALONE_AGE_HINT
+            }
             error={fieldError('may_leave_unaccompanied')}
-          >
-            My child may leave the School on their own at the end of the
-            session.
-          </ConsentCheckbox>
+          />
         </div>
       </FormSection>
 
       {/* ── Consents ─────────────────────────────────────────────────── */}
       <FormSection title="Consents">
         <div className="space-y-3">
-          <ConsentCheckbox
+          <CheckboxField
             name="privacy_notice_read"
+            label={
+              <>
+                I confirm I have read the School&apos;s{' '}
+                <ExternalLink href={PRIVACY_NOTICE_URL}>
+                  Privacy Notice
+                </ExternalLink>
+                .
+              </>
+            }
             required
+            requiredMessage={REQUIRED_CONSENT_MESSAGE}
             error={fieldError('privacy_notice_read')}
-          >
-            I confirm I have read the School&apos;s{' '}
-            <ExternalLink href={PRIVACY_NOTICE_URL}>
-              Privacy Notice
-            </ExternalLink>
-            .
-          </ConsentCheckbox>
-          <ConsentCheckbox
+          />
+          <CheckboxField
             name="first_aid_consent"
+            label="I consent to emergency first aid being given to my child if needed."
             required
+            requiredMessage={REQUIRED_CONSENT_MESSAGE}
             error={fieldError('first_aid_consent')}
-          >
-            I consent to emergency first aid being given to my child if needed.
-          </ConsentCheckbox>
-          <ConsentCheckbox
+          />
+          <CheckboxField
             name="email_sms_contact_ack"
+            label="I understand the School will contact me by email and SMS about lessons, closures, collection arrangements and emergencies."
             required
+            requiredMessage={REQUIRED_CONSENT_MESSAGE}
             error={fieldError('email_sms_contact_ack')}
-          >
-            I understand the School will contact me by email and SMS about
-            lessons, closures, collection arrangements and emergencies.
-          </ConsentCheckbox>
-          <ConsentCheckbox name="photo_video_consent">
-            I consent to photos and video of my child being used on ClassDojo,
-            the School website, the School&apos;s social media, printed material
-            and in local or community press, as described in the{' '}
-            <ExternalLink href={PRIVACY_NOTICE_URL}>
-              Privacy Notice
-            </ExternalLink>{' '}
-            (Section 5). I can withdraw this at any time by contacting the
-            School office.
-          </ConsentCheckbox>
-          <ConsentCheckbox name="home_school_agreement">
-            I agree to the{' '}
-            <ExternalLink href={HOME_SCHOOL_AGREEMENT_URL}>
-              home–school agreement
-            </ExternalLink>
-            .
-          </ConsentCheckbox>
+          />
+          <CheckboxField
+            name="photo_video_consent"
+            label={
+              <>
+                I consent to photos and video of my child being used on
+                ClassDojo, the School website, the School&apos;s social media,
+                printed material and in local or community press, as described
+                in the{' '}
+                <ExternalLink href={PRIVACY_NOTICE_URL}>
+                  Privacy Notice
+                </ExternalLink>{' '}
+                (Section 5). I can withdraw this at any time by contacting the
+                School office.
+              </>
+            }
+            error={fieldError('photo_video_consent')}
+          />
+          <CheckboxField
+            name="home_school_agreement"
+            label={
+              <>
+                I agree to the{' '}
+                <ExternalLink href={HOME_SCHOOL_AGREEMENT_URL}>
+                  home–school agreement
+                </ExternalLink>
+                .
+              </>
+            }
+            error={fieldError('home_school_agreement')}
+          />
         </div>
         <p className="mt-3 text-sm text-gray-500">
           <span className="text-red-500">*</span> Required to register
@@ -566,88 +593,6 @@ function ScrollSection({
       <FormSection title={title} onRemove={onRemove}>
         {children}
       </FormSection>
-    </div>
-  )
-}
-
-/**
- * Always unticked to start with. A required box that is submitted unticked
- * shows {@link REQUIRED_CONSENT_MESSAGE} in the browser's own prompt and
- * beneath the box, where `role="alert"` announces it to screen readers. A
- * disabled box shows unticked, with `hint` beneath saying why, and is not
- * submitted.
- */
-function ConsentCheckbox({
-  name,
-  required = false,
-  disabled = false,
-  hint,
-  error,
-  children,
-}: {
-  name: string
-  required?: boolean
-  disabled?: boolean
-  hint?: string
-  error?: string
-  children: React.ReactNode
-}): React.ReactElement {
-  const [ticked, setTicked] = useState(false)
-  const [blocked, setBlocked] = useState(false)
-  const checked = ticked && !disabled
-  const hintId = `${name}-hint`
-  const errorId = `${name}-error`
-  const shownError = checked
-    ? undefined
-    : (error ?? (blocked ? REQUIRED_CONSENT_MESSAGE : undefined))
-  const describedBy =
-    [hint && hintId, shownError && errorId].filter(Boolean).join(' ') ||
-    undefined
-
-  return (
-    <div>
-      <label
-        htmlFor={name}
-        className={`flex items-start gap-2 text-sm ${disabled ? 'cursor-not-allowed text-gray-400' : 'cursor-pointer text-gray-700'}`}
-      >
-        <input
-          id={name}
-          type="checkbox"
-          name={name}
-          required={required}
-          disabled={disabled}
-          checked={checked}
-          onChange={(e) => {
-            e.currentTarget.setCustomValidity('')
-            setTicked(e.currentTarget.checked)
-          }}
-          onInvalid={(e) => {
-            e.currentTarget.setCustomValidity(REQUIRED_CONSENT_MESSAGE)
-            setBlocked(true)
-          }}
-          aria-invalid={shownError ? true : undefined}
-          aria-describedby={describedBy}
-          className="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
-        />
-        <span>
-          {children}
-          {required && (
-            <span aria-hidden="true" className="ml-0.5 text-red-500">
-              *
-            </span>
-          )}
-        </span>
-      </label>
-      {hint && (
-        <p id={hintId} className="mt-1 ml-6 text-xs text-gray-500">
-          {hint}
-        </p>
-      )}
-      {shownError && (
-        <p id={errorId} role="alert" className="mt-1 ml-6 text-sm text-red-600">
-          {shownError}
-        </p>
-      )}
     </div>
   )
 }

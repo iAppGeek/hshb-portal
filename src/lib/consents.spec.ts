@@ -97,6 +97,11 @@ describe('isOldEnoughToLeaveAlone', () => {
     expect(isOldEnoughToLeaveAlone(dob, today)).toBe(false)
   })
 
+  it('allows a child born on 29 Feb from their 12th birthday', () => {
+    expect(isOldEnoughToLeaveAlone('2012-02-29', '2024-02-28')).toBe(false)
+    expect(isOldEnoughToLeaveAlone('2012-02-29', '2024-02-29')).toBe(true)
+  })
+
   it('counts a 29 February birthday on the day', () => {
     expect(isOldEnoughToLeaveAlone('2012-02-29', '2024-02-28')).toBe(false)
     expect(isOldEnoughToLeaveAlone('2012-02-29', '2024-02-29')).toBe(true)
