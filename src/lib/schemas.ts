@@ -358,10 +358,11 @@ export const updateStudentSchema = studentBaseSchema.extend({
   first_aid_consent: checkbox,
   email_sms_contact_ack: checkbox,
   photo_video_consent: checkbox,
-  // What the photo box showed when the form loaded.
-  photo_video_consent_initial: checkbox,
   home_school_agreement: checkbox,
   may_leave_unaccompanied: checkbox,
+  // The student's updated_at when the form loaded; a save is refused once the
+  // student has changed since.
+  updated_at: optionalString,
 })
 
 const registrationContactBase = z.object({
@@ -403,8 +404,8 @@ export const registrationSubmissionSchema = z.object({
   // Only rendered on the form once an emergency contact is added.
   collect_authorised: optionalLongText.optional(),
   collect_password: optionalLongText.optional(),
-  // Only rendered for GCSE and A Level year groups; the action stores false
-  // for any other year group.
+  // Offered only to children aged 12 or over; the action stores false for a
+  // younger child.
   may_leave_unaccompanied: checkbox,
   has_secondary: booleanFromString,
   has_contact1: booleanFromString,

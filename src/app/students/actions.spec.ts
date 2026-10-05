@@ -8,6 +8,7 @@ import {
   getStudentById,
   isStudentCodeTaken,
   saveStudent,
+  StudentChangedError,
   updateStudentClasses,
   markStudentAsLeaver,
   withdrawPhotoVideoConsent,
@@ -31,6 +32,9 @@ vi.mock('@/db', () => ({
   getStudentById: vi.fn(),
   isStudentCodeTaken: vi.fn(),
   saveStudent: vi.fn(),
+  StudentChangedError: class StudentChangedError extends Error {
+    message = 'Someone else changed this student.'
+  },
   updateStudentClasses: vi.fn(),
   markStudentAsLeaver: vi.fn(),
   withdrawPhotoVideoConsent: vi.fn(),
@@ -127,7 +131,10 @@ const createGuardianAddressFields = {
   primary_postcode: 'BS1 1AA',
 }
 
+const LOADED_AT = '2026-10-01 09:30:00.123456+00'
+
 const updateFields: Record<string, string> = {
+  updated_at: LOADED_AT,
   student_first_name: 'Anna',
   student_last_name: 'Smith',
   student_code: 'S001',
@@ -615,58 +622,29 @@ describe('saveStudentAction (update)', () => {
     })
   })
 
-  describe('photo/video consent', () => {
-    beforeEach(() => {
+  it.each([
+    ['ticked', { photo_video_consent: 'on' }, true],
+    ['unticked', {}, false],
+  ])(
+    'saves photo/video consent as the box shows when %s',
+    async (_state, box, expected) => {
       vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
       vi.mocked(redirect).mockImplementation(() => {
         throw new Error('NEXT_REDIRECT')
       })
-    })
 
-    it.each([
-      ['unticked', 'on', '', false],
-      ['ticked', '', 'on', true],
-    ])(
-      'saves the box when the admin %s it',
-      async (_change, initial, box, expected) => {
-        await expect(
-          saveStudentAction(
-            STUDENT_ID,
-            makeFormData({
-              ...updateFields,
-              photo_video_consent_initial: initial,
-              ...(box ? { photo_video_consent: box } : {}),
-            }),
-          ),
-        ).rejects.toThrow('NEXT_REDIRECT')
+      await expect(
+        saveStudentAction(
+          STUDENT_ID,
+          makeFormData({ ...updateFields, ...box }),
+        ),
+      ).rejects.toThrow('NEXT_REDIRECT')
 
-        expect(saved().data.photo_video_consent).toBe(expected)
-      },
-    )
+      expect(saved().data.photo_video_consent).toBe(expected)
+    },
+  )
 
-    it.each([
-      ['ticked', 'on'],
-      ['unticked', ''],
-    ])(
-      'leaves consent as it is when the box is still %s as loaded',
-      async (_state, value) => {
-        await expect(
-          saveStudentAction(
-            STUDENT_ID,
-            makeFormData({
-              ...updateFields,
-              photo_video_consent_initial: value,
-              ...(value ? { photo_video_consent: value } : {}),
-            }),
-          ),
-        ).rejects.toThrow('NEXT_REDIRECT')
-
-        expect(saved().data.photo_video_consent).toBeUndefined()
-      },
-    )
-  })
-
-  it('passes the admin to saveStudent so a consent change records them', async () => {
+  it('passes the admin and when the form loaded to saveStudent', async () => {
     vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
     vi.mocked(redirect).mockImplementation(() => {
       throw new Error('NEXT_REDIRECT')
@@ -676,7 +654,23 @@ describe('saveStudentAction (update)', () => {
       saveStudentAction(STUDENT_ID, makeFormData(updateFields)),
     ).rejects.toThrow('NEXT_REDIRECT')
 
-    expect(vi.mocked(saveStudent).mock.calls[0][4]).toBe('admin-1')
+    expect(vi.mocked(saveStudent).mock.calls[0][4]).toEqual({
+      savedBy: 'admin-1',
+      loadedAt: LOADED_AT,
+    })
+  })
+
+  it('refuses the save once someone else has changed the student', async () => {
+    vi.mocked(saveStudent).mockRejectedValue(new StudentChangedError())
+
+    const result = await saveStudentAction(
+      STUDENT_ID,
+      makeFormData(updateFields),
+    )
+
+    expect(result).toEqual({ error: 'Someone else changed this student.' })
+    expect(updateStudentClasses).not.toHaveBeenCalled()
+    expect(redirect).not.toHaveBeenCalled()
   })
 
   describe('may leave on their own', () => {

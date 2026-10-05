@@ -33,6 +33,7 @@ export {
   createStudent,
   updateStudent,
   saveStudent,
+  StudentChangedError,
   getNextStudentCode,
   isStudentCodeTaken,
   updateStudentClasses,
@@ -41,7 +42,7 @@ export {
   findStudentMatches,
   getStudentsForLinking,
 } from './students'
-export type { GuardianSlot, StudentMatch } from './students'
+export type { GuardianSlot, StudentEdit, StudentMatch } from './students'
 export {
   createRegistrationSubmission,
   getRegistrationSubmissions,

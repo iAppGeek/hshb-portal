@@ -7,6 +7,7 @@ import {
   getStudentById,
   markStudentAsLeaver,
   saveStudent,
+  StudentChangedError,
   updateStudentClasses,
   withdrawPhotoVideoConsent,
 } from '@/db'
@@ -173,31 +174,32 @@ export async function saveStudentAction(
         d,
         id,
       )
-      await guardStudentCode(
-        d.student_code,
-        saveStudent(
-          id,
-          {
-            ...data,
-            privacy_notice_read: d.privacy_notice_read,
-            first_aid_consent: d.first_aid_consent,
-            // Only an edit to the box is saved, so a form opened before a
-            // withdrawal was recorded cannot turn consent back on.
-            photo_video_consent:
-              d.photo_video_consent === d.photo_video_consent_initial
-                ? undefined
-                : d.photo_video_consent,
-            home_school_agreement: d.home_school_agreement,
-            email_sms_contact_ack: d.email_sms_contact_ack,
-            may_leave_unaccompanied:
-              isOldEnoughToLeaveAlone(d.student_date_of_birth) &&
-              d.may_leave_unaccompanied,
-          },
-          slots,
-          addressFromPrimary,
-          actor.staffId,
-        ),
-      )
+      try {
+        await guardStudentCode(
+          d.student_code,
+          saveStudent(
+            id,
+            {
+              ...data,
+              privacy_notice_read: d.privacy_notice_read,
+              first_aid_consent: d.first_aid_consent,
+              photo_video_consent: d.photo_video_consent,
+              home_school_agreement: d.home_school_agreement,
+              email_sms_contact_ack: d.email_sms_contact_ack,
+              may_leave_unaccompanied:
+                isOldEnoughToLeaveAlone(d.student_date_of_birth) &&
+                d.may_leave_unaccompanied,
+            },
+            slots,
+            addressFromPrimary,
+            { savedBy: actor.staffId, loadedAt: d.updated_at },
+          ),
+        )
+      } catch (err) {
+        if (err instanceof StudentChangedError)
+          throw new ActionError(err.message)
+        throw err
+      }
 
       const student = await getStudentById(id)
       if (student?.active) {

@@ -23,6 +23,7 @@ import {
   isStudentCodeTaken,
   markStudentAsLeaver,
   saveStudent,
+  StudentChangedError,
   searchStudents,
   updateStudent,
   updateStudentClasses,
@@ -237,6 +238,15 @@ describe('writes', () => {
   })
 })
 
+/** The student's `updated_at`, as an edit form loads it. */
+async function loadedAt(id: string): Promise<string | null> {
+  const [row] = await db
+    .select({ updatedAt: students.updatedAt })
+    .from(students)
+    .where(eq(students.id, id))
+  return row.updatedAt
+}
+
 describe('saveStudent', () => {
   const newGuardian = (firstName: string): GuardianSlot => ({
     create: { first_name: firstName, last_name: 'Saved', phone: '07700900000' },
@@ -317,6 +327,63 @@ describe('saveStudent', () => {
     })
     expect(await guardianNamed('Orphan')).toBeUndefined()
   })
+
+  describe('an edit', () => {
+    const carol = {
+      first_name: 'Carol',
+      last_name: 'Student',
+      address_line_1: '3 Road',
+      city: 'Town',
+      postcode: 'AB3 4CD',
+    }
+
+    it('is saved when the student has not changed since the form loaded', async () => {
+      await saveStudent(
+        SEED.students.carol,
+        { ...carol, notes: 'Saved' },
+        {
+          primary: { id: SEED.guardians.greg },
+          secondary: null,
+          contact1: null,
+          contact2: null,
+        },
+        false,
+        {
+          savedBy: SEED.staff.admin,
+          loadedAt: await loadedAt(SEED.students.carol),
+        },
+      )
+      expect(await getStudentById(SEED.students.carol)).toMatchObject({
+        notes: 'Saved',
+      })
+    })
+
+    it('is refused, creating no guardians, once someone else has saved the student', async () => {
+      const formLoadedAt = await loadedAt(SEED.students.carol)
+      await updateStudent(SEED.students.carol, {
+        may_leave_unaccompanied: true,
+      })
+
+      const err = await saveStudent(
+        SEED.students.carol,
+        { ...carol, may_leave_unaccompanied: false },
+        {
+          primary: { id: SEED.guardians.greg },
+          secondary: newGuardian('Stale'),
+          contact1: null,
+          contact2: null,
+        },
+        false,
+        { savedBy: SEED.staff.admin, loadedAt: formLoadedAt },
+      ).catch((e: unknown) => e)
+
+      expect(err).toBeInstanceOf(StudentChangedError)
+      expect(await getStudentById(SEED.students.carol)).toMatchObject({
+        may_leave_unaccompanied: true,
+      })
+      expect(await guardianNamed('Stale')).toBeUndefined()
+    })
+  })
 })
 
 describe('photo/video consent withdrawal', () => {
@@ -379,7 +446,7 @@ describe('photo/video consent withdrawal', () => {
           contact2: null,
         },
         false,
-        savedBy,
+        { savedBy, loadedAt: await loadedAt(SEED.students.carol) },
       )
     }
 
@@ -427,7 +494,10 @@ describe('photo/video consent withdrawal', () => {
         contact2: null,
       },
       false,
-      SEED.staff.admin,
+      {
+        savedBy: SEED.staff.admin,
+        loadedAt: await loadedAt(SEED.students.carol),
+      },
     )
 
     expect(await withdrawal(SEED.students.carol)).toEqual(withdrawn)

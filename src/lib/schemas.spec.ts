@@ -876,6 +876,7 @@ describe('createStudentSchema', () => {
 describe('updateStudentSchema', () => {
   it('requires class_ids array', () => {
     const result = updateStudentSchema.parse({
+      updated_at: '2026-10-01 09:30:00.123456+00',
       student_first_name: 'Anna',
       student_last_name: 'Smith',
       student_code: 'GK-1001',
@@ -901,6 +902,7 @@ describe('updateStudentSchema', () => {
 
   it('parses consent checkboxes, defaulting unticked ones to false', () => {
     const result = updateStudentSchema.parse({
+      updated_at: '2026-10-01 09:30:00.123456+00',
       student_first_name: 'Anna',
       student_last_name: 'Smith',
       student_code: 'GK-1001',
@@ -925,7 +927,6 @@ describe('updateStudentSchema', () => {
     expect(result.privacy_notice_read).toBe(true)
     expect(result.first_aid_consent).toBe(false)
     expect(result.photo_video_consent).toBe(false)
-    expect(result.photo_video_consent_initial).toBe(false)
     expect(result.may_leave_unaccompanied).toBe(false)
   })
 
@@ -934,6 +935,7 @@ describe('updateStudentSchema', () => {
     [undefined, false],
   ] as const)('parses may_leave_unaccompanied %j as %s', (value, expected) => {
     const result = updateStudentSchema.parse({
+      updated_at: '2026-10-01 09:30:00.123456+00',
       student_first_name: 'Anna',
       student_last_name: 'Smith',
       student_code: 'GK-1001',
@@ -952,6 +954,33 @@ describe('updateStudentSchema', () => {
       may_leave_unaccompanied: value,
     })
     expect(result.may_leave_unaccompanied).toBe(expected)
+  })
+
+  it('keeps when the form loaded, and requires it', () => {
+    const fields = {
+      student_first_name: 'Anna',
+      student_last_name: 'Smith',
+      student_code: 'GK-1001',
+      student_date_of_birth: '',
+      student_english_school_name: '',
+      address_guardian_id: 'primary',
+      student_allergies: '',
+      student_medical_details: '',
+      student_sen_details: '',
+      student_notes: '',
+      primary_relationship: 'Mother',
+      has_secondary: 'false',
+      has_contact1: 'false',
+      has_contact2: 'false',
+      class_ids: [],
+    }
+    expect(
+      updateStudentSchema.parse({
+        ...fields,
+        updated_at: '2026-10-01 09:30:00.123456+00',
+      }).updated_at,
+    ).toBe('2026-10-01 09:30:00.123456+00')
+    expect(updateStudentSchema.safeParse(fields).success).toBe(false)
   })
 })
 

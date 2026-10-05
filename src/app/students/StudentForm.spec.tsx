@@ -70,6 +70,7 @@ const baseStudent: StudentFormData = {
   home_school_agreement: false,
   email_sms_contact_ack: false,
   may_leave_unaccompanied: false,
+  updated_at: '2026-10-01 09:30:00.123456+00',
 }
 
 function renderNew(action = vi.fn()): ReturnType<typeof render> {
@@ -371,16 +372,11 @@ describe('StudentForm with initial (editing)', () => {
     )
   })
 
-  it('sends what the photo box showed on load with the form', () => {
-    const { container } = renderEdit({
-      ...baseStudent,
-      photo_video_consent: true,
-    })
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Photos & video' }))
+  it('sends when the student was last updated, so a stale save is refused', () => {
+    const { container } = renderEdit()
 
     const data = new FormData(container.querySelector('form')!)
-    expect(data.get('photo_video_consent_initial')).toBe('on')
-    expect(data.has('photo_video_consent')).toBe(false)
+    expect(data.get('updated_at')).toBe('2026-10-01 09:30:00.123456+00')
   })
 
   describe('may leave on their own', () => {
@@ -438,6 +434,13 @@ describe('StudentForm with initial (editing)', () => {
       expect(box()).not.toBeChecked()
       const data = new FormData(container.querySelector('form')!)
       expect(data.has('may_leave_unaccompanied')).toBe(false)
+
+      fireEvent.change(screen.getByLabelText('Date of birth'), {
+        target: { value: '2010-01-01' },
+      })
+
+      expect(box()).toBeEnabled()
+      expect(box()).not.toBeChecked()
     })
   })
 

@@ -8,6 +8,7 @@ import {
   ilike,
   inArray,
   isNotNull,
+  isNull,
   ne,
   or,
   sql,
@@ -522,13 +523,34 @@ async function guardianIdOf(tx: Tx, slot: GuardianSlot): Promise<string> {
  * another student took a moment earlier) leaves no orphaned guardians behind.
  * With `addressFromPrimary` the student shares the primary guardian's address.
  */
+/** An edit to a student, as opposed to creating one. */
+export type StudentEdit = {
+  /** Recorded as who withdrew photo/video consent, if the save does so. */
+  savedBy: string
+  /** The student's `updated_at` when the form was loaded. */
+  loadedAt: string | null
+}
+
+/** The student was saved by someone else after the edit form was loaded. */
+export class StudentChangedError extends Error {
+  constructor() {
+    super(
+      'Someone else changed this student while you were editing. Reload the page to see their changes, then make yours again.',
+    )
+    this.name = 'StudentChangedError'
+  }
+}
+
 export async function saveStudent(
   id: string | null,
   data: Omit<StudentInsert, keyof StudentGuardianIds>,
   slots: StudentGuardianSlots,
   addressFromPrimary: boolean,
-  /** Recorded as who withdrew photo/video consent, if this save does so. */
-  savedBy: string | null = null,
+  /**
+   * For an update: refuses it with {@link StudentChangedError} when the row
+   * has changed since `loadedAt`, so a stale form cannot undo that change.
+   */
+  edit: StudentEdit | null = null,
 ): Promise<{ id: string }> {
   return db.transaction(async (tx) => {
     const primaryId = await guardianIdOf(tx, slots.primary)
@@ -555,15 +577,27 @@ export async function saveStudent(
       return row
     }
 
-    await tx
+    const rows = await tx
       .update(students)
       .set({
         ...values,
         ...(data.photo_video_consent !== undefined &&
-          savedBy !== null &&
-          photoConsentChange(data.photo_video_consent, savedBy)),
+          edit !== null &&
+          photoConsentChange(data.photo_video_consent, edit.savedBy)),
       })
-      .where(eq(students.id, id))
+      .where(
+        and(
+          eq(students.id, id),
+          edit === null
+            ? undefined
+            : edit.loadedAt === null
+              ? isNull(students.updatedAt)
+              : eq(students.updatedAt, edit.loadedAt),
+        ),
+      )
+      .returning({ id: students.id })
+    // Throwing rolls back any guardian created above.
+    if (rows.length === 0 && edit !== null) throw new StudentChangedError()
     return { id }
   })
 }

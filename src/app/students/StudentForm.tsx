@@ -47,6 +47,7 @@ export type StudentFormData = {
   home_school_agreement: boolean
   email_sms_contact_ack: boolean
   may_leave_unaccompanied: boolean
+  updated_at: string | null
 }
 
 type Props = {
@@ -90,8 +91,15 @@ export default function StudentForm({
   const [dateOfBirth, setDateOfBirth] = useState(initial?.date_of_birth ?? '')
   const oldEnoughToLeaveAlone = isOldEnoughToLeaveAlone(dateOfBirth)
   const [leaveAlone, setLeaveAlone] = useState(
-    initial?.may_leave_unaccompanied ?? false,
+    (initial?.may_leave_unaccompanied ?? false) && oldEnoughToLeaveAlone,
   )
+
+  function handleDateOfBirth(value: string): void {
+    setDateOfBirth(value)
+    // A box disabled for a younger child comes back unticked, so the admin
+    // decides afresh.
+    if (!isOldEnoughToLeaveAlone(value)) setLeaveAlone(false)
+  }
   const { handleSubmit, isPending, error, fieldError } = useServerForm(action)
 
   return (
@@ -105,6 +113,14 @@ export default function StudentForm({
         name="address_guardian_id"
         value={addressMode === 'guardian' ? 'primary' : ''}
       />
+      {initial && (
+        // A save is refused once the student has changed since this loaded.
+        <input
+          type="hidden"
+          name="updated_at"
+          value={initial.updated_at ?? ''}
+        />
+      )}
 
       {/* ── Student Details ─────────────────────────────────────────── */}
       <FormSection title="Student Details">
@@ -128,7 +144,7 @@ export default function StudentForm({
             name="student_date_of_birth"
             type="date"
             value={dateOfBirth}
-            onChange={setDateOfBirth}
+            onChange={handleDateOfBirth}
             error={fieldError('student_date_of_birth')}
           />
           <TextField
@@ -380,13 +396,6 @@ export default function StudentForm({
               description="Unticking records you as withdrawing consent, with the time."
               defaultChecked={initial.photo_video_consent}
             />
-            {/* What the box showed on load, so saving other changes cannot
-                undo a withdrawal recorded while this form was open. */}
-            <input
-              type="hidden"
-              name="photo_video_consent_initial"
-              value={initial.photo_video_consent ? 'on' : ''}
-            />
             <CheckboxField
               name="home_school_agreement"
               label="Home–school agreement"
@@ -399,7 +408,7 @@ export default function StudentForm({
                 oldEnoughToLeaveAlone ? undefined : LEAVE_ALONE_AGE_HINT
               }
               disabled={!oldEnoughToLeaveAlone}
-              checked={leaveAlone && oldEnoughToLeaveAlone}
+              checked={leaveAlone}
               onChange={setLeaveAlone}
             />
           </div>
