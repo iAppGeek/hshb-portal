@@ -66,10 +66,12 @@ BEGIN
     RAISE EXCEPTION 'Request not found or already actioned';
   END IF;
 
+  -- Consent that is already off keeps its original withdrawal record. The
+  -- CASEs read the row from before the update.
   UPDATE students SET
     photo_video_consent              = FALSE,
-    photo_video_consent_withdrawn_at = NOW(),
-    photo_video_consent_withdrawn_by = p_staff_id
+    photo_video_consent_withdrawn_at = CASE WHEN photo_video_consent THEN NOW() ELSE photo_video_consent_withdrawn_at END,
+    photo_video_consent_withdrawn_by = CASE WHEN photo_video_consent THEN p_staff_id ELSE photo_video_consent_withdrawn_by END
     WHERE id = p_student_id
     RETURNING id INTO v_found;
   IF v_found IS NULL THEN
