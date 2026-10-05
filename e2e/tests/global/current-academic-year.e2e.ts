@@ -2,8 +2,8 @@ import type { Page } from '@playwright/test'
 
 import { test, expect } from '../../fixtures/index'
 import {
-  db,
   deleteClassByName,
+  insertRow,
   SEED_IDS,
   setCurrentAcademicYear,
 } from '../../fixtures/seed'
@@ -18,13 +18,12 @@ const PRIOR_CODE = '2025-26'
 
 test.describe.serial('Current academic year', () => {
   test.beforeAll(async () => {
-    const { error } = await db.from('classes').insert({
+    await insertRow('classes', {
       name: PRIOR_CLASS,
       year_group: 'Year 9',
       academic_year_id: SEED_IDS.academicYears.previous,
       teacher_id: SEED_IDS.staff.teacher,
     })
-    if (error) throw error
   })
 
   test.afterAll(async () => {

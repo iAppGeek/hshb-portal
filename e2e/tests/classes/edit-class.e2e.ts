@@ -1,9 +1,9 @@
 import { test, expect } from '../../fixtures/index'
 import {
-  db,
-  SEED_IDS,
   deleteClassByName,
   deleteStaffByEmail,
+  insertRow,
+  SEED_IDS,
 } from '../../fixtures/seed'
 
 // Pin to admin — only admins can edit classes
@@ -23,18 +23,12 @@ test.describe('Edit class', () => {
     lastName: string,
     email: string,
   ): Promise<string> {
-    const { data, error } = await db
-      .from('staff')
-      .insert({
-        first_name: 'E2E',
-        last_name: lastName,
-        email,
-        role: 'teacher',
-      })
-      .select('id')
-      .single()
-    if (error) throw error
-    return data.id
+    return insertRow('staff', {
+      first_name: 'E2E',
+      last_name: lastName,
+      email,
+      role: 'teacher',
+    })
   }
 
   test.beforeEach(async ({}, testInfo) => {
@@ -53,18 +47,12 @@ test.describe('Edit class', () => {
       teacherEmails[1],
     )
 
-    const { data, error } = await db
-      .from('classes')
-      .insert({
-        name: className,
-        year_group: '1',
-        teacher_id: originalTeacherId,
-        academic_year_id: SEED_IDS.academicYears.current,
-      })
-      .select('id')
-      .single()
-    if (error) throw error
-    classId = data.id
+    classId = await insertRow('classes', {
+      name: className,
+      year_group: '1',
+      teacher_id: originalTeacherId,
+      academic_year_id: SEED_IDS.academicYears.current,
+    })
   })
 
   test.afterEach(async () => {

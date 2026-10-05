@@ -5,17 +5,21 @@ import { and, asc, eq, inArray } from 'drizzle-orm'
 import type { EnrolmentRangeRow } from '@/lib/attendanceSummary'
 import { sortClasses } from '@/lib/classes'
 import { toClassEmailRoster, type ClassEmailRoster } from '@/lib/communication'
+import { addDays } from '@/lib/compliance'
+import { asDbError, DbError } from '@/lib/db-error'
 import type { EnrolmentRow } from '@/lib/enrolment'
 import { isUuid } from '@/lib/uuid'
-import type { Database } from '@/types/database'
 
 import { toCamel, toSnake, type Snake } from './casing'
-import { db, supabase } from './client'
+import { db } from './client'
+import { closeEnrolments, setEnrolments } from './enrolments'
 import { isCurrentStay, staysOverlapping } from './membership'
+import { markLeaver } from './students'
 import {
   academicYears,
   classes,
   studentClasses,
+  students,
   type Class,
   type Guardian,
   type Staff,
@@ -337,11 +341,22 @@ export async function updateClass(
   id: string,
   data: Partial<Omit<ClassInsert, 'academic_year_id' | 'active'>>,
 ): Promise<void> {
+  // The type already leaves the year out; this stops a cast getting past it.
+  if ('academic_year_id' in data)
+    throw new DbError("A class's academic year cannot be changed")
   await db.update(classes).set(toCamel(data)).where(eq(classes.id, id))
 }
 
 export type MigrationAction =
   'move' | 'none' | 'left' | 'graduated' | 'transferred'
+
+const MIGRATION_ACTIONS: readonly string[] = [
+  'move',
+  'none',
+  'left',
+  'graduated',
+  'transferred',
+] satisfies MigrationAction[]
 
 type MigrateClassInput = {
   name: string
@@ -358,34 +373,179 @@ export type MigrateClassResult = {
   leavers: number
 }
 
-export async function migrateClass(input: {
+/** The rules a migration breaks, raised as constraint errors by its writes. */
+function migrationError(err: unknown, name: string | undefined): unknown {
+  switch (asDbError(err)?.code) {
+    case '23505':
+      return new DbError(
+        `Class name "${name}" already exists for this academic year`,
+      )
+    case '23503':
+      return new DbError(
+        'Invalid teacher or student reference — a record may have been deleted',
+      )
+    case '23514':
+      return new DbError(
+        'Invalid data for class creation — check required fields',
+      )
+    default:
+      return err
+  }
+}
+
+/**
+ * Retires a class at the end of its academic year: optionally creates next
+ * year's class, then applies each active student's action — move into the new
+ * class, leave unassigned, or mark as a leaver — and deactivates the source.
+ * Every stay in the source class ends the day after its year ends; moved
+ * students start on the first day of the target year.
+ */
+export async function migrateClass({
+  sourceClassId,
+  studentActions,
+  newClass,
+}: {
   sourceClassId: string
   studentActions: Record<string, MigrationAction>
   newClass: MigrateClassInput | null
 }): Promise<MigrateClassResult> {
-  // Supabase codegen marks these as optional strings rather than nullable —
-  // the SQL function treats all-NULL new-class params as "no new class".
-  const { data, error } = await supabase.rpc('migrate_class', {
-    p_source_class_id: input.sourceClassId,
-    p_student_actions: input.studentActions,
-    p_academic_year_id: input.newClass?.academic_year_id,
-    p_name: input.newClass?.name,
-    p_year_group: input.newClass?.year_group,
-    p_room_number: input.newClass?.room_number ?? undefined,
-    p_teacher_id: input.newClass?.teacher_id,
-  } as Database['public']['Functions']['migrate_class']['Args'])
-  if (error) throw error
-  return data as unknown as MigrateClassResult
+  const actions = Object.entries(studentActions)
+  try {
+    return await db.transaction(async (tx) => {
+      const [source] = await tx
+        .select({
+          active: classes.active,
+          startDate: academicYears.startDate,
+          endDate: academicYears.endDate,
+        })
+        .from(classes)
+        .innerJoin(academicYears, eq(academicYears.id, classes.academicYearId))
+        .where(eq(classes.id, sourceClassId))
+      if (!source) throw new DbError('Source class not found')
+      if (!source.active) throw new DbError('Source class is already inactive')
+
+      if (
+        newClass &&
+        (!newClass.academic_year_id ||
+          !newClass.year_group ||
+          !newClass.teacher_id)
+      )
+        throw new DbError('Fill in the new class details')
+      if (!newClass && actions.some(([, action]) => action === 'move'))
+        throw new DbError('Students can only move when a new class is created')
+
+      // Only active students need an action. A leaver still on the class
+      // (e.g. after a manual fix) has no choice to make; their stay ends with
+      // the rest.
+      const expected = await tx
+        .select({ studentId: studentClasses.studentId })
+        .from(studentClasses)
+        .innerJoin(students, eq(students.id, studentClasses.studentId))
+        .where(
+          and(
+            eq(studentClasses.classId, sourceClassId),
+            isCurrentStay(studentClasses),
+            eq(students.active, true),
+          ),
+        )
+      const expectedIds = expected.map((row) => row.studentId).sort()
+      const actualIds = actions.map(([studentId]) => studentId).sort()
+      if (expectedIds.join() !== actualIds.join())
+        throw new DbError(
+          'The class changed since the form was loaded. Reload and try again.',
+        )
+
+      if (actions.some(([, action]) => !MIGRATION_ACTIONS.includes(action)))
+        throw new DbError('Invalid action for a student')
+
+      let newClassId: string | null = null
+      let targetStart: string | null = null
+      if (newClass) {
+        const [target] = await tx
+          .select({ startDate: academicYears.startDate })
+          .from(academicYears)
+          .where(eq(academicYears.id, newClass.academic_year_id))
+        const [current] = await tx
+          .select({ startDate: academicYears.startDate })
+          .from(academicYears)
+          .where(eq(academicYears.isCurrent, true))
+        // An unknown target year falls through to the insert's foreign key.
+        targetStart = target?.startDate ?? null
+        if (targetStart !== null && targetStart <= source.startDate)
+          throw new DbError(
+            "Target academic year must be after the source class's academic year",
+          )
+        if (targetStart !== null && current && targetStart < current.startDate)
+          throw new DbError("Students can't be moved into a past academic year")
+
+        const [created] = await tx
+          .insert(classes)
+          .values({
+            name: newClass.name,
+            yearGroup: newClass.year_group,
+            roomNumber: newClass.room_number,
+            academicYearId: newClass.academic_year_id,
+            teacherId: newClass.teacher_id,
+            active: true,
+          })
+          .returning({ id: classes.id })
+        newClassId = created.id
+      }
+
+      // Migration is a year-boundary change, so its dates come from the
+      // academic years, not the day it runs.
+      const stays = await tx
+        .select({ id: studentClasses.id })
+        .from(studentClasses)
+        .where(
+          and(
+            eq(studentClasses.classId, sourceClassId),
+            isCurrentStay(studentClasses),
+          ),
+        )
+      await closeEnrolments(
+        tx,
+        stays.map((stay) => stay.id),
+        addDays(source.endDate, 1),
+      )
+
+      const moving = actions.filter(([, action]) => action === 'move')
+      if (newClassId !== null && targetStart !== null && moving.length > 0) {
+        const classId = newClassId
+        const startDate = targetStart
+        await tx
+          .insert(studentClasses)
+          .values(
+            moving.map(([studentId]) => ({ studentId, classId, startDate })),
+          )
+      }
+      const leaving = actions.filter(
+        ([, action]) => action !== 'move' && action !== 'none',
+      )
+      for (const [studentId, reason] of leaving)
+        await markLeaver(tx, studentId, reason)
+
+      await tx
+        .update(classes)
+        .set({ active: false })
+        .where(eq(classes.id, sourceClassId))
+
+      return {
+        new_class_id: newClassId,
+        moved: moving.length,
+        unassigned: actions.filter(([, action]) => action === 'none').length,
+        leavers: leaving.length,
+      }
+    })
+  } catch (err) {
+    throw migrationError(err, newClass?.name)
+  }
 }
 
+/** Makes `studentIds` the class's current students; see setEnrolments. */
 export async function setClassStudents(
   classId: string,
   studentIds: string[],
 ): Promise<void> {
-  const { error } = await supabase.rpc('set_enrolments', {
-    p_student_id: null,
-    p_class_id: classId,
-    p_ids: studentIds,
-  } as unknown as Database['public']['Functions']['set_enrolments']['Args'])
-  if (error) throw error
+  await db.transaction((tx) => setEnrolments(tx, { classId }, studentIds))
 }

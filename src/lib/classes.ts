@@ -1,5 +1,5 @@
-// Pure class helpers: status (isClassOpen mirrors is_class_open in the
-// database) and the school's class order.
+// Pure class helpers: status (mirrors isClassOpen in src/db/enrolments.ts)
+// and the school's class order.
 
 /**
  * An open class is active and in the current academic year. Only open classes

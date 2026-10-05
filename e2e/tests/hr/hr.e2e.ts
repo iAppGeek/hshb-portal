@@ -1,6 +1,6 @@
 import { test, expect } from '../../fixtures/index'
 import { loadWithFreshData } from '../../fixtures/loadWithFreshData'
-import { db, deleteStaffByEmail } from '../../fixtures/seed'
+import { deleteStaffByEmail, insertRow, sql } from '../../fixtures/seed'
 
 // HR is admin-only; redirects for other roles are covered by
 // permissions/entitlements.e2e.ts and navigation/sidebar.e2e.ts.
@@ -21,19 +21,13 @@ test.describe('HR', () => {
       )
     staffEmail = `e2e.hr.${suffix.toLowerCase()}@test.hshb.local`
 
-    const { data: staff, error: staffError } = await db
-      .from('staff')
-      .insert({
-        title: 'Dr',
-        first_name: 'Hr',
-        last_name: `E2EHrStaff${suffix}`,
-        email: staffEmail,
-        role: 'teacher',
-      })
-      .select('id')
-      .single()
-    if (staffError) throw staffError
-    staffId = staff.id
+    staffId = await insertRow('staff', {
+      title: 'Dr',
+      first_name: 'Hr',
+      last_name: `E2EHrStaff${suffix}`,
+      email: staffEmail,
+      role: 'teacher',
+    })
   })
 
   test.afterEach(async () => {
@@ -71,11 +65,8 @@ test.describe('HR', () => {
     await expect(row).toContainText('••••5678')
     await expect(row).not.toContainText('12345678')
 
-    const { data: payroll } = await db
-      .from('staff_payroll')
-      .select('national_insurance_number, address_line_1, city, postcode')
-      .eq('staff_id', staffId)
-      .single()
+    const [payroll] =
+      await sql`select national_insurance_number, address_line_1, city, postcode from staff_payroll where staff_id = ${staffId}`
     expect(payroll).toEqual({
       national_insurance_number: 'AB 12 34 56 C',
       address_line_1: '1 High Street',

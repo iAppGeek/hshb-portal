@@ -1,9 +1,10 @@
-import { eq } from 'drizzle-orm'
-import { afterAll, describe, expect, it } from 'vitest'
+import { and, count, eq, isNull } from 'drizzle-orm'
+import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 
-import { asDbError } from '@/lib/db-error'
-import type { Database } from '@/types/database'
+import { todayInSchoolTz } from '@/lib/datetime'
+import { asDbError, DbError } from '@/lib/db-error'
 
+import { db } from './client'
 import {
   approveRegistration,
   createRegistrationSubmission,
@@ -12,16 +13,20 @@ import {
   getRegistrationSubmissionById,
   getRegistrationSubmissions,
   rejectRegistration,
+  type RegistrationSubmissionInsert,
 } from './registrations'
-import { db } from './client'
-import { students } from './schema'
+import {
+  classes,
+  guardians,
+  registrationSubmissionContacts,
+  registrationSubmissions,
+  studentClasses,
+  students,
+} from './schema'
 import { getStudentById } from './students'
-import { resetDatabase, SEED } from './test-db'
+import { failWritesTo, resetDatabase, SEED } from './test-db'
 
 afterAll(resetDatabase)
-
-type SubmissionInsert =
-  Database['public']['Tables']['registration_submissions']['Insert']
 
 const V1_CONSENTS = {
   privacy_notice_read: true,
@@ -33,11 +38,11 @@ const V1_CONSENTS = {
   sen_details: 'Dyslexia',
   consents_recorded_at: '2026-10-04T09:30:00.000Z',
   privacy_notice_version: '1.0',
-} satisfies Partial<SubmissionInsert>
+} satisfies Partial<RegistrationSubmissionInsert>
 
 async function submit(
   childFirstName: string,
-  consents: Partial<SubmissionInsert> = {},
+  consents: Partial<RegistrationSubmissionInsert> = {},
 ): Promise<string> {
   const { id } = await createRegistrationSubmission({
     submission: {
@@ -132,39 +137,6 @@ describe('registration review', () => {
     ).rejects.toThrow('Submission not found or already actioned')
   })
 
-  it('approves a submission into a new student through the RPC', async () => {
-    const id = await submit('Ava')
-    const result = await approveRegistration({
-      submissionId: id,
-      staffId: SEED.staff.admin,
-      studentCode: 'AVA-1',
-      classId: SEED.classes.gamma,
-      existingStudentId: null,
-      reuseGuardians: true,
-    })
-    expect(result.linked_existing).toBe(false)
-    expect(result.guardians).toHaveLength(2)
-    expect((await getRegistrationSubmissionById(id))?.student_id).toBe(
-      result.student_id,
-    )
-  })
-
-  it('names the code constraint when the code is taken', async () => {
-    const id = await submit('Bea')
-    const err = await approveRegistration({
-      submissionId: id,
-      staffId: SEED.staff.admin,
-      studentCode: 'AVA-1',
-      classId: null,
-      existingStudentId: null,
-      reuseGuardians: true,
-    }).catch((e: unknown) => e)
-    expect(asDbError(err)).toMatchObject({
-      code: '23505',
-      constraint: 'students_student_code_key',
-    })
-  })
-
   it('deletes a submission, and fails for a missing one', async () => {
     const id = await submit('Del')
     await deleteRegistrationSubmission(id)
@@ -252,7 +224,7 @@ describe('registration consents', () => {
     }
 
     async function approveOntoCarol(
-      consents: Partial<SubmissionInsert>,
+      consents: Partial<RegistrationSubmissionInsert>,
     ): Promise<void> {
       const id = await submit('Carol', consents)
       await approveRegistration({
@@ -312,6 +284,423 @@ describe('registration consents', () => {
         photo_video_consent: false,
         photo_video_consent_withdrawn_at: '2026-09-01T10:00:00+00:00',
       })
+    })
+  })
+})
+
+async function rowCount(
+  table:
+    | typeof guardians
+    | typeof students
+    | typeof registrationSubmissions
+    | typeof registrationSubmissionContacts,
+): Promise<number> {
+  const [{ n }] = await db.select({ n: count() }).from(table)
+  return n
+}
+
+describe('createRegistrationSubmission', () => {
+  it('stores the submission and its contacts with their defaults', async () => {
+    const id = await submit('Def')
+    expect(await getRegistrationSubmissionById(id)).toMatchObject({
+      status: 'pending',
+      photo_video_consent: false,
+      privacy_notice_read: true,
+      contacts: expect.arrayContaining([
+        expect.objectContaining({
+          contact_role: 'primary',
+          same_as_child_address: true,
+        }),
+      ]),
+    })
+  })
+
+  it('requires a primary contact, saving nothing without one', async () => {
+    const before = await rowCount(registrationSubmissions)
+    await expect(
+      createRegistrationSubmission({
+        submission: {
+          child_first_name: 'No',
+          child_last_name: 'Primary',
+          date_of_birth: '2019-05-05',
+          address_line_1: '4 New Rd',
+          city: 'London',
+          postcode: 'N4 4AA',
+          declaration_name: 'Sam Parent',
+        },
+        contacts: [
+          {
+            contact_role: 'secondary',
+            first_name: 'Sam',
+            last_name: 'Parent',
+            phone: '07900000002',
+          },
+        ],
+      }),
+    ).rejects.toEqual(new DbError('A primary parent/carer is required'))
+    expect(await rowCount(registrationSubmissions)).toBe(before)
+  })
+
+  it('leaves nothing behind when a write fails part-way', async () => {
+    const before = await rowCount(registrationSubmissions)
+    const err = await failWritesTo(
+      'registration_submission_contacts',
+      "contact_role <> 'secondary'",
+      () => submit('Half'),
+    )
+    expect(err).toBeDefined()
+    expect(await rowCount(registrationSubmissions)).toBe(before)
+  })
+})
+
+describe('approveRegistration', () => {
+  beforeEach(resetDatabase)
+
+  const approve = (
+    submissionId: string,
+    options: Partial<{
+      studentCode: string | null
+      classId: string | null
+      existingStudentId: string | null
+      reuseGuardians: boolean
+      staffId: string
+    }> = {},
+  ): ReturnType<typeof approveRegistration> =>
+    approveRegistration({
+      submissionId,
+      staffId: SEED.staff.admin,
+      studentCode: null,
+      classId: null,
+      existingStudentId: null,
+      reuseGuardians: true,
+      ...options,
+    })
+
+  /** A submission whose primary contact is the seeded guardian `contact`. */
+  async function submitFor(
+    contact: {
+      last_name: string
+      phone: string
+      email?: string | null
+    },
+    childFirstName = 'Ava',
+  ): Promise<string> {
+    const { id } = await createRegistrationSubmission({
+      submission: {
+        child_first_name: childFirstName,
+        child_last_name: 'Applicant',
+        date_of_birth: '2019-05-05',
+        address_line_1: '4 New Rd',
+        city: 'London',
+        postcode: 'N4 4AA',
+        declaration_name: 'Pat Parent',
+        privacy_notice_read: true,
+      },
+      contacts: [
+        {
+          contact_role: 'primary',
+          first_name: 'Pat',
+          relationship: 'Mother',
+          occupation: 'Nurse',
+          ...contact,
+        },
+        {
+          contact_role: 'secondary',
+          first_name: 'Sam',
+          last_name: 'Parent',
+          phone: '07900000002',
+          relationship: 'Father',
+        },
+      ],
+    })
+    return id
+  }
+
+  async function guardian(id: string): Promise<{
+    phone: string
+    occupation: string | null
+    city: string | null
+  }> {
+    const [row] = await db
+      .select({
+        phone: guardians.phone,
+        occupation: guardians.occupation,
+        city: guardians.city,
+      })
+      .from(guardians)
+      .where(eq(guardians.id, id))
+    return row
+  }
+
+  it('creates a student, reusing a guardian matched by email and refreshing them', async () => {
+    const id = await submitFor({
+      last_name: 'AliceGuardian',
+      phone: '07900000001',
+      email: 'GARY.ALICE@example.com',
+    })
+
+    const result = await approve(id, {
+      studentCode: 'AVA-1',
+      classId: SEED.classes.gamma,
+    })
+
+    expect(result).toEqual({
+      student_id: expect.any(String),
+      linked_existing: false,
+      guardians: [
+        {
+          contact_role: 'primary',
+          guardian_id: SEED.guardians.gary,
+          reused: true,
+          matched_on: 'email',
+          changes: {
+            phone: { old: '07711000001', new: '07900000001' },
+            email: {
+              old: 'gary.alice@example.com',
+              new: 'GARY.ALICE@example.com',
+            },
+            occupation: { old: 'Bus driver', new: 'Nurse' },
+            address_line_1: { old: null, new: '4 New Rd' },
+            city: { old: null, new: 'London' },
+            postcode: { old: null, new: 'N4 4AA' },
+          },
+        },
+        {
+          contact_role: 'secondary',
+          guardian_id: expect.any(String),
+          reused: false,
+          matched_on: null,
+          changes: {},
+        },
+      ],
+      student_changes: {},
+    })
+    expect(await guardian(SEED.guardians.gary)).toEqual({
+      phone: '07900000001',
+      occupation: 'Nurse',
+      city: 'London',
+    })
+
+    const [student] = await db
+      .select()
+      .from(students)
+      .where(eq(students.id, result.student_id))
+    expect(student).toMatchObject({
+      studentCode: 'AVA-1',
+      firstName: 'Ava',
+      primaryGuardianId: SEED.guardians.gary,
+      primaryGuardianRelationship: 'Mother',
+      secondaryGuardianId: result.guardians[1].guardian_id,
+      secondaryGuardianRelationship: 'Father',
+      addressLine1: '4 New Rd',
+      privacyNoticeRead: true,
+      active: true,
+    })
+    const stays = await db
+      .select({
+        classId: studentClasses.classId,
+        startDate: studentClasses.startDate,
+      })
+      .from(studentClasses)
+      .where(eq(studentClasses.studentId, result.student_id))
+    expect(stays).toEqual([
+      { classId: SEED.classes.gamma, startDate: todayInSchoolTz() },
+    ])
+    expect(await getRegistrationSubmissionById(id)).toMatchObject({
+      status: 'actioned',
+      actioned_by: SEED.staff.admin,
+      student_id: result.student_id,
+      linked_existing: false,
+    })
+  })
+
+  it('matches by phone digits and last name when there is no email', async () => {
+    const id = await submitFor({
+      last_name: 'bobguardian',
+      phone: '07711 000 002',
+      email: null,
+    })
+    const result = await approve(id)
+    expect(result.guardians[0]).toMatchObject({
+      guardian_id: SEED.guardians.grace,
+      reused: true,
+      matched_on: 'phone',
+    })
+  })
+
+  it('creates new guardians when told not to reuse', async () => {
+    const before = await rowCount(guardians)
+    const id = await submitFor({
+      last_name: 'AliceGuardian',
+      phone: '07711000001',
+      email: 'gary.alice@example.com',
+    })
+    const result = await approve(id, { reuseGuardians: false })
+    expect(result.guardians.map((g) => g.reused)).toEqual([false, false])
+    expect(await rowCount(guardians)).toBe(before + 2)
+    expect(await guardian(SEED.guardians.gary)).toMatchObject({
+      phone: '07711000001',
+    })
+  })
+
+  it('links a returning child: the submission replaces their details and reactivates them', async () => {
+    await db
+      .update(students)
+      .set({ active: false, leavingReason: 'left', studentCode: 'CAR-1' })
+      .where(eq(students.id, SEED.students.carol))
+    const id = await submitFor(
+      { last_name: 'CarolGuardian', phone: '07711000003', email: null },
+      'Caroline',
+    )
+
+    const result = await approve(id, {
+      existingStudentId: SEED.students.carol,
+    })
+
+    expect(result.student_id).toBe(SEED.students.carol)
+    expect(result.linked_existing).toBe(true)
+    expect(result.student_changes).toEqual({
+      first_name: { old: 'Carol', new: 'Caroline' },
+      last_name: { old: 'Student', new: 'Applicant' },
+      date_of_birth: { old: null, new: '2019-05-05' },
+      address_line_1: { old: '3 Test St', new: '4 New Rd' },
+      postcode: { old: 'N1 1AC', new: 'N4 4AA' },
+      secondary_guardian_id: {
+        old: null,
+        new: result.guardians[1].guardian_id,
+      },
+      privacy_notice_read: { old: 'false', new: 'true' },
+      active: { old: 'false', new: 'true' },
+    })
+    const [carol] = await db
+      .select({
+        studentCode: students.studentCode,
+        leavingReason: students.leavingReason,
+      })
+      .from(students)
+      .where(eq(students.id, SEED.students.carol))
+    expect(carol).toEqual({ studentCode: 'CAR-1', leavingReason: null })
+    expect(await getRegistrationSubmissionById(id)).toMatchObject({
+      linked_existing: true,
+    })
+  })
+
+  it('rejects a missing or already actioned submission', async () => {
+    await expect(approve(SEED.registrations.rejected)).rejects.toEqual(
+      new DbError('Submission not found or already actioned'),
+    )
+    const id = await submitFor({ last_name: 'Once', phone: '07900000009' })
+    await approve(id)
+    await expect(approve(id)).rejects.toEqual(
+      new DbError('Submission not found or already actioned'),
+    )
+  })
+
+  it('rejects a class that is not open', async () => {
+    const [prior] = await db
+      .insert(classes)
+      .values({
+        name: 'Old',
+        yearGroup: 'Year 1',
+        academicYearId: SEED.years.prior,
+      })
+      .returning({ id: classes.id })
+    await expect(
+      approve(SEED.registrations.pending, { classId: prior.id }),
+    ).rejects.toEqual(
+      new DbError(
+        'Students can only be enrolled in active classes of the current year.',
+      ),
+    )
+  })
+
+  it('rejects a submission without a primary contact', async () => {
+    await db
+      .delete(registrationSubmissionContacts)
+      .where(
+        eq(
+          registrationSubmissionContacts.submissionId,
+          SEED.registrations.pending,
+        ),
+      )
+    await expect(approve(SEED.registrations.pending)).rejects.toEqual(
+      new DbError(
+        'Submission has no primary parent/carer — cannot create a student',
+      ),
+    )
+  })
+
+  it('rejects a missing existing student, names a code in use, and rejects a missing staff member', async () => {
+    await expect(
+      approve(SEED.registrations.pending, {
+        existingStudentId: '30000000-0000-0000-0000-0000000000ff',
+      }),
+    ).rejects.toEqual(new DbError('Existing student not found'))
+
+    await db
+      .update(students)
+      .set({ studentCode: 'TAKEN' })
+      .where(eq(students.id, SEED.students.alice))
+    // The action turns this constraint into an error on the code field.
+    const taken = await approve(SEED.registrations.pending, {
+      studentCode: 'TAKEN',
+    }).catch((e: unknown) => e)
+    expect(asDbError(taken)).toMatchObject({
+      code: '23505',
+      constraint: 'students_student_code_key',
+    })
+
+    await expect(
+      approve(SEED.registrations.pending, {
+        staffId: '00000000-0000-0000-0000-0000000000ff',
+      }),
+    ).rejects.toEqual(
+      new DbError(
+        'Invalid class or student reference — a record may have been deleted',
+      ),
+    )
+  })
+
+  it('leaves nothing behind when a write fails part-way', async () => {
+    const id = await submitFor({
+      last_name: 'AliceGuardian',
+      phone: '07900000001',
+      email: 'gary.alice@example.com',
+    })
+    const counts = {
+      guardians: await rowCount(guardians),
+      students: await rowCount(students),
+    }
+
+    // Guardians, student and enrolment are written before the submission's
+    // status update fails.
+    const err = await failWritesTo(
+      'registration_submissions',
+      "status <> 'actioned'",
+      () => approve(id, { classId: SEED.classes.gamma }),
+    )
+    expect(err).toEqual(
+      new DbError('Student address is incomplete — cannot approve'),
+    )
+    expect({
+      guardians: await rowCount(guardians),
+      students: await rowCount(students),
+    }).toEqual(counts)
+    expect(await guardian(SEED.guardians.gary)).toMatchObject({
+      phone: '07711000001',
+    })
+    const gammaStays = await db
+      .select()
+      .from(studentClasses)
+      .where(
+        and(
+          eq(studentClasses.classId, SEED.classes.gamma),
+          isNull(studentClasses.endDate),
+        ),
+      )
+    expect(gammaStays).toEqual([])
+    expect(await getRegistrationSubmissionById(id)).toMatchObject({
+      status: 'pending',
     })
   })
 })

@@ -8,12 +8,14 @@
  * produce `address_line1`. Constraint, index and FK names are explicit so they
  * match the names already in production.
  *
- * Not modelled here (they stay in supabase/migrations until plan 10):
- * - the `set_updated_at` and `classes_academic_year_immutable` triggers —
- *   `updatedAt` only carries its `now()` default;
- * - the `academic_years_no_overlap` EXCLUDE constraint (Drizzle has no API for
- *   exclusion constraints);
- * - the PL/pgSQL functions.
+ * Every table calls `.enableRLS()` with no policies (src/db/schema.spec.ts
+ * enforces it). The app connects as `postgres`, which bypasses RLS; RLS is
+ * there to deny Supabase's public Data API, whose roles also hold no grants.
+ *
+ * Not modelled here: the `academic_years_no_overlap` EXCLUDE constraint
+ * (Drizzle has no API for exclusion constraints), which stays in
+ * supabase/migrations. There are no database functions or triggers: behaviour
+ * is TypeScript in src/db.
  */
 import { relations, sql } from 'drizzle-orm'
 import {
@@ -35,6 +37,9 @@ import {
 import { timestamptz } from './timestamptz'
 
 const money = () => numeric({ precision: 10, scale: 2, mode: 'number' })
+
+/** `updatedAt` on every Drizzle update and upsert (was the set_updated_at trigger). */
+const stamp = (): string => new Date().toISOString()
 
 // ─── Enums ──────────────────────────────────────────────────────────────────
 
@@ -72,7 +77,8 @@ export const academicYears = pgTable(
       .notNull(),
     updatedAt: timestamptz()
       .default(sql`now()`)
-      .notNull(),
+      .notNull()
+      .$onUpdate(stamp),
   },
   (t) => [
     unique('academic_years_code_key').on(t.code),
@@ -121,7 +127,9 @@ export const guardians = pgTable(
     postcode: text(),
     notes: text(),
     createdAt: timestamptz().default(sql`now()`),
-    updatedAt: timestamptz().default(sql`now()`),
+    updatedAt: timestamptz()
+      .default(sql`now()`)
+      .$onUpdate(stamp),
     occupation: text(),
   },
   (t) => [
@@ -143,7 +151,9 @@ export const students = pgTable(
     active: boolean().default(true).notNull(),
     notes: text(),
     createdAt: timestamptz().default(sql`now()`),
-    updatedAt: timestamptz().default(sql`now()`),
+    updatedAt: timestamptz()
+      .default(sql`now()`)
+      .$onUpdate(stamp),
     addressLine1: text('address_line_1'),
     addressLine2: text('address_line_2'),
     city: text(),
@@ -275,7 +285,7 @@ export const studentClasses = pgTable(
     classId: uuid().notNull(),
     enrolledAt: timestamptz().default(sql`now()`),
     startDate: date()
-      .default(sql`public.today_london()`)
+      .default(sql`((now() AT TIME ZONE 'Europe/London'::text))::date`)
       .notNull(),
     endDate: date(),
   },
@@ -319,7 +329,9 @@ export const attendance = pgTable(
     notes: text(),
     recordedBy: uuid(),
     createdAt: timestamptz().default(sql`now()`),
-    updatedAt: timestamptz().default(sql`now()`),
+    updatedAt: timestamptz()
+      .default(sql`now()`)
+      .$onUpdate(stamp),
   },
   (t) => [
     unique('attendance_class_student_date_key').on(
@@ -389,7 +401,8 @@ export const feePlans = pgTable(
       .notNull(),
     updatedAt: timestamptz()
       .default(sql`now()`)
-      .notNull(),
+      .notNull()
+      .$onUpdate(stamp),
     academicYearId: uuid().notNull(),
   },
   (t) => [
@@ -457,7 +470,8 @@ export const incidents = pgTable(
       .notNull(),
     updatedAt: timestamptz()
       .default(sql`now()`)
-      .notNull(),
+      .notNull()
+      .$onUpdate(stamp),
     parentNotified: boolean().default(false).notNull(),
     parentNotifiedAt: timestamptz(),
   },
@@ -504,7 +518,8 @@ export const lessonPlans = pgTable(
       .notNull(),
     updatedAt: timestamptz()
       .default(sql`now()`)
-      .notNull(),
+      .notNull()
+      .$onUpdate(stamp),
   },
   (t) => [
     unique('lesson_plans_class_id_lesson_date_key').on(t.classId, t.lessonDate),
@@ -553,7 +568,8 @@ export const photoConsentOptOuts = pgTable(
       .notNull(),
     updatedAt: timestamptz()
       .default(sql`now()`)
-      .notNull(),
+      .notNull()
+      .$onUpdate(stamp),
   },
   (t) => [
     index('photo_consent_opt_outs_status_idx').using('btree', t.status),
@@ -631,7 +647,8 @@ export const registrationSubmissions = pgTable(
       .notNull(),
     updatedAt: timestamptz()
       .default(sql`now()`)
-      .notNull(),
+      .notNull()
+      .$onUpdate(stamp),
     englishSchoolName: text(),
     senDetails: text(),
     // True only when the parent ticked it; the box is offered from age 12.
@@ -712,7 +729,9 @@ export const staffAttendance = pgTable(
     signedInAt: timestamptz().notNull(),
     signedOutAt: timestamptz(),
     createdAt: timestamptz().default(sql`now()`),
-    updatedAt: timestamptz().default(sql`now()`),
+    updatedAt: timestamptz()
+      .default(sql`now()`)
+      .$onUpdate(stamp),
   },
   (t) => [
     unique('staff_attendance_staff_id_date_key').on(t.staffId, t.date),
@@ -771,7 +790,8 @@ export const staffPayroll = pgTable(
       .notNull(),
     updatedAt: timestamptz()
       .default(sql`now()`)
-      .notNull(),
+      .notNull()
+      .$onUpdate(stamp),
   },
   (t) => [
     unique('staff_payroll_staff_id_key').on(t.staffId),
@@ -849,7 +869,8 @@ export const studentFeeAccounts = pgTable(
       .notNull(),
     updatedAt: timestamptz()
       .default(sql`now()`)
-      .notNull(),
+      .notNull()
+      .$onUpdate(stamp),
     academicYearId: uuid().notNull(),
     settled: boolean().default(false).notNull(),
     settledNote: text(),

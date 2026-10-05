@@ -1,5 +1,5 @@
 import { test, expect } from '../../fixtures/index'
-import { db, SEED_IDS } from '../../fixtures/seed'
+import { insertRow, SEED_IDS, sql } from '../../fixtures/seed'
 
 // Pin to admin — admins can view every class register
 test.use({ storageState: 'e2e/.auth/admin.json' })
@@ -20,48 +20,36 @@ test.describe('Class register', () => {
     studentCode = `E2E-${suffix}`
 
     // Inactive so it never appears in the seed teachers' own class lists
-    const { data: cls, error: classError } = await db
-      .from('classes')
-      .insert({
-        name: `E2ERegisterClass${suffix}`,
-        year_group: '1',
-        teacher_id: SEED_IDS.staff.teacher,
-        academic_year_id: SEED_IDS.academicYears.current,
-        active: false,
-      })
-      .select('id')
-      .single()
-    if (classError) throw classError
-    classId = cls.id
+    classId = await insertRow('classes', {
+      name: `E2ERegisterClass${suffix}`,
+      year_group: '1',
+      teacher_id: SEED_IDS.staff.teacher,
+      academic_year_id: SEED_IDS.academicYears.current,
+      active: false,
+    })
 
-    const { data: student, error: studentError } = await db
-      .from('students')
-      .insert({
-        first_name: 'Register',
-        last_name: `E2E${suffix}`,
-        student_code: studentCode,
-        primary_guardian_id: SEED_GUARDIAN_ID,
-        // students_address_source_check needs an address or an address guardian
-        address_guardian_id: SEED_GUARDIAN_ID,
-      })
-      .select('id')
-      .single()
-    if (studentError) throw studentError
-    studentId = student.id
+    studentId = await insertRow('students', {
+      first_name: 'Register',
+      last_name: `E2E${suffix}`,
+      student_code: studentCode,
+      primary_guardian_id: SEED_GUARDIAN_ID,
+      // students_address_source_check needs an address or an address guardian
+      address_guardian_id: SEED_GUARDIAN_ID,
+    })
 
-    const { error: enrolError } = await db
-      .from('student_classes')
-      .insert({ class_id: classId, student_id: studentId })
-    if (enrolError) throw enrolError
+    await insertRow('student_classes', {
+      class_id: classId,
+      student_id: studentId,
+    })
   })
 
   test.afterEach(async () => {
     if (studentId) {
-      await db.from('student_classes').delete().eq('student_id', studentId)
-      await db.from('students').delete().eq('id', studentId)
+      await sql`delete from student_classes where student_id = ${studentId}`
+      await sql`delete from students where id = ${studentId}`
     }
     if (classId) {
-      await db.from('classes').delete().eq('id', classId)
+      await sql`delete from classes where id = ${classId}`
     }
     studentId = undefined
     classId = undefined

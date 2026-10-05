@@ -1,7 +1,7 @@
 import { DrizzleQueryError } from 'drizzle-orm'
 import { describe, it, expect } from 'vitest'
 
-import { asDbError, getUserFriendlyDbError } from './db-error'
+import { asDbError, DbError, getUserFriendlyDbError } from './db-error'
 
 const FALLBACK = 'Something went wrong. Please try again.'
 
@@ -11,7 +11,7 @@ describe('getUserFriendlyDbError', () => {
       const err = {
         code: '23505',
         message: 'duplicate key value violates unique constraint',
-        details: 'Key (email)=(test@example.com) already exists.',
+        detail: 'Key (email)=(test@example.com) already exists.',
       }
       expect(getUserFriendlyDbError(err, FALLBACK)).toBe(
         'A record with this email already exists.',
@@ -22,7 +22,7 @@ describe('getUserFriendlyDbError', () => {
       const err = {
         code: '23505',
         message: 'duplicate key value violates unique constraint',
-        details: 'Key (student_code)=(ABC123) already exists.',
+        detail: 'Key (student_code)=(ABC123) already exists.',
       }
       expect(getUserFriendlyDbError(err, FALLBACK)).toBe(
         'A record with this student code already exists.',
@@ -76,15 +76,28 @@ describe('getUserFriendlyDbError', () => {
     })
   })
 
-  describe('P0001 — raised exception', () => {
-    it('returns the exception message verbatim', () => {
-      const err = {
-        code: 'P0001',
-        message: 'Student code "S001" is already in use',
-      }
-      expect(getUserFriendlyDbError(err, FALLBACK)).toBe(
-        'Student code "S001" is already in use',
-      )
+  describe('DbError — a rule broken in src/db', () => {
+    it('returns the message verbatim', () => {
+      expect(
+        getUserFriendlyDbError(
+          new DbError("Leavers can't be enrolled in classes."),
+          FALLBACK,
+        ),
+      ).toBe("Leavers can't be enrolled in classes.")
+    })
+
+    it('ignores a plain Error with the same message', () => {
+      expect(
+        getUserFriendlyDbError(
+          new Error("Leavers can't be enrolled in classes."),
+          FALLBACK,
+        ),
+      ).toBe(FALLBACK)
+    })
+
+    it('treats a leftover P0001 as unknown', () => {
+      const err = { code: 'P0001', message: 'raised' }
+      expect(getUserFriendlyDbError(err, FALLBACK)).toBe(FALLBACK)
     })
   })
 
@@ -166,26 +179,8 @@ describe('asDbError', () => {
     })
   })
 
-  it('reads the PostgREST `details` field', () => {
-    expect(
-      asDbError({ code: 'P0001', message: 'Nope', details: 'more' }),
-    ).toEqual({
-      code: 'P0001',
-      message: 'Nope',
-      details: 'more',
-      constraint: undefined,
-    })
-  })
-
-  it('reads the constraint of a PostgREST error from its message', () => {
-    expect(
-      asDbError({
-        code: '23505',
-        message:
-          'duplicate key value violates unique constraint "students_student_code_key"',
-        details: 'Key (student_code)=(GK-1001) already exists.',
-      }),
-    ).toMatchObject({ constraint: 'students_student_code_key' })
+  it('returns null for a DbError, which has no Postgres code', () => {
+    expect(asDbError(new DbError('Nope'))).toBeNull()
   })
 
   it('returns null for errors without a code', () => {
