@@ -5,6 +5,7 @@ import type { ClassOption, GuardianMatch } from '@/db'
 import DefinitionList from '@/components/DefinitionList'
 import PermissionedButton from '@/components/PermissionedButton'
 import { ConfirmDialog, ReasonDialog, useDialog } from '@/components/dialogs'
+import { consentItems } from '@/lib/consents'
 import { formatDateInSchoolTz, formatDateTimeInSchoolTz } from '@/lib/datetime'
 import { personName } from '@/lib/format'
 import { guardianReuseDiff, type FieldDiff } from '@/lib/guardianDiff'
@@ -127,6 +128,10 @@ export default function RegistrationReview({
             label: 'Medical details',
             value: submission.medical_details ?? '—',
           },
+          {
+            label: 'Special educational needs or disability',
+            value: submission.sen_details ?? '—',
+          },
         ]}
       />
 
@@ -229,26 +234,7 @@ export default function RegistrationReview({
       <DefinitionList
         title="Consents"
         items={[
-          {
-            label: 'Privacy notice',
-            value: submission.consent_privacy_notice ? 'Yes' : 'No',
-          },
-          {
-            label: 'Emergency first aid',
-            value: submission.consent_emergency_first_aid ? 'Yes' : 'No',
-          },
-          {
-            label: 'Photo & media',
-            value: submission.consent_photo_media ? 'Yes' : 'No',
-          },
-          {
-            label: 'Home–school agreement',
-            value: submission.consent_home_school ? 'Yes' : 'No',
-          },
-          {
-            label: 'Email & SMS',
-            value: submission.consent_comms_email_sms ? 'Yes' : 'No',
-          },
+          ...consentItems(submission),
           { label: 'Signed by', value: submission.declaration_name },
         ]}
       />

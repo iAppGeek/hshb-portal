@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 
 import ClassRegisterCard, { type RegisterStudent } from './ClassRegisterCard'
 
@@ -12,6 +12,7 @@ function makeStudent(
     first_name: 'Nikos',
     last_name: 'Papadopoulos',
     allergies: null,
+    photo_video_consent: true,
     primary_guardian: null,
     ...overrides,
   }
@@ -82,5 +83,63 @@ describe('ClassRegisterCard', () => {
       'href',
       'tel:07700 900000',
     )
+  })
+
+  describe('photo consent', () => {
+    function renderRoster(students: RegisterStudent[]): void {
+      render(
+        <ClassRegisterCard
+          teacherName="Tom Teacher"
+          teacherEmail={null}
+          yearGroup="1"
+          academicYear="2026-27"
+          students={students}
+          emptyMessage="No students enrolled in this class."
+        />,
+      )
+    }
+
+    it('marks each child who must not be photographed', () => {
+      renderRoster([
+        makeStudent({ id: 's1', first_name: 'Nikos' }),
+        makeStudent({
+          id: 's2',
+          first_name: 'Eleni',
+          photo_video_consent: false,
+        }),
+      ])
+
+      expect(
+        within(screen.getByRole('row', { name: /Eleni/ })).getByText(
+          'No photos',
+        ),
+      ).toBeTruthy()
+      expect(
+        within(screen.getByRole('row', { name: /Nikos/ })).queryByText(
+          'No photos',
+        ),
+      ).toBeNull()
+    })
+
+    it('counts the children without consent above the list', () => {
+      renderRoster([
+        makeStudent({ id: 's1', photo_video_consent: false }),
+        makeStudent({ id: 's2', photo_video_consent: false }),
+        makeStudent({ id: 's3' }),
+      ])
+
+      expect(
+        screen.getByText(
+          '2 children in this class must not be photographed or filmed.',
+        ),
+      ).toBeTruthy()
+    })
+
+    it('says nothing when every child has consent', () => {
+      renderRoster([makeStudent()])
+
+      expect(screen.queryByText('No photos')).toBeNull()
+      expect(screen.queryByText(/must not be photographed/)).toBeNull()
+    })
   })
 })

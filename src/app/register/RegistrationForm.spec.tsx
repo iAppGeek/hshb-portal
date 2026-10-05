@@ -1,7 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import {
+  act,
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from '@testing-library/react'
 
 import { SHORT_TEXT_MAX } from '@/lib/schemas'
+import {
+  HOME_SCHOOL_AGREEMENT_URL,
+  POLICIES_URL,
+  PRIVACY_NOTICE_URL,
+} from '@/lib/schoolWebsite'
 
 import { submitRegistrationAction } from './actions'
 import RegistrationForm from './RegistrationForm'
@@ -43,6 +55,13 @@ function renderForm() {
   )
 }
 
+/** The card a `FormSection` renders around the heading `title`. */
+function sectionOf(title: string): HTMLElement {
+  return screen
+    .getByRole('heading', { name: title })
+    .closest<HTMLElement>('.rounded-xl')!
+}
+
 describe('RegistrationForm', () => {
   it('renders all sections', () => {
     renderForm()
@@ -55,13 +74,268 @@ describe('RegistrationForm', () => {
     expect(screen.getByText('Declaration')).toBeTruthy()
   })
 
-  it('photo consent checkbox is unchecked by default', () => {
+  describe('consents', () => {
+    const REQUIRED_MESSAGE =
+      'Please tick this box to continue — it is required to register.'
+
+    function consentBoxes(): HTMLInputElement[] {
+      const section = sectionOf('Consents')
+      return within(section).getAllByRole('checkbox')
+    }
+
+    it('lists the five consents in order with the approved wording', () => {
+      renderForm()
+
+      expect(
+        consentBoxes().map((box) => [box.name, box.labels![0].textContent]),
+      ).toEqual([
+        [
+          'privacy_notice_read',
+          "I confirm I have read the School's Privacy Notice (opens in a new tab).*",
+        ],
+        [
+          'first_aid_consent',
+          'I consent to emergency first aid being given to my child if needed.*',
+        ],
+        [
+          'email_sms_contact_ack',
+          'I understand the School will contact me by email and SMS about lessons, closures, collection arrangements and emergencies.*',
+        ],
+        [
+          'photo_video_consent',
+          "I consent to photos and video of my child being used on ClassDojo, the School website, the School's social media, printed material and in local or community press, as described in the Privacy Notice (opens in a new tab) (Section 5). I can withdraw this at any time by contacting the School office.",
+        ],
+        [
+          'home_school_agreement',
+          'I agree to the home–school agreement (opens in a new tab).',
+        ],
+      ])
+    })
+
+    it('starts with every consent unticked', () => {
+      renderForm()
+
+      for (const box of consentBoxes()) expect(box).not.toBeChecked()
+    })
+
+    it('requires the first three consents and leaves the last two optional', () => {
+      renderForm()
+
+      expect(consentBoxes().map((box) => box.required)).toEqual([
+        true,
+        true,
+        true,
+        false,
+        false,
+      ])
+    })
+
+    it('explains the required marker beneath the list', () => {
+      renderForm()
+
+      const section = sectionOf('Consents')
+      expect(section.textContent).toContain('* Required to register')
+    })
+
+    it('links the Privacy Notice and home–school agreement in a new tab', () => {
+      renderForm()
+
+      const privacyLinks = screen.getAllByRole('link', {
+        name: 'Privacy Notice (opens in a new tab)',
+      })
+      // The privacy consent, the photo consent and the medical statement.
+      expect(privacyLinks).toHaveLength(3)
+      for (const link of privacyLinks) {
+        expect(link).toHaveAttribute('href', PRIVACY_NOTICE_URL)
+        expect(link).toHaveAttribute('target', '_blank')
+      }
+
+      expect(
+        screen.getByRole('link', {
+          name: 'home–school agreement (opens in a new tab)',
+        }),
+      ).toHaveAttribute('href', HOME_SCHOOL_AGREEMENT_URL)
+    })
+
+    it('blocks submission and announces the message on each unticked required box', () => {
+      const { container } = renderForm()
+      const form = container.querySelector('form')!
+      const [privacy, firstAid, contact] = consentBoxes()
+      fireEvent.click(firstAid)
+
+      let valid = true
+      act(() => {
+        valid = form.checkValidity()
+      })
+      expect(valid).toBe(false)
+
+      const alerts = screen.getAllByRole('alert')
+      expect(alerts.map((a) => a.textContent)).toEqual([
+        REQUIRED_MESSAGE,
+        REQUIRED_MESSAGE,
+      ])
+      expect(privacy).toHaveAttribute('aria-invalid', 'true')
+      expect(privacy).toHaveAccessibleDescription(REQUIRED_MESSAGE)
+      expect(privacy.validationMessage).toBe(REQUIRED_MESSAGE)
+      expect(contact).toHaveAccessibleDescription(REQUIRED_MESSAGE)
+      expect(firstAid).not.toHaveAttribute('aria-invalid')
+    })
+
+    it('clears the message once the box is ticked', () => {
+      const { container } = renderForm()
+      act(() => {
+        container.querySelector('form')!.checkValidity()
+      })
+      const [privacy] = consentBoxes()
+
+      fireEvent.click(privacy)
+
+      expect(privacy).not.toHaveAttribute('aria-invalid')
+      expect(privacy.validationMessage).toBe('')
+      expect(screen.getAllByRole('alert')).toHaveLength(2)
+    })
+
+    it('shows a required-box error returned by the server', async () => {
+      vi.mocked(submitRegistrationAction).mockResolvedValue({
+        error: REQUIRED_MESSAGE,
+        fieldErrors: { email_sms_contact_ack: REQUIRED_MESSAGE },
+      })
+      const { container } = renderForm()
+
+      fireEvent.click(screen.getByText('Simulate Turnstile'))
+      fireEvent.submit(container.querySelector('form')!)
+
+      const contact = consentBoxes()[2]
+      await waitFor(() => {
+        expect(contact).toHaveAccessibleDescription(REQUIRED_MESSAGE)
+      })
+    })
+  })
+
+  describe('medical, dietary and additional needs', () => {
+    it('asks about special educational needs or disability', () => {
+      renderForm()
+
+      expect(
+        screen.getByLabelText(
+          'Any special educational needs or disability we should know about, so we can make reasonable adjustments',
+        ),
+      ).toHaveAttribute('name', 'sen_details')
+    })
+
+    it('states how the information is used, without a checkbox', () => {
+      renderForm()
+
+      const section = sectionOf('Medical & dietary')
+      expect(section.textContent).toContain(
+        'By giving this information, you consent to the School holding it and sharing it with the staff and volunteers who need it to keep your child safe. See the Privacy Notice (opens in a new tab), Section 4.',
+      )
+      expect(within(section).queryByRole('checkbox')).toBeNull()
+    })
+  })
+
+  describe('may leave unaccompanied', () => {
+    const LABEL =
+      'My child may leave the School on their own at the end of the session.'
+    const HINT = 'Only for children aged 12 or over.'
+
+    // 4 Oct 2026: a child born on 4 Oct 2014 turns 12 that day.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-10-04T09:30:00Z'))
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    function enterDateOfBirth(value: string): void {
+      fireEvent.change(screen.getByLabelText(/Date of birth/), {
+        target: { value },
+      })
+    }
+
+    function box(): HTMLInputElement {
+      return screen.getByRole('checkbox', { name: LABEL })
+    }
+
+    it('is always in the Collection section, disabled with the age hint until a date of birth is entered', () => {
+      renderForm()
+
+      expect(sectionOf('Collection arrangements')).toContainElement(box())
+      expect(box()).toBeDisabled()
+      expect(box()).toHaveAccessibleDescription(HINT)
+    })
+
+    it('stays disabled for a child under 12', () => {
+      renderForm()
+
+      enterDateOfBirth('2014-10-05')
+
+      expect(box()).toBeDisabled()
+      expect(box()).toHaveAccessibleDescription(HINT)
+    })
+
+    it('is enabled, unticked and optional for a child aged 12 or over', () => {
+      renderForm()
+
+      enterDateOfBirth('2014-10-04')
+
+      expect(box()).toBeEnabled()
+      expect(box()).not.toBeChecked()
+      expect(box()).not.toBeRequired()
+      expect(box()).toHaveAttribute('name', 'may_leave_unaccompanied')
+      expect(screen.queryByText(HINT)).toBeNull()
+    })
+
+    it('is unticked, and so not submitted, when the date of birth changes to a younger child', () => {
+      const { container } = renderForm()
+      enterDateOfBirth('2010-01-01')
+      fireEvent.click(box())
+      expect(box()).toBeChecked()
+
+      enterDateOfBirth('2020-01-01')
+
+      expect(box()).toBeDisabled()
+      expect(box()).not.toBeChecked()
+      const data = new FormData(container.querySelector('form')!)
+      expect(data.has('may_leave_unaccompanied')).toBe(false)
+    })
+
+    it('stays unticked when the date of birth changes back to an older child', () => {
+      renderForm()
+      enterDateOfBirth('2010-01-01')
+      fireEvent.click(box())
+      enterDateOfBirth('2020-01-01')
+
+      enterDateOfBirth('2010-01-01')
+
+      expect(box()).toBeEnabled()
+      expect(box()).not.toBeChecked()
+    })
+
+    it('sits alongside the collection fields once an emergency contact is added', () => {
+      renderForm()
+      fireEvent.click(
+        screen.getByRole('button', { name: '+ Add an emergency contact' }),
+      )
+
+      const section = sectionOf('Collection arrangements')
+      expect(section).toContainElement(box())
+      expect(within(section).getByLabelText('Collection password')).toBeTruthy()
+    })
+  })
+
+  it('states that submitting means agreeing to the School Policies', () => {
     renderForm()
 
-    const photoConsent = screen.getByRole('checkbox', {
-      name: /I consent to my child's photo being used/,
-    }) as HTMLInputElement
-    expect(photoConsent).not.toBeChecked()
+    const link = screen.getByRole('link', {
+      name: 'School Policies (opens in a new tab)',
+    })
+    expect(link).toHaveAttribute('href', POLICIES_URL)
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link.closest('p')!.textContent).toBe(
+      'By submitting this form, you agree to follow the School Policies (opens in a new tab), including our arrangements for drop-off, collection, behaviour and safeguarding.',
+    )
   })
 
   it('limits child_first_name to SHORT_TEXT_MAX characters', () => {

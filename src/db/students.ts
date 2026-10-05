@@ -8,9 +8,11 @@ import {
   ilike,
   inArray,
   isNotNull,
+  isNull,
   ne,
   or,
   sql,
+  type SQL,
 } from 'drizzle-orm'
 
 import { compareClasses } from '@/lib/classes'
@@ -421,12 +423,14 @@ type StudentInsert = {
   additional_contact_2_relationship?: string | null
   allergies?: string | null
   medical_details?: string | null
+  sen_details?: string | null
+  may_leave_unaccompanied?: boolean
   notes?: string | null
-  consent_privacy_notice?: boolean
-  consent_emergency_first_aid?: boolean
-  consent_photo_media?: boolean
-  consent_home_school?: boolean
-  consent_comms_email_sms?: boolean
+  privacy_notice_read?: boolean
+  first_aid_consent?: boolean
+  photo_video_consent?: boolean
+  home_school_agreement?: boolean
+  email_sms_contact_ack?: boolean
 }
 
 /**
@@ -519,11 +523,34 @@ async function guardianIdOf(tx: Tx, slot: GuardianSlot): Promise<string> {
  * another student took a moment earlier) leaves no orphaned guardians behind.
  * With `addressFromPrimary` the student shares the primary guardian's address.
  */
+/** An edit to a student, as opposed to creating one. */
+export type StudentEdit = {
+  /** Recorded as who withdrew photo/video consent, if the save does so. */
+  savedBy: string
+  /** The student's `updated_at` when the form was loaded. */
+  loadedAt: string | null
+}
+
+/** The student was saved by someone else after the edit form was loaded. */
+export class StudentChangedError extends Error {
+  constructor() {
+    super(
+      'Someone else changed this student while you were editing. Reload the page to see their changes, then make yours again.',
+    )
+    this.name = 'StudentChangedError'
+  }
+}
+
 export async function saveStudent(
   id: string | null,
   data: Omit<StudentInsert, keyof StudentGuardianIds>,
   slots: StudentGuardianSlots,
   addressFromPrimary: boolean,
+  /**
+   * For an update: refuses it with {@link StudentChangedError} when the row
+   * has changed since `loadedAt`, so a stale form cannot undo that change.
+   */
+  edit: StudentEdit | null = null,
 ): Promise<{ id: string }> {
   return db.transaction(async (tx) => {
     const primaryId = await guardianIdOf(tx, slots.primary)
@@ -550,9 +577,70 @@ export async function saveStudent(
       return row
     }
 
-    await tx.update(students).set(values).where(eq(students.id, id))
+    const rows = await tx
+      .update(students)
+      .set({
+        ...values,
+        ...(data.photo_video_consent !== undefined &&
+          edit !== null &&
+          photoConsentChange(data.photo_video_consent, edit.savedBy)),
+      })
+      .where(
+        and(
+          eq(students.id, id),
+          edit === null
+            ? undefined
+            : edit.loadedAt === null
+              ? isNull(students.updatedAt)
+              : eq(students.updatedAt, edit.loadedAt),
+        ),
+      )
+      .returning({ id: students.id })
+    // Throwing rolls back any guardian created above.
+    if (rows.length === 0 && edit !== null) throw new StudentChangedError()
     return { id }
   })
+}
+
+/**
+ * The withdrawal columns for an update that sets photo/video consent to
+ * `given`: turning it off records when and by whom (unless it was already off,
+ * which keeps the original record), and giving it again clears them. The CASE
+ * reads the row's consent from before the update.
+ */
+function photoConsentChange(
+  given: boolean,
+  staffId: string,
+): {
+  photoVideoConsentWithdrawnAt: SQL | null
+  photoVideoConsentWithdrawnBy: SQL | null
+} {
+  if (given)
+    return {
+      photoVideoConsentWithdrawnAt: null,
+      photoVideoConsentWithdrawnBy: null,
+    }
+  return {
+    photoVideoConsentWithdrawnAt: sql`CASE WHEN ${students.photoVideoConsent} THEN now() ELSE ${students.photoVideoConsentWithdrawnAt} END`,
+    photoVideoConsentWithdrawnBy: sql`CASE WHEN ${students.photoVideoConsent} THEN ${staffId}::uuid ELSE ${students.photoVideoConsentWithdrawnBy} END`,
+  }
+}
+
+/**
+ * Records a parent withdrawing photo/video consent: the consent is turned off
+ * and the staff member and time are kept with it. Withdrawing consent that is
+ * already off changes nothing.
+ */
+export async function withdrawPhotoVideoConsent(
+  studentId: string,
+  staffId: string,
+): Promise<void> {
+  const rows = await db
+    .update(students)
+    .set({ photoVideoConsent: false, ...photoConsentChange(false, staffId) })
+    .where(eq(students.id, studentId))
+    .returning({ id: students.id })
+  if (rows.length === 0) throw new Error('Student not found')
 }
 
 export async function updateStudentClasses(

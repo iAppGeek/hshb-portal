@@ -79,8 +79,8 @@ INSERT INTO lesson_plans (id, class_id, lesson_date, description, created_by) VA
 -- One pending (with a primary contact) and one rejected, so the inbox has rows
 -- on first `supabase db reset`. E2E tests create their own rows and only read these.
 INSERT INTO registration_submissions (id, status, child_first_name, child_last_name, date_of_birth,
-                      address_line_1, city, postcode, consent_privacy_notice,
-                      consent_emergency_first_aid, declaration_name, rejected_reason) VALUES
+                      address_line_1, city, postcode, privacy_notice_read,
+                      first_aid_consent, declaration_name, rejected_reason) VALUES
   ('80000000-0000-0000-0000-000000000001', 'pending', 'Seed', 'Pending', '2020-01-15',
    '1 Seed St', 'London', 'N1 2AA', TRUE, TRUE, 'Petra Pending', NULL),
   ('80000000-0000-0000-0000-000000000002', 'rejected', 'Seed', 'Rejected', '2020-02-20',

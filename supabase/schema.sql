@@ -66,7 +66,12 @@ BEGIN
     RAISE EXCEPTION 'Request not found or already actioned';
   END IF;
 
-  UPDATE students SET consent_photo_media = FALSE
+  -- Consent that is already off keeps its original withdrawal record. The
+  -- CASEs read the row from before the update.
+  UPDATE students SET
+    photo_video_consent              = FALSE,
+    photo_video_consent_withdrawn_at = CASE WHEN photo_video_consent THEN NOW() ELSE photo_video_consent_withdrawn_at END,
+    photo_video_consent_withdrawn_by = CASE WHEN photo_video_consent THEN p_staff_id ELSE photo_video_consent_withdrawn_by END
     WHERE id = p_student_id
     RETURNING id INTO v_found;
   IF v_found IS NULL THEN
@@ -101,6 +106,7 @@ DECLARE
   v_rel_primary TEXT; v_rel_secondary TEXT; v_rel_add1 TEXT; v_rel_add2 TEXT;
   v_old_g      guardians%ROWTYPE;
   v_old_s      students%ROWTYPE;
+  v_photo      BOOLEAN;
   v_matched_on TEXT;
   v_gchanges   JSONB;
   v_guardians  JSONB := '[]'::JSONB;
@@ -201,9 +207,10 @@ BEGIN
     INSERT INTO students (
       student_code, first_name, last_name, date_of_birth, english_school_name,
       address_line_1, address_line_2, city, postcode, address_guardian_id,
-      allergies, medical_details,
-      consent_privacy_notice, consent_emergency_first_aid, consent_photo_media,
-      consent_home_school, consent_comms_email_sms,
+      allergies, medical_details, sen_details, may_leave_unaccompanied,
+      privacy_notice_read, first_aid_consent, photo_video_consent,
+      home_school_agreement, email_sms_contact_ack,
+      consents_recorded_at, privacy_notice_version,
       primary_guardian_id, primary_guardian_relationship,
       secondary_guardian_id, secondary_guardian_relationship,
       additional_contact_1_id, additional_contact_1_relationship,
@@ -212,9 +219,10 @@ BEGIN
       p_student_code, v_sub.child_first_name, v_sub.child_last_name, v_sub.date_of_birth,
       v_sub.english_school_name,
       v_sub.address_line_1, v_sub.address_line_2, v_sub.city, v_sub.postcode, NULL,
-      v_sub.allergies, v_sub.medical_details,
-      v_sub.consent_privacy_notice, v_sub.consent_emergency_first_aid, v_sub.consent_photo_media,
-      v_sub.consent_home_school, v_sub.consent_comms_email_sms,
+      v_sub.allergies, v_sub.medical_details, v_sub.sen_details, v_sub.may_leave_unaccompanied,
+      v_sub.privacy_notice_read, v_sub.first_aid_consent, v_sub.photo_video_consent,
+      v_sub.home_school_agreement, v_sub.email_sms_contact_ack,
+      v_sub.consents_recorded_at, v_sub.privacy_notice_version,
       v_primary, v_rel_primary, v_secondary, v_rel_secondary,
       v_add1, v_rel_add1, v_add2, v_rel_add2)
     RETURNING id INTO v_student_id;
@@ -226,6 +234,12 @@ BEGIN
       RAISE EXCEPTION 'Existing student not found';
     END IF;
 
+    -- A withdrawal made after the parent filled in this form still stands.
+    v_photo := v_sub.photo_video_consent AND (
+      v_old_s.photo_video_consent_withdrawn_at IS NULL
+      OR COALESCE(v_sub.consents_recorded_at, v_sub.submitted_at)
+         > v_old_s.photo_video_consent_withdrawn_at);
+
     UPDATE students SET
       student_code  = COALESCE(p_student_code, student_code),
       first_name    = v_sub.child_first_name,
@@ -235,11 +249,18 @@ BEGIN
       address_line_1 = v_sub.address_line_1, address_line_2 = v_sub.address_line_2,
       city = v_sub.city, postcode = v_sub.postcode, address_guardian_id = NULL,
       allergies = v_sub.allergies, medical_details = v_sub.medical_details,
-      consent_privacy_notice = v_sub.consent_privacy_notice,
-      consent_emergency_first_aid = v_sub.consent_emergency_first_aid,
-      consent_photo_media = v_sub.consent_photo_media,
-      consent_home_school = v_sub.consent_home_school,
-      consent_comms_email_sms = v_sub.consent_comms_email_sms,
+      sen_details = v_sub.sen_details,
+      may_leave_unaccompanied = v_sub.may_leave_unaccompanied,
+      privacy_notice_read = v_sub.privacy_notice_read,
+      first_aid_consent = v_sub.first_aid_consent,
+      photo_video_consent = v_photo,
+      home_school_agreement = v_sub.home_school_agreement,
+      email_sms_contact_ack = v_sub.email_sms_contact_ack,
+      consents_recorded_at = v_sub.consents_recorded_at,
+      privacy_notice_version = v_sub.privacy_notice_version,
+      -- Consent given again on a newer form supersedes the withdrawal.
+      photo_video_consent_withdrawn_at = CASE WHEN v_photo THEN NULL ELSE photo_video_consent_withdrawn_at END,
+      photo_video_consent_withdrawn_by = CASE WHEN v_photo THEN NULL ELSE photo_video_consent_withdrawn_by END,
       primary_guardian_id = v_primary,     primary_guardian_relationship = v_rel_primary,
       secondary_guardian_id = v_secondary, secondary_guardian_relationship = v_rel_secondary,
       additional_contact_1_id = v_add1,    additional_contact_1_relationship = v_rel_add1,
@@ -257,17 +278,20 @@ BEGIN
           ARRAY['first_name','last_name','date_of_birth','english_school_name','address_line_1','address_line_2','city','postcode',
                 'allergies','medical_details','student_code',
                 'primary_guardian_id','secondary_guardian_id','additional_contact_1_id','additional_contact_2_id',
-                'consent_privacy_notice','consent_emergency_first_aid','consent_photo_media','consent_home_school','consent_comms_email_sms',
+                'privacy_notice_read','first_aid_consent','photo_video_consent','home_school_agreement','email_sms_contact_ack',
+                'sen_details','may_leave_unaccompanied','consents_recorded_at','privacy_notice_version',
                 'active'],
           ARRAY[v_old_s.first_name, v_old_s.last_name, v_old_s.date_of_birth::TEXT, v_old_s.english_school_name, v_old_s.address_line_1, v_old_s.address_line_2, v_old_s.city, v_old_s.postcode,
                 v_old_s.allergies, v_old_s.medical_details, v_old_s.student_code,
                 v_old_s.primary_guardian_id::TEXT, v_old_s.secondary_guardian_id::TEXT, v_old_s.additional_contact_1_id::TEXT, v_old_s.additional_contact_2_id::TEXT,
-                v_old_s.consent_privacy_notice::TEXT, v_old_s.consent_emergency_first_aid::TEXT, v_old_s.consent_photo_media::TEXT, v_old_s.consent_home_school::TEXT, v_old_s.consent_comms_email_sms::TEXT,
+                v_old_s.privacy_notice_read::TEXT, v_old_s.first_aid_consent::TEXT, v_old_s.photo_video_consent::TEXT, v_old_s.home_school_agreement::TEXT, v_old_s.email_sms_contact_ack::TEXT,
+                v_old_s.sen_details, v_old_s.may_leave_unaccompanied::TEXT, v_old_s.consents_recorded_at::TEXT, v_old_s.privacy_notice_version,
                 v_old_s.active::TEXT],
           ARRAY[s.first_name, s.last_name, s.date_of_birth::TEXT, s.english_school_name, s.address_line_1, s.address_line_2, s.city, s.postcode,
                 s.allergies, s.medical_details, s.student_code,
                 s.primary_guardian_id::TEXT, s.secondary_guardian_id::TEXT, s.additional_contact_1_id::TEXT, s.additional_contact_2_id::TEXT,
-                s.consent_privacy_notice::TEXT, s.consent_emergency_first_aid::TEXT, s.consent_photo_media::TEXT, s.consent_home_school::TEXT, s.consent_comms_email_sms::TEXT,
+                s.privacy_notice_read::TEXT, s.first_aid_consent::TEXT, s.photo_video_consent::TEXT, s.home_school_agreement::TEXT, s.email_sms_contact_ack::TEXT,
+                s.sen_details, s.may_leave_unaccompanied::TEXT, s.consents_recorded_at::TEXT, s.privacy_notice_version,
                 s.active::TEXT]
         ) AS t(k, o, n)
       WHERE s.id = v_student_id AND t.o IS DISTINCT FROM t.n
@@ -328,18 +352,22 @@ BEGIN
     child_first_name, child_last_name, date_of_birth, preferred_year_group,
     english_school_name,
     address_line_1, address_line_2, city, postcode,
-    allergies, medical_details, collect_authorised, collect_password,
-    consent_privacy_notice, consent_emergency_first_aid, consent_photo_media,
-    consent_home_school, consent_comms_email_sms, declaration_name
+    allergies, medical_details, sen_details,
+    collect_authorised, collect_password, may_leave_unaccompanied,
+    privacy_notice_read, first_aid_consent, email_sms_contact_ack,
+    photo_video_consent, home_school_agreement,
+    consents_recorded_at, privacy_notice_version, declaration_name
   )
   SELECT
     s.child_first_name, s.child_last_name, s.date_of_birth, s.preferred_year_group,
     s.english_school_name,
     s.address_line_1, s.address_line_2, s.city, s.postcode,
-    s.allergies, s.medical_details, s.collect_authorised, s.collect_password,
-    COALESCE(s.consent_privacy_notice, FALSE), COALESCE(s.consent_emergency_first_aid, FALSE),
-    COALESCE(s.consent_photo_media, FALSE), COALESCE(s.consent_home_school, FALSE),
-    COALESCE(s.consent_comms_email_sms, FALSE), s.declaration_name
+    s.allergies, s.medical_details, s.sen_details,
+    s.collect_authorised, s.collect_password, COALESCE(s.may_leave_unaccompanied, FALSE),
+    COALESCE(s.privacy_notice_read, FALSE), COALESCE(s.first_aid_consent, FALSE),
+    COALESCE(s.email_sms_contact_ack, FALSE),
+    COALESCE(s.photo_video_consent, FALSE), COALESCE(s.home_school_agreement, FALSE),
+    s.consents_recorded_at, s.privacy_notice_version, s.declaration_name
   FROM jsonb_populate_record(NULL::registration_submissions, p_submission) AS s
   RETURNING id INTO v_id;
 
@@ -1007,11 +1035,11 @@ CREATE TABLE IF NOT EXISTS "public"."registration_submissions" (
     "medical_details" "text",
     "collect_authorised" "text",
     "collect_password" "text",
-    "consent_privacy_notice" boolean DEFAULT false NOT NULL,
-    "consent_emergency_first_aid" boolean DEFAULT false NOT NULL,
-    "consent_photo_media" boolean DEFAULT false NOT NULL,
-    "consent_home_school" boolean DEFAULT false NOT NULL,
-    "consent_comms_email_sms" boolean DEFAULT false NOT NULL,
+    "privacy_notice_read" boolean DEFAULT false NOT NULL,
+    "first_aid_consent" boolean DEFAULT false NOT NULL,
+    "photo_video_consent" boolean DEFAULT false NOT NULL,
+    "home_school_agreement" boolean DEFAULT false NOT NULL,
+    "email_sms_contact_ack" boolean DEFAULT false NOT NULL,
     "declaration_name" "text" NOT NULL,
     "actioned_by" "uuid",
     "actioned_at" timestamp with time zone,
@@ -1020,7 +1048,11 @@ CREATE TABLE IF NOT EXISTS "public"."registration_submissions" (
     "rejected_reason" "text",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "english_school_name" "text"
+    "english_school_name" "text",
+    "sen_details" "text",
+    "may_leave_unaccompanied" boolean DEFAULT false NOT NULL,
+    "consents_recorded_at" timestamp with time zone,
+    "privacy_notice_version" "text"
 );
 
 
@@ -1195,13 +1227,19 @@ CREATE TABLE IF NOT EXISTS "public"."students" (
     "additional_contact_2_relationship" "text",
     "medical_details" "text",
     "address_guardian_id" "uuid",
-    "consent_privacy_notice" boolean DEFAULT false NOT NULL,
-    "consent_emergency_first_aid" boolean DEFAULT false NOT NULL,
-    "consent_photo_media" boolean DEFAULT false NOT NULL,
-    "consent_home_school" boolean DEFAULT false NOT NULL,
-    "consent_comms_email_sms" boolean DEFAULT false NOT NULL,
+    "privacy_notice_read" boolean DEFAULT false NOT NULL,
+    "first_aid_consent" boolean DEFAULT false NOT NULL,
+    "photo_video_consent" boolean DEFAULT false NOT NULL,
+    "home_school_agreement" boolean DEFAULT false NOT NULL,
+    "email_sms_contact_ack" boolean DEFAULT false NOT NULL,
     "english_school_name" "text",
     "leaving_reason" "text",
+    "sen_details" "text",
+    "may_leave_unaccompanied" boolean DEFAULT false NOT NULL,
+    "consents_recorded_at" timestamp with time zone,
+    "privacy_notice_version" "text",
+    "photo_video_consent_withdrawn_at" timestamp with time zone,
+    "photo_video_consent_withdrawn_by" "uuid",
     CONSTRAINT "students_address_source_check" CHECK ((("address_guardian_id" IS NOT NULL) OR (("address_line_1" IS NOT NULL) AND ("city" IS NOT NULL) AND ("postcode" IS NOT NULL)))),
     CONSTRAINT "students_leaving_reason_check" CHECK (("leaving_reason" = ANY (ARRAY['left'::"text", 'graduated'::"text", 'transferred'::"text"])))
 );
@@ -1777,6 +1815,11 @@ ALTER TABLE ONLY "public"."students"
 
 ALTER TABLE ONLY "public"."students"
     ADD CONSTRAINT "students_address_guardian_id_fkey" FOREIGN KEY ("address_guardian_id") REFERENCES "public"."guardians"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."students"
+    ADD CONSTRAINT "students_photo_video_consent_withdrawn_by_fkey" FOREIGN KEY ("photo_video_consent_withdrawn_by") REFERENCES "public"."staff"("id") ON DELETE SET NULL;
 
 
 

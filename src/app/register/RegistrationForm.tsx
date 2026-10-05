@@ -3,8 +3,17 @@
 import { useEffect, useRef, useState } from 'react'
 
 import TurnstileWidget from '@/clientComponents/TurnstileWidget'
+import {
+  isOldEnoughToLeaveAlone,
+  LEAVE_ALONE_AGE_HINT,
+  REQUIRED_CONSENT_MESSAGE,
+} from '@/lib/consents'
 import { YEAR_GROUP_NOT_SURE } from '@/lib/registration'
-import { PRIVACY_NOTICE_URL } from '@/lib/schoolWebsite'
+import {
+  HOME_SCHOOL_AGREEMENT_URL,
+  POLICIES_URL,
+  PRIVACY_NOTICE_URL,
+} from '@/lib/schoolWebsite'
 import {
   SHORT_TEXT_MAX,
   ADDRESS_TEXT_MAX,
@@ -13,6 +22,7 @@ import {
   EMAIL_MAX,
 } from '@/lib/schemas'
 import {
+  CheckboxField,
   FormGrid,
   FormSection,
   TextAreaField,
@@ -34,6 +44,17 @@ export default function RegistrationForm({
   const [showSecondary, setShowSecondary] = useState(false)
   const [showContact1, setShowContact1] = useState(false)
   const [showContact2, setShowContact2] = useState(false)
+  // Controlled so the leave-alone box can follow the child's age.
+  const [dateOfBirth, setDateOfBirth] = useState('')
+  const oldEnoughToLeaveAlone = isOldEnoughToLeaveAlone(dateOfBirth)
+  const [leaveAlone, setLeaveAlone] = useState(false)
+
+  function handleDateOfBirth(value: string): void {
+    setDateOfBirth(value)
+    // A box disabled for a younger child comes back unticked, so the parent
+    // decides afresh.
+    if (!isOldEnoughToLeaveAlone(value)) setLeaveAlone(false)
+  }
   const [token, setToken] = useState<string | null>(null)
   const [captchaError, setCaptchaError] = useState(false)
   const { handleSubmit, isPending, error, fieldError } = useServerForm(
@@ -84,6 +105,8 @@ export default function RegistrationForm({
             type="date"
             required
             autoComplete="off"
+            value={dateOfBirth}
+            onChange={handleDateOfBirth}
             error={fieldError('date_of_birth')}
           />
           <TextField
@@ -171,7 +194,20 @@ export default function RegistrationForm({
             maxLength={LONG_TEXT_MAX}
             error={fieldError('medical_details')}
           />
+          <TextAreaField
+            label="Any special educational needs or disability we should know about, so we can make reasonable adjustments"
+            name="sen_details"
+            maxLength={LONG_TEXT_MAX}
+            error={fieldError('sen_details')}
+          />
         </FormGrid>
+        <p className="mt-4 text-sm text-gray-600">
+          By giving this information, you consent to the School holding it and
+          sharing it with the staff and volunteers who need it to keep your
+          child safe. See the{' '}
+          <ExternalLink href={PRIVACY_NOTICE_URL}>Privacy Notice</ExternalLink>,
+          Section 4.
+        </p>
       </FormSection>
 
       {/* ── Parent/carer 1 ──────────────────────────────────────────── */}
@@ -255,8 +291,8 @@ export default function RegistrationForm({
           </button>
         ))}
 
-      {showContact1 && (
-        <FormSection title="Collection arrangements">
+      <FormSection title="Collection arrangements">
+        {showContact1 && (
           <FormGrid>
             <TextAreaField
               label="Who is authorised to collect the child?"
@@ -271,46 +307,88 @@ export default function RegistrationForm({
               error={fieldError('collect_password')}
             />
           </FormGrid>
-        </FormSection>
-      )}
+        )}
+        <div className={showContact1 ? 'mt-4' : undefined}>
+          <CheckboxField
+            name="may_leave_unaccompanied"
+            label="My child may leave the School on their own at the end of the session."
+            disabled={!oldEnoughToLeaveAlone}
+            checked={leaveAlone}
+            onChange={setLeaveAlone}
+            description={
+              oldEnoughToLeaveAlone ? undefined : LEAVE_ALONE_AGE_HINT
+            }
+            error={fieldError('may_leave_unaccompanied')}
+          />
+        </div>
+      </FormSection>
 
       {/* ── Consents ─────────────────────────────────────────────────── */}
       <FormSection title="Consents">
         <div className="space-y-3">
-          <ConsentCheckbox
-            name="consent_privacy_notice"
+          <CheckboxField
+            name="privacy_notice_read"
+            label={
+              <>
+                I confirm I have read the School&apos;s{' '}
+                <ExternalLink href={PRIVACY_NOTICE_URL}>
+                  Privacy Notice
+                </ExternalLink>
+                .
+              </>
+            }
             required
-            error={fieldError('consent_privacy_notice')}
-          >
-            I have read and accept the school&apos;s{' '}
-            <a
-              href={PRIVACY_NOTICE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 underline"
-            >
-              privacy notice
-            </a>
-          </ConsentCheckbox>
-          <ConsentCheckbox
-            name="consent_emergency_first_aid"
+            requiredMessage={REQUIRED_CONSENT_MESSAGE}
+            error={fieldError('privacy_notice_read')}
+          />
+          <CheckboxField
+            name="first_aid_consent"
+            label="I consent to emergency first aid being given to my child if needed."
             required
-            error={fieldError('consent_emergency_first_aid')}
-          >
-            I consent to emergency first aid being given to my child if needed
-          </ConsentCheckbox>
-          <ConsentCheckbox name="consent_photo_media">
-            I consent to my child&apos;s photo being used on social media, the
-            school website and promotional material. You can withdraw this at
-            any time via the school office.
-          </ConsentCheckbox>
-          <ConsentCheckbox name="consent_home_school">
-            I agree to the home–school agreement
-          </ConsentCheckbox>
-          <ConsentCheckbox name="consent_comms_email_sms">
-            I consent to receiving communications by email and SMS
-          </ConsentCheckbox>
+            requiredMessage={REQUIRED_CONSENT_MESSAGE}
+            error={fieldError('first_aid_consent')}
+          />
+          <CheckboxField
+            name="email_sms_contact_ack"
+            label="I understand the School will contact me by email and SMS about lessons, closures, collection arrangements and emergencies."
+            required
+            requiredMessage={REQUIRED_CONSENT_MESSAGE}
+            error={fieldError('email_sms_contact_ack')}
+          />
+          <CheckboxField
+            name="photo_video_consent"
+            label={
+              <>
+                I consent to photos and video of my child being used on
+                ClassDojo, the School website, the School&apos;s social media,
+                printed material and in local or community press, as described
+                in the{' '}
+                <ExternalLink href={PRIVACY_NOTICE_URL}>
+                  Privacy Notice
+                </ExternalLink>{' '}
+                (Section 5). I can withdraw this at any time by contacting the
+                School office.
+              </>
+            }
+            error={fieldError('photo_video_consent')}
+          />
+          <CheckboxField
+            name="home_school_agreement"
+            label={
+              <>
+                I agree to the{' '}
+                <ExternalLink href={HOME_SCHOOL_AGREEMENT_URL}>
+                  home–school agreement
+                </ExternalLink>
+                .
+              </>
+            }
+            error={fieldError('home_school_agreement')}
+          />
         </div>
+        <p className="mt-3 text-sm text-gray-500">
+          <span className="text-red-500">*</span> Required to register
+        </p>
       </FormSection>
 
       {/* ── Declaration ──────────────────────────────────────────────── */}
@@ -335,6 +413,13 @@ export default function RegistrationForm({
           </div>
         )}
       </FormSection>
+
+      <p className="text-sm text-gray-600">
+        By submitting this form, you agree to follow the{' '}
+        <ExternalLink href={POLICIES_URL}>School Policies</ExternalLink>,
+        including our arrangements for drop-off, collection, behaviour and
+        safeguarding.
+      </p>
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-4">
@@ -512,36 +597,22 @@ function ScrollSection({
   )
 }
 
-function ConsentCheckbox({
-  name,
-  required = false,
-  defaultChecked = false,
-  error,
+/** A link inside a form label that opens the school website in a new tab. */
+function ExternalLink({
+  href,
   children,
 }: {
-  name: string
-  required?: boolean
-  defaultChecked?: boolean
-  error?: string
+  href: string
   children: React.ReactNode
-}) {
+}): React.ReactElement {
   return (
-    <div>
-      <label className="flex cursor-pointer items-start gap-2 text-sm text-gray-700">
-        <input
-          type="checkbox"
-          name={name}
-          required={required}
-          defaultChecked={defaultChecked}
-          aria-invalid={error ? true : undefined}
-          className="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
-        />
-        <span>
-          {children}
-          {required && <span className="ml-0.5 text-red-500">*</span>}
-        </span>
-      </label>
-      {error && <p className="mt-1 ml-6 text-sm text-red-600">{error}</p>}
-    </div>
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-blue-600 underline hover:text-blue-800 focus-visible:outline-2 focus-visible:outline-blue-500"
+    >
+      {children} <span className="sr-only">(opens in a new tab)</span>
+    </a>
   )
 }

@@ -15,6 +15,20 @@
       "when": 1790981152738,
       "tag": "20261002224552_approve_registration_code_clash",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791233783902,
+      "tag": "20261005205623_registration_consents_v1",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791233801213,
+      "tag": "20261005205641_registration_consents_v1_functions",
+      "breakpoints": true
     }
   ]
 }

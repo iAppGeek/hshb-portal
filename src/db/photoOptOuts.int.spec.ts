@@ -42,6 +42,10 @@ describe('photo opt-outs', () => {
   })
 
   it('applies a request to a student through the RPC', async () => {
+    await db
+      .update(students)
+      .set({ photoVideoConsent: true })
+      .where(eq(students.id, SEED.students.bob))
     const { id } = await createPhotoOptOut(request)
     await applyPhotoOptOut({
       requestId: id,
@@ -53,10 +57,39 @@ describe('photo opt-outs', () => {
       student_id: SEED.students.bob,
     })
     const [bob] = await db
-      .select({ consent: students.consentPhotoMedia })
+      .select({
+        consent: students.photoVideoConsent,
+        withdrawnAt: students.photoVideoConsentWithdrawnAt,
+        withdrawnBy: students.photoVideoConsentWithdrawnBy,
+      })
       .from(students)
       .where(eq(students.id, SEED.students.bob))
-    expect(bob.consent).toBe(false)
+    expect(bob).toEqual({
+      consent: false,
+      withdrawnAt: expect.any(String),
+      withdrawnBy: SEED.staff.admin,
+    })
+
+    // A second request for a child whose consent is already off keeps the
+    // original withdrawal record.
+    const second = await createPhotoOptOut(request)
+    await applyPhotoOptOut({
+      requestId: second.id,
+      staffId: SEED.staff.secretary,
+      studentId: SEED.students.bob,
+    })
+    const [after] = await db
+      .select({
+        consent: students.photoVideoConsent,
+        withdrawnAt: students.photoVideoConsentWithdrawnAt,
+        withdrawnBy: students.photoVideoConsentWithdrawnBy,
+      })
+      .from(students)
+      .where(eq(students.id, SEED.students.bob))
+    expect(after).toEqual(bob)
+    expect(await getPhotoOptOutById(second.id)).toMatchObject({
+      status: 'actioned',
+    })
   })
 
   it('rejects a pending request once, then deletes it', async () => {

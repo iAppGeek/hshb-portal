@@ -2,7 +2,10 @@
 
 import type { z } from 'zod'
 
-import { createRegistrationSubmission } from '@/db'
+import {
+  createRegistrationSubmission,
+  type RegistrationSubmissionInsert,
+} from '@/db'
 import {
   ActionError,
   firstFieldErrors,
@@ -10,6 +13,7 @@ import {
   runAction,
   type ActionResult,
 } from '@/lib/action'
+import { isOldEnoughToLeaveAlone, PRIVACY_NOTICE_VERSION } from '@/lib/consents'
 import { getClientIp } from '@/lib/request-ip'
 import {
   registrationSubmissionSchema,
@@ -26,14 +30,29 @@ type Contact = z.infer<typeof registrationContactSchema> & {
   contact_role: 'primary' | 'secondary' | 'additional_1' | 'additional_2'
 }
 
-function toInsert(data: ParsedSubmission) {
+/**
+ * The row to store. The consent timestamp and Privacy Notice version are set
+ * here, never taken from the form, and the leave-alone answer only counts for
+ * a child old enough to be offered it.
+ */
+function toInsert(
+  data: ParsedSubmission,
+  now: Date,
+): RegistrationSubmissionInsert {
   const {
     has_secondary: _hasSecondary,
     has_contact1: _hasContact1,
     has_contact2: _hasContact2,
     ...rest
   } = omitTurnstileToken(data)
-  return rest
+  return {
+    ...rest,
+    may_leave_unaccompanied:
+      isOldEnoughToLeaveAlone(data.date_of_birth) &&
+      data.may_leave_unaccompanied,
+    consents_recorded_at: now.toISOString(),
+    privacy_notice_version: PRIVACY_NOTICE_VERSION,
+  }
 }
 
 /**
@@ -91,7 +110,7 @@ export async function submitRegistrationAction(
         throw new ActionError('Verification failed. Please try again.')
 
       return createRegistrationSubmission({
-        submission: toInsert(parsed.data),
+        submission: toInsert(parsed.data, new Date()),
         contacts,
       })
     },

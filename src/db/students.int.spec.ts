@@ -23,9 +23,11 @@ import {
   isStudentCodeTaken,
   markStudentAsLeaver,
   saveStudent,
+  StudentChangedError,
   searchStudents,
   updateStudent,
   updateStudentClasses,
+  withdrawPhotoVideoConsent,
   type GuardianSlot,
 } from './students'
 import { resetDatabase, SEED } from './test-db'
@@ -181,14 +183,14 @@ describe('writes', () => {
       additional_contact_1_id: SEED.guardians.greg,
       additional_contact_1_relationship: 'Uncle',
       address_guardian_id: SEED.guardians.grace,
-      consent_photo_media: true,
+      photo_video_consent: true,
     })
     await updateStudent(id, { student_code: 'E-1', allergies: 'Dust' })
     expect(await getStudentById(id)).toMatchObject({
       first_name: 'Eve',
       student_code: 'E-1',
       allergies: 'Dust',
-      consent_photo_media: true,
+      photo_video_consent: true,
       additional_contact_1: { first_name: 'Greg' },
       additional_contact_1_relationship: 'Uncle',
       address_guardian_id: SEED.guardians.grace,
@@ -235,6 +237,15 @@ describe('writes', () => {
     expect(matches.map((m) => m.id)).toContain(SEED.students.alice)
   })
 })
+
+/** The student's `updated_at`, as an edit form loads it. */
+async function loadedAt(id: string): Promise<string | null> {
+  const [row] = await db
+    .select({ updatedAt: students.updatedAt })
+    .from(students)
+    .where(eq(students.id, id))
+  return row.updatedAt
+}
 
 describe('saveStudent', () => {
   const newGuardian = (firstName: string): GuardianSlot => ({
@@ -315,6 +326,181 @@ describe('saveStudent', () => {
       constraint: 'students_student_code_key',
     })
     expect(await guardianNamed('Orphan')).toBeUndefined()
+  })
+
+  describe('an edit', () => {
+    const carol = {
+      first_name: 'Carol',
+      last_name: 'Student',
+      address_line_1: '3 Road',
+      city: 'Town',
+      postcode: 'AB3 4CD',
+    }
+
+    it('is saved when the student has not changed since the form loaded', async () => {
+      await saveStudent(
+        SEED.students.carol,
+        { ...carol, notes: 'Saved' },
+        {
+          primary: { id: SEED.guardians.greg },
+          secondary: null,
+          contact1: null,
+          contact2: null,
+        },
+        false,
+        {
+          savedBy: SEED.staff.admin,
+          loadedAt: await loadedAt(SEED.students.carol),
+        },
+      )
+      expect(await getStudentById(SEED.students.carol)).toMatchObject({
+        notes: 'Saved',
+      })
+    })
+
+    it('is refused, creating no guardians, once someone else has saved the student', async () => {
+      const formLoadedAt = await loadedAt(SEED.students.carol)
+      await updateStudent(SEED.students.carol, {
+        may_leave_unaccompanied: true,
+      })
+
+      const err = await saveStudent(
+        SEED.students.carol,
+        { ...carol, may_leave_unaccompanied: false },
+        {
+          primary: { id: SEED.guardians.greg },
+          secondary: newGuardian('Stale'),
+          contact1: null,
+          contact2: null,
+        },
+        false,
+        { savedBy: SEED.staff.admin, loadedAt: formLoadedAt },
+      ).catch((e: unknown) => e)
+
+      expect(err).toBeInstanceOf(StudentChangedError)
+      expect(await getStudentById(SEED.students.carol)).toMatchObject({
+        may_leave_unaccompanied: true,
+      })
+      expect(await guardianNamed('Stale')).toBeUndefined()
+    })
+  })
+})
+
+describe('photo/video consent withdrawal', () => {
+  async function withdrawal(id: string): Promise<{
+    consent: boolean
+    at: string | null
+    by: string | null
+  }> {
+    const [row] = await db
+      .select({
+        consent: students.photoVideoConsent,
+        at: students.photoVideoConsentWithdrawnAt,
+        by: students.photoVideoConsentWithdrawnBy,
+      })
+      .from(students)
+      .where(eq(students.id, id))
+    return row
+  }
+
+  it('records who withdrew consent and when, keeping the first record', async () => {
+    await updateStudent(SEED.students.alice, { photo_video_consent: true })
+
+    await withdrawPhotoVideoConsent(SEED.students.alice, SEED.staff.secretary)
+    const first = await withdrawal(SEED.students.alice)
+    expect(first).toEqual({
+      consent: false,
+      at: expect.any(String),
+      by: SEED.staff.secretary,
+    })
+
+    await withdrawPhotoVideoConsent(SEED.students.alice, SEED.staff.admin)
+    expect(await withdrawal(SEED.students.alice)).toEqual(first)
+  })
+
+  it('fails for a missing student', async () => {
+    await expect(
+      withdrawPhotoVideoConsent(
+        '30000000-0000-0000-0000-0000000000ff',
+        SEED.staff.admin,
+      ),
+    ).rejects.toThrow('Student not found')
+  })
+
+  it('records the admin who unticks it on the edit form, and clears that when given again', async () => {
+    async function save(photo: boolean, savedBy: string): Promise<void> {
+      await saveStudent(
+        SEED.students.carol,
+        {
+          first_name: 'Carol',
+          last_name: 'Student',
+          address_line_1: '3 Road',
+          city: 'Town',
+          postcode: 'AB3 4CD',
+          photo_video_consent: photo,
+        },
+        {
+          primary: { id: SEED.guardians.greg },
+          secondary: null,
+          contact1: null,
+          contact2: null,
+        },
+        false,
+        { savedBy, loadedAt: await loadedAt(SEED.students.carol) },
+      )
+    }
+
+    await save(true, SEED.staff.admin)
+    expect(await withdrawal(SEED.students.carol)).toEqual({
+      consent: true,
+      at: null,
+      by: null,
+    })
+
+    await save(false, SEED.staff.admin)
+    expect(await withdrawal(SEED.students.carol)).toEqual({
+      consent: false,
+      at: expect.any(String),
+      by: SEED.staff.admin,
+    })
+
+    await save(true, SEED.staff.admin)
+    expect(await withdrawal(SEED.students.carol)).toEqual({
+      consent: true,
+      at: null,
+      by: null,
+    })
+  })
+
+  it('leaves consent and its withdrawal as they are when a save does not set it', async () => {
+    await updateStudent(SEED.students.carol, { photo_video_consent: true })
+    await withdrawPhotoVideoConsent(SEED.students.carol, SEED.staff.secretary)
+    const withdrawn = await withdrawal(SEED.students.carol)
+
+    await saveStudent(
+      SEED.students.carol,
+      {
+        first_name: 'Carol',
+        last_name: 'Student',
+        address_line_1: '3 Road',
+        city: 'Town',
+        postcode: 'AB3 4CD',
+        photo_video_consent: undefined,
+      },
+      {
+        primary: { id: SEED.guardians.greg },
+        secondary: null,
+        contact1: null,
+        contact2: null,
+      },
+      false,
+      {
+        savedBy: SEED.staff.admin,
+        loadedAt: await loadedAt(SEED.students.carol),
+      },
+    )
+
+    expect(await withdrawal(SEED.students.carol)).toEqual(withdrawn)
   })
 })
 

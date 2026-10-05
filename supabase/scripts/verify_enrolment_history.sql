@@ -427,7 +427,7 @@ DECLARE
 BEGIN
   INSERT INTO registration_submissions (
     id, status, child_first_name, child_last_name, date_of_birth,
-    address_line_1, city, postcode, consent_privacy_notice, consent_emergency_first_aid, declaration_name
+    address_line_1, city, postcode, privacy_notice_read, first_aid_consent, declaration_name
   ) VALUES (
     gen_random_uuid(), 'pending', 'Verify', 'New', '2020-01-01',
     '1 Verify St', 'London', 'N1 9ZZ', true, true, 'Verify Parent'
@@ -452,7 +452,7 @@ BEGIN
 
   INSERT INTO registration_submissions (
     id, status, child_first_name, child_last_name, date_of_birth,
-    address_line_1, city, postcode, consent_privacy_notice, consent_emergency_first_aid, declaration_name
+    address_line_1, city, postcode, privacy_notice_read, first_aid_consent, declaration_name
   ) VALUES (
     gen_random_uuid(), 'pending', 'Verify', 'New', '2020-01-01',
     '1 Verify St', 'London', 'N1 9ZZ', true, true, 'Verify Parent'
@@ -480,7 +480,7 @@ BEGIN
   UPDATE classes SET active = false WHERE id = '10000000-0000-0000-0000-000000000002';
   INSERT INTO registration_submissions (
     id, status, child_first_name, child_last_name, date_of_birth,
-    address_line_1, city, postcode, consent_privacy_notice, consent_emergency_first_aid, declaration_name
+    address_line_1, city, postcode, privacy_notice_read, first_aid_consent, declaration_name
   ) VALUES (
     gen_random_uuid(), 'pending', 'Verify', 'Closed', '2020-01-01',
     '1 Verify St', 'London', 'N1 9ZZ', true, true, 'Verify Parent'

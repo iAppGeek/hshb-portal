@@ -14,6 +14,7 @@ import {
   useServerForm,
 } from '@/components/form'
 import type { ActionResult } from '@/lib/action'
+import { isOldEnoughToLeaveAlone, LEAVE_ALONE_AGE_HINT } from '@/lib/consents'
 
 export type StudentFormData = {
   id: string
@@ -30,6 +31,7 @@ export type StudentFormData = {
   postcode: string | null
   allergies: string | null
   medical_details: string | null
+  sen_details: string | null
   notes: string | null
   primary_guardian_id: string | null
   primary_guardian_relationship: string | null
@@ -39,11 +41,13 @@ export type StudentFormData = {
   additional_contact_1_relationship: string | null
   additional_contact_2_id: string | null
   additional_contact_2_relationship: string | null
-  consent_privacy_notice: boolean
-  consent_emergency_first_aid: boolean
-  consent_photo_media: boolean
-  consent_home_school: boolean
-  consent_comms_email_sms: boolean
+  privacy_notice_read: boolean
+  first_aid_consent: boolean
+  photo_video_consent: boolean
+  home_school_agreement: boolean
+  email_sms_contact_ack: boolean
+  may_leave_unaccompanied: boolean
+  updated_at: string | null
 }
 
 type Props = {
@@ -83,6 +87,19 @@ export default function StudentForm({
       ? 'own'
       : 'guardian',
   )
+  // Controlled so the leave-alone box can follow the child's age.
+  const [dateOfBirth, setDateOfBirth] = useState(initial?.date_of_birth ?? '')
+  const oldEnoughToLeaveAlone = isOldEnoughToLeaveAlone(dateOfBirth)
+  const [leaveAlone, setLeaveAlone] = useState(
+    (initial?.may_leave_unaccompanied ?? false) && oldEnoughToLeaveAlone,
+  )
+
+  function handleDateOfBirth(value: string): void {
+    setDateOfBirth(value)
+    // A box disabled for a younger child comes back unticked, so the admin
+    // decides afresh.
+    if (!isOldEnoughToLeaveAlone(value)) setLeaveAlone(false)
+  }
   const { handleSubmit, isPending, error, fieldError } = useServerForm(action)
 
   return (
@@ -96,6 +113,14 @@ export default function StudentForm({
         name="address_guardian_id"
         value={addressMode === 'guardian' ? 'primary' : ''}
       />
+      {initial && (
+        // A save is refused once the student has changed since this loaded.
+        <input
+          type="hidden"
+          name="updated_at"
+          value={initial.updated_at ?? ''}
+        />
+      )}
 
       {/* ── Student Details ─────────────────────────────────────────── */}
       <FormSection title="Student Details">
@@ -118,7 +143,8 @@ export default function StudentForm({
             label="Date of birth"
             name="student_date_of_birth"
             type="date"
-            defaultValue={initial?.date_of_birth}
+            value={dateOfBirth}
+            onChange={handleDateOfBirth}
             error={fieldError('student_date_of_birth')}
           />
           <TextField
@@ -202,6 +228,12 @@ export default function StudentForm({
               name="student_medical_details"
               defaultValue={initial?.medical_details}
               error={fieldError('student_medical_details')}
+            />
+            <TextField
+              label="Special educational needs or disability"
+              name="student_sen_details"
+              defaultValue={initial?.sen_details}
+              error={fieldError('student_sen_details')}
             />
             <TextField
               label="Notes"
@@ -344,29 +376,40 @@ export default function StudentForm({
           </p>
           <div className="space-y-2">
             <CheckboxField
-              name="consent_privacy_notice"
-              label="Privacy notice"
-              defaultChecked={initial.consent_privacy_notice}
+              name="privacy_notice_read"
+              label="Read the Privacy Notice"
+              defaultChecked={initial.privacy_notice_read}
             />
             <CheckboxField
-              name="consent_emergency_first_aid"
+              name="first_aid_consent"
               label="Emergency first aid"
-              defaultChecked={initial.consent_emergency_first_aid}
+              defaultChecked={initial.first_aid_consent}
             />
             <CheckboxField
-              name="consent_photo_media"
-              label="Photo & media"
-              defaultChecked={initial.consent_photo_media}
+              name="email_sms_contact_ack"
+              label="Email & SMS contact understood"
+              defaultChecked={initial.email_sms_contact_ack}
             />
             <CheckboxField
-              name="consent_home_school"
+              name="photo_video_consent"
+              label="Photos & video"
+              description="Unticking records you as withdrawing consent, with the time."
+              defaultChecked={initial.photo_video_consent}
+            />
+            <CheckboxField
+              name="home_school_agreement"
               label="Home–school agreement"
-              defaultChecked={initial.consent_home_school}
+              defaultChecked={initial.home_school_agreement}
             />
             <CheckboxField
-              name="consent_comms_email_sms"
-              label="Email & SMS"
-              defaultChecked={initial.consent_comms_email_sms}
+              name="may_leave_unaccompanied"
+              label="May leave on their own at the end of the session"
+              description={
+                oldEnoughToLeaveAlone ? undefined : LEAVE_ALONE_AGE_HINT
+              }
+              disabled={!oldEnoughToLeaveAlone}
+              checked={leaveAlone}
+              onChange={setLeaveAlone}
             />
           </div>
         </FormSection>

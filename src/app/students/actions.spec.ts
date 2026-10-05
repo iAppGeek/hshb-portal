@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { redirect } from 'next/navigation'
 
 import { getActor } from '@/auth/require'
@@ -8,11 +8,18 @@ import {
   getStudentById,
   isStudentCodeTaken,
   saveStudent,
+  StudentChangedError,
   updateStudentClasses,
   markStudentAsLeaver,
+  withdrawPhotoVideoConsent,
+  logAuditEvent,
 } from '@/db'
 
-import { saveStudentAction, markStudentAsLeaverAction } from './actions'
+import {
+  saveStudentAction,
+  markStudentAsLeaverAction,
+  withdrawPhotoVideoConsentAction,
+} from './actions'
 
 vi.mock('@/auth/require', () => ({ getActor: vi.fn() }))
 vi.mock('next/navigation', async (importOriginal) => ({
@@ -25,8 +32,12 @@ vi.mock('@/db', () => ({
   getStudentById: vi.fn(),
   isStudentCodeTaken: vi.fn(),
   saveStudent: vi.fn(),
+  StudentChangedError: class StudentChangedError extends Error {
+    message = 'Someone else changed this student.'
+  },
   updateStudentClasses: vi.fn(),
   markStudentAsLeaver: vi.fn(),
+  withdrawPhotoVideoConsent: vi.fn(),
   logAuditEvent: vi.fn(),
 }))
 
@@ -91,6 +102,7 @@ const createFields = {
   student_postcode: 'EC1A 1BB',
   student_allergies: '',
   student_medical_details: '',
+  student_sen_details: '',
   student_notes: '',
   primary_first_name: 'Maria',
   primary_last_name: 'Smith',
@@ -119,7 +131,10 @@ const createGuardianAddressFields = {
   primary_postcode: 'BS1 1AA',
 }
 
+const LOADED_AT = '2026-10-01 09:30:00.123456+00'
+
 const updateFields: Record<string, string> = {
+  updated_at: LOADED_AT,
   student_first_name: 'Anna',
   student_last_name: 'Smith',
   student_code: 'S001',
@@ -132,6 +147,7 @@ const updateFields: Record<string, string> = {
   student_postcode: 'EC1A 1BB',
   student_allergies: '',
   student_medical_details: '',
+  student_sen_details: '',
   student_notes: '',
   primary_mode: 'existing',
   primary_existing_id: GUARDIAN_1,
@@ -590,8 +606,8 @@ describe('saveStudentAction (update)', () => {
 
     const fields = {
       ...updateFields,
-      consent_privacy_notice: 'on',
-      consent_emergency_first_aid: 'on',
+      privacy_notice_read: 'on',
+      first_aid_consent: 'on',
     }
 
     await expect(
@@ -599,12 +615,132 @@ describe('saveStudentAction (update)', () => {
     ).rejects.toThrow('NEXT_REDIRECT')
 
     expect(saved().data).toMatchObject({
-      consent_privacy_notice: true,
-      consent_emergency_first_aid: true,
-      consent_photo_media: false,
-      consent_home_school: false,
-      consent_comms_email_sms: false,
+      privacy_notice_read: true,
+      first_aid_consent: true,
+      home_school_agreement: false,
+      email_sms_contact_ack: false,
     })
+  })
+
+  it.each([
+    ['ticked', { photo_video_consent: 'on' }, true],
+    ['unticked', {}, false],
+  ])(
+    'saves photo/video consent as the box shows when %s',
+    async (_state, box, expected) => {
+      vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
+      vi.mocked(redirect).mockImplementation(() => {
+        throw new Error('NEXT_REDIRECT')
+      })
+
+      await expect(
+        saveStudentAction(
+          STUDENT_ID,
+          makeFormData({ ...updateFields, ...box }),
+        ),
+      ).rejects.toThrow('NEXT_REDIRECT')
+
+      expect(saved().data.photo_video_consent).toBe(expected)
+    },
+  )
+
+  it('passes the admin and when the form loaded to saveStudent', async () => {
+    vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
+    vi.mocked(redirect).mockImplementation(() => {
+      throw new Error('NEXT_REDIRECT')
+    })
+
+    await expect(
+      saveStudentAction(STUDENT_ID, makeFormData(updateFields)),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(vi.mocked(saveStudent).mock.calls[0][4]).toEqual({
+      savedBy: 'admin-1',
+      loadedAt: LOADED_AT,
+    })
+  })
+
+  it('refuses the save once someone else has changed the student', async () => {
+    vi.mocked(saveStudent).mockRejectedValue(new StudentChangedError())
+
+    const result = await saveStudentAction(
+      STUDENT_ID,
+      makeFormData(updateFields),
+    )
+
+    expect(result).toEqual({ error: 'Someone else changed this student.' })
+    expect(updateStudentClasses).not.toHaveBeenCalled()
+    expect(redirect).not.toHaveBeenCalled()
+  })
+
+  describe('may leave on their own', () => {
+    // 4 Oct 2026: a child born on 4 Oct 2014 turns 12 that day.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-10-04T09:30:00Z'))
+      vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
+      vi.mocked(redirect).mockImplementation(() => {
+        throw new Error('NEXT_REDIRECT')
+      })
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    async function saveWith(fields: Record<string, string>): Promise<void> {
+      await expect(
+        saveStudentAction(
+          STUDENT_ID,
+          makeFormData({ ...updateFields, ...fields }),
+        ),
+      ).rejects.toThrow('NEXT_REDIRECT')
+    }
+
+    it('saves a tick for a student aged 12 or over', async () => {
+      await saveWith({
+        student_date_of_birth: '2014-10-04',
+        may_leave_unaccompanied: 'on',
+      })
+
+      expect(saved().data.may_leave_unaccompanied).toBe(true)
+    })
+
+    it('saves an unticked box as not given', async () => {
+      await saveWith({ student_date_of_birth: '2010-01-01' })
+
+      expect(saved().data.may_leave_unaccompanied).toBe(false)
+    })
+
+    it.each([
+      ['under 12', '2014-10-05'],
+      ['with no date of birth', ''],
+    ])(
+      'saves not given for a student %s even if a tick is sent',
+      async (_case, dob) => {
+        await saveWith({
+          student_date_of_birth: dob,
+          may_leave_unaccompanied: 'on',
+        })
+
+        expect(saved().data.may_leave_unaccompanied).toBe(false)
+      },
+    )
+  })
+
+  it('saves the SEN details', async () => {
+    vi.mocked(updateStudentClasses).mockResolvedValue(undefined)
+    vi.mocked(redirect).mockImplementation(() => {
+      throw new Error('NEXT_REDIRECT')
+    })
+
+    await expect(
+      saveStudentAction(
+        STUDENT_ID,
+        makeFormData({ ...updateFields, student_sen_details: 'Dyslexia' }),
+      ),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(saved().data).toMatchObject({ sen_details: 'Dyslexia' })
   })
 
   it('updates class enrollments with submitted class ids', async () => {
@@ -834,5 +970,43 @@ describe('markStudentAsLeaverAction', () => {
       error: 'Failed to mark student as a leaver. Please try again.',
     })
     expect(redirect).not.toHaveBeenCalled()
+  })
+})
+
+describe('withdrawPhotoVideoConsentAction', () => {
+  it('withdraws consent as the signed-in admin, logs and reloads the student', async () => {
+    vi.mocked(withdrawPhotoVideoConsent).mockResolvedValue(undefined)
+    vi.mocked(redirect).mockImplementation(() => {
+      throw new Error('NEXT_REDIRECT')
+    })
+
+    await expect(withdrawPhotoVideoConsentAction(STUDENT_ID)).rejects.toThrow(
+      'NEXT_REDIRECT',
+    )
+
+    expect(withdrawPhotoVideoConsent).toHaveBeenCalledWith(
+      STUDENT_ID,
+      'admin-1',
+    )
+    expect(logAuditEvent).toHaveBeenCalledWith({
+      staffId: 'admin-1',
+      action: 'update',
+      entity: 'student',
+      entityId: STUDENT_ID,
+      details: { photo_video_consent: false },
+    })
+    expect(redirect).toHaveBeenCalledWith(`/students/${STUDENT_ID}`)
+  })
+
+  it('refuses staff who cannot edit students', async () => {
+    vi.mocked(getActor).mockResolvedValue({
+      ...adminSession,
+      role: 'teacher',
+    } as Awaited<ReturnType<typeof getActor>>)
+
+    const result = await withdrawPhotoVideoConsentAction(STUDENT_ID)
+
+    expect(result).toEqual({ error: 'Not authorised' })
+    expect(withdrawPhotoVideoConsent).not.toHaveBeenCalled()
   })
 })

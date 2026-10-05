@@ -39,13 +39,17 @@ const baseSubmission: RegistrationFull = {
   postcode: 'N1 2AA',
   allergies: null,
   medical_details: null,
+  sen_details: null,
   collect_authorised: null,
   collect_password: null,
-  consent_privacy_notice: true,
-  consent_emergency_first_aid: true,
-  consent_photo_media: false,
-  consent_home_school: false,
-  consent_comms_email_sms: false,
+  may_leave_unaccompanied: false,
+  privacy_notice_read: true,
+  first_aid_consent: true,
+  photo_video_consent: false,
+  home_school_agreement: false,
+  email_sms_contact_ack: true,
+  consents_recorded_at: null,
+  privacy_notice_version: null,
   declaration_name: 'Petra Pending',
   actioned_by: null,
   actioned_at: null,
@@ -102,6 +106,40 @@ describe('RegistrationReview', () => {
     expect(screen.getByText('Primary parent/carer')).toBeTruthy()
     expect(screen.getByText('Consents')).toBeTruthy()
     expect(screen.getByText('Workflow')).toBeTruthy()
+  })
+
+  it('shows all six consents with when they were recorded and the notice version', () => {
+    renderReview({
+      may_leave_unaccompanied: true,
+      consents_recorded_at: '2026-10-04T09:30:00Z',
+      privacy_notice_version: '1.0',
+    })
+
+    const consents = screen.getByText('Consents').closest('div')!
+    const rows = Array.from(consents.querySelectorAll('dt')).map((dt) => [
+      dt.textContent,
+      dt.nextElementSibling?.textContent,
+    ])
+    expect(rows).toEqual([
+      ['Read the Privacy Notice', 'Yes'],
+      ['Emergency first aid', 'Yes'],
+      ['Email & SMS contact understood', 'Yes'],
+      ['Photos & video', 'Not given'],
+      ['Home–school agreement', 'Not given'],
+      ['May leave on their own', 'Yes'],
+      ['Consents recorded', '04/10/2026, 10:30'],
+      ['Privacy Notice version', '1.0'],
+      ['Signed by', 'Petra Pending'],
+    ])
+  })
+
+  it('shows the SEN details with the medical information', () => {
+    renderReview({ sen_details: 'Dyslexia' })
+
+    expect(
+      screen.getByText('Special educational needs or disability'),
+    ).toBeTruthy()
+    expect(screen.getByText('Dyslexia')).toBeTruthy()
   })
 
   it('shows enabled action buttons for admin on a pending submission', () => {

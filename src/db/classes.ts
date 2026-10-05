@@ -54,7 +54,12 @@ export type ClassWithStudents = Omit<ClassRow, 'teacher'> &
     studentClasses: {
       student: Pick<
         Student,
-        'id' | 'studentCode' | 'firstName' | 'lastName' | 'allergies'
+        | 'id'
+        | 'studentCode'
+        | 'firstName'
+        | 'lastName'
+        | 'allergies'
+        | 'photoVideoConsent'
       > & {
         primaryGuardian: RosterGuardian
         secondaryGuardian: RosterGuardian | null
@@ -241,6 +246,7 @@ export async function getClassWithStudents(
               firstName: true,
               lastName: true,
               allergies: true,
+              photoVideoConsent: true,
             },
             with: {
               primaryGuardian: { columns: guardianColumns },

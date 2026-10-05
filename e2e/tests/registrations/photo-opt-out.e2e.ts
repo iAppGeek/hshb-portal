@@ -81,7 +81,7 @@ test.describe('Photo consent opt-out — admin review', () => {
         city: 'London',
         postcode: 'N1 1AA',
         primary_guardian_id: guardian!.id,
-        consent_photo_media: true,
+        photo_video_consent: true,
       })
       .select('id')
       .single()
@@ -144,10 +144,10 @@ test.describe('Photo consent opt-out — admin review', () => {
     await expect(async () => {
       const { data: updated } = await db
         .from('students')
-        .select('consent_photo_media')
+        .select('photo_video_consent')
         .eq('id', student!.id)
         .single()
-      expect(updated?.consent_photo_media).toBe(false)
+      expect(updated?.photo_video_consent).toBe(false)
     }).toPass({ timeout: 5000 })
 
     const { data: request } = await db

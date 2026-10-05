@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 
 import StudentForm, { type StudentFormData } from './StudentForm'
@@ -54,6 +54,7 @@ const baseStudent: StudentFormData = {
   postcode: 'EC1A 1BB',
   allergies: null,
   medical_details: null,
+  sen_details: null,
   notes: null,
   primary_guardian_id: 'guardian-1',
   primary_guardian_relationship: 'Mother',
@@ -63,11 +64,13 @@ const baseStudent: StudentFormData = {
   additional_contact_1_relationship: null,
   additional_contact_2_id: null,
   additional_contact_2_relationship: null,
-  consent_privacy_notice: false,
-  consent_emergency_first_aid: false,
-  consent_photo_media: false,
-  consent_home_school: false,
-  consent_comms_email_sms: false,
+  privacy_notice_read: false,
+  first_aid_consent: false,
+  photo_video_consent: false,
+  home_school_agreement: false,
+  email_sms_contact_ack: false,
+  may_leave_unaccompanied: false,
+  updated_at: '2026-10-01 09:30:00.123456+00',
 }
 
 function renderNew(action = vi.fn()): ReturnType<typeof render> {
@@ -339,23 +342,113 @@ describe('StudentForm with initial (editing)', () => {
   it('renders consent checkboxes pre-checked from the student record', () => {
     renderEdit({
       ...baseStudent,
-      consent_privacy_notice: true,
-      consent_emergency_first_aid: true,
+      privacy_notice_read: true,
+      first_aid_consent: true,
     })
 
     expect(
       (
         screen.getByRole('checkbox', {
-          name: 'Privacy notice',
+          name: 'Read the Privacy Notice',
         }) as HTMLInputElement
       ).checked,
     ).toBe(true)
     expect(
       (
         screen.getByRole('checkbox', {
-          name: 'Photo & media',
+          name: 'Photos & video',
         }) as HTMLInputElement
       ).checked,
     ).toBe(false)
+  })
+
+  it('warns that unticking photo consent records a withdrawal', () => {
+    renderEdit({ ...baseStudent, photo_video_consent: true })
+
+    expect(
+      screen.getByRole('checkbox', { name: 'Photos & video' }),
+    ).toHaveAccessibleDescription(
+      'Unticking records you as withdrawing consent, with the time.',
+    )
+  })
+
+  it('sends when the student was last updated, so a stale save is refused', () => {
+    const { container } = renderEdit()
+
+    const data = new FormData(container.querySelector('form')!)
+    expect(data.get('updated_at')).toBe('2026-10-01 09:30:00.123456+00')
+  })
+
+  describe('may leave on their own', () => {
+    const LABEL = 'May leave on their own at the end of the session'
+    const HINT = 'Only for children aged 12 or over.'
+
+    // 4 Oct 2026: a child born on 4 Oct 2014 turns 12 that day.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-10-04T09:30:00Z'))
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    function box(): HTMLInputElement {
+      return screen.getByRole('checkbox', { name: LABEL })
+    }
+
+    it.each([
+      ['with no date of birth', null],
+      ['under 12', '2014-10-05'],
+    ])('is disabled with the age hint for a student %s', (_case, dob) => {
+      renderEdit({ ...baseStudent, date_of_birth: dob })
+
+      expect(box()).toBeDisabled()
+      expect(box()).not.toBeChecked()
+      expect(box()).toHaveAccessibleDescription(HINT)
+    })
+
+    it('is enabled and shows the answer on record for a student aged 12 or over', () => {
+      renderEdit({
+        ...baseStudent,
+        date_of_birth: '2014-10-04',
+        may_leave_unaccompanied: true,
+      })
+
+      expect(box()).toBeEnabled()
+      expect(box()).toBeChecked()
+      expect(screen.queryByText(HINT)).toBeNull()
+    })
+
+    it('follows a date of birth changed on the form', () => {
+      const { container } = renderEdit({
+        ...baseStudent,
+        date_of_birth: '2010-01-01',
+        may_leave_unaccompanied: true,
+      })
+
+      fireEvent.change(screen.getByLabelText('Date of birth'), {
+        target: { value: '2020-01-01' },
+      })
+
+      expect(box()).toBeDisabled()
+      expect(box()).not.toBeChecked()
+      const data = new FormData(container.querySelector('form')!)
+      expect(data.has('may_leave_unaccompanied')).toBe(false)
+
+      fireEvent.change(screen.getByLabelText('Date of birth'), {
+        target: { value: '2010-01-01' },
+      })
+
+      expect(box()).toBeEnabled()
+      expect(box()).not.toBeChecked()
+    })
+  })
+
+  it('edits the SEN details', () => {
+    renderEdit({ ...baseStudent, sen_details: 'Dyslexia' })
+
+    expect(
+      screen.getByLabelText('Special educational needs or disability'),
+    ).toHaveValue('Dyslexia')
   })
 })

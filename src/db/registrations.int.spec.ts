@@ -1,6 +1,8 @@
+import { eq } from 'drizzle-orm'
 import { afterAll, describe, expect, it } from 'vitest'
 
 import { asDbError } from '@/lib/db-error'
+import type { Database } from '@/types/database'
 
 import {
   approveRegistration,
@@ -11,13 +13,35 @@ import {
   getRegistrationSubmissions,
   rejectRegistration,
 } from './registrations'
+import { db } from './client'
+import { students } from './schema'
+import { getStudentById } from './students'
 import { resetDatabase, SEED } from './test-db'
 
 afterAll(resetDatabase)
 
-async function submit(childFirstName: string): Promise<string> {
+type SubmissionInsert =
+  Database['public']['Tables']['registration_submissions']['Insert']
+
+const V1_CONSENTS = {
+  privacy_notice_read: true,
+  first_aid_consent: true,
+  email_sms_contact_ack: true,
+  photo_video_consent: false,
+  home_school_agreement: true,
+  may_leave_unaccompanied: true,
+  sen_details: 'Dyslexia',
+  consents_recorded_at: '2026-10-04T09:30:00.000Z',
+  privacy_notice_version: '1.0',
+} satisfies Partial<SubmissionInsert>
+
+async function submit(
+  childFirstName: string,
+  consents: Partial<SubmissionInsert> = {},
+): Promise<string> {
   const { id } = await createRegistrationSubmission({
     submission: {
+      ...consents,
       child_first_name: childFirstName,
       child_last_name: 'Applicant',
       date_of_birth: '2019-05-05',
@@ -25,7 +49,7 @@ async function submit(childFirstName: string): Promise<string> {
       city: 'London',
       postcode: 'N4 4AA',
       declaration_name: 'Pat Parent',
-      consent_privacy_notice: true,
+      privacy_notice_read: true,
     },
     contacts: [
       {
@@ -148,5 +172,146 @@ describe('registration review', () => {
     await expect(deleteRegistrationSubmission(id)).rejects.toThrow(
       'Submission not found',
     )
+  })
+})
+
+describe('registration consents', () => {
+  it('stores each consent separately with the time recorded and the notice version', async () => {
+    const id = await submit('Cleo', V1_CONSENTS)
+
+    expect(await getRegistrationSubmissionById(id)).toMatchObject({
+      privacy_notice_read: true,
+      first_aid_consent: true,
+      email_sms_contact_ack: true,
+      photo_video_consent: false,
+      home_school_agreement: true,
+      may_leave_unaccompanied: true,
+      sen_details: 'Dyslexia',
+      consents_recorded_at: '2026-10-04T09:30:00+00:00',
+      privacy_notice_version: '1.0',
+    })
+  })
+
+  it('leaves the time and version unknown on submissions from before v1.0', async () => {
+    expect(
+      await getRegistrationSubmissionById(SEED.registrations.pending),
+    ).toMatchObject({
+      privacy_notice_read: true,
+      first_aid_consent: true,
+      may_leave_unaccompanied: false,
+      consents_recorded_at: null,
+      privacy_notice_version: null,
+    })
+  })
+
+  it('stores a missing leave-alone answer as not given', async () => {
+    const { may_leave_unaccompanied: _omitted, ...rest } = V1_CONSENTS
+    const id = await submit('Iris', rest)
+
+    expect(await getRegistrationSubmissionById(id)).toMatchObject({
+      may_leave_unaccompanied: false,
+    })
+  })
+
+  it('copies the consents, SEN details and notice version onto a new student', async () => {
+    const id = await submit('Dora', V1_CONSENTS)
+    const { student_id } = await approveRegistration({
+      submissionId: id,
+      staffId: SEED.staff.admin,
+      studentCode: 'DORA-1',
+      classId: null,
+      existingStudentId: null,
+      reuseGuardians: true,
+    })
+
+    expect(await getStudentById(student_id)).toMatchObject({
+      privacy_notice_read: true,
+      first_aid_consent: true,
+      email_sms_contact_ack: true,
+      photo_video_consent: false,
+      home_school_agreement: true,
+      may_leave_unaccompanied: true,
+      sen_details: 'Dyslexia',
+      consents_recorded_at: '2026-10-04T09:30:00+00:00',
+      privacy_notice_version: '1.0',
+      photo_video_consent_withdrawn_at: null,
+    })
+  })
+
+  describe('a returning child’s photo/video consent', () => {
+    /** Carol with consent withdrawn by the admin at `at`. */
+    async function withdrawnAt(at: string): Promise<void> {
+      await db
+        .update(students)
+        .set({
+          photoVideoConsent: false,
+          photoVideoConsentWithdrawnAt: at,
+          photoVideoConsentWithdrawnBy: SEED.staff.admin,
+        })
+        .where(eq(students.id, SEED.students.carol))
+    }
+
+    async function approveOntoCarol(
+      consents: Partial<SubmissionInsert>,
+    ): Promise<void> {
+      const id = await submit('Carol', consents)
+      await approveRegistration({
+        submissionId: id,
+        staffId: SEED.staff.admin,
+        studentCode: null,
+        classId: null,
+        existingStudentId: SEED.students.carol,
+        reuseGuardians: true,
+      })
+    }
+
+    it('is given again, clearing the withdrawal, by a form filled in after it', async () => {
+      await withdrawnAt('2026-09-01T10:00:00Z')
+
+      await approveOntoCarol({ ...V1_CONSENTS, photo_video_consent: true })
+
+      expect(await getStudentById(SEED.students.carol)).toMatchObject({
+        photo_video_consent: true,
+        photo_video_consent_withdrawn_at: null,
+        photo_video_consent_withdrawn_by: null,
+        privacy_notice_version: '1.0',
+        may_leave_unaccompanied: true,
+      })
+    })
+
+    it('stays withdrawn when the form was filled in before the withdrawal', async () => {
+      // The form below was filled in on 4 Oct 2026 at 09:30 UTC.
+      await withdrawnAt('2026-10-04T15:00:00Z')
+
+      await approveOntoCarol({ ...V1_CONSENTS, photo_video_consent: true })
+
+      expect(await getStudentById(SEED.students.carol)).toMatchObject({
+        photo_video_consent: false,
+        photo_video_consent_withdrawn_at: '2026-10-04T15:00:00+00:00',
+        photo_video_consent_withdrawn_by: SEED.staff.admin,
+      })
+    })
+
+    it('uses the submission time for a form from before v1.0', async () => {
+      await withdrawnAt('2000-01-01T00:00:00Z')
+
+      await approveOntoCarol({ photo_video_consent: true })
+
+      expect(await getStudentById(SEED.students.carol)).toMatchObject({
+        photo_video_consent: true,
+        photo_video_consent_withdrawn_at: null,
+      })
+    })
+
+    it('keeps the withdrawal on record when the new form does not give consent', async () => {
+      await withdrawnAt('2026-09-01T10:00:00Z')
+
+      await approveOntoCarol({ ...V1_CONSENTS, photo_video_consent: false })
+
+      expect(await getStudentById(SEED.students.carol)).toMatchObject({
+        photo_video_consent: false,
+        photo_video_consent_withdrawn_at: '2026-09-01T10:00:00+00:00',
+      })
+    })
   })
 })

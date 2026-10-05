@@ -786,6 +786,7 @@ describe('createStudentSchema', () => {
     student_postcode: 'N1 1AA',
     student_allergies: '',
     student_medical_details: '',
+    student_sen_details: '',
     student_notes: '',
     primary_relationship: 'Mother',
     has_secondary: 'false',
@@ -806,6 +807,7 @@ describe('createStudentSchema', () => {
     student_postcode: '',
     student_allergies: '',
     student_medical_details: '',
+    student_sen_details: '',
     student_notes: '',
     primary_relationship: 'Mother',
     has_secondary: 'false',
@@ -874,6 +876,7 @@ describe('createStudentSchema', () => {
 describe('updateStudentSchema', () => {
   it('requires class_ids array', () => {
     const result = updateStudentSchema.parse({
+      updated_at: '2026-10-01 09:30:00.123456+00',
       student_first_name: 'Anna',
       student_last_name: 'Smith',
       student_code: 'GK-1001',
@@ -886,6 +889,7 @@ describe('updateStudentSchema', () => {
       student_postcode: '',
       student_allergies: '',
       student_medical_details: '',
+      student_sen_details: '',
       student_notes: '',
       primary_relationship: 'Mother',
       has_secondary: 'false',
@@ -898,6 +902,7 @@ describe('updateStudentSchema', () => {
 
   it('parses consent checkboxes, defaulting unticked ones to false', () => {
     const result = updateStudentSchema.parse({
+      updated_at: '2026-10-01 09:30:00.123456+00',
       student_first_name: 'Anna',
       student_last_name: 'Smith',
       student_code: 'GK-1001',
@@ -910,16 +915,72 @@ describe('updateStudentSchema', () => {
       student_postcode: '',
       student_allergies: '',
       student_medical_details: '',
+      student_sen_details: '',
       student_notes: '',
       primary_relationship: 'Mother',
       has_secondary: 'false',
       has_contact1: 'false',
       has_contact2: 'false',
       class_ids: [],
-      consent_privacy_notice: 'on',
+      privacy_notice_read: 'on',
     })
-    expect(result.consent_privacy_notice).toBe(true)
-    expect(result.consent_emergency_first_aid).toBe(false)
+    expect(result.privacy_notice_read).toBe(true)
+    expect(result.first_aid_consent).toBe(false)
+    expect(result.photo_video_consent).toBe(false)
+    expect(result.may_leave_unaccompanied).toBe(false)
+  })
+
+  it.each([
+    ['on', true],
+    [undefined, false],
+  ] as const)('parses may_leave_unaccompanied %j as %s', (value, expected) => {
+    const result = updateStudentSchema.parse({
+      updated_at: '2026-10-01 09:30:00.123456+00',
+      student_first_name: 'Anna',
+      student_last_name: 'Smith',
+      student_code: 'GK-1001',
+      student_date_of_birth: '',
+      student_english_school_name: '',
+      address_guardian_id: 'primary',
+      student_allergies: '',
+      student_medical_details: '',
+      student_sen_details: '',
+      student_notes: '',
+      primary_relationship: 'Mother',
+      has_secondary: 'false',
+      has_contact1: 'false',
+      has_contact2: 'false',
+      class_ids: [],
+      may_leave_unaccompanied: value,
+    })
+    expect(result.may_leave_unaccompanied).toBe(expected)
+  })
+
+  it('keeps when the form loaded, and requires it', () => {
+    const fields = {
+      student_first_name: 'Anna',
+      student_last_name: 'Smith',
+      student_code: 'GK-1001',
+      student_date_of_birth: '',
+      student_english_school_name: '',
+      address_guardian_id: 'primary',
+      student_allergies: '',
+      student_medical_details: '',
+      student_sen_details: '',
+      student_notes: '',
+      primary_relationship: 'Mother',
+      has_secondary: 'false',
+      has_contact1: 'false',
+      has_contact2: 'false',
+      class_ids: [],
+    }
+    expect(
+      updateStudentSchema.parse({
+        ...fields,
+        updated_at: '2026-10-01 09:30:00.123456+00',
+      }).updated_at,
+    ).toBe('2026-10-01 09:30:00.123456+00')
+    expect(updateStudentSchema.safeParse(fields).success).toBe(false)
   })
 })
 
@@ -1102,16 +1163,17 @@ describe('registrationSubmissionSchema', () => {
     postcode: 'N1 2AA',
     allergies: '',
     medical_details: '',
+    sen_details: '',
     collect_authorised: '',
     collect_password: '',
     has_secondary: 'false',
     has_contact1: 'false',
     has_contact2: 'false',
-    consent_privacy_notice: 'on',
-    consent_emergency_first_aid: 'on',
-    consent_photo_media: 'on',
-    consent_home_school: 'on',
-    consent_comms_email_sms: 'on',
+    privacy_notice_read: 'on',
+    first_aid_consent: 'on',
+    email_sms_contact_ack: 'on',
+    photo_video_consent: 'on',
+    home_school_agreement: 'on',
     declaration_name: 'Petra Pending',
     turnstile_token: 'token123',
   }
@@ -1119,7 +1181,7 @@ describe('registrationSubmissionSchema', () => {
   it('accepts a valid submission', () => {
     const result = registrationSubmissionSchema.parse(valid)
     expect(result.child_first_name).toBe('Seed')
-    expect(result.consent_privacy_notice).toBe(true)
+    expect(result.privacy_notice_read).toBe(true)
   })
 
   it('rejects missing child, address or declaration fields', () => {
@@ -1140,19 +1202,23 @@ describe('registrationSubmissionSchema', () => {
     ).toThrow()
   })
 
-  it('rejects when either required consent is unticked', () => {
-    expect(() =>
-      registrationSubmissionSchema.parse({
-        ...valid,
-        consent_privacy_notice: undefined,
+  it.each([
+    'privacy_notice_read',
+    'first_aid_consent',
+    'email_sms_contact_ack',
+  ])('rejects an unticked %s with the required-box message', (field) => {
+    const result = registrationSubmissionSchema.safeParse({
+      ...valid,
+      [field]: undefined,
+    })
+    expect(result.success).toBe(false)
+    expect(result.error?.issues).toEqual([
+      expect.objectContaining({
+        path: [field],
+        message:
+          'Please tick this box to continue — it is required to register.',
       }),
-    ).toThrow('privacy notice')
-    expect(() =>
-      registrationSubmissionSchema.parse({
-        ...valid,
-        consent_emergency_first_aid: undefined,
-      }),
-    ).toThrow('Emergency first aid')
+    ])
   })
 
   // Required on the public form; the admin schemas keep it optional because
@@ -1180,11 +1246,30 @@ describe('registrationSubmissionSchema', () => {
   it('allows optional consents to be unticked', () => {
     const result = registrationSubmissionSchema.parse({
       ...valid,
-      consent_photo_media: undefined,
-      consent_home_school: undefined,
-      consent_comms_email_sms: undefined,
+      photo_video_consent: undefined,
+      home_school_agreement: undefined,
     })
-    expect(result.consent_photo_media).toBe(false)
+    expect(result.photo_video_consent).toBe(false)
+    expect(result.home_school_agreement).toBe(false)
+    expect(result.may_leave_unaccompanied).toBe(false)
+  })
+
+  it('parses may_leave_unaccompanied and sen_details', () => {
+    const result = registrationSubmissionSchema.parse({
+      ...valid,
+      may_leave_unaccompanied: 'on',
+      sen_details: 'Dyslexia',
+    })
+    expect(result.may_leave_unaccompanied).toBe(true)
+    expect(result.sen_details).toBe('Dyslexia')
+  })
+
+  it('stores a blank sen_details as null', () => {
+    const result = registrationSubmissionSchema.parse({
+      ...valid,
+      sen_details: '',
+    })
+    expect(result.sen_details).toBeNull()
   })
 
   it('allows collection arrangement fields to be absent from the form', () => {
