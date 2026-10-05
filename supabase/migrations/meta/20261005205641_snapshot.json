@@ -1,6 +1,6 @@
 {
-  "id": "969b3e9b-8114-499a-9f51-8c8fa19a5436",
-  "prevId": "3dba6b7c-00fa-4d59-ae59-d53736aca95c",
+  "id": "6ede997d-f89f-43b6-a324-ee50cf5daa55",
+  "prevId": "0eeb0bc3-46e9-4c99-9503-cf8d76f30051",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -67,10 +67,10 @@
             }
           ],
           "isUnique": true,
-          "where": "\"academic_years\".\"is_current\"",
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "where": "\"academic_years\".\"is_current\"",
+          "concurrently": false
         }
       },
       "foreignKeys": {},
@@ -78,10 +78,10 @@
       "uniqueConstraints": {
         "academic_years_code_key": {
           "name": "academic_years_code_key",
-          "nullsNotDistinct": false,
           "columns": [
             "code"
-          ]
+          ],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -177,9 +177,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "attendance_student_id_idx": {
           "name": "attendance_student_id_idx",
@@ -192,62 +192,62 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "attendance_class_id_fkey": {
           "name": "attendance_class_id_fkey",
           "tableFrom": "attendance",
-          "tableTo": "classes",
           "columnsFrom": [
             "class_id"
           ],
+          "tableTo": "classes",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "attendance_recorded_by_fkey": {
           "name": "attendance_recorded_by_fkey",
           "tableFrom": "attendance",
-          "tableTo": "staff",
           "columnsFrom": [
             "recorded_by"
           ],
+          "tableTo": "staff",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "attendance_student_id_fkey": {
           "name": "attendance_student_id_fkey",
           "tableFrom": "attendance",
-          "tableTo": "students",
           "columnsFrom": [
             "student_id"
           ],
+          "tableTo": "students",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "attendance_class_student_date_key": {
           "name": "attendance_class_student_date_key",
-          "nullsNotDistinct": false,
           "columns": [
             "class_id",
             "student_id",
             "date"
-          ]
+          ],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -320,9 +320,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "idx_audit_log_entity": {
           "name": "idx_audit_log_entity",
@@ -335,9 +335,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "idx_audit_log_staff_id": {
           "name": "idx_audit_log_staff_id",
@@ -350,24 +350,24 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "audit_log_staff_id_fkey": {
           "name": "audit_log_staff_id_fkey",
           "tableFrom": "audit_log",
-          "tableTo": "staff",
           "columnsFrom": [
             "staff_id"
           ],
+          "tableTo": "staff",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -444,9 +444,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "classes_active_idx": {
           "name": "classes_active_idx",
@@ -459,9 +459,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "classes_teacher_id_idx": {
           "name": "classes_teacher_id_idx",
@@ -474,48 +474,48 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "classes_academic_year_id_fkey": {
           "name": "classes_academic_year_id_fkey",
           "tableFrom": "classes",
-          "tableTo": "academic_years",
           "columnsFrom": [
             "academic_year_id"
           ],
+          "tableTo": "academic_years",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "restrict"
         },
         "classes_teacher_id_fkey": {
           "name": "classes_teacher_id_fkey",
           "tableFrom": "classes",
-          "tableTo": "staff",
           "columnsFrom": [
             "teacher_id"
           ],
+          "tableTo": "staff",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "classes_name_academic_year_id_key": {
           "name": "classes_name_academic_year_id_key",
-          "nullsNotDistinct": false,
           "columns": [
             "name",
             "academic_year_id"
-          ]
+          ],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -565,47 +565,47 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "fee_plan_classes_class_id_fkey": {
           "name": "fee_plan_classes_class_id_fkey",
           "tableFrom": "fee_plan_classes",
-          "tableTo": "classes",
           "columnsFrom": [
             "class_id"
           ],
+          "tableTo": "classes",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "fee_plan_classes_fee_plan_id_fkey": {
           "name": "fee_plan_classes_fee_plan_id_fkey",
           "tableFrom": "fee_plan_classes",
-          "tableTo": "fee_plans",
           "columnsFrom": [
             "fee_plan_id"
           ],
+          "tableTo": "fee_plans",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "fee_plan_classes_class_id_key": {
           "name": "fee_plan_classes_class_id_key",
-          "nullsNotDistinct": false,
           "columns": [
             "class_id"
-          ]
+          ],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -693,35 +693,35 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "fee_plans_academic_year_id_fkey": {
           "name": "fee_plans_academic_year_id_fkey",
           "tableFrom": "fee_plans",
-          "tableTo": "academic_years",
           "columnsFrom": [
             "academic_year_id"
           ],
+          "tableTo": "academic_years",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "restrict"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "fee_plans_name_academic_year_id_key": {
           "name": "fee_plans_name_academic_year_id_key",
-          "nullsNotDistinct": false,
           "columns": [
             "name",
             "academic_year_id"
-          ]
+          ],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -833,15 +833,15 @@
           "columns": [
             {
               "expression": "lower(\"email\")",
-              "asc": true,
               "isExpression": true,
+              "asc": true,
               "nulls": "last"
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "guardians_last_name_idx": {
           "name": "guardians_last_name_idx",
@@ -854,9 +854,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {},
@@ -959,9 +959,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "idx_incidents_student_id": {
           "name": "idx_incidents_student_id",
@@ -974,9 +974,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "idx_incidents_type": {
           "name": "idx_incidents_type",
@@ -989,50 +989,50 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "incidents_created_by_fkey": {
           "name": "incidents_created_by_fkey",
           "tableFrom": "incidents",
-          "tableTo": "staff",
           "columnsFrom": [
             "created_by"
           ],
+          "tableTo": "staff",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "no action"
         },
         "incidents_student_id_fkey": {
           "name": "incidents_student_id_fkey",
           "tableFrom": "incidents",
-          "tableTo": "students",
           "columnsFrom": [
             "student_id"
           ],
+          "tableTo": "students",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "incidents_updated_by_fkey": {
           "name": "incidents_updated_by_fkey",
           "tableFrom": "incidents",
-          "tableTo": "staff",
           "columnsFrom": [
             "updated_by"
           ],
+          "tableTo": "staff",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1114,9 +1114,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "lesson_plans_lesson_date_idx": {
           "name": "lesson_plans_lesson_date_idx",
@@ -1129,61 +1129,61 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "lesson_plans_class_id_fkey": {
           "name": "lesson_plans_class_id_fkey",
           "tableFrom": "lesson_plans",
-          "tableTo": "classes",
           "columnsFrom": [
             "class_id"
           ],
+          "tableTo": "classes",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "lesson_plans_created_by_fkey": {
           "name": "lesson_plans_created_by_fkey",
           "tableFrom": "lesson_plans",
-          "tableTo": "staff",
           "columnsFrom": [
             "created_by"
           ],
+          "tableTo": "staff",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "no action"
         },
         "lesson_plans_updated_by_fkey": {
           "name": "lesson_plans_updated_by_fkey",
           "tableFrom": "lesson_plans",
-          "tableTo": "staff",
           "columnsFrom": [
             "updated_by"
           ],
+          "tableTo": "staff",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "lesson_plans_class_id_lesson_date_key": {
           "name": "lesson_plans_class_id_lesson_date_key",
-          "nullsNotDistinct": false,
           "columns": [
             "class_id",
             "lesson_date"
-          ]
+          ],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -1297,9 +1297,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "photo_consent_opt_outs_submitted_at_idx": {
           "name": "photo_consent_opt_outs_submitted_at_idx",
@@ -1312,37 +1312,37 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "photo_consent_opt_outs_actioned_by_fkey": {
           "name": "photo_consent_opt_outs_actioned_by_fkey",
           "tableFrom": "photo_consent_opt_outs",
-          "tableTo": "staff",
           "columnsFrom": [
             "actioned_by"
           ],
+          "tableTo": "staff",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "photo_consent_opt_outs_student_id_fkey": {
           "name": "photo_consent_opt_outs_student_id_fkey",
           "tableFrom": "photo_consent_opt_outs",
-          "tableTo": "students",
           "columnsFrom": [
             "student_id"
           ],
+          "tableTo": "students",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -1406,34 +1406,34 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "push_subscriptions_staff_id_fkey": {
           "name": "push_subscriptions_staff_id_fkey",
           "tableFrom": "push_subscriptions",
-          "tableTo": "staff",
           "columnsFrom": [
             "staff_id"
           ],
+          "tableTo": "staff",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "push_subscriptions_endpoint_key": {
           "name": "push_subscriptions_endpoint_key",
-          "nullsNotDistinct": false,
           "columns": [
             "endpoint"
-          ]
+          ],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -1551,35 +1551,35 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "registration_submission_contacts_submission_id_fkey": {
           "name": "registration_submission_contacts_submission_id_fkey",
           "tableFrom": "registration_submission_contacts",
-          "tableTo": "registration_submissions",
           "columnsFrom": [
             "submission_id"
           ],
+          "tableTo": "registration_submissions",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "registration_submission_contacts_submission_id_contact_role_key": {
           "name": "registration_submission_contacts_submission_id_contact_role_key",
-          "nullsNotDistinct": false,
           "columns": [
             "submission_id",
             "contact_role"
-          ]
+          ],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -1814,9 +1814,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "registration_submissions_student_id_idx": {
           "name": "registration_submissions_student_id_idx",
@@ -1829,9 +1829,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "registration_submissions_submitted_at_idx": {
           "name": "registration_submissions_submitted_at_idx",
@@ -1844,37 +1844,37 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "registration_submissions_actioned_by_fkey": {
           "name": "registration_submissions_actioned_by_fkey",
           "tableFrom": "registration_submissions",
-          "tableTo": "staff",
           "columnsFrom": [
             "actioned_by"
           ],
+          "tableTo": "staff",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "registration_submissions_student_id_fkey": {
           "name": "registration_submissions_student_id_fkey",
           "tableFrom": "registration_submissions",
-          "tableTo": "students",
           "columnsFrom": [
             "student_id"
           ],
+          "tableTo": "students",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -1957,10 +1957,10 @@
       "uniqueConstraints": {
         "staff_email_key": {
           "name": "staff_email_key",
-          "nullsNotDistinct": false,
           "columns": [
             "email"
-          ]
+          ],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -2035,9 +2035,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "staff_attendance_staff_id_idx": {
           "name": "staff_attendance_staff_id_idx",
@@ -2050,35 +2050,35 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "staff_attendance_staff_id_fkey": {
           "name": "staff_attendance_staff_id_fkey",
           "tableFrom": "staff_attendance",
-          "tableTo": "staff",
           "columnsFrom": [
             "staff_id"
           ],
+          "tableTo": "staff",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "staff_attendance_staff_id_date_key": {
           "name": "staff_attendance_staff_id_date_key",
-          "nullsNotDistinct": false,
           "columns": [
             "staff_id",
             "date"
-          ]
+          ],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -2346,60 +2346,60 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "staff_payroll_dbs_verified_by_fkey": {
           "name": "staff_payroll_dbs_verified_by_fkey",
           "tableFrom": "staff_payroll",
-          "tableTo": "staff",
           "columnsFrom": [
             "dbs_verified_by"
           ],
+          "tableTo": "staff",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "staff_payroll_id_verified_by_fkey": {
           "name": "staff_payroll_id_verified_by_fkey",
           "tableFrom": "staff_payroll",
-          "tableTo": "staff",
           "columnsFrom": [
             "id_verified_by"
           ],
+          "tableTo": "staff",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "staff_payroll_staff_id_fkey": {
           "name": "staff_payroll_staff_id_fkey",
           "tableFrom": "staff_payroll",
-          "tableTo": "staff",
           "columnsFrom": [
             "staff_id"
           ],
+          "tableTo": "staff",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "staff_payroll_staff_id_key": {
           "name": "staff_payroll_staff_id_key",
-          "nullsNotDistinct": false,
           "columns": [
             "staff_id"
-          ]
+          ],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -2515,9 +2515,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "student_classes_class_id_idx": {
           "name": "student_classes_class_id_idx",
@@ -2530,9 +2530,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "student_classes_one_open": {
           "name": "student_classes_one_open",
@@ -2551,10 +2551,10 @@
             }
           ],
           "isUnique": true,
-          "where": "\"student_classes\".\"end_date\" IS NULL",
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "where": "\"student_classes\".\"end_date\" IS NULL",
+          "concurrently": false
         },
         "student_classes_student_id_idx": {
           "name": "student_classes_student_id_idx",
@@ -2567,37 +2567,37 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "student_classes_class_id_fkey": {
           "name": "student_classes_class_id_fkey",
           "tableFrom": "student_classes",
-          "tableTo": "classes",
           "columnsFrom": [
             "class_id"
           ],
+          "tableTo": "classes",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "student_classes_student_id_fkey": {
           "name": "student_classes_student_id_fkey",
           "tableFrom": "student_classes",
-          "tableTo": "students",
           "columnsFrom": [
             "student_id"
           ],
+          "tableTo": "students",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -2705,61 +2705,61 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "student_fee_accounts_academic_year_id_fkey": {
           "name": "student_fee_accounts_academic_year_id_fkey",
           "tableFrom": "student_fee_accounts",
-          "tableTo": "academic_years",
           "columnsFrom": [
             "academic_year_id"
           ],
+          "tableTo": "academic_years",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "restrict"
         },
         "student_fee_accounts_fee_plan_override_id_fkey": {
           "name": "student_fee_accounts_fee_plan_override_id_fkey",
           "tableFrom": "student_fee_accounts",
-          "tableTo": "fee_plans",
           "columnsFrom": [
             "fee_plan_override_id"
           ],
+          "tableTo": "fee_plans",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "student_fee_accounts_student_id_fkey": {
           "name": "student_fee_accounts_student_id_fkey",
           "tableFrom": "student_fee_accounts",
-          "tableTo": "students",
           "columnsFrom": [
             "student_id"
           ],
+          "tableTo": "students",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "student_fee_accounts_student_id_academic_year_id_key": {
           "name": "student_fee_accounts_student_id_academic_year_id_key",
-          "nullsNotDistinct": false,
           "columns": [
             "student_id",
             "academic_year_id"
-          ]
+          ],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -2854,9 +2854,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "student_payments_payment_date_idx": {
           "name": "student_payments_payment_date_idx",
@@ -2869,9 +2869,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "student_payments_student_id_idx": {
           "name": "student_payments_student_id_idx",
@@ -2884,50 +2884,50 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "student_payments_academic_year_id_fkey": {
           "name": "student_payments_academic_year_id_fkey",
           "tableFrom": "student_payments",
-          "tableTo": "academic_years",
           "columnsFrom": [
             "academic_year_id"
           ],
+          "tableTo": "academic_years",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "restrict"
         },
         "student_payments_recorded_by_fkey": {
           "name": "student_payments_recorded_by_fkey",
           "tableFrom": "student_payments",
-          "tableTo": "staff",
           "columnsFrom": [
             "recorded_by"
           ],
+          "tableTo": "staff",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "student_payments_student_id_fkey": {
           "name": "student_payments_student_id_fkey",
           "tableFrom": "student_payments",
-          "tableTo": "students",
           "columnsFrom": [
             "student_id"
           ],
+          "tableTo": "students",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -3201,9 +3201,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "students_additional_contact_1_id_idx": {
           "name": "students_additional_contact_1_id_idx",
@@ -3216,9 +3216,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "students_additional_contact_2_id_idx": {
           "name": "students_additional_contact_2_id_idx",
@@ -3231,9 +3231,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "students_primary_guardian_id_idx": {
           "name": "students_primary_guardian_id_idx",
@@ -3246,9 +3246,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "students_secondary_guardian_id_idx": {
           "name": "students_secondary_guardian_id_idx",
@@ -3261,9 +3261,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "students_student_code_idx": {
           "name": "students_student_code_idx",
@@ -3276,99 +3276,99 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "students_primary_guardian_id_fkey": {
           "name": "students_primary_guardian_id_fkey",
           "tableFrom": "students",
-          "tableTo": "guardians",
           "columnsFrom": [
             "primary_guardian_id"
           ],
+          "tableTo": "guardians",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "restrict"
         },
         "students_secondary_guardian_id_fkey": {
           "name": "students_secondary_guardian_id_fkey",
           "tableFrom": "students",
-          "tableTo": "guardians",
           "columnsFrom": [
             "secondary_guardian_id"
           ],
+          "tableTo": "guardians",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "students_additional_contact_1_id_fkey": {
           "name": "students_additional_contact_1_id_fkey",
           "tableFrom": "students",
-          "tableTo": "guardians",
           "columnsFrom": [
             "additional_contact_1_id"
           ],
+          "tableTo": "guardians",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "students_additional_contact_2_id_fkey": {
           "name": "students_additional_contact_2_id_fkey",
           "tableFrom": "students",
-          "tableTo": "guardians",
           "columnsFrom": [
             "additional_contact_2_id"
           ],
+          "tableTo": "guardians",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "students_address_guardian_id_fkey": {
           "name": "students_address_guardian_id_fkey",
           "tableFrom": "students",
-          "tableTo": "guardians",
           "columnsFrom": [
             "address_guardian_id"
           ],
+          "tableTo": "guardians",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "students_photo_video_consent_withdrawn_by_fkey": {
           "name": "students_photo_video_consent_withdrawn_by_fkey",
           "tableFrom": "students",
-          "tableTo": "staff",
           "columnsFrom": [
             "photo_video_consent_withdrawn_by"
           ],
+          "tableTo": "staff",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "students_student_code_key": {
           "name": "students_student_code_key",
-          "nullsNotDistinct": false,
           "columns": [
             "student_code"
-          ]
+          ],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -3416,10 +3416,10 @@
     }
   },
   "schemas": {},
+  "views": {},
   "sequences": {},
   "roles": {},
   "policies": {},
-  "views": {},
   "_meta": {
     "columns": {},
     "schemas": {},
