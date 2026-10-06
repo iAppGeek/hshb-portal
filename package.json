@@ -31,12 +31,12 @@
   "dependencies": {
     "@headlessui/react": "2.2.10",
     "@heroicons/react": "2.2.0",
-    "@next/third-parties": "16.3.5",
+    "@next/third-parties": "16.4.0",
     "@tanstack/react-table": "9.2.4",
     "babel-plugin-react-compiler": "1.0.0",
     "clsx": "2.1.1",
     "drizzle-orm": "0.45.3",
-    "next": "16.3.5",
+    "next": "16.4.0",
     "next-auth": "5.0.0-beta.32",
     "postgres": "3.4.9",
     "qrcode.react": "4.2.0",
@@ -70,7 +70,7 @@
     "dotenv-cli": "11.0.0",
     "drizzle-kit": "0.31.11",
     "eslint": "9.39.4",
-    "eslint-config-next": "16.3.5",
+    "eslint-config-next": "16.4.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-import": "2.32.0",
     "eslint-plugin-jsx-a11y": "6.10.2",
@@ -83,7 +83,7 @@
     "postcss": "8.5.28",
     "prettier": "3.9.6",
     "prettier-plugin-tailwindcss": "0.8.1",
-    "sharp": "0.35.4",
+    "sharp": "0.35.5",
     "supabase": "2.117.0",
     "tailwindcss": "4.3.3",
     "typescript": "6.0.3",
@@ -110,5 +110,16 @@
   "engines": {
     "npm": ">=11.9.0",
     "node": ">=24.14.0"
+  },
+  "overrides": {
+    "@tailwindcss/typography": {
+      "postcss-selector-parser": "7.1.6"
+    },
+    "@esbuild-kit/core-utils": {
+      "esbuild": "0.25.12"
+    },
+    "@next/eslint-plugin-next": {
+      "fast-glob": "npm:tinyglobby@0.2.17"
+    }
   }
 }
