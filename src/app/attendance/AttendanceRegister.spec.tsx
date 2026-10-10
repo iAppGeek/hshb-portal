@@ -5,6 +5,7 @@ vi.mock('@/db', () => ({
   getStudentsByIds: vi.fn(),
   getAttendanceByClassAndDate: vi.fn(),
   getEnrolmentsForClass: vi.fn(),
+  getRegister: vi.fn(),
 }))
 
 vi.mock('./AttendanceForm', () => ({
@@ -15,6 +16,7 @@ import {
   getStudentsByIds,
   getAttendanceByClassAndDate,
   getEnrolmentsForClass,
+  getRegister,
 } from '@/db'
 import { todayInSchoolTz } from '@/lib/datetime'
 
@@ -26,6 +28,7 @@ beforeEach(() => {
   vi.mocked(getStudentsByIds).mockResolvedValue([])
   vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
   vi.mocked(getEnrolmentsForClass).mockResolvedValue([])
+  vi.mocked(getRegister).mockResolvedValue(null)
 })
 
 const mockStudent = {
@@ -168,6 +171,7 @@ describe('AttendanceRegister', () => {
         date: '2024-06-15',
       },
     ] as any)
+    vi.mocked(getRegister).mockResolvedValue({ notes: 'Fire drill\nLate' })
     vi.mocked(getStudentsByIds).mockResolvedValue([mockStudent] as any)
 
     render(
@@ -182,6 +186,7 @@ describe('AttendanceRegister', () => {
     expect(vi.mocked(AttendanceForm)).toHaveBeenCalledWith(
       expect.objectContaining({
         hasExisting: true,
+        registerNotes: 'Fire drill\nLate',
         header: expect.objectContaining({
           className: 'Year 3A',
           date: '2024-06-15',

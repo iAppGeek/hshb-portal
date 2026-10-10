@@ -23,7 +23,7 @@ describe('snakeKey / camelKey', () => {
         }
       }
     }
-    expect(tables).toHaveLength(20)
+    expect(tables).toHaveLength(21)
     expect(mismatches).toEqual([])
   })
 

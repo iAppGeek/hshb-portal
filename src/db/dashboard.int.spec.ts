@@ -25,6 +25,12 @@ beforeAll(async () => {
       notes: null,
       recorded_by: SEED.staff.teacher,
     })),
+    {
+      classId: SEED.classes.alpha,
+      date: TODAY,
+      notes: null,
+      updatedBy: SEED.staff.teacher,
+    },
   )
   // Bob also joins Gamma today (a second stay; still one student).
   await db.insert(studentClasses).values({

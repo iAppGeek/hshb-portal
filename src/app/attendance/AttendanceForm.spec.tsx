@@ -143,6 +143,7 @@ describe('AttendanceForm', () => {
         existing={{}}
         role="admin"
         hasExisting={false}
+        registerNotes={null}
         header={header}
       />,
     )
@@ -160,6 +161,7 @@ describe('AttendanceForm', () => {
         existing={{}}
         role="admin"
         hasExisting={false}
+        registerNotes={null}
         header={header}
       />,
     )
@@ -175,6 +177,7 @@ describe('AttendanceForm', () => {
         existing={{ 'student-1': 'absent', 'student-2': 'late' }}
         role="admin"
         hasExisting={false}
+        registerNotes={null}
         header={header}
       />,
     )
@@ -192,6 +195,7 @@ describe('AttendanceForm', () => {
         existing={{}}
         role="admin"
         hasExisting={false}
+        registerNotes={null}
         header={header}
       />,
     )
@@ -208,6 +212,7 @@ describe('AttendanceForm', () => {
         existing={{}}
         role="admin"
         hasExisting={false}
+        registerNotes={null}
         header={header}
       />,
     )
@@ -229,6 +234,7 @@ describe('AttendanceForm', () => {
         existing={{}}
         role="admin"
         hasExisting={false}
+        registerNotes={null}
         header={header}
       />,
     )
@@ -244,6 +250,7 @@ describe('AttendanceForm', () => {
         existing={{}}
         role="admin"
         hasExisting={false}
+        registerNotes={null}
         header={header}
       />,
     )
@@ -264,6 +271,7 @@ describe('AttendanceForm', () => {
         existing={{}}
         role="admin"
         hasExisting={false}
+        registerNotes={null}
         header={header}
       />,
     )
@@ -280,6 +288,7 @@ describe('AttendanceForm', () => {
         existing={{ 'student-1': 'present', 'student-2': 'present' }}
         role="secretary"
         hasExisting
+        registerNotes={null}
         header={header}
       />,
     )
@@ -299,6 +308,7 @@ describe('AttendanceForm', () => {
         existing={{}}
         role="secretary"
         hasExisting={false}
+        registerNotes={null}
         header={header}
       />,
     )
@@ -319,6 +329,7 @@ describe('AttendanceForm', () => {
         existing={{ 'student-1': 'present' }}
         role="admin"
         hasExisting
+        registerNotes={null}
         archived
         header={header}
       />,
@@ -338,6 +349,80 @@ describe('AttendanceForm', () => {
     expect(screen.getByText('0 absent')).toBeTruthy()
   })
 
+  it('shows the saved register notes, disables them when archived and submits them', async () => {
+    const { unmount } = render(
+      <AttendanceForm
+        classId="class-1"
+        date="2024-03-08"
+        students={[students[0]]}
+        existing={{ 'student-1': 'present' }}
+        role="admin"
+        hasExisting
+        registerNotes={'Fire drill\nLate start'}
+        header={header}
+      />,
+    )
+    const box = screen.getByLabelText('Notes (optional)') as HTMLTextAreaElement
+    expect(box.name).toBe('registerNotes')
+    expect(box.value).toBe('Fire drill\nLate start')
+    expect(box.disabled).toBe(false)
+    fireEvent.change(box, { target: { value: 'Changed' } })
+    expect(box.value).toBe('Changed')
+    unmount()
+
+    render(
+      <AttendanceForm
+        classId="class-1"
+        date="2024-03-08"
+        students={[students[0]]}
+        existing={{ 'student-1': 'present' }}
+        role="admin"
+        hasExisting
+        registerNotes={null}
+        archived
+        header={header}
+      />,
+    )
+    expect(
+      (screen.getByLabelText('Notes (optional)') as HTMLTextAreaElement)
+        .disabled,
+    ).toBe(true)
+  })
+
+  it('refreshes the notes from the saved result', async () => {
+    vi.mocked(saveAttendanceAction).mockResolvedValue({
+      data: {
+        classId: 'class-1',
+        date: '2024-03-08',
+        isUpdate: false,
+        registerNotes: 'Trimmed',
+        saved: [savedRow('student-1', 'present')],
+      },
+    } as never)
+
+    render(
+      <AttendanceForm
+        classId="class-1"
+        date="2024-03-08"
+        students={[students[0]]}
+        existing={{}}
+        role="admin"
+        hasExisting={false}
+        registerNotes={null}
+        header={header}
+      />,
+    )
+    const box = screen.getByLabelText('Notes (optional)') as HTMLTextAreaElement
+    fireEvent.change(box, { target: { value: '  Trimmed  ' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Present' }))
+    fireEvent.submit(screen.getByText('Save register').closest('form')!)
+
+    expect(await screen.findByText('Register saved.')).toBeTruthy()
+    expect(box.value).toBe('Trimmed')
+    const sent = vi.mocked(saveAttendanceAction).mock.calls[0][0]
+    expect(sent.get('registerNotes')).toBe('  Trimmed  ')
+  })
+
   it('shows the header with the already-taken notice for a taken register', () => {
     render(
       <AttendanceForm
@@ -347,6 +432,7 @@ describe('AttendanceForm', () => {
         existing={{ 'student-1': 'present' }}
         role="admin"
         hasExisting
+        registerNotes={null}
         header={header}
       />,
     )
@@ -362,6 +448,7 @@ describe('AttendanceForm', () => {
         classId: 'class-1',
         date: '2024-03-08',
         isUpdate: false,
+        registerNotes: null,
         saved: [savedRow('student-1', 'late')],
       },
     } as never)
@@ -374,6 +461,7 @@ describe('AttendanceForm', () => {
         existing={{}}
         role="admin"
         hasExisting={false}
+        registerNotes={null}
         header={header}
       />,
     )
@@ -395,6 +483,7 @@ describe('AttendanceForm', () => {
         classId: 'class-1',
         date: '2024-03-08',
         isUpdate: false,
+        registerNotes: null,
         saved: [savedRow('student-1', 'present')],
       },
     } as never)
@@ -407,6 +496,7 @@ describe('AttendanceForm', () => {
         existing={{}}
         role="secretary"
         hasExisting={false}
+        registerNotes={null}
         header={header}
       />,
     )
@@ -431,6 +521,7 @@ describe('AttendanceForm', () => {
         existing={{}}
         role="admin"
         hasExisting={false}
+        registerNotes={null}
         header={header}
       />,
     )

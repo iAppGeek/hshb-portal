@@ -4,6 +4,7 @@ import {
   summariseAttendance,
   type AttendanceRangeRow,
   type EnrolmentRangeRow,
+  type RegisterRangeRow,
   type SummaryClass,
 } from './attendanceSummary'
 
@@ -30,6 +31,15 @@ function attendance(
     studentId: 's1',
     date: '2026-09-01',
     status: 'present',
+    ...overrides,
+  }
+}
+
+function register(
+  overrides: Partial<RegisterRangeRow> & { classId: string },
+): RegisterRangeRow {
+  return {
+    date: '2026-09-01',
     createdAt: '2026-09-01T09:00:00Z',
     updatedAt: '2026-09-01T09:00:00Z',
     ...overrides,
@@ -76,8 +86,18 @@ describe('summariseAttendance', () => {
       enrolment({ class: classA, studentId: 'alice' }),
       enrolment({ class: classB, studentId: 'bob' }),
     ]
+    const registers = [
+      register({ classId: 'A', date: '2026-09-01' }),
+      register({ classId: 'A', date: '2026-09-02' }),
+      register({ classId: 'B', date: '2026-09-01' }),
+    ]
 
-    const result = summariseAttendance(attendanceRows, enrolmentRows, dates)
+    const result = summariseAttendance(
+      attendanceRows,
+      registers,
+      enrolmentRows,
+      dates,
+    )
 
     expect(result.classes).toHaveLength(2)
     const alpha = result.classes.find((c) => c.class.id === 'A')!
@@ -113,8 +133,14 @@ describe('summariseAttendance', () => {
       enrolment({ class: classA, studentId: 'dual' }),
       enrolment({ class: classB, studentId: 'dual' }),
     ]
+    const registers = [register({ classId: 'A' }), register({ classId: 'B' })]
 
-    const result = summariseAttendance(attendanceRows, enrolmentRows, dates)
+    const result = summariseAttendance(
+      attendanceRows,
+      registers,
+      enrolmentRows,
+      dates,
+    )
 
     expect(result.byDate['2026-09-01'].distinctPresent).toBe(1)
     expect(result.byDate['2026-09-01'].distinctEnrolled).toBe(1)
@@ -131,7 +157,7 @@ describe('summariseAttendance', () => {
         endDate: '2026-09-02',
       }),
     ]
-    const result = summariseAttendance([], enrolmentRows, dates)
+    const result = summariseAttendance([], [], enrolmentRows, dates)
     expect(result.classes[0].possible).toBe(1)
   })
 
@@ -139,14 +165,14 @@ describe('summariseAttendance', () => {
     const attendanceRows = [
       attendance({ class: classA, studentId: 'alice', status: 'late' }),
     ]
-    const result = summariseAttendance(attendanceRows, [], dates)
+    const result = summariseAttendance(attendanceRows, [], [], dates)
     expect(result.classes[0].present).toBe(1)
     expect(result.classes[0].late).toBe(1)
   })
 
   it('a class with enrolments but no marks has possible > 0, present 0, times null', () => {
     const enrolmentRows = [enrolment({ class: classA, studentId: 'alice' })]
-    const result = summariseAttendance([], enrolmentRows, dates)
+    const result = summariseAttendance([], [], enrolmentRows, dates)
     const summary = result.classes[0]
     expect(summary.possible).toBeGreaterThan(0)
     expect(summary.present).toBe(0)
@@ -154,9 +180,36 @@ describe('summariseAttendance', () => {
     expect(summary.lastUpdatedAt).toBeNull()
   })
 
+  it('takes the first taken and last updated times from the register rows', () => {
+    const attendanceRows = [attendance({ class: classA, studentId: 'alice' })]
+    const registers = [
+      register({
+        classId: 'A',
+        date: '2026-09-01',
+        createdAt: '2026-09-01T09:00:00Z',
+        updatedAt: '2026-09-01T09:30:00Z',
+      }),
+      register({
+        classId: 'A',
+        date: '2026-09-02',
+        createdAt: '2026-09-02T08:00:00Z',
+        updatedAt: '2026-09-02T08:15:00Z',
+      }),
+    ]
+    const result = summariseAttendance(attendanceRows, registers, [], dates)
+    expect(result.classes[0].firstRecordedAt).toBe('2026-09-01T09:00:00Z')
+    expect(result.classes[0].lastUpdatedAt).toBe('2026-09-02T08:15:00Z')
+  })
+
+  it('ignores registers outside the requested dates', () => {
+    const registers = [register({ classId: 'A', date: '2026-10-01' })]
+    const result = summariseAttendance([], registers, [], dates)
+    expect(result.byDate['2026-09-01'].classesTaken).toBe(0)
+  })
+
   it('counts a marked student with no enrolment towards possible on the marked date', () => {
     const attendanceRows = [attendance({ class: classA, studentId: 'alice' })]
-    const result = summariseAttendance(attendanceRows, [], dates)
+    const result = summariseAttendance(attendanceRows, [], [], dates)
     expect(result.classes).toHaveLength(1)
     expect(result.classes[0].possible).toBe(1)
     expect(result.classes[0].present).toBe(1)
@@ -176,7 +229,7 @@ describe('summariseAttendance', () => {
         endDate: '2026-09-02',
       }),
     ]
-    const result = summariseAttendance(attendanceRows, enrolmentRows, dates)
+    const result = summariseAttendance(attendanceRows, [], enrolmentRows, dates)
     const alpha = result.classes[0]
     expect(alpha.possible).toBe(2)
     expect(alpha.present).toBe(1)
@@ -193,13 +246,13 @@ describe('summariseAttendance', () => {
         startDate: '2026-09-02',
       }),
     ]
-    const result = summariseAttendance([], enrolmentRows, dates)
+    const result = summariseAttendance([], [], enrolmentRows, dates)
     expect(result.classes[0].possible).toBe(3)
     expect(result.classes[0].enrolled).toBe(1)
   })
 
   it('returns no byDate entries for an empty date list', () => {
-    const result = summariseAttendance([], [], [])
+    const result = summariseAttendance([], [], [], [])
     expect(result.byDate).toEqual({})
   })
 
@@ -212,7 +265,7 @@ describe('summariseAttendance', () => {
         status: 'present',
       }),
     ]
-    const result = summariseAttendance(attendanceRows, [], dates)
+    const result = summariseAttendance(attendanceRows, [], [], dates)
     expect(result.byDate['2026-09-01']).toEqual({
       distinctPresent: 0,
       distinctEnrolled: 0,
@@ -243,7 +296,7 @@ describe('summariseAttendance', () => {
       enrolment({ class: cls, studentId: cls.id }),
     )
 
-    const result = summariseAttendance([], enrolmentRows, ['2026-09-01'])
+    const result = summariseAttendance([], [], enrolmentRows, ['2026-09-01'])
 
     expect(result.classes.map((c) => c.class.id)).toEqual([
       'n',
@@ -274,7 +327,7 @@ describe('summariseAttendance', () => {
       enrolment({ class: c, studentId: c.id }),
     )
 
-    const result = summariseAttendance([], enrolmentRows, ['2026-09-01'])
+    const result = summariseAttendance([], [], enrolmentRows, ['2026-09-01'])
 
     expect(result.classes.map((c) => c.class.id)).toEqual([
       'alpha',

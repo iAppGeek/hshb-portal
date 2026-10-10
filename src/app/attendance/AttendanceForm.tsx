@@ -12,6 +12,7 @@ import { useServerForm } from '@/components/form'
 import { personName } from '@/lib/format'
 import { tbody, theadStacked } from '@/lib/grid/styles'
 import { canUpdateAttendance } from '@/lib/permissions'
+import { REGISTER_NOTES_MAX } from '@/lib/schemas'
 import type { StaffRole } from '@/types/next-auth'
 
 import { saveAttendanceAction } from './actions'
@@ -33,6 +34,8 @@ type Props = {
   existing: Record<string, AttendanceStatus>
   role: StaffRole
   hasExisting: boolean
+  /** The register's saved session note. */
+  registerNotes: string | null
   /** Registers outside the current academic year can be viewed but not changed. */
   archived?: boolean
   header: RegisterHeaderInfo
@@ -45,6 +48,7 @@ export default function AttendanceForm({
   existing,
   role,
   hasExisting,
+  registerNotes,
   archived = false,
   header,
 }: Props) {
@@ -64,6 +68,7 @@ export default function AttendanceForm({
   // that can't update locks the register without the page being re-fetched.
   const [taken, setTaken] = useState(hasExisting)
   const readOnly = taken && !canUpdateAttendance(role)
+  const [notes, setNotes] = useState(registerNotes ?? '')
 
   // Taps already show instantly (local state, one save per register), so on
   // success the statuses are synced to the rows as written; on error the
@@ -71,7 +76,8 @@ export default function AttendanceForm({
   const { handleSubmit, isPending, error } = useServerForm(
     saveAttendanceAction,
     {
-      onSuccess: ({ saved: rows }) => {
+      onSuccess: ({ saved: rows, registerNotes: savedNotes }) => {
+        setNotes(savedNotes ?? '')
         setStatuses((prev) => {
           const next = { ...prev }
           for (const row of rows) {
@@ -214,6 +220,28 @@ export default function AttendanceForm({
                 </tbody>
               </Table>
             </TableCard>
+
+            <div className="mt-4">
+              <label
+                htmlFor="registerNotes"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Notes (optional)
+              </label>
+              <textarea
+                id="registerNotes"
+                name="registerNotes"
+                rows={3}
+                maxLength={REGISTER_NOTES_MAX}
+                value={notes}
+                disabled={archived || readOnly}
+                onChange={(e) => {
+                  setSaved(false)
+                  setNotes(e.target.value)
+                }}
+                className="mt-1 block w-full rounded-lg border-0 px-3 py-2 text-sm whitespace-pre-wrap text-gray-900 shadow-sm ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-600 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500"
+              />
+            </div>
 
             <div className="mt-4 flex items-center gap-4">
               {archived ? (

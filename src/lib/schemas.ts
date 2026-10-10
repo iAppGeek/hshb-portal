@@ -15,6 +15,19 @@ export const optionalString = z
   .transform((v) => v || null)
   .nullable()
 
+export const REGISTER_NOTES_MAX = 2000
+
+/** A register's session note: trimmed, line breaks kept, empty becomes null. */
+export const registerNotes = z
+  .string()
+  .trim()
+  .max(
+    REGISTER_NOTES_MAX,
+    `Notes must be ${REGISTER_NOTES_MAX} characters or fewer`,
+  )
+  .transform((v) => v || null)
+  .nullable()
+
 export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date')
 
 export const isoDateTime = z

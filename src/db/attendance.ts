@@ -9,6 +9,7 @@ import { db } from './client'
 import {
   academicYears,
   attendance,
+  attendanceRegisters,
   classes,
   type Attendance,
   type NewAttendance,
@@ -17,6 +18,23 @@ import {
 export type AttendanceStatus = Attendance['status']
 export type AttendanceInsert = Snake<NewAttendance>
 export type AttendanceRow = Snake<Attendance>
+
+/** The register a save belongs to, with its session note. */
+export type RegisterSave = {
+  classId: string
+  date: string
+  /** Undefined leaves the saved note unchanged; null clears it. */
+  notes: string | null | undefined
+  updatedBy: string
+}
+
+/** When a register was first taken and last saved. */
+export type RegisterRow = {
+  classId: string
+  date: string
+  createdAt: string | null
+  updatedAt: string | null
+}
 
 const CONFLICT_KEYS = ['class_id', 'student_id', 'date']
 
@@ -31,6 +49,45 @@ export async function getAttendanceByClassAndDate(
   return toSnake(rows)
 }
 
+/** The register for a class and date, or null when it has not been taken. */
+export async function getRegister(
+  classId: string,
+  date: string,
+): Promise<{ notes: string | null } | null> {
+  const [row] = await db
+    .select({ notes: attendanceRegisters.notes })
+    .from(attendanceRegisters)
+    .where(
+      and(
+        eq(attendanceRegisters.classId, classId),
+        eq(attendanceRegisters.date, date),
+      ),
+    )
+  return row ?? null
+}
+
+/** Registers taken across a date range: one per class per date. */
+export async function getRegistersByDateRange(
+  startDate: string,
+  endDate: string,
+): Promise<RegisterRow[]> {
+  return db
+    .select({
+      classId: attendanceRegisters.classId,
+      date: attendanceRegisters.date,
+      createdAt: attendanceRegisters.createdAt,
+      updatedAt: attendanceRegisters.updatedAt,
+    })
+    .from(attendanceRegisters)
+    .where(
+      and(
+        gte(attendanceRegisters.date, startDate),
+        lte(attendanceRegisters.date, endDate),
+      ),
+    )
+    .orderBy(asc(attendanceRegisters.id))
+}
+
 /** Attendance rows across a date range, with their class, for aggregation. */
 export async function getAttendanceByDateRange(
   startDate: string,
@@ -42,8 +99,6 @@ export async function getAttendanceByDateRange(
       studentId: attendance.studentId,
       date: attendance.date,
       status: attendance.status,
-      createdAt: attendance.createdAt,
-      updatedAt: attendance.updatedAt,
       class: {
         id: classes.id,
         name: classes.name,
@@ -61,26 +116,43 @@ export async function getAttendanceByDateRange(
 
 /**
  * Saves a register: one row per student, updating an existing mark for the
- * same class, student and date. On conflict only the columns the records
- * carry are overwritten.
+ * same class, student and date, and the register's own row with its session
+ * note. On conflict only the columns the records carry are overwritten. Both
+ * land in one transaction, so marks and note are never half-saved.
  */
 export async function saveAttendance(
   records: AttendanceInsert[],
-): Promise<AttendanceRow[]> {
-  if (records.length === 0) return []
+  register: RegisterSave,
+): Promise<{ saved: AttendanceRow[]; notes: string | null }> {
+  if (records.length === 0) return { saved: [], notes: register.notes ?? null }
   const updated = [...new Set(records.flatMap((r) => Object.keys(r)))].filter(
     (key) => !CONFLICT_KEYS.includes(key),
   )
   const set: Record<string, SQL> = Object.fromEntries(
     updated.map((key) => [camelKey(key), sql`excluded.${sql.identifier(key)}`]),
   )
-  const rows = await db
-    .insert(attendance)
-    .values(records.map(toCamel))
-    .onConflictDoUpdate({
-      target: [attendance.classId, attendance.studentId, attendance.date],
-      set,
-    })
-    .returning()
-  return toSnake(rows)
+  const { rows, notes } = await db.transaction(async (tx) => {
+    const saved = await tx
+      .insert(attendance)
+      .values(records.map(toCamel))
+      .onConflictDoUpdate({
+        target: [attendance.classId, attendance.studentId, attendance.date],
+        set,
+      })
+      .returning()
+    const [stored] = await tx
+      .insert(attendanceRegisters)
+      .values({ ...register, notes: register.notes ?? null })
+      .onConflictDoUpdate({
+        target: [attendanceRegisters.classId, attendanceRegisters.date],
+        set: {
+          ...(register.notes !== undefined && { notes: register.notes }),
+          updatedBy: register.updatedBy,
+          updatedAt: sql`now()`,
+        },
+      })
+      .returning({ notes: attendanceRegisters.notes })
+    return { rows: saved, notes: stored.notes }
+  })
+  return { saved: toSnake(rows), notes }
 }

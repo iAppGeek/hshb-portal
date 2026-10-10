@@ -16,6 +16,7 @@ import {
   getStaffAttendedCount,
   getStaffAttendanceByDateRange,
   getAttendanceByDateRange,
+  getRegistersByDateRange,
   getEnrolmentsInRange,
   getIncidentCountsByDateRange,
 } from '@/db'
@@ -124,11 +125,12 @@ export default async function ReportsPage({
 
   // ── Day mode ───────────────────────────────────────────────────────────────
   if (mode === 'day') {
-    const [staff, staffAttendedCount, attendanceRows, enrolments] =
+    const [staff, staffAttendedCount, attendanceRows, registers, enrolments] =
       await Promise.all([
         getAllStaff(),
         getStaffAttendedCount(selectedDate),
         getAttendanceByDateRange(selectedDate, selectedDate),
+        getRegistersByDateRange(selectedDate, selectedDate),
         getEnrolmentsInRange(selectedDate, selectedDate),
       ])
 
@@ -136,7 +138,7 @@ export default async function ReportsPage({
       isTeachingStaff(s.role as StaffRole),
     )
 
-    const summary = summariseAttendance(attendanceRows, enrolments, [
+    const summary = summariseAttendance(attendanceRows, registers, enrolments, [
       selectedDate,
     ])
     const totals = summary.byDate[selectedDate]
@@ -218,12 +220,14 @@ export async function PeriodReportSection({
   const [
     staffAttendanceRows,
     attendanceRows,
+    registers,
     enrolments,
     staff,
     incidentCounts,
   ] = await Promise.all([
     getStaffAttendanceByDateRange(startDate, endDate),
     getAttendanceByDateRange(startDate, endDate),
+    getRegistersByDateRange(startDate, endDate),
     getEnrolmentsInRange(startDate, endDate),
     getAllStaff(),
     getIncidentCountsByDateRange(startDate, endDate),
@@ -241,7 +245,7 @@ export async function PeriodReportSection({
   // School days = any date where staff signed in OR attendance was taken
   const schoolDayDatesSet = new Set([
     ...staffAttendanceRows.map((r) => r.date),
-    ...attendanceRows.map((r) => r.date),
+    ...registers.map((r) => r.date),
   ])
   const totalSchoolDays = schoolDayDatesSet.size
 
@@ -282,6 +286,7 @@ export async function PeriodReportSection({
   // marks.
   const summary = summariseAttendance(
     attendanceRows,
+    registers,
     enrolments,
     schoolDayDates.map((d) => d.date),
   )
