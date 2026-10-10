@@ -15,6 +15,7 @@ import { enrolledOn, studentIdsTaughtBy } from './membership'
 import {
   academicYears,
   attendance,
+  attendanceRegisters,
   classes,
   incidents,
   lessonPlans,
@@ -37,7 +38,7 @@ export type DashboardStats = {
   presentToday: number | null
   /** Distinct students on any register today: enrolled or already marked. */
   enrolledToday: number | null
-  /** Classes with at least one mark today. */
+  /** Registers taken today. */
   registersTakenToday: number | null
   /** Null unless the role reviews registrations. */
   pendingRegistrationCount: number | null
@@ -85,11 +86,6 @@ export async function getDashboardStats(
     .selectDistinct({ id: attendance.studentId })
     .from(attendance)
     .where(and(markedToday, inArray(attendance.status, ['present', 'late'])))
-  const registersTaken = db
-    .selectDistinct({ id: attendance.classId })
-    .from(attendance)
-    .where(markedToday)
-
   const [row] = await db
     .select({
       studentCount: db.$count(students, studentFilter),
@@ -102,7 +98,10 @@ export async function getDashboardStats(
       ),
       presentToday: countOf(presentToday),
       enrolledToday: countOf(onRegisterToday),
-      registersTakenToday: countOf(registersTaken),
+      registersTakenToday: db.$count(
+        attendanceRegisters,
+        eq(attendanceRegisters.date, today),
+      ),
       pendingRegistrationCount: db.$count(
         registrationSubmissions,
         eq(registrationSubmissions.status, 'pending'),

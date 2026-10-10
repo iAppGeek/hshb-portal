@@ -3,6 +3,7 @@ import {
   getStudentsByIds,
   getAttendanceByClassAndDate,
   getEnrolmentsForClass,
+  getRegister,
 } from '@/db'
 import type { AttendanceStatus } from '@/db'
 import { buildRegisterRoster } from '@/lib/enrolment'
@@ -28,10 +29,12 @@ export default async function AttendanceRegister({
   role,
   archived = false,
 }: Props) {
-  const [existingRows, enrolments] = await Promise.all([
+  const [existingRows, enrolments, register] = await Promise.all([
     getAttendanceByClassAndDate(classId, date),
     getEnrolmentsForClass(classId),
+    getRegister(classId, date),
   ])
+  const taken = register !== null
 
   const roster = buildRegisterRoster(
     existingRows.map((r) => r.student_id),
@@ -64,7 +67,7 @@ export default async function AttendanceRegister({
   // taken)" appears as soon as the first save lands, without a re-fetch.
   return roster.length === 0 ? (
     <>
-      <RegisterHeader {...header} taken={existingRows.length > 0} />
+      <RegisterHeader {...header} taken={taken} />
       <div className="rounded-xl bg-white p-12 text-center shadow-sm ring-1 ring-gray-200">
         <p className="text-gray-500">
           No students were in this class on this date.
@@ -78,7 +81,8 @@ export default async function AttendanceRegister({
       students={students}
       existing={existing}
       role={role}
-      hasExisting={existingRows.length > 0}
+      hasExisting={taken}
+      registerNotes={register?.notes ?? null}
       archived={archived}
       header={header}
     />

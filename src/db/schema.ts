@@ -363,6 +363,38 @@ export const attendance = pgTable(
   ],
 ).enableRLS()
 
+/**
+ * One row per class per date: the register itself. A row means the register
+ * was taken; `notes` holds the session's single free-text note.
+ */
+export const attendanceRegisters = pgTable(
+  'attendance_registers',
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    classId: uuid().notNull(),
+    date: date().notNull(),
+    notes: text(),
+    updatedBy: uuid(),
+    createdAt: timestamptz().default(sql`now()`),
+    updatedAt: timestamptz()
+      .default(sql`now()`)
+      .$onUpdate(stamp),
+  },
+  (t) => [
+    unique('attendance_registers_class_id_date_key').on(t.classId, t.date),
+    foreignKey({
+      name: 'attendance_registers_class_id_fkey',
+      columns: [t.classId],
+      foreignColumns: [classes.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'attendance_registers_updated_by_fkey',
+      columns: [t.updatedBy],
+      foreignColumns: [staff.id],
+    }).onDelete('set null'),
+  ],
+).enableRLS()
+
 export const auditLog = pgTable(
   'audit_log',
   {
@@ -1089,6 +1121,20 @@ export const attendanceRelations = relations(attendance, ({ one }) => ({
   }),
 }))
 
+export const attendanceRegistersRelations = relations(
+  attendanceRegisters,
+  ({ one }) => ({
+    class: one(classes, {
+      fields: [attendanceRegisters.classId],
+      references: [classes.id],
+    }),
+    updater: one(staff, {
+      fields: [attendanceRegisters.updatedBy],
+      references: [staff.id],
+    }),
+  }),
+)
+
 export const auditLogRelations = relations(auditLog, ({ one }) => ({
   staff: one(staff, {
     fields: [auditLog.staffId],
@@ -1279,6 +1325,8 @@ export type StudentClass = typeof studentClasses.$inferSelect
 export type NewStudentClass = typeof studentClasses.$inferInsert
 export type Attendance = typeof attendance.$inferSelect
 export type NewAttendance = typeof attendance.$inferInsert
+export type AttendanceRegister = typeof attendanceRegisters.$inferSelect
+export type NewAttendanceRegister = typeof attendanceRegisters.$inferInsert
 export type AuditLog = typeof auditLog.$inferSelect
 export type NewAuditLog = typeof auditLog.$inferInsert
 export type FeePlan = typeof feePlans.$inferSelect

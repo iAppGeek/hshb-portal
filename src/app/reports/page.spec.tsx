@@ -17,6 +17,7 @@ vi.mock('@/db', () => ({
   getStaffAttendedCount: vi.fn(),
   getStaffAttendanceByDateRange: vi.fn(),
   getAttendanceByDateRange: vi.fn(),
+  getRegistersByDateRange: vi.fn(),
   getEnrolmentsInRange: vi.fn(),
   getIncidentCountsByDateRange: vi.fn(),
 }))
@@ -41,6 +42,7 @@ import {
   getStaffAttendedCount,
   getStaffAttendanceByDateRange,
   getAttendanceByDateRange,
+  getRegistersByDateRange,
   getEnrolmentsInRange,
   getIncidentCountsByDateRange,
 } from '@/db'
@@ -60,6 +62,7 @@ beforeEach(() => {
   vi.mocked(getAllStaff).mockResolvedValue([])
   vi.mocked(getStaffAttendedCount).mockResolvedValue(0)
   vi.mocked(getAttendanceByDateRange).mockResolvedValue([])
+  vi.mocked(getRegistersByDateRange).mockResolvedValue([])
   vi.mocked(getEnrolmentsInRange).mockResolvedValue([])
   // Range mode defaults
   vi.mocked(getStaffAttendanceByDateRange).mockResolvedValue([])
@@ -230,6 +233,26 @@ describe('ReportsPage', () => {
     render(await ReportsPage({ searchParams }))
     const selector = screen.getByTestId('mode-selector')
     expect(selector.getAttribute('data-mode')).toBe('month')
+  })
+
+  it('takes school days in period mode from the registers taken', async () => {
+    vi.mocked(getRegistersByDateRange).mockResolvedValue([
+      {
+        classId: 'c1',
+        date: '2024-01-10',
+        createdAt: '2024-01-10T09:00:00Z',
+        updatedAt: '2024-01-10T09:00:00Z',
+      },
+    ])
+    render(
+      await PeriodReportSection({
+        startDate: '2024-01-01',
+        endDate: '2024-01-31',
+      }),
+    )
+    const props = vi.mocked(PeriodReport).mock.calls[0][0]
+    expect(props.totalSchoolDays).toBe(1)
+    expect(props.schoolDayDates.map((d) => d.date)).toEqual(['2024-01-10'])
   })
 
   describe('class order', () => {

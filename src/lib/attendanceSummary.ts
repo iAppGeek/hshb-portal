@@ -17,7 +17,12 @@ export type AttendanceRangeRow = {
   studentId: string
   date: string
   status: 'present' | 'absent' | 'late'
-  // Default now(); nullable in the schema, set on every row in practice.
+}
+
+/** A register taken: one per class per date. Timestamps default to now(). */
+export type RegisterRangeRow = {
+  classId: string
+  date: string
   createdAt: string | null
   updatedAt: string | null
 }
@@ -62,11 +67,13 @@ function emptyClassSummary(cls: SummaryClass): ClassAttendanceSummary {
 
 export function summariseAttendance(
   attendance: (AttendanceRangeRow & { class: SummaryClass })[],
+  registers: RegisterRangeRow[],
   enrolments: EnrolmentRangeRow[],
   dates: string[],
 ): AttendanceSummary {
   const dateSet = new Set(dates)
   const rangeAttendance = attendance.filter((row) => dateSet.has(row.date))
+  const rangeRegisters = registers.filter((row) => dateSet.has(row.date))
 
   const classesById = new Map<string, SummaryClass>()
   for (const row of rangeAttendance) classesById.set(row.classId, row.class)
@@ -127,6 +134,11 @@ export function summariseAttendance(
     if (row.status === 'present' || row.status === 'late') summary.present += 1
     if (row.status === 'absent') summary.absent += 1
     if (row.status === 'late') summary.late += 1
+  }
+
+  for (const row of rangeRegisters) {
+    const summary = summariesByClass.get(row.classId)
+    if (!summary) continue
     if (
       row.createdAt !== null &&
       (summary.firstRecordedAt === null ||
@@ -171,7 +183,11 @@ export function summariseAttendance(
       distinctPresent: presentStudentIds.size,
       distinctEnrolled: enrolledStudentIds.size,
       distinctLate: lateStudentIds.size,
-      classesTaken: new Set(dayAttendance.map((row) => row.classId)).size,
+      classesTaken: new Set(
+        rangeRegisters
+          .filter((row) => row.date === date)
+          .map((row) => row.classId),
+      ).size,
     }
   }
 

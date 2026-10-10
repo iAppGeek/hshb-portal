@@ -43,6 +43,20 @@
       "when": 1791238660187,
       "tag": "20261005221740_drop_plpgsql",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791620301561,
+      "tag": "20261010081821_add_attendance_registers",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791620302067,
+      "tag": "20261010081822_backfill_attendance_registers",
+      "breakpoints": true
     }
   ]
 }

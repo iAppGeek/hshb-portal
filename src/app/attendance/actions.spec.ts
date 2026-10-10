@@ -120,18 +120,75 @@ describe('saveAttendanceAction', () => {
 
     await saveAttendanceAction(fd)
 
-    expect(saveAttendance).toHaveBeenCalledWith([
-      expect.objectContaining({
-        class_id: CLASS_ID,
+    expect(saveAttendance).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          class_id: CLASS_ID,
+          date: '2024-03-08',
+          recorded_by: STAFF_ID,
+        }),
+        expect.objectContaining({
+          class_id: CLASS_ID,
+          date: '2024-03-08',
+          recorded_by: STAFF_ID,
+        }),
+      ],
+      {
+        classId: CLASS_ID,
         date: '2024-03-08',
-        recorded_by: STAFF_ID,
-      }),
-      expect.objectContaining({
-        class_id: CLASS_ID,
+        notes: null,
+        updatedBy: STAFF_ID,
+      },
+    )
+  })
+
+  it('saves the register notes trimmed, with line breaks kept', async () => {
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      name: null,
+      email: '',
+    } as any)
+    vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
+    vi.mocked(saveAttendance).mockResolvedValue([] as any)
+    vi.mocked(getAdminSubscriptions).mockResolvedValue([])
+
+    const result = await saveAttendanceAction(
+      makeFormData({
+        classId: CLASS_ID,
         date: '2024-03-08',
-        recorded_by: STAFF_ID,
+        studentId: STUDENT_1,
+        registerNotes: '  Fire drill\nLate start  ',
       }),
-    ])
+    )
+
+    expect(saveAttendance).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({ notes: 'Fire drill\nLate start' }),
+    )
+    expect(result).toHaveProperty(
+      'data.registerNotes',
+      'Fire drill\nLate start',
+    )
+  })
+
+  it('rejects register notes over the length limit', async () => {
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      name: null,
+      email: '',
+    } as any)
+
+    const result = await saveAttendanceAction(
+      makeFormData({
+        classId: CLASS_ID,
+        date: '2024-03-08',
+        studentId: STUDENT_1,
+        registerNotes: 'x'.repeat(2001),
+      }),
+    )
+
+    expect(result).toHaveProperty('error')
+    expect(saveAttendance).not.toHaveBeenCalled()
   })
 
   it('defaults missing status to absent', async () => {
@@ -158,9 +215,10 @@ describe('saveAttendanceAction', () => {
 
     await saveAttendanceAction(fd)
 
-    expect(saveAttendance).toHaveBeenCalledWith([
-      expect.objectContaining({ status: 'absent' }),
-    ])
+    expect(saveAttendance).toHaveBeenCalledWith(
+      [expect.objectContaining({ status: 'absent' })],
+      expect.objectContaining({ notes: null }),
+    )
   })
 
   it('returns an error when nobody is signed in', async () => {
@@ -407,6 +465,7 @@ describe('saveAttendanceAction', () => {
         date: '2024-03-08',
         isUpdate: false,
         saved: written,
+        registerNotes: null,
       },
     })
   })
@@ -466,13 +525,16 @@ describe('saveAttendanceAction', () => {
     const result = await saveAttendanceAction(fd)
 
     expect(result).toHaveProperty('data')
-    expect(saveAttendance).toHaveBeenCalledWith([
-      expect.objectContaining({
-        class_id: CLASS_ID,
-        date: '2024-03-08',
-        recorded_by: SECRETARY_ID,
-      }),
-    ])
+    expect(saveAttendance).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          class_id: CLASS_ID,
+          date: '2024-03-08',
+          recorded_by: SECRETARY_ID,
+        }),
+      ],
+      expect.objectContaining({ updatedBy: SECRETARY_ID }),
+    )
   })
 
   it('blocks secretary from updating existing attendance records', async () => {

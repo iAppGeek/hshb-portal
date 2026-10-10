@@ -144,9 +144,13 @@ export type {
 export {
   getAttendanceByClassAndDate,
   getAttendanceByDateRange,
+  getRegister,
+  getRegistersByDateRange,
   saveAttendance,
 } from './attendance'
 export type {
+  RegisterRow,
+  RegisterSave,
   AttendanceStatus,
   AttendanceInsert,
   AttendanceRow,

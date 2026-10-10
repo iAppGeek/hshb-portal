@@ -14,7 +14,13 @@ import { ActionError, runAction, type ActionResult } from '@/lib/action'
 import { isClassOpen } from '@/lib/classes'
 import { buildRegisterRoster } from '@/lib/enrolment'
 import { canUpdateAttendance } from '@/lib/permissions'
-import { uuid, isoDate, attendanceStatus, optionalString } from '@/lib/schemas'
+import {
+  uuid,
+  isoDate,
+  attendanceStatus,
+  optionalString,
+  registerNotes,
+} from '@/lib/schemas'
 
 const attendanceRecordSchema = z.object({
   studentId: uuid,
@@ -29,6 +35,7 @@ export type SavedRegister = {
   date: string
   isUpdate: boolean
   saved: AttendanceRow[]
+  registerNotes: string | null
 }
 
 export async function saveAttendanceAction(
@@ -47,6 +54,12 @@ export async function saveAttendanceAction(
       const dateParsed = isoDate.safeParse(formData.get('date'))
       if (!dateParsed.success) throw new ActionError('Invalid date')
       const date = dateParsed.data
+
+      const notesParsed = registerNotes.safeParse(
+        formData.get('registerNotes') ?? '',
+      )
+      if (!notesParsed.success)
+        throw new ActionError(notesParsed.error.issues[0].message)
 
       const studentIds = formData.getAll('studentId') as string[]
 
@@ -102,9 +115,21 @@ export async function saveAttendanceAction(
         )
       }
 
-      const saved = await saveAttendance(records)
+      const saved = await saveAttendance(records, {
+        classId,
+        date,
+        notes: notesParsed.data,
+        updatedBy: actor.staffId,
+      })
 
-      return { classId, className: cls.name, date, isUpdate, saved }
+      return {
+        classId,
+        className: cls.name,
+        date,
+        isUpdate,
+        saved,
+        registerNotes: notesParsed.data,
+      }
     },
     audit: {
       entity: 'attendance',
