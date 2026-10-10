@@ -47,7 +47,7 @@ function register(
 
 describe('attendance', () => {
   it('saves a register and reads it back for the class and date', async () => {
-    const saved = await saveAttendance(
+    const { saved } = await saveAttendance(
       [
         mark(SEED.students.alice, '2026-10-12', 'present'),
         mark(SEED.students.bob, '2026-10-12', 'absent', 'Ill'),
@@ -79,7 +79,9 @@ describe('attendance', () => {
       SEED.classes.alpha,
       '2026-10-12',
     )
-    const [after] = await saveAttendance(
+    const {
+      saved: [after],
+    } = await saveAttendance(
       [mark(before.student_id, '2026-10-12', 'late', 'Bus')],
       register('2026-10-12'),
     )
@@ -88,7 +90,10 @@ describe('attendance', () => {
   })
 
   it('saves nothing for an empty register', async () => {
-    expect(await saveAttendance([], register('2026-10-12'))).toEqual([])
+    expect(await saveAttendance([], register('2026-10-12'))).toEqual({
+      saved: [],
+      notes: null,
+    })
   })
 
   it('rejects an unknown status', async () => {
@@ -148,6 +153,31 @@ describe('attendance', () => {
     expect(rows).toHaveLength(1)
     expect(rows[0].createdAt).toBe(first.createdAt)
     expect(rows[0].updatedAt! > first.updatedAt!).toBe(true)
+  })
+
+  it('returns the stored note, and a save without notes leaves it intact', async () => {
+    const first = await saveAttendance(
+      [mark(SEED.students.alice, '2026-11-06', 'present')],
+      register('2026-11-06', 'Kept\nnote'),
+    )
+    expect(first.notes).toBe('Kept\nnote')
+
+    const second = await saveAttendance(
+      [mark(SEED.students.alice, '2026-11-06', 'late')],
+      { ...register('2026-11-06'), notes: undefined },
+    )
+    expect(second.notes).toBe('Kept\nnote')
+    expect(await getRegister(SEED.classes.alpha, '2026-11-06')).toEqual({
+      notes: 'Kept\nnote',
+    })
+  })
+
+  it('stores no note when the first save has none', async () => {
+    const { notes } = await saveAttendance(
+      [mark(SEED.students.alice, '2026-11-07', 'present')],
+      { ...register('2026-11-07'), notes: undefined },
+    )
+    expect(notes).toBeNull()
   })
 
   it('has no register for a class and date that was not taken', async () => {

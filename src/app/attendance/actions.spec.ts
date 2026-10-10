@@ -9,6 +9,8 @@ import {
   getAdminSubscriptions,
   deletePushSubscription,
   getEnrolmentsForClass,
+  getRegister,
+  logAuditEvent,
 } from '@/db'
 import { sendPushNotification } from '@/lib/push'
 
@@ -24,6 +26,7 @@ vi.mock('@/db', () => ({
   getAdminSubscriptions: vi.fn(),
   deletePushSubscription: vi.fn(),
   getEnrolmentsForClass: vi.fn(),
+  getRegister: vi.fn(),
   logAuditEvent: vi.fn(),
 }))
 
@@ -49,6 +52,7 @@ const YEAR_ID = 'year-current'
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(getRegister).mockResolvedValue(null)
   vi.mocked(getCurrentAcademicYear).mockResolvedValue({ id: YEAR_ID } as any)
   vi.mocked(getClassById).mockResolvedValue({
     id: CLASS_ID,
@@ -101,7 +105,10 @@ describe('saveAttendanceAction', () => {
       email: '',
     } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
-    vi.mocked(saveAttendance).mockResolvedValue([] as any)
+    vi.mocked(saveAttendance).mockResolvedValue({
+      saved: [],
+      notes: null,
+    } as any)
     vi.mocked(getClassById).mockResolvedValue({
       id: CLASS_ID,
       name: 'Class A',
@@ -136,7 +143,7 @@ describe('saveAttendanceAction', () => {
       {
         classId: CLASS_ID,
         date: '2024-03-08',
-        notes: null,
+        notes: undefined,
         updatedBy: STAFF_ID,
       },
     )
@@ -149,7 +156,10 @@ describe('saveAttendanceAction', () => {
       email: '',
     } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
-    vi.mocked(saveAttendance).mockResolvedValue([] as any)
+    vi.mocked(saveAttendance).mockResolvedValue({
+      saved: [],
+      notes: 'Fire drill\nLate start',
+    } as any)
     vi.mocked(getAdminSubscriptions).mockResolvedValue([])
 
     const result = await saveAttendanceAction(
@@ -169,6 +179,126 @@ describe('saveAttendanceAction', () => {
       'data.registerNotes',
       'Fire drill\nLate start',
     )
+  })
+
+  it('leaves the saved note alone when the form has no notes field', async () => {
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      role: 'teacher',
+      name: null,
+      email: '',
+    } as any)
+    vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
+    vi.mocked(getRegister).mockResolvedValue({ notes: 'Kept' })
+    vi.mocked(saveAttendance).mockResolvedValue({
+      saved: [],
+      notes: 'Kept',
+    } as any)
+    vi.mocked(getAdminSubscriptions).mockResolvedValue([])
+
+    const result = await saveAttendanceAction(
+      makeFormData({
+        classId: CLASS_ID,
+        date: '2024-03-08',
+        studentId: STUDENT_1,
+      }),
+    )
+
+    const register = vi.mocked(saveAttendance).mock.calls[0][1]
+    expect(register.notes).toBeUndefined()
+    expect(result).toHaveProperty('data.registerNotes', 'Kept')
+    expect(result).toHaveProperty('data.notesChanged', false)
+  })
+
+  it('clears the saved note when the notes field is empty', async () => {
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      role: 'teacher',
+      name: null,
+      email: '',
+    } as any)
+    vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
+    vi.mocked(getRegister).mockResolvedValue({ notes: 'Old' })
+    vi.mocked(saveAttendance).mockResolvedValue({
+      saved: [],
+      notes: null,
+    } as any)
+    vi.mocked(getAdminSubscriptions).mockResolvedValue([])
+
+    const result = await saveAttendanceAction(
+      makeFormData({
+        classId: CLASS_ID,
+        date: '2024-03-08',
+        studentId: STUDENT_1,
+        registerNotes: '   ',
+      }),
+    )
+
+    expect(saveAttendance).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({ notes: null }),
+    )
+    expect(result).toHaveProperty('data.registerNotes', null)
+    expect(result).toHaveProperty('data.notesChanged', true)
+  })
+
+  it('treats the register row, not the marks, as proof the register was taken', async () => {
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: SECRETARY_ID,
+      role: 'secretary',
+      name: null,
+      email: '',
+    } as any)
+    vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
+    vi.mocked(getRegister).mockResolvedValue({ notes: null })
+
+    const result = await saveAttendanceAction(
+      makeFormData({
+        classId: CLASS_ID,
+        date: '2024-03-08',
+        studentId: STUDENT_1,
+      }),
+    )
+
+    expect(result).toEqual({
+      error:
+        'You do not have permission to update existing attendance records.',
+    })
+    expect(saveAttendance).not.toHaveBeenCalled()
+  })
+
+  it('audits a note-only edit as notesChanged without logging the text', async () => {
+    vi.mocked(getActor).mockResolvedValue({
+      staffId: STAFF_ID,
+      role: 'teacher',
+      name: null,
+      email: '',
+    } as any)
+    vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
+    vi.mocked(getRegister).mockResolvedValue({ notes: 'Before' })
+    vi.mocked(saveAttendance).mockResolvedValue({
+      saved: [],
+      notes: 'After',
+    } as any)
+    vi.mocked(getAdminSubscriptions).mockResolvedValue([])
+
+    await saveAttendanceAction(
+      makeFormData({
+        classId: CLASS_ID,
+        date: '2024-03-08',
+        studentId: STUDENT_1,
+        registerNotes: 'After',
+      }),
+    )
+
+    const entry = vi.mocked(logAuditEvent).mock.calls[0][0]
+    expect(entry.action).toBe('update')
+    expect(entry.details).toEqual({
+      date: '2024-03-08',
+      studentCount: 0,
+      notesChanged: true,
+    })
+    expect(JSON.stringify(entry.details)).not.toContain('After')
   })
 
   it('rejects register notes over the length limit', async () => {
@@ -198,7 +328,10 @@ describe('saveAttendanceAction', () => {
       email: '',
     } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
-    vi.mocked(saveAttendance).mockResolvedValue([] as any)
+    vi.mocked(saveAttendance).mockResolvedValue({
+      saved: [],
+      notes: null,
+    } as any)
     vi.mocked(getAdminSubscriptions).mockResolvedValue([])
     vi.mocked(getClassById).mockResolvedValue({
       id: CLASS_ID,
@@ -217,7 +350,7 @@ describe('saveAttendanceAction', () => {
 
     expect(saveAttendance).toHaveBeenCalledWith(
       [expect.objectContaining({ status: 'absent' })],
-      expect.objectContaining({ notes: null }),
+      expect.objectContaining({ notes: undefined }),
     )
   })
 
@@ -244,7 +377,10 @@ describe('saveAttendanceAction', () => {
       email: '',
     } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
-    vi.mocked(saveAttendance).mockResolvedValue([] as any)
+    vi.mocked(saveAttendance).mockResolvedValue({
+      saved: [],
+      notes: null,
+    } as any)
     vi.mocked(getClassById).mockResolvedValue({
       id: CLASS_ID,
       name: 'Class A',
@@ -281,7 +417,10 @@ describe('saveAttendanceAction', () => {
       email: '',
     } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
-    vi.mocked(saveAttendance).mockResolvedValue([] as any)
+    vi.mocked(saveAttendance).mockResolvedValue({
+      saved: [],
+      notes: null,
+    } as any)
     vi.mocked(getClassById).mockResolvedValue({
       id: CLASS_ID,
       name: 'Class A',
@@ -313,7 +452,11 @@ describe('saveAttendanceAction', () => {
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([
       { id: 'att-1' },
     ] as any)
-    vi.mocked(saveAttendance).mockResolvedValue([] as any)
+    vi.mocked(getRegister).mockResolvedValue({ notes: null })
+    vi.mocked(saveAttendance).mockResolvedValue({
+      saved: [],
+      notes: null,
+    } as any)
     vi.mocked(getClassById).mockResolvedValue({
       id: CLASS_ID,
       name: 'Class A',
@@ -345,7 +488,10 @@ describe('saveAttendanceAction', () => {
       email: '',
     } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
-    vi.mocked(saveAttendance).mockResolvedValue([] as any)
+    vi.mocked(saveAttendance).mockResolvedValue({
+      saved: [],
+      notes: null,
+    } as any)
     vi.mocked(getClassById).mockResolvedValue({
       id: CLASS_ID,
       name: 'Class A',
@@ -376,7 +522,10 @@ describe('saveAttendanceAction', () => {
       email: '',
     } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
-    vi.mocked(saveAttendance).mockResolvedValue([] as any)
+    vi.mocked(saveAttendance).mockResolvedValue({
+      saved: [],
+      notes: null,
+    } as any)
     vi.mocked(getClassById).mockResolvedValue({
       id: CLASS_ID,
       name: 'Class A',
@@ -404,7 +553,10 @@ describe('saveAttendanceAction', () => {
       email: '',
     } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
-    vi.mocked(saveAttendance).mockResolvedValue([] as any)
+    vi.mocked(saveAttendance).mockResolvedValue({
+      saved: [],
+      notes: null,
+    } as any)
     vi.mocked(getClassById).mockResolvedValue({
       id: CLASS_ID,
       name: 'Class A',
@@ -441,7 +593,10 @@ describe('saveAttendanceAction', () => {
         updated_at: '2024-03-08T09:00:00Z',
       },
     ]
-    vi.mocked(saveAttendance).mockResolvedValue(written as any)
+    vi.mocked(saveAttendance).mockResolvedValue({
+      saved: written,
+      notes: null,
+    } as any)
     vi.mocked(getClassById).mockResolvedValue({
       id: CLASS_ID,
       name: 'Class A',
@@ -466,6 +621,7 @@ describe('saveAttendanceAction', () => {
         isUpdate: false,
         saved: written,
         registerNotes: null,
+        notesChanged: false,
       },
     })
   })
@@ -477,7 +633,10 @@ describe('saveAttendanceAction', () => {
       email: '',
     } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
-    vi.mocked(saveAttendance).mockResolvedValue([] as any)
+    vi.mocked(saveAttendance).mockResolvedValue({
+      saved: [],
+      notes: null,
+    } as any)
     vi.mocked(getClassById).mockResolvedValue({
       id: CLASS_ID,
       name: 'Class A',
@@ -506,7 +665,10 @@ describe('saveAttendanceAction', () => {
       email: '',
     } as any)
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([])
-    vi.mocked(saveAttendance).mockResolvedValue([] as any)
+    vi.mocked(saveAttendance).mockResolvedValue({
+      saved: [],
+      notes: null,
+    } as any)
     vi.mocked(getClassById).mockResolvedValue({
       id: CLASS_ID,
       name: 'Class A',
@@ -547,6 +709,7 @@ describe('saveAttendanceAction', () => {
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([
       { id: 'att-1' },
     ] as any)
+    vi.mocked(getRegister).mockResolvedValue({ notes: null })
 
     const fd = makeFormData({
       classId: CLASS_ID,
@@ -685,6 +848,7 @@ describe('saveAttendanceAction', () => {
     vi.mocked(getAttendanceByClassAndDate).mockResolvedValue([
       { id: 'att-1', student_id: STUDENT_1 } as any,
     ])
+    vi.mocked(getRegister).mockResolvedValue({ notes: null })
     vi.mocked(getEnrolmentsForClass).mockResolvedValue([
       {
         classId: CLASS_ID,
@@ -693,7 +857,10 @@ describe('saveAttendanceAction', () => {
         endDate: '2024-01-01',
       },
     ])
-    vi.mocked(saveAttendance).mockResolvedValue([] as any)
+    vi.mocked(saveAttendance).mockResolvedValue({
+      saved: [],
+      notes: null,
+    } as any)
     vi.mocked(getAdminSubscriptions).mockResolvedValue([])
 
     const result = await saveAttendanceAction(

@@ -23,7 +23,8 @@ export type AttendanceRow = Snake<Attendance>
 export type RegisterSave = {
   classId: string
   date: string
-  notes: string | null
+  /** Undefined leaves the saved note unchanged; null clears it. */
+  notes: string | null | undefined
   updatedBy: string
 }
 
@@ -122,15 +123,15 @@ export async function getAttendanceByDateRange(
 export async function saveAttendance(
   records: AttendanceInsert[],
   register: RegisterSave,
-): Promise<AttendanceRow[]> {
-  if (records.length === 0) return []
+): Promise<{ saved: AttendanceRow[]; notes: string | null }> {
+  if (records.length === 0) return { saved: [], notes: register.notes ?? null }
   const updated = [...new Set(records.flatMap((r) => Object.keys(r)))].filter(
     (key) => !CONFLICT_KEYS.includes(key),
   )
   const set: Record<string, SQL> = Object.fromEntries(
     updated.map((key) => [camelKey(key), sql`excluded.${sql.identifier(key)}`]),
   )
-  const rows = await db.transaction(async (tx) => {
+  const { rows, notes } = await db.transaction(async (tx) => {
     const saved = await tx
       .insert(attendance)
       .values(records.map(toCamel))
@@ -139,18 +140,19 @@ export async function saveAttendance(
         set,
       })
       .returning()
-    await tx
+    const [stored] = await tx
       .insert(attendanceRegisters)
-      .values(register)
+      .values({ ...register, notes: register.notes ?? null })
       .onConflictDoUpdate({
         target: [attendanceRegisters.classId, attendanceRegisters.date],
         set: {
-          notes: register.notes,
+          ...(register.notes !== undefined && { notes: register.notes }),
           updatedBy: register.updatedBy,
           updatedAt: sql`now()`,
         },
       })
-    return saved
+      .returning({ notes: attendanceRegisters.notes })
+    return { rows: saved, notes: stored.notes }
   })
-  return toSnake(rows)
+  return { saved: toSnake(rows), notes }
 }

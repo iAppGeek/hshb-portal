@@ -8,6 +8,7 @@ import {
   getClassById,
   getCurrentAcademicYear,
   getEnrolmentsForClass,
+  getRegister,
   saveAttendance,
 } from '@/db'
 import { ActionError, runAction, type ActionResult } from '@/lib/action'
@@ -35,7 +36,10 @@ export type SavedRegister = {
   date: string
   isUpdate: boolean
   saved: AttendanceRow[]
+  /** The note as stored, so the form shows what is saved. */
   registerNotes: string | null
+  /** Whether this save changed the note. The text itself is not audited. */
+  notesChanged: boolean
 }
 
 export async function saveAttendanceAction(
@@ -55,11 +59,17 @@ export async function saveAttendanceAction(
       if (!dateParsed.success) throw new ActionError('Invalid date')
       const date = dateParsed.data
 
-      const notesParsed = registerNotes.safeParse(
-        formData.get('registerNotes') ?? '',
-      )
-      if (!notesParsed.success)
-        throw new ActionError(notesParsed.error.issues[0].message)
+      // A form without the field (a page cached before notes existed) leaves
+      // the saved note alone; an empty field clears it.
+      let notes: string | null | undefined
+      if (formData.has('registerNotes')) {
+        const notesParsed = registerNotes.safeParse(
+          formData.get('registerNotes'),
+        )
+        if (!notesParsed.success)
+          throw new ActionError(notesParsed.error.issues[0].message)
+        notes = notesParsed.data
+      }
 
       const studentIds = formData.getAll('studentId') as string[]
 
@@ -92,11 +102,12 @@ export async function saveAttendanceAction(
         }
       })
 
-      const [existing, enrolments] = await Promise.all([
+      const [existing, enrolments, register] = await Promise.all([
         getAttendanceByClassAndDate(classId, date),
         getEnrolmentsForClass(classId),
+        getRegister(classId, date),
       ])
-      const isUpdate = existing.length > 0
+      const isUpdate = register !== null
 
       const roster = new Set(
         buildRegisterRoster(
@@ -115,10 +126,10 @@ export async function saveAttendanceAction(
         )
       }
 
-      const saved = await saveAttendance(records, {
+      const { saved, notes: storedNotes } = await saveAttendance(records, {
         classId,
         date,
-        notes: notesParsed.data,
+        notes,
         updatedBy: actor.staffId,
       })
 
@@ -128,14 +139,19 @@ export async function saveAttendanceAction(
         date,
         isUpdate,
         saved,
-        registerNotes: notesParsed.data,
+        registerNotes: storedNotes,
+        notesChanged: storedNotes !== (register?.notes ?? null),
       }
     },
     audit: {
       entity: 'attendance',
       action: ({ isUpdate }) => (isUpdate ? 'update' : 'create'),
       entityId: ({ classId }) => classId,
-      details: ({ date, saved }) => ({ date, studentCount: saved.length }),
+      details: ({ date, saved, notesChanged }) => ({
+        date,
+        studentCount: saved.length,
+        notesChanged,
+      }),
     },
     notify: ({ className, isUpdate }) => ({
       title: 'Attendance Saved',
