@@ -2,11 +2,18 @@ import { type Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
 import { requireSession } from '@/auth/require'
-import { getStaffById, getStudentById, getStudentIdsByTeacher } from '@/db'
+import {
+  getAcademicYears,
+  getStaffById,
+  getStudentAttendanceDays,
+  getStudentAttendanceTotals,
+  getStudentById,
+  getStudentIdsByTeacher,
+} from '@/db'
 import DefinitionList from '@/components/DefinitionList'
 import PermissionedLink from '@/components/PermissionedLink'
 import { consentItems } from '@/lib/consents'
-import { formatDateTimeInSchoolTz } from '@/lib/datetime'
+import { formatDateTimeInSchoolTz, todayInSchoolTz } from '@/lib/datetime'
 import { personName } from '@/lib/format'
 import {
   canEditStudents,
@@ -20,6 +27,7 @@ import SectionCard from '../../_components/SectionCard'
 
 import AddressBlock from './_components/AddressBlock'
 import GuardianCard from './_components/GuardianCard'
+import StudentAttendanceSection from './_components/StudentAttendanceSection'
 import WithdrawPhotoConsentButton from './_components/WithdrawPhotoConsentButton'
 
 export const metadata: Metadata = { title: 'Student' }
@@ -53,6 +61,22 @@ export default async function StudentPage({
     resolvedAddress.city ||
     resolvedAddress.postcode,
   )
+  const currentYear = (await getAcademicYears()).find((year) => year.is_current)
+  const today = todayInSchoolTz()
+  const attendanceEnd =
+    currentYear === undefined
+      ? null
+      : currentYear.end_date < today
+        ? currentYear.end_date
+        : today
+  const [attendanceTotals, attendanceDays] =
+    currentYear && attendanceEnd
+      ? await Promise.all([
+          getStudentAttendanceTotals(id, currentYear.start_date, attendanceEnd),
+          getStudentAttendanceDays(id, currentYear.start_date, attendanceEnd),
+        ])
+      : [null, null]
+
   const classNames =
     student.student_classes.length > 0
       ? student.student_classes
@@ -117,6 +141,14 @@ export default async function StudentPage({
       <SectionCard title="Classes">
         <p className="p-6 text-sm text-gray-600">{classNames}</p>
       </SectionCard>
+
+      {currentYear && attendanceTotals && attendanceDays && (
+        <StudentAttendanceSection
+          yearCode={currentYear.code}
+          totals={attendanceTotals}
+          days={attendanceDays}
+        />
+      )}
 
       <SectionCard title="Guardians & contacts">
         <div className="space-y-4 p-6">

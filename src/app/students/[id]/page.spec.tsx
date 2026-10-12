@@ -16,7 +16,10 @@ vi.mock('next/navigation', async (importOriginal) => ({
 }))
 
 vi.mock('@/db', () => ({
+  getAcademicYears: vi.fn(),
   getStaffById: vi.fn(),
+  getStudentAttendanceDays: vi.fn(),
+  getStudentAttendanceTotals: vi.fn(),
   getStudentById: vi.fn(),
   getStudentIdsByTeacher: vi.fn(),
 }))
@@ -26,12 +29,31 @@ vi.mock('../actions', () => ({
 }))
 
 import { auth } from '@/auth'
-import { getStaffById, getStudentById, getStudentIdsByTeacher } from '@/db'
+import {
+  getAcademicYears,
+  getStaffById,
+  getStudentAttendanceDays,
+  getStudentAttendanceTotals,
+  getStudentById,
+  getStudentIdsByTeacher,
+  type AcademicYearRow,
+} from '@/db'
+import { todayInSchoolTz } from '@/lib/datetime'
 
 import StudentPage from './page'
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(getAcademicYears).mockResolvedValue([])
+  vi.mocked(getStudentAttendanceDays).mockResolvedValue([])
+  vi.mocked(getStudentAttendanceTotals).mockResolvedValue({
+    studentId: 'student-1',
+    possible: 0,
+    attended: 0,
+    late: 0,
+    absent: 0,
+    unmarked: 0,
+  })
 })
 
 const baseStudent = {
@@ -240,5 +262,94 @@ describe('StudentPage', () => {
 
     await expect(renderPage()).rejects.toThrow('NEXT_NOT_FOUND')
     expect(getStudentById).not.toHaveBeenCalled()
+  })
+
+  describe('attendance', () => {
+    const year: AcademicYearRow = {
+      id: 'year-1',
+      code: '2026-27',
+      start_date: '2026-09-01',
+      end_date: '2027-08-31',
+      is_current: true,
+      created_at: '2026-09-01T00:00:00.000Z',
+      updated_at: '2026-09-01T00:00:00.000Z',
+    }
+
+    function signIn(): void {
+      vi.mocked(auth).mockResolvedValue({
+        user: { role: 'admin', staffId: 'staff-1' },
+      } as any)
+      vi.mocked(getStudentById).mockResolvedValue(baseStudent as any)
+    }
+
+    it('renders the card for the current year', async () => {
+      signIn()
+      vi.mocked(getAcademicYears).mockResolvedValue([year])
+      vi.mocked(getStudentAttendanceTotals).mockResolvedValue({
+        studentId: 'student-1',
+        possible: 25,
+        attended: 23,
+        late: 1,
+        absent: 1,
+        unmarked: 0,
+      })
+
+      render(await renderPage())
+
+      expect(
+        screen.getByRole('heading', { name: 'Attendance · 2026-27' }),
+      ).toBeTruthy()
+      expect(screen.getByText('92% (23/25)')).toBeTruthy()
+      const today = todayInSchoolTz()
+      const end = year.end_date < today ? year.end_date : today
+      expect(getStudentAttendanceTotals).toHaveBeenCalledWith(
+        'student-1',
+        year.start_date,
+        end,
+      )
+      expect(getStudentAttendanceDays).toHaveBeenCalledWith(
+        'student-1',
+        year.start_date,
+        end,
+      )
+    })
+
+    it('hides the card when no year is current', async () => {
+      signIn()
+      vi.mocked(getAcademicYears).mockResolvedValue([
+        { ...year, is_current: false },
+      ])
+
+      render(await renderPage())
+
+      expect(screen.queryByText(/Attendance/)).toBeNull()
+      expect(getStudentAttendanceTotals).not.toHaveBeenCalled()
+      expect(getStudentAttendanceDays).not.toHaveBeenCalled()
+    })
+
+    it('loads the year up to today, or the year end when that is sooner', async () => {
+      signIn()
+      const today = todayInSchoolTz()
+      const ended: AcademicYearRow = {
+        ...year,
+        start_date: '2020-09-01',
+        end_date: '2021-08-31',
+      }
+      vi.mocked(getAcademicYears).mockResolvedValue([ended])
+
+      render(await renderPage())
+
+      const end = ended.end_date < today ? ended.end_date : today
+      expect(getStudentAttendanceTotals).toHaveBeenCalledWith(
+        'student-1',
+        ended.start_date,
+        end,
+      )
+      expect(getStudentAttendanceDays).toHaveBeenCalledWith(
+        'student-1',
+        ended.start_date,
+        end,
+      )
+    })
   })
 })
