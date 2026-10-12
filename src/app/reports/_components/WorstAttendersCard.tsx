@@ -67,7 +67,7 @@ export default function WorstAttendersCard({
                           href={`/students/${row.studentId}`}
                           className="font-medium text-blue-700 hover:underline"
                         >
-                          {row.firstName} {row.lastName}
+                          {row.lastName}, {row.firstName}
                         </Link>
                         {row.leavingReason !== null && (
                           <span className="ml-2">

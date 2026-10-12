@@ -1,22 +1,32 @@
 import { test, expect } from '../../fixtures/index'
-import { deleteAcademicYearByCode, insertRow, sql } from '../../fixtures/seed'
+import {
+  deleteAcademicYearByCode,
+  insertRow,
+  isolatedPastAcademicYear,
+  sql,
+} from '../../fixtures/seed'
 
 test.use({ storageState: 'e2e/.auth/admin.json' })
 
-const FROM = '2015-09-01'
-const TO = '2015-09-02'
+function plusDays(date: string, days: number): string {
+  const [year, month, day] = date.split('-').map(Number)
+  const next = new Date(Date.UTC(year, month - 1, day + days))
+  const y = next.getUTCFullYear()
+  const m = String(next.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(next.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
 
-test('lists the worst attenders for a date range', async ({ page }) => {
-  const yearId = await insertRow('academic_years', {
-    code: '2015-16',
-    start_date: '2015-09-01',
-    end_date: '2016-08-31',
-    is_current: false,
-  })
+test('lists the worst attenders for a date range', async ({
+  page,
+}, testInfo) => {
+  const year = await isolatedPastAcademicYear(testInfo)
+  const from = year.start_date
+  const to = plusDays(from, 1)
   const classId = await insertRow('classes', {
-    name: 'Worst 2015',
+    name: `Worst ${year.code} ${crypto.randomUUID()}`,
     year_group: '1',
-    academic_year_id: yearId,
+    academic_year_id: year.id,
     active: true,
   })
   const guardianId = await insertRow('guardians', {
@@ -44,20 +54,20 @@ test('lists the worst attenders for a date range', async ({ page }) => {
     await insertRow('student_classes', {
       student_id: zoe,
       class_id: classId,
-      start_date: FROM,
-      end_date: '2015-09-03',
+      start_date: from,
+      end_date: plusDays(from, 2),
     })
     await insertRow('student_classes', {
       student_id: amy,
       class_id: classId,
-      start_date: FROM,
-      end_date: '2015-09-02',
+      start_date: from,
+      end_date: plusDays(from, 1),
     })
     await insertRow('student_classes', {
       student_id: bea,
       class_id: classId,
-      start_date: FROM,
-      end_date: '2015-09-03',
+      start_date: from,
+      end_date: plusDays(from, 2),
     })
 
     async function take(
@@ -75,31 +85,33 @@ test('lists the worst attenders for a date range', async ({ page }) => {
       }
     }
 
-    await take(FROM, [
+    await take(from, [
       { studentId: zoe, status: 'absent' },
       { studentId: amy, status: 'absent' },
       { studentId: bea, status: 'present' },
     ])
-    await take(TO, [
+    await take(to, [
       { studentId: zoe, status: 'absent' },
       { studentId: bea, status: 'absent' },
     ])
 
-    await page.goto(`/reports?mode=range&from=${FROM}&to=${TO}`)
+    await page.goto(`/reports?mode=range&from=${from}&to=${to}`)
     const table = page.getByRole('table', { name: 'Worst attenders' })
-    await expect(table.getByRole('link', { name: 'Zoe Zero' })).toBeVisible()
+    await expect(table.getByRole('link', { name: 'Zero, Zoe' })).toBeVisible()
     const names = (await table.getByRole('link').allTextContents()).map(
       (name) => name.replace(/\s+/g, ' ').trim(),
     )
     const ours = names.filter((name) =>
-      ['Zoe Zero', 'Amy Able', 'Bea Middle'].includes(name),
+      ['Zero, Zoe', 'Able, Amy', 'Middle, Bea'].includes(name),
     )
-    expect(ours).toEqual(['Zoe Zero', 'Amy Able', 'Bea Middle'])
+    expect(ours).toEqual(['Zero, Zoe', 'Able, Amy', 'Middle, Bea'])
 
     await page.getByLabel('Show top').fill('1')
-    await expect(table.getByRole('link', { name: 'Zoe Zero' })).toBeVisible()
-    await expect(table.getByRole('link', { name: 'Amy Able' })).toHaveCount(0)
-    await expect(table.getByRole('link', { name: 'Bea Middle' })).toHaveCount(0)
+    await expect(table.getByRole('link', { name: 'Zero, Zoe' })).toBeVisible()
+    await expect(table.getByRole('link', { name: 'Able, Amy' })).toHaveCount(0)
+    await expect(table.getByRole('link', { name: 'Middle, Bea' })).toHaveCount(
+      0,
+    )
   } finally {
     await sql`delete from attendance_registers where class_id = ${classId}`
     await sql`delete from attendance where student_id in ${sql(studentIds)}`
@@ -107,6 +119,6 @@ test('lists the worst attenders for a date range', async ({ page }) => {
     await sql`delete from students where id in ${sql(studentIds)}`
     await sql`delete from classes where id = ${classId}`
     await sql`delete from guardians where id = ${guardianId}`
-    await deleteAcademicYearByCode('2015-16')
+    await deleteAcademicYearByCode(year.code)
   }
 })

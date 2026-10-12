@@ -30,7 +30,7 @@ describe('WorstAttendersCard', () => {
   it('defaults to 10 rows', () => {
     render(<WorstAttendersCard rows={rows} />)
     expect(screen.getAllByRole('link')).toHaveLength(10)
-    expect(screen.queryByRole('link', { name: 'First10 Last10' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Last10, First10' })).toBeNull()
   })
 
   it('shows the typed count', () => {
@@ -73,7 +73,7 @@ describe('WorstAttendersCard', () => {
         ]}
       />,
     )
-    expect(screen.getByRole('link', { name: 'First0 Last0' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Last0, First0' })).toHaveAttribute(
       'href',
       '/students/student-0',
     )

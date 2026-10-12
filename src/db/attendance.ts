@@ -322,7 +322,6 @@ export async function getStudentAttendanceTotals(
   }
 }
 
-const attendedDays = sql`count(*) filter (where status in ('present', 'late'))`
 const possibleDays = sql`count(*)`
 
 /**
@@ -334,7 +333,8 @@ export async function getWorstAttenders(
   endDate: string,
 ): Promise<WorstAttenderRow[]> {
   const { roster, days } = studentDays(startDate, endDate)
-  const rows = await db
+  const attendedDays = sql`count(*) filter (where ${days.status} in ('present', 'late'))`
+  return db
     .with(roster, days)
     .select({
       studentId: days.studentId,
@@ -380,16 +380,4 @@ export async function getWorstAttenders(
       asc(students.lastName),
       asc(students.firstName),
     )
-  return rows.map((row) => ({
-    studentId: row.studentId,
-    firstName: row.firstName,
-    lastName: row.lastName,
-    leavingReason: row.leavingReason,
-    possible: row.possible,
-    attended: row.attended,
-    late: row.late,
-    absent: row.absent,
-    unmarked: row.unmarked,
-    classNames: row.classNames ?? [],
-  }))
 }

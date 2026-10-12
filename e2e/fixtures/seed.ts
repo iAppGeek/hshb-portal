@@ -1,4 +1,5 @@
 import postgres from 'postgres'
+import type { TestInfo } from '@playwright/test'
 
 /**
  * The local Supabase Postgres, for fixtures and assertions — the same
@@ -189,4 +190,36 @@ export async function setCurrentAcademicYear(id: string): Promise<void> {
 // (ON DELETE RESTRICT).
 export async function deleteAcademicYearByCode(code: string): Promise<void> {
   await sql`delete from academic_years where code = ${code}`
+}
+
+/**
+ * A past academic year no seed or other spec uses. `parallelIndex` is unique
+ * among the workers running at once, so the eight Playwright projects can
+ * each insert a year without colliding on `academic_years_code_key` or on
+ * overlapping date ranges.
+ */
+export async function isolatedPastAcademicYear(
+  testInfo: TestInfo,
+): Promise<{ id: string; code: string; start_date: string; end_date: string }> {
+  const year = 1900 + testInfo.parallelIndex
+  const code = `${year}-${String((year + 1) % 100).padStart(2, '0')}`
+  const start_date = `${year}-09-01`
+  const end_date = `${year + 1}-08-31`
+  const classIds = sql`
+    select id from classes
+    where academic_year_id in (
+      select id from academic_years where code = ${code}
+    )`
+  await sql`delete from attendance_registers where class_id in (${classIds})`
+  await sql`delete from attendance where class_id in (${classIds})`
+  await sql`delete from student_classes where class_id in (${classIds})`
+  await sql`delete from classes where id in (${classIds})`
+  await sql`delete from academic_years where code = ${code}`
+  const id = await insertRow('academic_years', {
+    code,
+    start_date,
+    end_date,
+    is_current: false,
+  })
+  return { id, code, start_date, end_date }
 }
