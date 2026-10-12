@@ -83,6 +83,7 @@ const defaultProps = {
   ],
   classSummary,
   incidentCounts,
+  worstAttenders: [],
 }
 
 describe('PeriodReport', () => {
@@ -130,6 +131,9 @@ describe('PeriodReport', () => {
     expect(screen.getByText('Attendance %')).toBeTruthy()
     expect(screen.getByText('Absences')).toBeTruthy()
     expect(screen.getByText('Late')).toBeTruthy()
+    expect(
+      screen.getByRole('heading', { name: 'Worst attenders' }),
+    ).toBeTruthy()
   })
 
   it('computes the attendance rate from possible, not enrolled × totalSchoolDays', () => {

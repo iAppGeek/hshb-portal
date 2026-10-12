@@ -90,6 +90,7 @@ describe('single class', () => {
     expect(alpha?.student_classes[0].student.primary_guardian).toEqual(
       expect.objectContaining({ phone: expect.any(String) }),
     )
+    expect(alpha?.academic_year_start).toBe('2026-09-01')
     expect(alpha?.enrolment_history).toHaveLength(3)
     expect(
       alpha?.enrolment_history.find((h) => h.end_date !== null),

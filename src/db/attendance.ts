@@ -1,16 +1,40 @@
 import 'server-only'
 
-import { and, asc, eq, gte, lte, sql, type SQL } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  exists,
+  gt,
+  gte,
+  isNull,
+  lte,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm'
+import { union, alias } from 'drizzle-orm/pg-core'
 
 import type { AttendanceRangeRow, SummaryClass } from '@/lib/attendanceSummary'
+import type { ClassSessionDate } from '@/lib/classSessions'
+import type {
+  DayStatus,
+  StudentAttendanceDay,
+  StudentAttendanceTotals,
+  WorstAttenderRow,
+} from '@/lib/studentAttendance'
 
 import { camelKey, toCamel, toSnake, type Snake } from './casing'
 import { db } from './client'
+import { staysOverlapping } from './membership'
 import {
   academicYears,
   attendance,
   attendanceRegisters,
   classes,
+  studentClasses,
+  students,
   type Attendance,
   type NewAttendance,
 } from './schema'
@@ -155,4 +179,276 @@ export async function saveAttendance(
     return { rows: saved, notes: stored.notes }
   })
   return { saved: toSnake(rows), notes }
+}
+
+/**
+ * Who was on each taken register in the range: enrolled that day, or marked.
+ * `union` drops a student who is both. Filters go in both branches so the
+ * student and class indexes can be used.
+ */
+function registerRoster(
+  startDate: string,
+  endDate: string,
+  opts: { studentId?: string; classId?: string } = {},
+) {
+  const inRange = and(
+    gte(attendanceRegisters.date, startDate),
+    lte(attendanceRegisters.date, endDate),
+    opts.classId ? eq(attendanceRegisters.classId, opts.classId) : undefined,
+  )
+  const enrolled = db
+    .select({
+      classId: attendanceRegisters.classId,
+      date: attendanceRegisters.date,
+      studentId: studentClasses.studentId,
+    })
+    .from(attendanceRegisters)
+    .innerJoin(
+      studentClasses,
+      and(
+        eq(studentClasses.classId, attendanceRegisters.classId),
+        lte(studentClasses.startDate, attendanceRegisters.date),
+        or(
+          isNull(studentClasses.endDate),
+          gt(studentClasses.endDate, attendanceRegisters.date),
+        ),
+        opts.studentId
+          ? eq(studentClasses.studentId, opts.studentId)
+          : undefined,
+      ),
+    )
+    .where(inRange)
+  const marked = db
+    .select({
+      classId: attendanceRegisters.classId,
+      date: attendanceRegisters.date,
+      studentId: attendance.studentId,
+    })
+    .from(attendanceRegisters)
+    .innerJoin(
+      attendance,
+      and(
+        eq(attendance.classId, attendanceRegisters.classId),
+        eq(attendance.date, attendanceRegisters.date),
+        opts.studentId ? eq(attendance.studentId, opts.studentId) : undefined,
+      ),
+    )
+    .where(inRange)
+  return union(enrolled, marked)
+}
+
+/** One row per student per day, best mark across that day's classes. */
+function studentDays(startDate: string, endDate: string, studentId?: string) {
+  const roster = db
+    .$with('register_roster')
+    .as(registerRoster(startDate, endDate, { studentId }))
+  const days = db.$with('student_days').as(
+    db
+      .select({
+        studentId: roster.studentId,
+        date: roster.date,
+        status: sql<DayStatus>`case
+          when bool_or(${attendance.status} = 'present') then 'present'
+          when bool_or(${attendance.status} = 'late') then 'late'
+          when bool_or(${attendance.status} = 'absent') then 'absent'
+          else 'unmarked'
+        end`.as('status'),
+        classNames: sql<
+          string[]
+        >`array_agg(distinct ${classes.name} order by ${classes.name})`.as(
+          'class_names',
+        ),
+      })
+      .from(roster)
+      .innerJoin(classes, eq(classes.id, roster.classId))
+      .leftJoin(
+        attendance,
+        and(
+          eq(attendance.classId, roster.classId),
+          eq(attendance.date, roster.date),
+          eq(attendance.studentId, roster.studentId),
+        ),
+      )
+      .groupBy(roster.studentId, roster.date),
+  )
+  return { roster, days }
+}
+
+function countWhere(condition: SQL): SQL<number> {
+  return sql<number>`count(*) filter (where ${condition})`.mapWith(Number)
+}
+
+/** Every possible day for the student in the range, newest first. */
+export async function getStudentAttendanceDays(
+  studentId: string,
+  startDate: string,
+  endDate: string,
+): Promise<StudentAttendanceDay[]> {
+  const { roster, days } = studentDays(startDate, endDate, studentId)
+  return db
+    .with(roster, days)
+    .select({
+      date: days.date,
+      status: days.status,
+      classNames: days.classNames,
+    })
+    .from(days)
+    .orderBy(desc(days.date))
+}
+
+/** Day counts for one student. Zeros when no register was taken. */
+export async function getStudentAttendanceTotals(
+  studentId: string,
+  startDate: string,
+  endDate: string,
+): Promise<StudentAttendanceTotals> {
+  const { roster, days } = studentDays(startDate, endDate, studentId)
+  const [row] = await db
+    .with(roster, days)
+    .select({
+      possible: sql<number>`count(*)`.mapWith(Number),
+      attended: countWhere(sql`${days.status} in ('present', 'late')`),
+      late: countWhere(sql`${days.status} = 'late'`),
+      absent: countWhere(sql`${days.status} = 'absent'`),
+      unmarked: countWhere(sql`${days.status} = 'unmarked'`),
+    })
+    .from(days)
+  return {
+    studentId,
+    possible: row?.possible ?? 0,
+    attended: row?.attended ?? 0,
+    late: row?.late ?? 0,
+    absent: row?.absent ?? 0,
+    unmarked: row?.unmarked ?? 0,
+  }
+}
+
+const possibleDays = sql`count(*)`
+
+/**
+ * Students below 100% in the range, worst first. Only students with a stay
+ * in an active class that overlaps the range. The caller slices to X.
+ */
+export async function getWorstAttenders(
+  startDate: string,
+  endDate: string,
+): Promise<WorstAttenderRow[]> {
+  const { roster, days } = studentDays(startDate, endDate)
+  const attendedDays = sql`count(*) filter (where ${days.status} in ('present', 'late'))`
+  return db
+    .with(roster, days)
+    .select({
+      studentId: days.studentId,
+      firstName: students.firstName,
+      lastName: students.lastName,
+      leavingReason: sql<
+        string | null
+      >`case when ${students.active} then null else ${students.leavingReason} end`,
+      possible: sql<number>`count(*)`.mapWith(Number),
+      attended: countWhere(sql`${days.status} in ('present', 'late')`),
+      late: countWhere(sql`${days.status} = 'late'`),
+      absent: countWhere(sql`${days.status} = 'absent'`),
+      unmarked: countWhere(sql`${days.status} = 'unmarked'`),
+      classNames: sql<string[]>`coalesce((
+        select array_agg(distinct elem order by elem)
+        from student_days as named
+        cross join lateral unnest(named.class_names) as elem
+        where named.student_id = ${days.studentId}
+      ), '{}')`,
+    })
+    .from(days)
+    .innerJoin(students, eq(students.id, days.studentId))
+    .where(
+      exists(
+        db
+          .select({ id: studentClasses.id })
+          .from(studentClasses)
+          .innerJoin(classes, eq(classes.id, studentClasses.classId))
+          .where(
+            and(
+              eq(studentClasses.studentId, students.id),
+              eq(classes.active, true),
+              staysOverlapping(studentClasses, startDate, endDate),
+            ),
+          ),
+      ),
+    )
+    .groupBy(days.studentId, students.id)
+    .having(sql`${attendedDays} < ${possibleDays}`)
+    .orderBy(
+      sql`(${attendedDays})::numeric / ${possibleDays}`,
+      sql`${possibleDays} - (${attendedDays}) desc`,
+      asc(students.lastName),
+      asc(students.firstName),
+    )
+}
+
+/**
+ * Every school session date in the class's academic year, up to `today`,
+ * and whether this class took its register. Newest first.
+ */
+export async function getClassSessionDates(
+  classId: string,
+  academicYearId: string,
+  yearStart: string,
+  today: string,
+): Promise<ClassSessionDate[]> {
+  const sessionDates = db.$with('session_dates').as(
+    db
+      .selectDistinct({ date: attendanceRegisters.date })
+      .from(attendanceRegisters)
+      .innerJoin(classes, eq(classes.id, attendanceRegisters.classId))
+      .where(
+        and(
+          eq(classes.academicYearId, academicYearId),
+          lte(attendanceRegisters.date, today),
+        ),
+      ),
+  )
+  const roster = db
+    .$with('register_roster')
+    .as(registerRoster(yearStart, today, { classId }))
+  const thisRegister = alias(attendanceRegisters, 'this_register')
+  const taken = sql<boolean>`${thisRegister.id} is not null`
+
+  return db
+    .with(sessionDates, roster)
+    .select({
+      date: sessionDates.date,
+      taken,
+      roster:
+        sql<number>`count(distinct ${roster.studentId}) filter (where ${taken})`.mapWith(
+          Number,
+        ),
+      attended:
+        sql<number>`count(*) filter (where ${taken} and ${attendance.status} in ('present', 'late'))`.mapWith(
+          Number,
+        ),
+      absent:
+        sql<number>`count(*) filter (where ${taken} and ${attendance.status} = 'absent')`.mapWith(
+          Number,
+        ),
+    })
+    .from(sessionDates)
+    .leftJoin(
+      thisRegister,
+      and(
+        eq(thisRegister.classId, classId),
+        eq(thisRegister.date, sessionDates.date),
+      ),
+    )
+    .leftJoin(
+      roster,
+      and(eq(roster.classId, classId), eq(roster.date, sessionDates.date)),
+    )
+    .leftJoin(
+      attendance,
+      and(
+        eq(attendance.classId, classId),
+        eq(attendance.date, sessionDates.date),
+        eq(attendance.studentId, roster.studentId),
+      ),
+    )
+    .groupBy(sessionDates.date, thisRegister.id)
+    .orderBy(desc(sessionDates.date))
 }

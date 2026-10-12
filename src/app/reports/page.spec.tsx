@@ -20,6 +20,7 @@ vi.mock('@/db', () => ({
   getRegistersByDateRange: vi.fn(),
   getEnrolmentsInRange: vi.fn(),
   getIncidentCountsByDateRange: vi.fn(),
+  getWorstAttenders: vi.fn(),
 }))
 
 vi.mock('./_components/ReportsModeSelector', () => ({
@@ -45,6 +46,7 @@ import {
   getRegistersByDateRange,
   getEnrolmentsInRange,
   getIncidentCountsByDateRange,
+  getWorstAttenders,
 } from '@/db'
 
 import DayReport from './_components/DayReport'
@@ -72,6 +74,7 @@ beforeEach(() => {
     other: 0,
     total: 0,
   })
+  vi.mocked(getWorstAttenders).mockResolvedValue([])
 })
 
 describe('ReportsPage', () => {
@@ -137,6 +140,7 @@ describe('ReportsPage', () => {
       '2024-01-15',
     )
     expect(getStaffAttendedCount).toHaveBeenCalledWith('2024-01-15')
+    expect(getWorstAttenders).not.toHaveBeenCalled()
   })
 
   // ── Month mode ──────────────────────────────────────────────────────────
@@ -160,6 +164,7 @@ describe('ReportsPage', () => {
       }),
     )
     expect(screen.getByTestId('period-report')).toBeTruthy()
+    expect(vi.mocked(PeriodReport).mock.calls[0][0].worstAttenders).toEqual([])
   })
 
   it('calls range DB functions with first/last day of month', async () => {
@@ -180,6 +185,7 @@ describe('ReportsPage', () => {
       '2024-03-01',
       '2024-03-31',
     )
+    expect(getWorstAttenders).toHaveBeenCalledWith('2024-03-01', '2024-03-31')
   })
 
   // ── Range mode ──────────────────────────────────────────────────────────
@@ -203,6 +209,7 @@ describe('ReportsPage', () => {
       }),
     )
     expect(screen.getByTestId('period-report')).toBeTruthy()
+    expect(getWorstAttenders).toHaveBeenCalledWith('2024-03-01', '2024-03-15')
   })
 
   it('calls range DB functions with from/to params', async () => {
@@ -218,6 +225,7 @@ describe('ReportsPage', () => {
       '2024-03-01',
       '2024-03-15',
     )
+    expect(getWorstAttenders).toHaveBeenCalledWith('2024-03-01', '2024-03-15')
   })
 
   // ── Mode selector receives correct props ────────────────────────────────

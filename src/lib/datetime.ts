@@ -245,6 +245,18 @@ export function formatDateTimeInSchoolTz(utcIso: string): string {
 }
 
 /**
+ * Noon UTC on the stored calendar day, so timezone-aware formatting still
+ * resolves to that day for UK-adjacent zones. Null when the string is not
+ * `YYYY-MM-DD`.
+ */
+function calendarInstant(dateStr: string): Date | null {
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!match) return null
+  const [, y, m, d] = match
+  return new Date(Date.UTC(Number(y), Number(m) - 1, Number(d), 12))
+}
+
+/**
  * Format a date-only string (`YYYY-MM-DD`, e.g. `lesson_date`, `attendance.date`)
  * for display. The string has no timezone semantics — this helper just parses
  * the components and formats them via `Intl.DateTimeFormat` without any
@@ -260,14 +272,26 @@ export function formatCalendarDate(
   dateStr: string,
   options: Intl.DateTimeFormatOptions = {},
 ): string {
-  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/)
-  if (!match) return dateStr
-  const [, y, m, d] = match
-  // Anchor at noon UTC so any later timezone-aware formatting still resolves
-  // to the same calendar day for UK-adjacent zones.
-  const instant = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d), 12))
+  const instant = calendarInstant(dateStr)
+  if (!instant) return dateStr
   return new Intl.DateTimeFormat('en-GB', {
     timeZone: SCHOOL_TIMEZONE,
     ...options,
   }).format(instant)
+}
+
+/** `Sat 5-Sept-26`. The short month is whatever `en-GB` gives. */
+export function formatSessionDate(dateStr: string): string {
+  const instant = calendarInstant(dateStr)
+  if (!instant) return dateStr
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: '2-digit',
+    timeZone: SCHOOL_TIMEZONE,
+  }).formatToParts(instant)
+  const part = (type: Intl.DateTimeFormatPartTypes): string =>
+    parts.find((item) => item.type === type)?.value ?? ''
+  return `${part('weekday')} ${part('day')}-${part('month')}-${part('year')}`
 }

@@ -2,11 +2,23 @@ import { type Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
 import { requireSession } from '@/auth/require'
-import { getStaffById, getStudentById, getStudentIdsByTeacher } from '@/db'
+import {
+  getAcademicYears,
+  getStaffById,
+  getStudentAttendanceDays,
+  getStudentAttendanceTotals,
+  getStudentById,
+  getStudentIdsByTeacher,
+  type AcademicYearRow,
+} from '@/db'
 import DefinitionList from '@/components/DefinitionList'
 import PermissionedLink from '@/components/PermissionedLink'
 import { consentItems } from '@/lib/consents'
-import { formatDateTimeInSchoolTz } from '@/lib/datetime'
+import { formatDateTimeInSchoolTz, todayInSchoolTz } from '@/lib/datetime'
+import type {
+  StudentAttendanceDay,
+  StudentAttendanceTotals,
+} from '@/lib/studentAttendance'
 import { personName } from '@/lib/format'
 import {
   canEditStudents,
@@ -20,6 +32,7 @@ import SectionCard from '../../_components/SectionCard'
 
 import AddressBlock from './_components/AddressBlock'
 import GuardianCard from './_components/GuardianCard'
+import StudentAttendanceSection from './_components/StudentAttendanceSection'
 import WithdrawPhotoConsentButton from './_components/WithdrawPhotoConsentButton'
 
 export const metadata: Metadata = { title: 'Student' }
@@ -39,7 +52,10 @@ export default async function StudentPage({
     if (!studentIds.includes(id)) notFound()
   }
 
-  const student = await getStudentById(id)
+  const [student, years] = await Promise.all([
+    getStudentById(id),
+    getAcademicYears(),
+  ])
   if (!student) notFound()
 
   const withdrawnBy =
@@ -53,6 +69,8 @@ export default async function StudentPage({
     resolvedAddress.city ||
     resolvedAddress.postcode,
   )
+  const attendance = await loadYearAttendance(id, years)
+
   const classNames =
     student.student_classes.length > 0
       ? student.student_classes
@@ -117,6 +135,14 @@ export default async function StudentPage({
       <SectionCard title="Classes">
         <p className="p-6 text-sm text-gray-600">{classNames}</p>
       </SectionCard>
+
+      {attendance && (
+        <StudentAttendanceSection
+          yearCode={attendance.year.code}
+          totals={attendance.totals}
+          days={attendance.days}
+        />
+      )}
 
       <SectionCard title="Guardians & contacts">
         <div className="space-y-4 p-6">
@@ -247,4 +273,23 @@ export default async function StudentPage({
       )}
     </div>
   )
+}
+
+async function loadYearAttendance(
+  studentId: string,
+  years: AcademicYearRow[],
+): Promise<{
+  year: AcademicYearRow
+  totals: StudentAttendanceTotals
+  days: StudentAttendanceDay[]
+} | null> {
+  const year = years.find((item) => item.is_current)
+  if (!year) return null
+  const today = todayInSchoolTz()
+  const end = year.end_date < today ? year.end_date : today
+  const [totals, days] = await Promise.all([
+    getStudentAttendanceTotals(studentId, year.start_date, end),
+    getStudentAttendanceDays(studentId, year.start_date, end),
+  ])
+  return { year, totals, days }
 }

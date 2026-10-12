@@ -19,6 +19,7 @@ import {
   getRegistersByDateRange,
   getEnrolmentsInRange,
   getIncidentCountsByDateRange,
+  getWorstAttenders,
 } from '@/db'
 
 import PageHeader from '../_components/PageHeader'
@@ -224,6 +225,7 @@ export async function PeriodReportSection({
     enrolments,
     staff,
     incidentCounts,
+    worstAttenders,
   ] = await Promise.all([
     getStaffAttendanceByDateRange(startDate, endDate),
     getAttendanceByDateRange(startDate, endDate),
@@ -231,6 +233,7 @@ export async function PeriodReportSection({
     getEnrolmentsInRange(startDate, endDate),
     getAllStaff(),
     getIncidentCountsByDateRange(startDate, endDate),
+    getWorstAttenders(startDate, endDate),
   ])
 
   // Staff days worked
@@ -281,9 +284,8 @@ export async function PeriodReportSection({
     }))
     .sort((a, b) => b.daysWorked - a.daysWorked)
 
-  // Per-class attendance. Untaken registers count as absences against
-  // possible attendance (decision 7), so possible comes from enrolment, not
-  // marks.
+  // Per-class attendance. Possible attendance counts only the dates that
+  // class's register was taken. An untaken day is not an absence.
   const summary = summariseAttendance(
     attendanceRows,
     registers,
@@ -311,6 +313,7 @@ export async function PeriodReportSection({
       schoolDayDates={schoolDayDates}
       classSummary={classSummary}
       incidentCounts={incidentCounts}
+      worstAttenders={worstAttenders}
     />
   )
 }

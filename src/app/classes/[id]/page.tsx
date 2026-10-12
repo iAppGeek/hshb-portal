@@ -15,6 +15,7 @@ import PageHeader from '../../_components/PageHeader'
 import PrintButton from '../PrintButton'
 
 import ClassRegisterCard, { type RegisterStudent } from './ClassRegisterCard'
+import ClassSessionDatesTable from './ClassSessionDatesTable'
 import EnrolmentHistoryTable, {
   type EnrolmentHistoryRow,
 } from './EnrolmentHistoryTable'
@@ -105,6 +106,13 @@ export default async function ClassRegisterPage({
       <div className="print:hidden">
         <Suspense fallback={<TableSkeleton columns={3} />}>
           <EnrolmentHistoryTable rows={enrolmentHistory} />
+        </Suspense>
+        <Suspense fallback={<TableSkeleton columns={3} />}>
+          <ClassSessionDatesTable
+            classId={cls.id}
+            academicYearId={cls.academic_year_id}
+            yearStart={cls.academic_year_start}
+          />
         </Suspense>
       </div>
     </div>
