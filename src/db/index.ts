@@ -148,6 +148,7 @@ export {
   getRegistersByDateRange,
   getStudentAttendanceDays,
   getStudentAttendanceTotals,
+  getWorstAttenders,
   saveAttendance,
 } from './attendance'
 export type {

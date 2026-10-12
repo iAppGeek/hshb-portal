@@ -10,11 +10,12 @@ import {
   getRegistersByDateRange,
   getStudentAttendanceDays,
   getStudentAttendanceTotals,
+  getWorstAttenders,
   saveAttendance,
   type AttendanceStatus,
 } from './attendance'
 import { db } from './client'
-import { classes, studentClasses } from './schema'
+import { classes, studentClasses, students } from './schema'
 import { resetDatabase, SEED } from './test-db'
 
 afterAll(resetDatabase)
@@ -358,6 +359,186 @@ describe('student attendance days', () => {
         '2027-01-05',
       ),
     ).toEqual([])
+  })
+})
+
+describe('worst attenders', () => {
+  async function pupil(
+    firstName: string,
+    lastName: string,
+    opts: { active?: boolean; leavingReason?: 'left' | null } = {},
+  ): Promise<string> {
+    const [row] = await db
+      .insert(students)
+      .values({
+        firstName,
+        lastName,
+        primaryGuardianId: SEED.guardians.gary,
+        addressGuardianId: SEED.guardians.gary,
+        active: opts.active ?? true,
+        leavingReason: opts.leavingReason ?? null,
+      })
+      .returning({ id: students.id })
+    return row.id
+  }
+
+  async function klass(name: string, active = true): Promise<string> {
+    const [row] = await db
+      .insert(classes)
+      .values({
+        name,
+        yearGroup: 'Year 1',
+        academicYearId: SEED.years.current,
+        teacherId: SEED.staff.teacher,
+        active,
+      })
+      .returning({ id: classes.id })
+    return row.id
+  }
+
+  async function stay(
+    studentId: string,
+    classId: string,
+    startDate: string,
+    endDate: string | null,
+  ): Promise<void> {
+    await db.insert(studentClasses).values({
+      studentId,
+      classId,
+      startDate,
+      endDate,
+    })
+  }
+
+  async function take(
+    classId: string,
+    date: string,
+    marks: { studentId: string; status: AttendanceStatus }[],
+  ): Promise<void> {
+    await saveAttendance(
+      marks.map((mark) => ({
+        class_id: classId,
+        student_id: mark.studentId,
+        date,
+        status: mark.status,
+        notes: null,
+        recorded_by: SEED.staff.teacher,
+      })),
+      {
+        classId,
+        date,
+        notes: null,
+        updatedBy: SEED.staff.teacher,
+      },
+    )
+  }
+
+  it('orders by percentage, then days missed, then name, and drops 100%', async () => {
+    const classId = await klass('Rank')
+    const zoeZero = await pupil('Zoe', 'Zero')
+    const amyAble = await pupil('Amy', 'Able')
+    const patAdams = await pupil('Pat', 'Adams')
+    const amyBrown = await pupil('Amy', 'Brown')
+    const zoeBrown = await pupil('Zoe', 'Brown')
+    const uma = await pupil('Uma', 'Perfect')
+    await stay(zoeZero, classId, '2027-02-01', '2027-02-04')
+    await stay(amyAble, classId, '2027-02-01', '2027-02-02')
+    for (const id of [patAdams, amyBrown, zoeBrown, uma]) {
+      await stay(id, classId, '2027-02-01', '2027-02-03')
+    }
+    await take(classId, '2027-02-01', [
+      { studentId: zoeZero, status: 'absent' },
+      { studentId: amyAble, status: 'absent' },
+      { studentId: patAdams, status: 'present' },
+      { studentId: amyBrown, status: 'present' },
+      { studentId: zoeBrown, status: 'present' },
+      { studentId: uma, status: 'present' },
+    ])
+    await take(classId, '2027-02-02', [
+      { studentId: zoeZero, status: 'absent' },
+      { studentId: patAdams, status: 'absent' },
+      { studentId: amyBrown, status: 'absent' },
+      { studentId: zoeBrown, status: 'absent' },
+      { studentId: uma, status: 'present' },
+    ])
+    await take(classId, '2027-02-03', [
+      { studentId: zoeZero, status: 'absent' },
+    ])
+
+    const rows = await getWorstAttenders('2027-02-01', '2027-02-03')
+    expect(rows.map((row) => `${row.firstName} ${row.lastName}`)).toEqual([
+      'Zoe Zero',
+      'Amy Able',
+      'Pat Adams',
+      'Amy Brown',
+      'Zoe Brown',
+    ])
+    expect(rows[0]).toMatchObject({ possible: 3, attended: 0 })
+    expect(rows[1]).toMatchObject({ possible: 1, attended: 0 })
+    expect(rows[2]).toMatchObject({
+      possible: 2,
+      attended: 1,
+      classNames: ['Rank'],
+    })
+  })
+
+  it('includes a student who left mid-range, with their leaving reason', async () => {
+    const classId = await klass('Leavers')
+    const id = await pupil('Lea', 'Ver', {
+      active: false,
+      leavingReason: 'left',
+    })
+    await stay(id, classId, '2027-02-10', '2027-02-12')
+    await take(classId, '2027-02-10', [{ studentId: id, status: 'absent' }])
+    await take(classId, '2027-02-11', [{ studentId: id, status: 'present' }])
+
+    const rows = await getWorstAttenders('2027-02-10', '2027-02-11')
+    expect(rows).toEqual([
+      expect.objectContaining({
+        studentId: id,
+        leavingReason: 'left',
+        possible: 2,
+        attended: 1,
+      }),
+    ])
+  })
+
+  it('excludes a student whose only stay in the range is in an inactive class', async () => {
+    const classId = await klass('Closed', false)
+    const id = await pupil('Ina', 'Active')
+    await stay(id, classId, '2027-02-15', null)
+    await take(classId, '2027-02-15', [{ studentId: id, status: 'absent' }])
+
+    expect(await getWorstAttenders('2027-02-15', '2027-02-15')).toEqual([])
+  })
+
+  it('excludes a stray mark when no stay overlaps the range', async () => {
+    const classId = await klass('Stray')
+    const id = await pupil('Sid', 'Mark')
+    await stay(id, classId, '2027-02-01', '2027-02-16')
+    await take(classId, '2027-02-20', [{ studentId: id, status: 'absent' }])
+
+    expect(await getWorstAttenders('2027-02-20', '2027-02-20')).toEqual([])
+  })
+
+  it('counts a day in two classes once', async () => {
+    const alpha = await klass('Twin A')
+    const beta = await klass('Twin B')
+    const id = await pupil('Dual', 'Day')
+    await stay(id, alpha, '2027-02-24', '2027-02-26')
+    await stay(id, beta, '2027-02-24', '2027-02-25')
+    await take(alpha, '2027-02-24', [{ studentId: id, status: 'present' }])
+    await take(beta, '2027-02-24', [{ studentId: id, status: 'absent' }])
+    await take(alpha, '2027-02-25', [{ studentId: id, status: 'absent' }])
+
+    const [row] = await getWorstAttenders('2027-02-24', '2027-02-25')
+    expect(row).toMatchObject({
+      studentId: id,
+      possible: 2,
+      attended: 1,
+      absent: 1,
+      classNames: ['Twin A', 'Twin B'],
+    })
   })
 })
 

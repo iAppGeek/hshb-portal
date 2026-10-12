@@ -5,6 +5,7 @@ import {
   asc,
   desc,
   eq,
+  exists,
   gt,
   gte,
   isNull,
@@ -20,16 +21,19 @@ import type {
   DayStatus,
   StudentAttendanceDay,
   StudentAttendanceTotals,
+  WorstAttenderRow,
 } from '@/lib/studentAttendance'
 
 import { camelKey, toCamel, toSnake, type Snake } from './casing'
 import { db } from './client'
+import { staysOverlapping } from './membership'
 import {
   academicYears,
   attendance,
   attendanceRegisters,
   classes,
   studentClasses,
+  students,
   type Attendance,
   type NewAttendance,
 } from './schema'
@@ -321,4 +325,76 @@ export async function getStudentAttendanceTotals(
     absent: row?.absent ?? 0,
     unmarked: row?.unmarked ?? 0,
   }
+}
+
+const attendedDays = sql`count(*) filter (where status in ('present', 'late'))`
+const possibleDays = sql`count(*)`
+
+/**
+ * Students below 100% in the range, worst first. Only students with a stay
+ * in an active class that overlaps the range. The caller slices to X.
+ */
+export async function getWorstAttenders(
+  startDate: string,
+  endDate: string,
+): Promise<WorstAttenderRow[]> {
+  const { roster, days } = studentDays(startDate, endDate)
+  const rows = await db
+    .with(roster, days)
+    .select({
+      studentId: days.studentId,
+      firstName: students.firstName,
+      lastName: students.lastName,
+      leavingReason: sql<
+        string | null
+      >`case when ${students.active} then null else ${students.leavingReason} end`,
+      possible: sql<number>`count(*)`.mapWith(Number),
+      attended: countWhere(sql`${days.status} in ('present', 'late')`),
+      late: countWhere(sql`${days.status} = 'late'`),
+      absent: countWhere(sql`${days.status} = 'absent'`),
+      unmarked: countWhere(sql`${days.status} = 'unmarked'`),
+      classNames: sql<string[]>`coalesce((
+        select array_agg(distinct elem order by elem)
+        from student_days as named
+        cross join lateral unnest(named.class_names) as elem
+        where named.student_id = ${days.studentId}
+      ), '{}')`,
+    })
+    .from(days)
+    .innerJoin(students, eq(students.id, days.studentId))
+    .where(
+      exists(
+        db
+          .select({ id: studentClasses.id })
+          .from(studentClasses)
+          .innerJoin(classes, eq(classes.id, studentClasses.classId))
+          .where(
+            and(
+              eq(studentClasses.studentId, students.id),
+              eq(classes.active, true),
+              staysOverlapping(studentClasses, startDate, endDate),
+            ),
+          ),
+      ),
+    )
+    .groupBy(days.studentId, students.id)
+    .having(sql`${attendedDays} < ${possibleDays}`)
+    .orderBy(
+      sql`(${attendedDays})::numeric / ${possibleDays}`,
+      sql`${possibleDays} - (${attendedDays}) desc`,
+      asc(students.lastName),
+      asc(students.firstName),
+    )
+  return rows.map((row) => ({
+    studentId: row.studentId,
+    firstName: row.firstName,
+    lastName: row.lastName,
+    leavingReason: row.leavingReason,
+    possible: row.possible,
+    attended: row.attended,
+    late: row.late,
+    absent: row.absent,
+    unmarked: row.unmarked,
+    classNames: row.classNames ?? [],
+  }))
 }

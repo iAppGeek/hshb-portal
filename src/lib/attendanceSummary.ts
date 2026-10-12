@@ -113,6 +113,11 @@ export function summariseAttendance(
     rostersByClass.set(classId, byDate)
   }
 
+  // Possible attendance counts only dates this class's register was taken.
+  // An untaken day is not an absence. enrolled and byDate still use every date.
+  const takenRegisters = new Set(
+    rangeRegisters.map((row) => `${row.classId}|${row.date}`),
+  )
   const summariesByClass = new Map<string, ClassAttendanceSummary>()
   const lastDate = dates[dates.length - 1]
   for (const [classId, cls] of classesById) {
@@ -122,7 +127,10 @@ export function summariseAttendance(
       summary.enrolled = rosters.get(lastDate)!.length
     }
     summary.possible = dates.reduce(
-      (sum, date) => sum + rosters.get(date)!.length,
+      (sum, date) =>
+        takenRegisters.has(`${classId}|${date}`)
+          ? sum + rosters.get(date)!.length
+          : sum,
       0,
     )
     summariesByClass.set(classId, summary)

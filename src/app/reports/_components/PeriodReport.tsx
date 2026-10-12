@@ -4,11 +4,13 @@ import type { IncidentCounts } from '@/db'
 import SimpleGrid from '@/components/grid/SimpleGrid'
 import { formatCalendarDate } from '@/lib/datetime'
 import type { GridColumn } from '@/lib/grid/columns'
+import type { WorstAttenderRow } from '@/lib/studentAttendance'
 
 import SectionCard from '../../_components/SectionCard'
 
 import SchoolDaysCard from './SchoolDaysCard'
 import type { SchoolDayDate } from './SchoolDaysCard'
+import WorstAttendersCard from './WorstAttendersCard'
 
 export type StaffDaysWorkedRow = {
   name: string
@@ -32,6 +34,7 @@ type Props = {
   schoolDayDates: SchoolDayDate[]
   classSummary: ClassSummaryRow[]
   incidentCounts: IncidentCounts
+  worstAttenders: WorstAttenderRow[]
 }
 
 function formatDateShort(dateStr: string): string {
@@ -51,6 +54,7 @@ export default function PeriodReport({
   schoolDayDates,
   classSummary,
   incidentCounts,
+  worstAttenders,
 }: Props): ReactElement {
   const staffColumns: GridColumn<StaffDaysWorkedRow>[] = [
     { id: 'name', header: 'Name', primary: true, cell: (row) => row.name },
@@ -172,6 +176,10 @@ export default function PeriodReport({
           emptyMessage="No attendance data for this period"
         />
       </SectionCard>
+
+      <div className="mt-8">
+        <WorstAttendersCard rows={worstAttenders} />
+      </div>
     </>
   )
 }
