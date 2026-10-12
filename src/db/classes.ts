@@ -75,7 +75,7 @@ export type ClassWithStudents = Omit<ClassRow, 'teacher'> &
       endDate: string | null
       student: Pick<Student, 'id' | 'firstName' | 'lastName'>
     }[]
-  }>
+  }> & { academic_year_start: string }
 
 const teacherColumns = {
   id: true,
@@ -239,7 +239,7 @@ export async function getClassWithStudents(
           email: true,
         },
       },
-      academicYear: { columns: { code: true } },
+      academicYear: { columns: { code: true, startDate: true } },
       studentClasses: {
         columns: { id: true, startDate: true, endDate: true },
         with: {
@@ -263,9 +263,11 @@ export async function getClassWithStudents(
   })
   if (!row) return null
 
-  const { studentClasses: stays, ...cls } = withYearCode(row)
+  const { studentClasses: stays, academicYear, ...cls } = row
   return toSnake({
     ...cls,
+    academicYear: academicYear.code,
+    academicYearStart: academicYear.startDate,
     studentClasses: stays
       .filter((stay) => stay.endDate === null)
       .map((stay) => ({ student: stay.student })),

@@ -90,6 +90,7 @@ function makeClass(
     year_group: '1',
     academic_year: '2025-26',
     academic_year_id: 'year-1',
+    academic_year_start: '2025-09-01',
     teacher_id: 'staff-1',
     teacher: {
       first_name: 'Tom',
@@ -264,6 +265,7 @@ describe('ClassRegisterPage', () => {
     expect(getClassSessionDates).toHaveBeenCalledWith(
       'class-1',
       'year-1',
+      '2025-09-01',
       todayInSchoolTz(),
     )
     // The async child sits inside Suspense, which this render does not flush.

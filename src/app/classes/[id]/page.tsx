@@ -111,6 +111,7 @@ export default async function ClassRegisterPage({
           <ClassSessionDatesTable
             classId={cls.id}
             academicYearId={cls.academic_year_id}
+            yearStart={cls.academic_year_start}
           />
         </Suspense>
       </div>

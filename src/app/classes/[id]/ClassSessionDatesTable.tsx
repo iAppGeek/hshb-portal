@@ -43,13 +43,16 @@ const columns: GridColumn<ClassSessionDate>[] = [
 export default async function ClassSessionDatesTable({
   classId,
   academicYearId,
+  yearStart,
 }: {
   classId: string
   academicYearId: string
+  yearStart: string
 }): Promise<React.ReactElement | null> {
   const rows = await getClassSessionDates(
     classId,
     academicYearId,
+    yearStart,
     todayInSchoolTz(),
   )
   if (rows.length === 0) return null

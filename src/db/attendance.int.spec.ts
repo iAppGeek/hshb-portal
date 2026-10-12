@@ -82,6 +82,7 @@ function registerFor(
 describe('getClassSessionDates', () => {
   const IVY = '30000000-0000-0000-0000-0000000000a1'
   const UMA = '30000000-0000-0000-0000-0000000000a2'
+  const yearStart = '2026-09-01'
   const today = '2027-03-15'
 
   beforeAll(async () => {
@@ -125,6 +126,7 @@ describe('getClassSessionDates', () => {
     const rows = await getClassSessionDates(
       SEED.classes.alpha,
       SEED.years.current,
+      yearStart,
       today,
     )
     expect(rows.find((row) => row.date === '2027-03-01')).toEqual({
@@ -148,6 +150,7 @@ describe('getClassSessionDates', () => {
     const rows = await getClassSessionDates(
       SEED.classes.alpha,
       SEED.years.current,
+      yearStart,
       today,
     )
     expect(rows.find((row) => row.date === '2027-03-02')).toEqual({
@@ -167,6 +170,7 @@ describe('getClassSessionDates', () => {
     const rows = await getClassSessionDates(
       SEED.classes.alpha,
       SEED.years.current,
+      yearStart,
       today,
     )
     // Alice and Bob are still enrolled. Ivy's stay has ended, but the mark
@@ -198,6 +202,7 @@ describe('getClassSessionDates', () => {
       const rows = await getClassSessionDates(
         SEED.classes.alpha,
         SEED.years.current,
+        yearStart,
         today,
       )
       expect(rows.some((row) => row.date === '2026-01-10')).toBe(false)
@@ -214,6 +219,7 @@ describe('getClassSessionDates', () => {
     const rows = await getClassSessionDates(
       SEED.classes.alpha,
       SEED.years.current,
+      yearStart,
       today,
     )
     expect(rows.some((row) => row.date === '2027-03-20')).toBe(false)
@@ -224,6 +230,7 @@ describe('getClassSessionDates', () => {
     const rows = await getClassSessionDates(
       SEED.classes.alpha,
       SEED.years.current,
+      yearStart,
       today,
     )
     const dates = rows.map((row) => row.date)

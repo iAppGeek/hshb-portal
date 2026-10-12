@@ -144,12 +144,12 @@ export type {
 export {
   getAttendanceByClassAndDate,
   getAttendanceByDateRange,
+  getClassSessionDates,
   getRegister,
   getRegistersByDateRange,
   getStudentAttendanceDays,
   getStudentAttendanceTotals,
   getWorstAttenders,
-  getClassSessionDates,
   saveAttendance,
 } from './attendance'
 export type {

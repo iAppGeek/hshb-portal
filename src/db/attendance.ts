@@ -27,7 +27,6 @@ import type {
 
 import { camelKey, toCamel, toSnake, type Snake } from './casing'
 import { db } from './client'
-import { getAcademicYearById } from './academic-years'
 import { staysOverlapping } from './membership'
 import {
   academicYears,
@@ -391,11 +390,9 @@ export async function getWorstAttenders(
 export async function getClassSessionDates(
   classId: string,
   academicYearId: string,
+  yearStart: string,
   today: string,
 ): Promise<ClassSessionDate[]> {
-  const year = await getAcademicYearById(academicYearId)
-  if (!year) return []
-
   const sessionDates = db.$with('session_dates').as(
     db
       .selectDistinct({ date: attendanceRegisters.date })
@@ -410,7 +407,7 @@ export async function getClassSessionDates(
   )
   const roster = db
     .$with('register_roster')
-    .as(registerRoster(year.start_date, today, { classId }))
+    .as(registerRoster(yearStart, today, { classId }))
   const thisRegister = alias(attendanceRegisters, 'this_register')
   const taken = sql<boolean>`${thisRegister.id} is not null`
 

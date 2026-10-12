@@ -83,11 +83,13 @@ test('lists every session date in the year for this class', async ({
       .locator('xpath=..')
     const rows = section.locator('tbody tr')
     await expect(rows).toHaveCount(3)
-    await expect(rows.nth(0)).toContainText('NOT TAKEN')
+    await expect(
+      rows.nth(0).getByText('NOT TAKEN', { exact: true }),
+    ).toBeVisible()
     await expect(rows.nth(0)).toContainText('—')
-    await expect(rows.nth(1)).toContainText('TAKEN')
+    await expect(rows.nth(1).getByText('TAKEN', { exact: true })).toBeVisible()
     await expect(rows.nth(1)).toContainText('0% · 0 attended / 1 absent')
-    await expect(rows.nth(2)).toContainText('TAKEN')
+    await expect(rows.nth(2).getByText('TAKEN', { exact: true })).toBeVisible()
     await expect(rows.nth(2)).toContainText('100% · 1 attended / 0 absent')
   } finally {
     await sql`delete from attendance_registers where class_id in ${sql([classId, otherClassId])}`

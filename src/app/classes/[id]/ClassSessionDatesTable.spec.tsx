@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 
 import { getClassSessionDates } from '@/db'
 import type { ClassSessionDate } from '@/lib/classSessions'
+import { todayInSchoolTz } from '@/lib/datetime'
 
 import ClassSessionDatesTable from './ClassSessionDatesTable'
 
@@ -37,6 +38,7 @@ describe('ClassSessionDatesTable', () => {
       await ClassSessionDatesTable({
         classId: 'class-1',
         academicYearId: 'year-1',
+        yearStart: '2026-09-01',
       }),
     )
     expect(container).toBeEmptyDOMElement()
@@ -48,9 +50,16 @@ describe('ClassSessionDatesTable', () => {
       await ClassSessionDatesTable({
         classId: 'class-1',
         academicYearId: 'year-1',
+        yearStart: '2026-09-01',
       }),
     )
 
+    expect(getClassSessionDates).toHaveBeenCalledWith(
+      'class-1',
+      'year-1',
+      '2026-09-01',
+      todayInSchoolTz(),
+    )
     expect(screen.getByText('Class Session Dates')).toBeTruthy()
     expect(screen.getByText('TAKEN').className).toContain(
       'bg-green-100 text-green-800',
