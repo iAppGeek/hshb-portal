@@ -9,11 +9,16 @@ import {
   getStudentAttendanceTotals,
   getStudentById,
   getStudentIdsByTeacher,
+  type AcademicYearRow,
 } from '@/db'
 import DefinitionList from '@/components/DefinitionList'
 import PermissionedLink from '@/components/PermissionedLink'
 import { consentItems } from '@/lib/consents'
 import { formatDateTimeInSchoolTz, todayInSchoolTz } from '@/lib/datetime'
+import type {
+  StudentAttendanceDay,
+  StudentAttendanceTotals,
+} from '@/lib/studentAttendance'
 import { personName } from '@/lib/format'
 import {
   canEditStudents,
@@ -47,7 +52,10 @@ export default async function StudentPage({
     if (!studentIds.includes(id)) notFound()
   }
 
-  const student = await getStudentById(id)
+  const [student, years] = await Promise.all([
+    getStudentById(id),
+    getAcademicYears(),
+  ])
   if (!student) notFound()
 
   const withdrawnBy =
@@ -61,21 +69,7 @@ export default async function StudentPage({
     resolvedAddress.city ||
     resolvedAddress.postcode,
   )
-  const currentYear = (await getAcademicYears()).find((year) => year.is_current)
-  const today = todayInSchoolTz()
-  const attendanceEnd =
-    currentYear === undefined
-      ? null
-      : currentYear.end_date < today
-        ? currentYear.end_date
-        : today
-  const [attendanceTotals, attendanceDays] =
-    currentYear && attendanceEnd
-      ? await Promise.all([
-          getStudentAttendanceTotals(id, currentYear.start_date, attendanceEnd),
-          getStudentAttendanceDays(id, currentYear.start_date, attendanceEnd),
-        ])
-      : [null, null]
+  const attendance = await loadYearAttendance(id, years)
 
   const classNames =
     student.student_classes.length > 0
@@ -142,11 +136,11 @@ export default async function StudentPage({
         <p className="p-6 text-sm text-gray-600">{classNames}</p>
       </SectionCard>
 
-      {currentYear && attendanceTotals && attendanceDays && (
+      {attendance && (
         <StudentAttendanceSection
-          yearCode={currentYear.code}
-          totals={attendanceTotals}
-          days={attendanceDays}
+          yearCode={attendance.year.code}
+          totals={attendance.totals}
+          days={attendance.days}
         />
       )}
 
@@ -279,4 +273,23 @@ export default async function StudentPage({
       )}
     </div>
   )
+}
+
+async function loadYearAttendance(
+  studentId: string,
+  years: AcademicYearRow[],
+): Promise<{
+  year: AcademicYearRow
+  totals: StudentAttendanceTotals
+  days: StudentAttendanceDay[]
+} | null> {
+  const year = years.find((item) => item.is_current)
+  if (!year) return null
+  const today = todayInSchoolTz()
+  const end = year.end_date < today ? year.end_date : today
+  const [totals, days] = await Promise.all([
+    getStudentAttendanceTotals(studentId, year.start_date, end),
+    getStudentAttendanceDays(studentId, year.start_date, end),
+  ])
+  return { year, totals, days }
 }

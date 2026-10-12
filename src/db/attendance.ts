@@ -284,7 +284,7 @@ export async function getStudentAttendanceDays(
   endDate: string,
 ): Promise<StudentAttendanceDay[]> {
   const { roster, days } = studentDays(startDate, endDate, studentId)
-  const rows = await db
+  return db
     .with(roster, days)
     .select({
       date: days.date,
@@ -293,11 +293,6 @@ export async function getStudentAttendanceDays(
     })
     .from(days)
     .orderBy(desc(days.date))
-  return rows.map((row) => ({
-    date: row.date,
-    status: row.status,
-    classNames: row.classNames ?? [],
-  }))
 }
 
 /** Day counts for one student. Zeros when no register was taken. */

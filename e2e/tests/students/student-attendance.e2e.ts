@@ -1,9 +1,7 @@
 import { test, expect } from '../../fixtures/index'
-import { insertRow, sql } from '../../fixtures/seed'
+import { insertRow, SEED_IDS, sql } from '../../fixtures/seed'
 
 test.use({ storageState: 'e2e/.auth/admin.json' })
-
-const YEAR_ID = '05000000-0000-4000-8000-000000000001'
 const PRESENT = '2026-09-15'
 const ABSENT = '2026-09-16'
 
@@ -23,7 +21,7 @@ test('shows the year attendance figure and each day', async ({ page }) => {
   const classId = await insertRow('classes', {
     name: `Attendance ${crypto.randomUUID()}`,
     year_group: '1',
-    academic_year_id: YEAR_ID,
+    academic_year_id: SEED_IDS.academicYears.current,
   })
 
   try {
