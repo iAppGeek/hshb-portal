@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { eq } from 'drizzle-orm'
 
 import { asDbError } from '@/lib/db-error'
@@ -8,6 +8,7 @@ import {
   getAttendanceByDateRange,
   getRegister,
   getRegistersByDateRange,
+  getClassSessionDates,
   getStudentAttendanceDays,
   getStudentAttendanceTotals,
   getWorstAttenders,
@@ -77,6 +78,159 @@ function registerFor(
     updatedBy: SEED.staff.teacher,
   }
 }
+
+describe('getClassSessionDates', () => {
+  const IVY = '30000000-0000-0000-0000-0000000000a1'
+  const UMA = '30000000-0000-0000-0000-0000000000a2'
+  const today = '2027-03-15'
+
+  beforeAll(async () => {
+    await db.insert(students).values([
+      {
+        id: IVY,
+        firstName: 'Ivy',
+        lastName: 'Session',
+        primaryGuardianId: SEED.guardians.gary,
+        addressGuardianId: SEED.guardians.gary,
+      },
+      {
+        id: UMA,
+        firstName: 'Uma',
+        lastName: 'Session',
+        primaryGuardianId: SEED.guardians.gary,
+        addressGuardianId: SEED.guardians.gary,
+      },
+    ])
+    await db.insert(studentClasses).values([
+      {
+        studentId: IVY,
+        classId: SEED.classes.alpha,
+        startDate: '2027-03-01',
+        endDate: '2027-03-03',
+      },
+      {
+        studentId: UMA,
+        classId: SEED.classes.alpha,
+        startDate: '2027-03-01',
+        endDate: '2027-03-03',
+      },
+    ])
+  })
+
+  it('shows a date only another class took as not taken', async () => {
+    await saveAttendance(
+      [markIn(SEED.classes.beta, SEED.students.carol, '2027-03-01', 'present')],
+      registerFor(SEED.classes.beta, '2027-03-01'),
+    )
+    const rows = await getClassSessionDates(
+      SEED.classes.alpha,
+      SEED.years.current,
+      today,
+    )
+    expect(rows.find((row) => row.date === '2027-03-01')).toEqual({
+      date: '2027-03-01',
+      taken: false,
+      roster: 0,
+      attended: 0,
+      absent: 0,
+    })
+  })
+
+  it('counts present, late, absent and unmarked on a taken date', async () => {
+    await saveAttendance(
+      [
+        mark(SEED.students.alice, '2027-03-02', 'present'),
+        mark(SEED.students.bob, '2027-03-02', 'late'),
+        mark(IVY, '2027-03-02', 'absent'),
+      ],
+      register('2027-03-02'),
+    )
+    const rows = await getClassSessionDates(
+      SEED.classes.alpha,
+      SEED.years.current,
+      today,
+    )
+    expect(rows.find((row) => row.date === '2027-03-02')).toEqual({
+      date: '2027-03-02',
+      taken: true,
+      roster: 4,
+      attended: 2,
+      absent: 1,
+    })
+  })
+
+  it('excludes a student who left before the date, and includes one with a mark', async () => {
+    await saveAttendance(
+      [mark(IVY, '2027-03-03', 'present')],
+      register('2027-03-03'),
+    )
+    const rows = await getClassSessionDates(
+      SEED.classes.alpha,
+      SEED.years.current,
+      today,
+    )
+    // Alice and Bob are still enrolled. Ivy's stay has ended, but the mark
+    // keeps her on the roster. Uma's stay has ended and she has no mark.
+    expect(rows.find((row) => row.date === '2027-03-03')).toEqual({
+      date: '2027-03-03',
+      taken: true,
+      roster: 3,
+      attended: 1,
+      absent: 0,
+    })
+  })
+
+  it('excludes a register from another academic year', async () => {
+    const [prior] = await db
+      .insert(classes)
+      .values({
+        name: 'Prior Session',
+        yearGroup: '1',
+        academicYearId: SEED.years.prior,
+        active: true,
+      })
+      .returning({ id: classes.id })
+    try {
+      await saveAttendance(
+        [markIn(prior.id, SEED.students.carol, '2026-01-10', 'present')],
+        registerFor(prior.id, '2026-01-10'),
+      )
+      const rows = await getClassSessionDates(
+        SEED.classes.alpha,
+        SEED.years.current,
+        today,
+      )
+      expect(rows.some((row) => row.date === '2026-01-10')).toBe(false)
+    } finally {
+      await db.delete(classes).where(eq(classes.id, prior.id))
+    }
+  })
+
+  it('excludes dates after today', async () => {
+    await saveAttendance(
+      [mark(SEED.students.alice, '2027-03-20', 'present')],
+      register('2027-03-20'),
+    )
+    const rows = await getClassSessionDates(
+      SEED.classes.alpha,
+      SEED.years.current,
+      today,
+    )
+    expect(rows.some((row) => row.date === '2027-03-20')).toBe(false)
+    expect(rows.some((row) => row.date === '2027-03-03')).toBe(true)
+  })
+
+  it('returns dates newest first', async () => {
+    const rows = await getClassSessionDates(
+      SEED.classes.alpha,
+      SEED.years.current,
+      today,
+    )
+    const dates = rows.map((row) => row.date)
+    expect(dates).toEqual([...dates].sort((a, b) => (a < b ? 1 : -1)))
+    expect(dates[0]).toBe('2027-03-03')
+  })
+})
 
 describe('student attendance days', () => {
   it('counts present, late and absent, newest first', async () => {

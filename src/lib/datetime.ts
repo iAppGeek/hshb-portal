@@ -271,3 +271,21 @@ export function formatCalendarDate(
     ...options,
   }).format(instant)
 }
+
+/** `Sat 5-Sept-26`. The short month is whatever `en-GB` gives. */
+export function formatSessionDate(dateStr: string): string {
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!match) return dateStr
+  const [, y, m, d] = match
+  const instant = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d), 12))
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: '2-digit',
+    timeZone: SCHOOL_TIMEZONE,
+  }).formatToParts(instant)
+  const part = (type: Intl.DateTimeFormatPartTypes): string =>
+    parts.find((item) => item.type === type)?.value ?? ''
+  return `${part('weekday')} ${part('day')}-${part('month')}-${part('year')}`
+}

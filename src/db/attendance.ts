@@ -14,9 +14,10 @@ import {
   sql,
   type SQL,
 } from 'drizzle-orm'
-import { union } from 'drizzle-orm/pg-core'
+import { union, alias } from 'drizzle-orm/pg-core'
 
 import type { AttendanceRangeRow, SummaryClass } from '@/lib/attendanceSummary'
+import type { ClassSessionDate } from '@/lib/classSessions'
 import type {
   DayStatus,
   StudentAttendanceDay,
@@ -26,6 +27,7 @@ import type {
 
 import { camelKey, toCamel, toSnake, type Snake } from './casing'
 import { db } from './client'
+import { getAcademicYearById } from './academic-years'
 import { staysOverlapping } from './membership'
 import {
   academicYears,
@@ -380,4 +382,76 @@ export async function getWorstAttenders(
       asc(students.lastName),
       asc(students.firstName),
     )
+}
+
+/**
+ * Every school session date in the class's academic year, up to `today`,
+ * and whether this class took its register. Newest first.
+ */
+export async function getClassSessionDates(
+  classId: string,
+  academicYearId: string,
+  today: string,
+): Promise<ClassSessionDate[]> {
+  const year = await getAcademicYearById(academicYearId)
+  if (!year) return []
+
+  const sessionDates = db.$with('session_dates').as(
+    db
+      .selectDistinct({ date: attendanceRegisters.date })
+      .from(attendanceRegisters)
+      .innerJoin(classes, eq(classes.id, attendanceRegisters.classId))
+      .where(
+        and(
+          eq(classes.academicYearId, academicYearId),
+          lte(attendanceRegisters.date, today),
+        ),
+      ),
+  )
+  const roster = db
+    .$with('register_roster')
+    .as(registerRoster(year.start_date, today, { classId }))
+  const thisRegister = alias(attendanceRegisters, 'this_register')
+  const taken = sql<boolean>`${thisRegister.id} is not null`
+
+  return db
+    .with(sessionDates, roster)
+    .select({
+      date: sessionDates.date,
+      taken,
+      roster:
+        sql<number>`count(distinct ${roster.studentId}) filter (where ${taken})`.mapWith(
+          Number,
+        ),
+      attended:
+        sql<number>`count(*) filter (where ${taken} and ${attendance.status} in ('present', 'late'))`.mapWith(
+          Number,
+        ),
+      absent:
+        sql<number>`count(*) filter (where ${taken} and ${attendance.status} = 'absent')`.mapWith(
+          Number,
+        ),
+    })
+    .from(sessionDates)
+    .leftJoin(
+      thisRegister,
+      and(
+        eq(thisRegister.classId, classId),
+        eq(thisRegister.date, sessionDates.date),
+      ),
+    )
+    .leftJoin(
+      roster,
+      and(eq(roster.classId, classId), eq(roster.date, sessionDates.date)),
+    )
+    .leftJoin(
+      attendance,
+      and(
+        eq(attendance.classId, classId),
+        eq(attendance.date, sessionDates.date),
+        eq(attendance.studentId, roster.studentId),
+      ),
+    )
+    .groupBy(sessionDates.date, thisRegister.id)
+    .orderBy(desc(sessionDates.date))
 }

@@ -6,6 +6,7 @@ import {
   formatCalendarDate,
   formatDateInSchoolTz,
   formatDateTimeInSchoolTz,
+  formatSessionDate,
   formatTimeInSchoolTz,
   nowDatetimeLocalInSchoolTz,
   nowTimeInSchoolTz,
@@ -124,6 +125,21 @@ describe('toDatetimeLocalInSchoolTz', () => {
   it('round-trips through datetime-local editing in winter', () => {
     const stored = schoolTzToUtcIso('2026-01-15', '09:45')
     expect(toDatetimeLocalInSchoolTz(stored)).toBe('2026-01-15T09:45')
+  })
+})
+
+describe('formatSessionDate', () => {
+  it('formats a Saturday in September with a two-digit year', () => {
+    expect(formatSessionDate('2026-09-05')).toMatch(/^Sat 5-Sept?-26$/)
+  })
+
+  it('formats 17 October 2026', () => {
+    expect(formatSessionDate('2026-10-17')).toBe('Sat 17-Oct-26')
+  })
+
+  it('keeps the stored day when UTC midnight is the previous evening in the US', () => {
+    // 2026-01-15T00:00:00Z is 15 Jan in London and 14 Jan in New York.
+    expect(formatSessionDate('2026-01-15')).toBe('Thu 15-Jan-26')
   })
 })
 

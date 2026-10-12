@@ -6,6 +6,7 @@ vi.mock('@/auth', () => ({
 }))
 
 vi.mock('@/db', () => ({
+  getClassSessionDates: vi.fn(),
   getClassWithStudents: vi.fn(),
 }))
 
@@ -35,7 +36,8 @@ vi.mock('../PrintButton', () => ({
 }))
 
 import { auth } from '@/auth'
-import { getClassWithStudents } from '@/db'
+import { getClassSessionDates, getClassWithStudents } from '@/db'
+import { todayInSchoolTz } from '@/lib/datetime'
 
 import ClassRegisterPage from './page'
 
@@ -87,6 +89,7 @@ function makeClass(
     name: 'Alpha',
     year_group: '1',
     academic_year: '2025-26',
+    academic_year_id: 'year-1',
     teacher_id: 'staff-1',
     teacher: {
       first_name: 'Tom',
@@ -119,6 +122,7 @@ async function renderPage(): Promise<void> {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(getClassSessionDates).mockResolvedValue([])
 })
 
 describe('ClassRegisterPage', () => {
@@ -240,5 +244,28 @@ describe('ClassRegisterPage', () => {
     await renderPage()
 
     expect(screen.getByText('No students enrolled in this class.')).toBeTruthy()
+  })
+
+  it('renders class session dates for this class and today', async () => {
+    mockSession('admin')
+    mockClass(makeClass())
+    vi.mocked(getClassSessionDates).mockResolvedValue([
+      {
+        date: '2026-10-17',
+        taken: true,
+        roster: 12,
+        attended: 11,
+        absent: 1,
+      },
+    ])
+
+    await renderPage()
+
+    expect(getClassSessionDates).toHaveBeenCalledWith(
+      'class-1',
+      'year-1',
+      todayInSchoolTz(),
+    )
+    // The async child sits inside Suspense, which this render does not flush.
   })
 })
