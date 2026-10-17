@@ -23,6 +23,8 @@ export type ClassRow = {
   academic_year_id: string
   active: boolean
   teacher: Teacher
+  /** Students currently in the class. */
+  student_count: number
   /** Open (active, current year) — every other class is read-only. */
   editable: boolean
 }
@@ -52,14 +54,10 @@ export default function ClassesTable({
       className: 'sm:whitespace-nowrap',
       cell: (cls) => cls.name,
     },
+    { id: 'teacher', header: 'Teacher', cell: (cls) => teacherName(cls) },
+    { id: 'students', header: 'Students', cell: (cls) => cls.student_count },
     { id: 'year_group', header: 'Year Group', cell: (cls) => cls.year_group },
     { id: 'room', header: 'Room', cell: (cls) => cls.room_number ?? '—' },
-    { id: 'teacher', header: 'Teacher', cell: (cls) => teacherName(cls) },
-    {
-      id: 'academic_year',
-      header: 'Academic Year',
-      cell: (cls) => cls.academic_year ?? '—',
-    },
     {
       id: 'status',
       header: 'Status',
@@ -106,9 +104,9 @@ export default function ClassesTable({
       </PermissionedLink>
     ),
     details: (cls) => [
-      cls.room_number ?? '—',
       teacherName(cls),
-      cls.academic_year ?? '—',
+      `${cls.student_count} ${cls.student_count === 1 ? 'student' : 'students'}`,
+      cls.room_number ?? '—',
     ],
     detailsAside: (cls) => (
       <Link

@@ -12,6 +12,7 @@ import {
   getClassesByAcademicYear,
   getClassesByTeacher,
   getClassWithStudents,
+  getCurrentStudentCounts,
   getEnrolmentsForClass,
   getEnrolmentsInRange,
   setClassStudents,
@@ -64,6 +65,18 @@ describe('class lists', () => {
       (await getClassesByTeacher(SEED.staff.teacher2)).map((c) => c.name),
     ).toEqual(['Beta'])
     expect(await getClassesByTeacher(SEED.staff.admin)).toEqual([])
+  })
+
+  it('counts each class’s current students, ignoring ended stays', async () => {
+    // Carol's ended stay in Alpha isn't counted; Gamma has no students.
+    expect(
+      await getCurrentStudentCounts([
+        SEED.classes.alpha,
+        SEED.classes.beta,
+        SEED.classes.gamma,
+      ]),
+    ).toEqual({ [SEED.classes.alpha]: 2, [SEED.classes.beta]: 1 })
+    expect(await getCurrentStudentCounts([])).toEqual({})
   })
 
   it('builds email rosters for the current year', async () => {

@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { and, asc, eq, inArray } from 'drizzle-orm'
+import { and, asc, count, eq, inArray } from 'drizzle-orm'
 
 import type { EnrolmentRangeRow } from '@/lib/attendanceSummary'
 import { sortClasses } from '@/lib/classes'
@@ -169,6 +169,24 @@ export async function getClassesByAcademicYear(
     where: eq(classes.academicYearId, yearId),
   })
   return sortClasses(toSnake(rows.map(withYearCode)))
+}
+
+/** Each class's number of current students, keyed by class id; a class with none is absent. */
+export async function getCurrentStudentCounts(
+  classIds: string[],
+): Promise<Record<string, number>> {
+  if (classIds.length === 0) return {}
+  const rows = await db
+    .select({ classId: studentClasses.classId, n: count() })
+    .from(studentClasses)
+    .where(
+      and(
+        inArray(studentClasses.classId, classIds),
+        isCurrentStay(studentClasses),
+      ),
+    )
+    .groupBy(studentClasses.classId)
+  return Object.fromEntries(rows.map((row) => [row.classId, row.n]))
 }
 
 export async function getClassById(

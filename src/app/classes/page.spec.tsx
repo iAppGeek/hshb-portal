@@ -17,17 +17,23 @@ vi.mock('@/db', () => ({
   getCurrentAcademicYear: vi.fn(),
   getClassesByAcademicYear: vi.fn(),
   getClassesByTeacher: vi.fn(),
+  getCurrentStudentCounts: vi.fn(),
 }))
 
 vi.mock('./ClassesTable', () => ({
   default: ({
     classes,
   }: {
-    classes: { id: string; name: string; editable: boolean }[]
+    classes: {
+      id: string
+      name: string
+      editable: boolean
+      student_count: number
+    }[]
   }) => (
     <div data-testid="classes-table">
       {classes.map((c) => (
-        <span key={c.id}>
+        <span key={c.id} data-student-count={c.student_count}>
           {c.name}
           {c.editable ? '' : ' (read-only)'}
         </span>
@@ -56,6 +62,7 @@ import {
   getClassesByAcademicYear,
   getClassesByTeacher,
   getCurrentAcademicYear,
+  getCurrentStudentCounts,
 } from '@/db'
 
 import ClassesPage from './page'
@@ -98,6 +105,7 @@ beforeEach(() => {
     previousYear,
   ] as any)
   vi.mocked(getCurrentAcademicYear).mockResolvedValue(currentYear as any)
+  vi.mocked(getCurrentStudentCounts).mockResolvedValue({})
 })
 
 describe('ClassesPage', () => {
@@ -179,6 +187,26 @@ describe('ClassesPage', () => {
     render(await ClassesPage(noSearchParams()))
     expect(screen.getByTestId('classes-table')).toBeTruthy()
     expect(screen.getByText('Year 1A')).toBeTruthy()
+  })
+
+  it('passes each class its current student count, defaulting to 0', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as any)
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue([
+      mockClasses[0],
+      { ...mockClasses[0], id: 'class-2', name: 'Year 2B' },
+    ] as any)
+    vi.mocked(getCurrentStudentCounts).mockResolvedValue({ 'class-1': 7 })
+
+    render(await ClassesPage(noSearchParams()))
+    expect(getCurrentStudentCounts).toHaveBeenCalledWith(['class-1', 'class-2'])
+    expect(screen.getByText('Year 1A').getAttribute('data-student-count')).toBe(
+      '7',
+    )
+    expect(screen.getByText('Year 2B').getAttribute('data-student-count')).toBe(
+      '0',
+    )
   })
 
   it('fetches all classes for secretary role, defaulting to the current year', async () => {
