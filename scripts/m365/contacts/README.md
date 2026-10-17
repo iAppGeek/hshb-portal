@@ -1,8 +1,9 @@
 # Microsoft 365 contact sync
 
 Keeps Exchange Online **mail contacts** in line with the portal database, so
-dynamic distribution lists such as "All Teachers" and "All Parents" always
-reach the right personal email addresses.
+dynamic distribution lists such as "All Teachers", "All Staff" and "All
+Parents" always reach the right personal email addresses, and the staff lists
+the right school accounts too.
 
 It is one of the Microsoft 365 tools in `scripts/m365` (see
 [`../README.md`](../README.md)); its logging and email helpers are in
@@ -37,18 +38,20 @@ Defined in the config block at the top of `contacts.sql`:
 | Tag       | Who                                                                    | Contact address        | Also tags user account |
 | --------- | ---------------------------------------------------------------------- | ---------------------- | ---------------------- |
 | `Teacher` | `staff` with role `teacher` or `headteacher`                           | `staff.personal_email` | Yes: `staff.email`     |
+| `Staff`   | all `staff`, whatever their role (teachers too)                        | `staff.personal_email` | Yes: `staff.email`     |
 | `Parent`  | `guardians` who are primary or secondary guardian of an active student | `guardians.email`      | No                     |
 
 Notes:
 
-- `staff` has no active/archived flag, so a teacher stays in the list until
-  their staff record is removed or their role changes.
+- `staff` has no active/archived flag, so a member of staff stays in the
+  staff lists until their staff record is removed (or, for "All Teachers",
+  their role changes).
 - Additional (emergency) contacts are **not** included in the parents list.
 - `students.email_sms_contact_ack` is not used as a filter. Since Privacy
   Notice v1.0 it is a required acknowledgement on the registration form, not
   an opt-in, and it is false for students registered before then, so filtering
   on it would drop most of the parents list.
-- Admins and secretaries are not synced. See
+- Admins and secretaries are in `Staff` only. For a list of just them, see
   [Adding a new role or list](#adding-a-new-role-or-list).
 
 ### Cleaning (done in SQL)
@@ -64,15 +67,20 @@ Notes:
 allow wildcards at the start of a value (so `-like '*Parent*'` is not an
 option). The sync therefore uses one attribute per role:
 
-| Attribute          | Holds                                                                                                         |
-| ------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `CustomAttribute1` | The **primary** tag (highest priority: `Teacher` before `Parent`). Marks the contact as managed by this sync. |
-| `CustomAttribute2` | `Teacher` if the person is a teacher, otherwise empty                                                         |
-| `CustomAttribute3` | `Parent` if the person is a parent, otherwise empty                                                           |
+| Attribute          | Holds                                                                                                                      |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `CustomAttribute1` | The **primary** tag (highest priority: `Teacher`, then `Staff`, then `Parent`). Marks the contact as managed by this sync. |
+| `CustomAttribute2` | `Teacher` if the person is a teacher, otherwise empty                                                                      |
+| `CustomAttribute3` | `Parent` if the person is a parent, otherwise empty                                                                        |
+| `CustomAttribute5` | `Staff` if the person is any member of staff, otherwise empty                                                              |
 
-Lists filter on the **role attribute**, not `CustomAttribute1`, so a teacher
-who is also a parent is in both "All Teachers" and "All Parents". Their name
-comes from the highest-priority record (their staff record). At the time of
+`CustomAttribute4` is used by [`../students`](../students/README.md) and must
+stay out of `config.psd1`.
+
+Lists filter on the **role attribute**, not `CustomAttribute1`, so every
+teacher is in both "All Teachers" and "All Staff", and a teacher who is also a
+parent is in "All Parents" as well. Their name comes from the highest-priority
+record (their staff record). At the time of
 writing, 2 people are both a teacher and a parent.
 
 ### What the sync changes
@@ -92,13 +100,15 @@ tags in `config.psd1` and its address is no longer in the data.
 **Untagged contacts are never removed or changed** (unless their address
 appears in the data, which means they are adopted).
 
-User accounts: for teachers, the Microsoft 365 account found at `staff.email`
-(a user mailbox, shared mailbox or mail user) gets `CustomAttribute1 = Teacher`
-and `CustomAttribute2 = Teacher`, so "All Teachers" reaches both their
-personal address and their school account. Any account holding one of our
-tags that is no longer in the data has those attributes cleared. Staff emails
-with no matching account are skipped and reported. Nothing else on the account
-is changed.
+User accounts: for staff, the Microsoft 365 account found at `staff.email`
+(a user mailbox, shared mailbox or mail user) gets the same role attributes as
+their contact: `CustomAttribute1` holds the primary tag, and
+`CustomAttribute2 = Teacher` (teachers) and `CustomAttribute5 = Staff` (all
+staff) are set. "All Teachers" and "All Staff" therefore reach both personal
+addresses and school accounts. A role the account no longer has is cleared,
+and an account holding one of our tags that is no longer in the data has those
+attributes cleared. Staff emails with no matching account are skipped and
+reported. Nothing else on the account is changed.
 
 ### Safety
 
@@ -249,8 +259,8 @@ list it:
 (RecipientType -eq 'MailContact') -and (CustomAttribute3 -eq 'Parent')
 ```
 
-Lists with `IncludeUserAccounts = $true` in `config.psd1` ("All Teachers")
-also include the tagged Microsoft 365 accounts:
+Lists with `IncludeUserAccounts = $true` in `config.psd1` ("All Teachers"
+and "All Staff") also include the tagged Microsoft 365 accounts:
 
 ```text
 ((RecipientType -eq 'MailContact') -or (RecipientType -eq 'UserMailbox') -or (RecipientType -eq 'MailUser')) -and (CustomAttribute2 -eq 'Teacher')
@@ -300,7 +310,7 @@ actually delivered to can take up to about 24 hours to catch up.
 
 ## Adding a new role or list
 
-Example: an "All Admin Staff" list.
+Example: an "All Admin Staff" list (admins and secretaries, without teachers).
 
 1. **`contacts.sql`**: add the role to `roles` with a priority, and add a
    `SELECT` to `source_rows`:
@@ -310,7 +320,8 @@ Example: an "All Admin Staff" list.
      values
        ('Teacher', 1, true),
        ('Admin', 2, true),
-       ('Parent', 3, false)
+       ('Staff', 3, true),
+       ('Parent', 4, false)
    ),
    ...
      union all
@@ -327,11 +338,12 @@ Example: an "All Admin Staff" list.
    Tags  = @(
        @{ Tag = 'Teacher'; MembershipAttribute = 'CustomAttribute2' }
        @{ Tag = 'Parent'; MembershipAttribute = 'CustomAttribute3' }
-       @{ Tag = 'Admin'; MembershipAttribute = 'CustomAttribute4' }
+       @{ Tag = 'Staff'; MembershipAttribute = 'CustomAttribute5' }
+       @{ Tag = 'Admin'; MembershipAttribute = 'CustomAttribute6' }
    )
    Lists = @(
        ...
-       @{ Name = 'All Admin Staff'; Alias = 'alladminstaff'; Tag = 'Admin' }
+       @{ Name = 'All Admin Staff'; Alias = 'alladminstaff'; Tag = 'Admin'; IncludeUserAccounts = $true }
    )
    ```
 
@@ -388,24 +400,31 @@ and keep `sync-contacts.ps1` as it is.
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "generatedAt": "2026-09-17T10:00:00+01:00",
-  "roles": [{ "tag": "Teacher", "rows": 15 }],
+  "roles": [
+    { "tag": "Teacher", "rows": 15 },
+    { "tag": "Staff", "rows": 20 }
+  ],
   "contacts": [
     {
       "email": "name@example.com",
       "firstName": "Jane",
       "lastName": "Doe",
-      "tags": ["Teacher", "Parent"]
+      "tags": ["Teacher", "Staff", "Parent"]
     }
   ],
-  "accounts": [{ "email": "jane.doe@school.example", "tag": "Teacher" }],
+  "accounts": [
+    { "email": "jane.doe@school.example", "tags": ["Teacher", "Staff"] }
+  ],
   "skipped": [{ "role": "Parent", "reason": "missing email", "count": 18 }],
   "mergedRows": 2
 }
 ```
 
-`tags` must be in priority order: the first one becomes `CustomAttribute1`.
+`tags` must be in priority order, on contacts and accounts alike: the first
+one becomes `CustomAttribute1`. Version 1 files (one `tag` per account) are
+rejected; fetch again.
 
 ### Moving to an unattended job later
 

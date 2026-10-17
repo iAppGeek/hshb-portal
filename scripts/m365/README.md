@@ -5,7 +5,7 @@ database. Each runs locally, by hand, as a dry run unless told otherwise.
 
 | Folder                            | What it does                                                                             |
 | --------------------------------- | ---------------------------------------------------------------------------------------- |
-| [`contacts/`](contacts/README.md) | Exchange mail contacts and the "All Teachers" / "All Parents" distribution lists         |
+| [`contacts/`](contacts/README.md) | Exchange mail contacts and the "All Teachers" / "All Staff" / "All Parents" lists        |
 | [`students/`](students/README.md) | Student accounts (Year 3 and up), linked by student code, and their class and year Teams |
 | `shared/`                         | Helpers both use: config and `.env` loading, email masking, logging (`Common.ps1`)       |
 
@@ -18,7 +18,7 @@ pwsh ./sync-students.ps1
 ```
 
 They share one convention: `CustomAttribute1` on an account or contact
-names what manages it (`Teacher`, `Parent`, `Student`), and each tool only
+names what manages it (`Teacher`, `Staff`, `Parent`, `Student`), and each tool only
 changes what carries its own tags. `students/` checks at start-up that
 `contacts/config.psd1` never uses its `Student` tag or attribute.
 

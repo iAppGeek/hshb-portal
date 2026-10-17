@@ -39,7 +39,7 @@ supabase db query --linked --agent no --output json \
 jq '.[0].data | if type == "string" then fromjson else . end' "$RAW" > "$TMP" ||
   fail "Unexpected output from Supabase (not the expected JSON)."
 
-jq -e '.version == 1 and (.contacts | type == "array") and (.accounts | type == "array")' "$TMP" > /dev/null ||
+jq -e '.version == 2 and (.contacts | type == "array") and (.accounts | type == "array")' "$TMP" > /dev/null ||
   fail "Output is missing version/contacts/accounts."
 
 EMPTY_ROLES="$(jq -r '[.roles[] | select(.rows == 0) | .tag] | join(", ")' "$TMP")"
@@ -57,6 +57,7 @@ jq -r '
   ([.contacts[].tags[]] | group_by(.)[] | "  with role \(.[0]): \(length)"),
   "  with more than one role: \([.contacts[] | select((.tags | length) > 1)] | length)",
   "User accounts to tag: \(.accounts | length)",
+  ([.accounts[].tags[]] | group_by(.)[] | "  with role \(.[0]): \(length)"),
   (.skipped[] | "Skipped (\(.role), \(.reason)): \(.count)")
 ' "$OUT"
 echo

@@ -6,11 +6,13 @@
     #   MembershipAttribute set to the tag on every contact with this role,
     #                       even if another role is their primary tag.
     #                       CustomAttribute2 to CustomAttribute15, one per tag.
+    #                       CustomAttribute4 belongs to ../students (Student).
     # CustomAttribute1 always holds the contact's primary (highest-priority)
     # tag and marks the contact as managed by this sync.
     Tags              = @(
         @{ Tag = 'Teacher'; MembershipAttribute = 'CustomAttribute2' }
         @{ Tag = 'Parent'; MembershipAttribute = 'CustomAttribute3' }
+        @{ Tag = 'Staff'; MembershipAttribute = 'CustomAttribute5' }
     )
 
     # Abort (unless -Force) if more than this percentage of managed contacts,
@@ -28,6 +30,7 @@
     Lists             = @(
         @{ Name = 'All Teachers'; Alias = 'allteachers'; Tag = 'Teacher'; IncludeUserAccounts = $true }
         @{ Name = 'All Parents'; Alias = 'allparents'; Tag = 'Parent' }
+        @{ Name = 'All Staff'; Alias = 'allstaff'; Tag = 'Staff'; IncludeUserAccounts = $true }
     )
 
     # Internal mailboxes (or groups) allowed to send to the lists above.

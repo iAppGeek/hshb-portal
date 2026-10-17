@@ -12,6 +12,7 @@ BeforeAll {
             Tags              = @(
                 @{ Tag = 'Teacher'; MembershipAttribute = 'CustomAttribute2' }
                 @{ Tag = 'Parent'; MembershipAttribute = 'CustomAttribute3' }
+                @{ Tag = 'Staff'; MembershipAttribute = 'CustomAttribute5' }
             )
             MaxRemovalPercent = 20
         }
@@ -20,9 +21,9 @@ BeforeAll {
     function New-TestData {
         param([object[]]$Contacts, [object[]]$Accounts = @())
         return @{
-            version     = 1
+            version     = 2
             generatedAt = '2026-09-17T10:00:00+00:00'
-            roles       = @(@{ tag = 'Teacher'; rows = 1 }, @{ tag = 'Parent'; rows = 1 })
+            roles       = @(@{ tag = 'Teacher'; rows = 1 }, @{ tag = 'Staff'; rows = 1 }, @{ tag = 'Parent'; rows = 1 })
             contacts    = $Contacts
             accounts    = $Accounts
             skipped     = @(@{ role = 'Parent'; reason = 'missing email'; count = 2 })
@@ -145,6 +146,19 @@ Describe 'ConvertTo-DesiredState' {
         $desired = Get-Desired -Contacts @(New-TestContact 'a@example.com' 'A' 'B' @('Teacher', 'Parent'))
         @($desired.Contacts['a@example.com'].Tags) | Should -Be @('Teacher', 'Parent')
     }
+    It 'keeps known account tags in priority order and drops accounts with none' {
+        $desired = Get-Desired -Contacts @(New-TestContact 'a@example.com' 'A' 'B' @('Parent')) -Accounts @(
+            @{ email = ' Jane@School.org '; tags = @('Teacher', 'Governor', 'Staff', 'Teacher') }
+            @{ email = 'gov@school.org'; tags = @('Governor') }
+        )
+        @($desired.Accounts.Keys) | Should -Be @('jane@school.org')
+        @($desired.Accounts['jane@school.org']) | Should -Be @('Teacher', 'Staff')
+    }
+    It 'rejects data in the old version 1 format' {
+        $data = New-TestData -Contacts @(New-TestContact 'a@example.com' 'A' 'B' @('Parent'))
+        $data.version = 1
+        { ConvertTo-DesiredState -Data $data -Config (New-TestConfig) } | Should -Throw '*Unsupported*'
+    }
     It 'skips invalid emails and counts them' {
         $desired = Get-Desired -Contacts @(
             New-TestContact 'ok@example.com' 'A' 'B' @('Parent')
@@ -261,15 +275,15 @@ Describe 'New-SyncPlan' {
 
     It 'tags teacher accounts, skips unknown ones and untags accounts no longer wanted' {
         $desired = Get-Desired -Contacts @(New-TestContact 'jane@example.com' 'Jane' 'Doe' @('Teacher')) -Accounts @(
-            @{ email = 'jane@school.org'; tag = 'Teacher' }
-            @{ email = 'missing@school.org'; tag = 'Teacher' }
+            @{ email = 'jane@school.org'; tags = @('Teacher') }
+            @{ email = 'missing@school.org'; tags = @('Teacher') }
         )
         $teacher = @{ CustomAttribute1 = 'Teacher'; CustomAttribute2 = 'Teacher' }
         $jane = New-ExchangeRecipient -Email 'jane@school.org' -Attributes @{ CustomAttribute5 = 'Payroll' }
         $former = New-ExchangeRecipient -Email 'former@school.org' -Attributes $teacher
         $untouched = New-ExchangeRecipient -Email 'office@school.org' -Attributes @{ CustomAttribute1 = 'Finance'; CustomAttribute2 = 'Other' }
         $others = 1..4 | ForEach-Object { New-ExchangeRecipient -Email "t$_@school.org" -Attributes $teacher.Clone() }
-        1..4 | ForEach-Object { $desired.Accounts["t$_@school.org"] = 'Teacher' }
+        1..4 | ForEach-Object { $desired.Accounts["t$_@school.org"] = @('Teacher') }
         $state = @{ Contacts = @(); Recipients = @($jane, $former, $untouched) + @($others) }
         $plan = New-SyncPlan -Desired $desired -State $state -Config (New-TestConfig)
 
@@ -291,7 +305,7 @@ Describe 'New-SyncPlan' {
 
     It 'adds the role attribute to accounts already tagged with CustomAttribute1 only' {
         $desired = Get-Desired -Contacts @(New-TestContact 'jane@example.com' 'Jane' 'Doe' @('Teacher')) -Accounts @(
-            @{ email = 'jane@school.org'; tag = 'Teacher' }
+            @{ email = 'jane@school.org'; tags = @('Teacher') }
         )
         $jane = New-ExchangeRecipient -Email 'jane@school.org' -Attributes @{ CustomAttribute1 = 'Teacher' }
         $plan = New-SyncPlan -Desired $desired -State @{ Contacts = @(); Recipients = @($jane) } -Config (New-TestConfig)
@@ -300,12 +314,45 @@ Describe 'New-SyncPlan' {
         @($plan.AccountChanges[0].Changes.Keys) | Should -Be @('CustomAttribute2')
     }
 
+    It 'tags an account with every role, the highest priority in CustomAttribute1' {
+        $desired = Get-Desired -Contacts @(New-TestContact 'jane@example.com' 'Jane' 'Doe' @('Teacher', 'Staff')) -Accounts @(
+            @{ email = 'jane@school.org'; tags = @('Teacher', 'Staff') }
+            @{ email = 'sue@school.org'; tags = @('Staff') }
+        )
+        $jane = New-ExchangeRecipient -Email 'jane@school.org' -Attributes @{ CustomAttribute1 = 'Teacher'; CustomAttribute2 = 'Teacher' }
+        $sue = New-ExchangeRecipient -Email 'sue@school.org' -Type 'MailUser'
+        $plan = New-SyncPlan -Desired $desired -State @{ Contacts = @(); Recipients = @($jane, $sue) } -Config (New-TestConfig)
+
+        $janeChange = $plan.AccountChanges | Where-Object Email -EQ 'jane@school.org'
+        @($janeChange.Changes.Keys) | Should -Be @('CustomAttribute5')
+        $janeChange.Changes.CustomAttribute5.To | Should -Be 'Staff'
+
+        $sueChange = $plan.AccountChanges | Where-Object Email -EQ 'sue@school.org'
+        $sueChange.Changes.CustomAttribute1.To | Should -Be 'Staff'
+        $sueChange.Changes.CustomAttribute5.To | Should -Be 'Staff'
+        $sueChange.Changes.Keys | Should -Not -Contain 'CustomAttribute2'
+    }
+
+    It 'clears only the lost role on an account that keeps another' {
+        $desired = Get-Desired -Contacts @(New-TestContact 'jane@example.com' 'Jane' 'Doe' @('Staff')) -Accounts @(
+            @{ email = 'jane@school.org'; tags = @('Staff') }
+        )
+        $jane = New-ExchangeRecipient -Email 'jane@school.org' -Attributes @{ CustomAttribute1 = 'Teacher'; CustomAttribute2 = 'Teacher'; CustomAttribute5 = 'Staff' }
+        $plan = New-SyncPlan -Desired $desired -State @{ Contacts = @(); Recipients = @($jane) } -Config (New-TestConfig)
+
+        $plan.AccountChanges.Count | Should -Be 1
+        $plan.AccountChanges[0].Changes.CustomAttribute1.To | Should -Be 'Staff'
+        $plan.AccountChanges[0].Changes.CustomAttribute2.To | Should -Be ''
+        $plan.AccountChanges[0].Changes.Keys | Should -Not -Contain 'CustomAttribute5'
+    }
+
     It 'is idempotent: a second plan after applying the first has no changes' {
         $desired = Get-Desired -Contacts @(
-            New-TestContact 'jane@example.com' 'Jane' 'Doe' @('Teacher', 'Parent')
+            New-TestContact 'jane@example.com' 'Jane' 'Doe' @('Teacher', 'Staff', 'Parent')
             New-TestContact 'bob@example.com' 'Bob' 'Jones' @('Parent')
+            New-TestContact 'sue@example.com' 'Sue' 'Ray' @('Staff')
             New-TestContact 'amy@example.com' 'Amy' 'Lee' @('Teacher')
-        ) -Accounts @(@{ email = 'jane@school.org'; tag = 'Teacher' })
+        ) -Accounts @(@{ email = 'jane@school.org'; tags = @('Teacher', 'Staff') })
         $state = @{
             Contacts   = @(
                 New-ExchangeContact -Email 'amy@example.com' -First 'Amy' -Last 'L' -Hidden $false

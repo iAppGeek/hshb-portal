@@ -10,7 +10,7 @@
   New lists get a custom filter:
     (RecipientType -eq 'MailContact') -and (<MembershipAttribute> -eq '<Tag>')
   or, with IncludeUserAccounts = $true, mail contacts plus user mailboxes and
-  mail users carrying the same attribute (e.g. teachers' school accounts).
+  mail users carrying the same attribute (staff school accounts).
 
   Lists that were built in the Exchange admin centre ("precanned" rules)
   can't be converted to a custom filter, so they are updated in place to the
