@@ -212,18 +212,19 @@ function New-SyncPlan {
         }
     }
 
-    # User accounts (e.g. teachers' school mailboxes): CustomAttribute1 and the
-    # role's membership attribute, so lists can include the account too. Other
-    # role attributes on an account are cleared only if they hold our tag.
+    # User accounts (staff school mailboxes): CustomAttribute1 holds the
+    # primary tag and each role's membership attribute holds its tag, so lists
+    # can include the account too. Other role attributes on an account are
+    # cleared only if they hold our tag.
     $accountChanges = [System.Collections.Generic.List[object]]::new()
     $accountSkips = [System.Collections.Generic.List[object]]::new()
     $getAccountChanges = {
-        param([object]$Recipient, [string]$Tag)
+        param([object]$Recipient, [string[]]$Tags)
         $changes = [ordered]@{}
-        $wanted = [ordered]@{ CustomAttribute1 = $Tag }
+        $wanted = [ordered]@{ CustomAttribute1 = $(if ($Tags.Count -gt 0) { $Tags[0] } else { '' }) }
         foreach ($role in $roles) {
             $current = $Recipient.Attributes[$role.MembershipAttribute]
-            if ($role.Tag -ceq $Tag) { $wanted[$role.MembershipAttribute] = $Tag }
+            if ($Tags -ccontains $role.Tag) { $wanted[$role.MembershipAttribute] = $role.Tag }
             elseif ($current -ceq $role.Tag) { $wanted[$role.MembershipAttribute] = '' }
         }
         foreach ($attribute in $wanted.Keys) {
@@ -234,21 +235,21 @@ function New-SyncPlan {
         return , $changes
     }
     foreach ($accountEmail in ($Desired.Accounts.Keys | Sort-Object)) {
-        $tag = $Desired.Accounts[$accountEmail]
+        $accountTagList = @($Desired.Accounts[$accountEmail])
         $recipient = $recipientsByEmail[$accountEmail]
         if ($null -eq $recipient) {
-            $accountSkips.Add([pscustomobject]@{ Role = $tag; Email = $accountEmail; Reason = 'no user account found' })
+            $accountSkips.Add([pscustomobject]@{ Tags = $accountTagList; Email = $accountEmail; Reason = 'no user account found' })
             continue
         }
         if ($script:AccountRecipientTypes -notcontains $recipient.RecipientTypeDetails) {
-            $accountSkips.Add([pscustomobject]@{ Role = $tag; Email = $accountEmail; Reason = "unsupported recipient type $($recipient.RecipientTypeDetails)" })
+            $accountSkips.Add([pscustomobject]@{ Tags = $accountTagList; Email = $accountEmail; Reason = "unsupported recipient type $($recipient.RecipientTypeDetails)" })
             continue
         }
-        $changes = & $getAccountChanges $recipient $tag
+        $changes = & $getAccountChanges $recipient $accountTagList
         if ($changes.Count -gt 0) {
             $accountChanges.Add([pscustomobject]@{
                     Id = $recipient.Id; Email = $accountEmail; DisplayName = $recipient.Name
-                    RecipientTypeDetails = $recipient.RecipientTypeDetails; Tag = $tag; Changes = $changes
+                    RecipientTypeDetails = $recipient.RecipientTypeDetails; Tags = $accountTagList; Changes = $changes
                 })
         }
     }
@@ -262,7 +263,7 @@ function New-SyncPlan {
             $accountUntags++
             $accountChanges.Add([pscustomobject]@{
                     Id = $r.Id; Email = $r.PrimaryEmail; DisplayName = $r.Name
-                    RecipientTypeDetails = $r.RecipientTypeDetails; Tag = ''; Changes = (& $getAccountChanges $r '')
+                    RecipientTypeDetails = $r.RecipientTypeDetails; Tags = @(); Changes = (& $getAccountChanges $r @())
                 })
         }
     }
@@ -379,7 +380,7 @@ function Invoke-SyncPlan {
             foreach ($field in $item.Changes.Keys) { $params[$field] = ConvertTo-CmdletValue $item.Changes[$field].To }
             if ($item.RecipientTypeDetails -eq 'MailUser') { Set-MailUser @params } else { Set-Mailbox @params }
             $result.AccountsUpdated++
-            Write-SyncLog "ACCOUNT $(Protect-Email $item.Email) [$($item.Tag)] $(@($item.Changes.Keys) -join ', ')"
+            Write-SyncLog "ACCOUNT $(Protect-Email $item.Email) [$($item.Tags -join ', ')] $(@($item.Changes.Keys) -join ', ')"
         }
         catch {
             $result.Failed++

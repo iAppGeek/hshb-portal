@@ -15,11 +15,24 @@ function Read-ContactDataFile {
     return Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json -AsHashtable -DateKind String
 }
 
+function Get-KnownTags {
+    <# The tags that are defined in the config, in their original order, without duplicates. #>
+    [OutputType([System.Collections.Generic.List[string]])]
+    param(
+        [AllowNull()][object]$Tags,
+        [Parameter(Mandatory)][string[]]$KnownTags
+    )
+
+    $result = [System.Collections.Generic.List[string]]::new()
+    foreach ($t in @($Tags)) { if ($KnownTags -ccontains $t -and -not $result.Contains($t)) { $result.Add($t) } }
+    return , $result
+}
+
 function ConvertTo-DesiredState {
     <#
       Pure function. Validates the data file and returns:
         Contacts : ordered map email -> person (tags in priority order)
-        Accounts : map account email -> tag
+        Accounts : map account email -> tags (priority order)
         Skipped  : list of { role, reason, count } (no personal data)
         Merged   : rows folded into an existing email by the source
         Roles    : list of { tag, rows }
@@ -34,7 +47,7 @@ function ConvertTo-DesiredState {
         [double]$MaxAgeHours = 0
     )
 
-    if ($Data['version'] -ne 1) { throw "Unsupported contact data version '$($Data['version'])'." }
+    if ($Data['version'] -ne 2) { throw "Unsupported contact data version '$($Data['version'])'." }
     foreach ($key in @('contacts', 'accounts', 'roles')) {
         if ($null -eq $Data[$key]) { throw "Contact data is missing '$key'." }
     }
@@ -65,8 +78,7 @@ function ConvertTo-DesiredState {
     $contacts = [ordered]@{}
     foreach ($c in $Data['contacts']) {
         $email = Get-NormalisedEmail ([string]$c['email'])
-        $tags = [System.Collections.Generic.List[string]]::new()
-        foreach ($t in @($c['tags'])) { if ($knownTags -ccontains $t -and -not $tags.Contains($t)) { $tags.Add($t) } }
+        $tags = Get-KnownTags -Tags $c['tags'] -KnownTags $knownTags
         $role = if ($tags.Count -gt 0) { $tags[0] } else { 'unknown' }
 
         if (-not (Test-EmailAddress $email)) {
@@ -94,8 +106,9 @@ function ConvertTo-DesiredState {
     $accounts = @{}
     foreach ($a in $Data['accounts']) {
         $email = Get-NormalisedEmail ([string]$a['email'])
-        if ((Test-EmailAddress $email) -and $knownTags -ccontains $a['tag'] -and -not $accounts.ContainsKey($email)) {
-            $accounts[$email] = [string]$a['tag']
+        $tags = Get-KnownTags -Tags $a['tags'] -KnownTags $knownTags
+        if ((Test-EmailAddress $email) -and $tags.Count -gt 0 -and -not $accounts.ContainsKey($email)) {
+            $accounts[$email] = $tags
         }
     }
 

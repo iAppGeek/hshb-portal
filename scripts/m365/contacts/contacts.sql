@@ -10,12 +10,14 @@ with
 --   priority         lower wins: sets CustomAttribute1 and whose name is used
 --                    when one email belongs to several roles
 --   tag_user_account also tag the person's Microsoft 365 account
---                    (account_email) with CustomAttribute1
+--                    (account_email) with this role. An account can hold
+--                    several roles, like a contact
 -- =========================================================================
 roles (tag, priority, tag_user_account) as (
   values
     ('Teacher', 1, true),
-    ('Parent', 2, false)
+    ('Staff', 2, true),
+    ('Parent', 3, false)
 ),
 
 -- One SELECT per role. Columns: tag, source_id, first_name, last_name,
@@ -27,6 +29,13 @@ source_rows as (
          s.personal_email as email, s.email as account_email
   from staff s
   where s.role in ('teacher', 'headteacher')
+
+  union all
+
+  -- All staff, whatever their role (teachers too), with the same addresses.
+  select 'Staff', s.id::text, s.first_name, s.last_name,
+         s.personal_email, s.email
+  from staff s
 
   union all
 
@@ -81,11 +90,17 @@ tag_lists as (
   group by email
 ),
 
+-- One row per account, with all its roles in priority order. Uses checked,
+-- not valid: an account is tagged even when the personal email is missing.
 accounts as (
-  select distinct on (account_email) account_email as email, tag
-  from checked
-  where tag_user_account and not account_invalid
-  order by account_email, priority
+  select account_email as email, json_agg(tag order by priority) as tags
+  from (
+    select account_email, tag, min(priority) as priority
+    from checked
+    where tag_user_account and not account_invalid
+    group by account_email, tag
+  ) t
+  group by account_email
 ),
 
 skipped as (
@@ -106,7 +121,7 @@ role_counts as (
 )
 
 select json_build_object(
-  'version', 1,
+  'version', 2,
   'generatedAt', now(),
   'roles', (select json_agg(json_build_object('tag', tag, 'rows', row_count) order by priority) from role_counts),
   'contacts', coalesce((
@@ -115,7 +130,7 @@ select json_build_object(
     ) order by n.email)
     from names n join tag_lists t using (email)
   ), '[]'::json),
-  'accounts', coalesce((select json_agg(json_build_object('email', email, 'tag', tag) order by email) from accounts), '[]'::json),
+  'accounts', coalesce((select json_agg(json_build_object('email', email, 'tags', tags) order by email) from accounts), '[]'::json),
   'skipped', coalesce((select json_agg(json_build_object('role', role, 'reason', reason, 'count', n) order by role, reason) from skipped), '[]'::json),
   'mergedRows', (select count(*) from valid) - (select count(distinct email) from valid)
 ) as data;

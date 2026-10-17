@@ -97,7 +97,7 @@ function Write-PlanDetails {
             -ConsoleMessage "  - REMOVE  $($i.DisplayName) <$(Format-Email $i.Email)> [$($i.PrimaryTag)]"
     }
     foreach ($i in $Plan.AccountChanges) {
-        Write-SyncLog "PLAN ACCOUNT $(Protect-Email $i.Email) [$($i.Tag)] $(Format-Changes @($i.Changes))" `
+        Write-SyncLog "PLAN ACCOUNT $(Protect-Email $i.Email) [$($i.Tags -join ', ')] $(Format-Changes @($i.Changes))" `
             -ConsoleMessage "  * ACCOUNT $($i.DisplayName) <$(Format-Email $i.Email)> ($($i.RecipientTypeDetails)): $(Format-Changes @($i.Changes))"
     }
     foreach ($i in $Plan.Conflicts) {
@@ -105,8 +105,8 @@ function Write-PlanDetails {
             -ConsoleMessage "  ! SKIP    $($i.DisplayName) <$(Format-Email $i.Email)> [$($i.PrimaryTag)]: $($i.Reason)"
     }
     foreach ($i in $Plan.AccountSkips) {
-        Write-SyncLog -Level WARN "ACCOUNT SKIP $(Protect-Email $i.Email) [$($i.Role)]: $($i.Reason)" `
-            -ConsoleMessage "  ! SKIP    account <$(Format-Email $i.Email)> [$($i.Role)]: $($i.Reason)"
+        Write-SyncLog -Level WARN "ACCOUNT SKIP $(Protect-Email $i.Email) [$($i.Tags -join ', ')]: $($i.Reason)" `
+            -ConsoleMessage "  ! SKIP    account <$(Format-Email $i.Email)> [$($i.Tags -join ', ')]: $($i.Reason)"
     }
     Write-Host ''
 }
