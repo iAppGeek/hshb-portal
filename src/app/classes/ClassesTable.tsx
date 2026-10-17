@@ -19,11 +19,10 @@ export type ClassRow = {
   name: string
   year_group: string
   room_number: string | null
-  academic_year: string | null
   academic_year_id: string
   active: boolean
   teacher: Teacher
-  /** Students currently in the class. */
+  /** Students in the class today (current year) or during its year (other years). */
   student_count: number
   /** Open (active, current year) — every other class is read-only. */
   editable: boolean
@@ -55,7 +54,12 @@ export default function ClassesTable({
       cell: (cls) => cls.name,
     },
     { id: 'teacher', header: 'Teacher', cell: (cls) => teacherName(cls) },
-    { id: 'students', header: 'Students', cell: (cls) => cls.student_count },
+    {
+      id: 'students',
+      header: 'Students',
+      align: 'right',
+      cell: (cls) => cls.student_count,
+    },
     { id: 'year_group', header: 'Year Group', cell: (cls) => cls.year_group },
     { id: 'room', header: 'Room', cell: (cls) => cls.room_number ?? '—' },
     {

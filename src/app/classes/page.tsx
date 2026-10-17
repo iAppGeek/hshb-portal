@@ -7,7 +7,6 @@ import {
   getClassesByAcademicYear,
   getClassesByTeacher,
   getCurrentAcademicYear,
-  getCurrentStudentCounts,
 } from '@/db'
 import PermissionedLink from '@/components/PermissionedLink'
 import { resolveYearId } from '@/lib/academicYears'
@@ -54,15 +53,8 @@ export default async function ClassesPage({
     ? await getClassesByAcademicYear(selectedYearId)
     : await getClassesByTeacher(actor.staffId)
 
-  const studentCounts = await getCurrentStudentCounts(
-    classes.map((cls) => cls.id),
-  )
-
-  const classRows: ClassRow[] = (
-    classes as Omit<ClassRow, 'editable' | 'student_count'>[]
-  ).map((cls) => ({
+  const classRows: ClassRow[] = classes.map((cls) => ({
     ...cls,
-    student_count: studentCounts[cls.id] ?? 0,
     editable: currentYear ? isClassOpen(cls, currentYear) : false,
   }))
 

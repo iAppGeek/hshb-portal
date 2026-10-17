@@ -101,7 +101,6 @@ export {
   getClassById,
   getClassWithStudents,
   getClassesByTeacher,
-  getCurrentStudentCounts,
   getEnrolmentsForClass,
   getEnrolmentsInRange,
   createClass,

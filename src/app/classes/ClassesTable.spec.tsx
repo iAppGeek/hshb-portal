@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 
 vi.mock('next/link', () => ({
   default: ({
@@ -23,7 +23,6 @@ const mockClasses: ClassRow[] = [
     name: 'Year 1A',
     year_group: '1',
     room_number: 'R1',
-    academic_year: '2024/25',
     academic_year_id: 'year-1',
     active: true,
     editable: true,
@@ -35,12 +34,11 @@ const mockClasses: ClassRow[] = [
     name: 'Year 2B',
     year_group: '2',
     room_number: null,
-    academic_year: null,
     academic_year_id: 'year-0',
     active: false,
     editable: false,
     teacher: null,
-    student_count: 1,
+    student_count: 0,
   },
 ]
 
@@ -78,11 +76,35 @@ describe('ClassesTable', () => {
     ).toBeNull()
   })
 
-  it('renders the student count in the desktop column and mobile details', () => {
+  it('renders each count, right-aligned, in the desktop Students column', () => {
     render(<ClassesTable classes={mockClasses} canEdit={false} role="admin" />)
-    expect(screen.getByText('12')).toBeTruthy()
+    const headers = screen.getAllByRole('columnheader')
+    const column = headers.findIndex((th) => th.textContent === 'Students')
+    // Each stacked row starts with the mobile summary cell, then one cell per
+    // desktop column.
+    const cells = screen
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => within(row).getAllByRole('cell')[column + 1])
+    expect(cells.map((cell) => cell.textContent)).toEqual(['12', '0'])
+    expect(cells[0].className).toContain('text-right')
+  })
+
+  it('renders the count in the mobile details, singular for one student', () => {
+    const { rerender } = render(
+      <ClassesTable classes={mockClasses} canEdit={false} role="admin" />,
+    )
     expect(screen.getByText(/12 students/)).toBeTruthy()
+    expect(screen.getByText(/0 students/)).toBeTruthy()
+    rerender(
+      <ClassesTable
+        classes={[{ ...mockClasses[0], student_count: 1 }]}
+        canEdit={false}
+        role="admin"
+      />,
+    )
     expect(screen.getByText(/1 student\b/)).toBeTruthy()
+    expect(screen.queryByText(/1 students/)).toBeNull()
   })
 
   it('renders active status badge', () => {

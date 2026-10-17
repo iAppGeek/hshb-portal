@@ -1,11 +1,24 @@
 import 'server-only'
 
-import { and, asc, count, eq, inArray } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  countDistinct,
+  eq,
+  gte,
+  inArray,
+  lte,
+  not,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm'
 
 import type { EnrolmentRangeRow } from '@/lib/attendanceSummary'
 import { sortClasses } from '@/lib/classes'
 import { toClassEmailRoster, type ClassEmailRoster } from '@/lib/communication'
 import { addDays } from '@/lib/compliance'
+import { todayInSchoolTz } from '@/lib/datetime'
 import { asDbError, DbError } from '@/lib/db-error'
 import type { EnrolmentRow } from '@/lib/enrolment'
 import { isUuid } from '@/lib/uuid'
@@ -13,7 +26,7 @@ import { isUuid } from '@/lib/uuid'
 import { toCamel, toSnake, type Snake } from './casing'
 import { db } from './client'
 import { closeEnrolments, setEnrolments } from './enrolments'
-import { isCurrentStay, staysOverlapping } from './membership'
+import { enrolledOn, isCurrentStay, staysOverlapping } from './membership'
 import { markLeaver } from './students'
 import {
   academicYears,
@@ -38,6 +51,9 @@ type TeacherSummary = Pick<
 export type ClassRow = Snake<Class & { teacher: TeacherSummary | null }> & {
   academic_year: string
 }
+
+/** A class list row, with how many students the class has (see studentCount). */
+export type ClassListRow = ClassRow & { student_count: number }
 
 type ClassMember = Pick<
   Student,
@@ -95,6 +111,45 @@ const currentYearId = db
   .select({ id: academicYears.id })
   .from(academicYears)
   .where(eq(academicYears.isCurrent, true))
+
+/**
+ * A class's number of students, by distinct student. In the year containing
+ * today it is who is in the class today (the same rule attendance uses, so
+ * leavers and stays starting later are left out); in any other year, past or
+ * future, it is everyone in the class at some point in that year.
+ */
+function studentCount(cls: {
+  id: typeof classes.id
+  academicYearId: typeof classes.academicYearId
+}): SQL.Aliased<number> {
+  const today = todayInSchoolTz()
+  const yearIsCurrent = and(
+    lte(academicYears.startDate, today),
+    gte(academicYears.endDate, today),
+  ) as SQL
+  const counted = db
+    .select({ n: countDistinct(studentClasses.studentId) })
+    .from(studentClasses)
+    .innerJoin(academicYears, eq(academicYears.id, cls.academicYearId))
+    .where(
+      and(
+        eq(studentClasses.classId, cls.id),
+        or(
+          and(yearIsCurrent, enrolledOn(studentClasses, today)),
+          and(
+            not(yearIsCurrent),
+            staysOverlapping(
+              studentClasses,
+              academicYears.startDate,
+              academicYears.endDate,
+            ),
+          ),
+        ),
+      ),
+    )
+  // ::int, as a relational query skips mapWith on extras.
+  return sql<number>`(${counted})::int`.as('student_count')
+}
 
 /** Keeps the flat `academic_year: string` shape display components already use. */
 function withYearCode<T extends { academicYear: { code: string } }>(
@@ -163,30 +218,13 @@ export async function getClassEmailRosters(): Promise<{
 
 export async function getClassesByAcademicYear(
   yearId: string,
-): Promise<ClassRow[]> {
+): Promise<ClassListRow[]> {
   const rows = await db.query.classes.findMany({
     with: classWith,
+    extras: (cls) => ({ studentCount: studentCount(cls) }),
     where: eq(classes.academicYearId, yearId),
   })
   return sortClasses(toSnake(rows.map(withYearCode)))
-}
-
-/** Each class's number of current students, keyed by class id; a class with none is absent. */
-export async function getCurrentStudentCounts(
-  classIds: string[],
-): Promise<Record<string, number>> {
-  if (classIds.length === 0) return {}
-  const rows = await db
-    .select({ classId: studentClasses.classId, n: count() })
-    .from(studentClasses)
-    .where(
-      and(
-        inArray(studentClasses.classId, classIds),
-        isCurrentStay(studentClasses),
-      ),
-    )
-    .groupBy(studentClasses.classId)
-  return Object.fromEntries(rows.map((row) => [row.classId, row.n]))
 }
 
 export async function getClassById(
@@ -224,9 +262,10 @@ export async function getClassById(
 
 export async function getClassesByTeacher(
   teacherId: string,
-): Promise<ClassRow[]> {
+): Promise<ClassListRow[]> {
   const rows = await db.query.classes.findMany({
     with: classWith,
+    extras: (cls) => ({ studentCount: studentCount(cls) }),
     where: and(
       eq(classes.teacherId, teacherId),
       eq(classes.active, true),

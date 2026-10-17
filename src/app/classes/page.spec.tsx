@@ -17,7 +17,6 @@ vi.mock('@/db', () => ({
   getCurrentAcademicYear: vi.fn(),
   getClassesByAcademicYear: vi.fn(),
   getClassesByTeacher: vi.fn(),
-  getCurrentStudentCounts: vi.fn(),
 }))
 
 vi.mock('./ClassesTable', () => ({
@@ -62,10 +61,11 @@ import {
   getClassesByAcademicYear,
   getClassesByTeacher,
   getCurrentAcademicYear,
-  getCurrentStudentCounts,
 } from '@/db'
 
 import ClassesPage from './page'
+
+type ClassListRow = Awaited<ReturnType<typeof getClassesByAcademicYear>>[number]
 
 const mockClasses = [
   {
@@ -105,7 +105,6 @@ beforeEach(() => {
     previousYear,
   ] as any)
   vi.mocked(getCurrentAcademicYear).mockResolvedValue(currentYear as any)
-  vi.mocked(getCurrentStudentCounts).mockResolvedValue({})
 })
 
 describe('ClassesPage', () => {
@@ -189,18 +188,29 @@ describe('ClassesPage', () => {
     expect(screen.getByText('Year 1A')).toBeTruthy()
   })
 
-  it('passes each class its current student count, defaulting to 0', async () => {
+  it('passes each class its student count from the class list', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { role: 'admin', staffId: 'staff-1' },
-    } as any)
+    } as unknown as Awaited<ReturnType<typeof auth>>)
+    const listed: ClassListRow = {
+      ...mockClasses[0],
+      teacher_id: 'staff-2',
+      created_at: '2026-09-01T00:00:00.000Z',
+      teacher: {
+        id: 'staff-2',
+        first_name: 'Jane',
+        last_name: 'Smith',
+        display_name: null,
+        email: 'jane@example.com',
+      },
+      student_count: 7,
+    }
     vi.mocked(getClassesByAcademicYear).mockResolvedValue([
-      mockClasses[0],
-      { ...mockClasses[0], id: 'class-2', name: 'Year 2B' },
-    ] as any)
-    vi.mocked(getCurrentStudentCounts).mockResolvedValue({ 'class-1': 7 })
+      listed,
+      { ...listed, id: 'class-2', name: 'Year 2B', student_count: 0 },
+    ])
 
     render(await ClassesPage(noSearchParams()))
-    expect(getCurrentStudentCounts).toHaveBeenCalledWith(['class-1', 'class-2'])
     expect(screen.getByText('Year 1A').getAttribute('data-student-count')).toBe(
       '7',
     )
