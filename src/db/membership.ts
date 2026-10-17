@@ -1,6 +1,15 @@
 import 'server-only'
 
-import { and, eq, gt, isNull, lte, or, type SQL } from 'drizzle-orm'
+import {
+  and,
+  eq,
+  gt,
+  isNull,
+  lte,
+  or,
+  type SQL,
+  type SQLWrapper,
+} from 'drizzle-orm'
 import type { PgColumn } from 'drizzle-orm/pg-core'
 
 import { db } from './client'
@@ -24,11 +33,14 @@ export function isCurrentStay(stay: Pick<StayColumns, 'endDate'>): SQL {
   return isNull(stay.endDate)
 }
 
-/** Stays that overlap [start, end]: started by `end`, not ended by `start`. */
+/**
+ * Stays that overlap [start, end]: started by `end`, not ended by `start`.
+ * The bounds are dates or date columns (e.g. an academic year's).
+ */
 export function staysOverlapping(
   stay: StayColumns,
-  start: string,
-  end: string,
+  start: string | SQLWrapper,
+  end: string | SQLWrapper,
 ): SQL {
   return and(
     lte(stay.startDate, end),

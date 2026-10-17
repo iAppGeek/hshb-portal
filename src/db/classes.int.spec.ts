@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 
+import { addDays } from '@/lib/compliance'
+import { todayInSchoolTz } from '@/lib/datetime'
 import { asDbError, DbError } from '@/lib/db-error'
 
 import {
@@ -64,6 +66,116 @@ describe('class lists', () => {
       (await getClassesByTeacher(SEED.staff.teacher2)).map((c) => c.name),
     ).toEqual(['Beta'])
     expect(await getClassesByTeacher(SEED.staff.admin)).toEqual([])
+  })
+
+  it('counts who is in each current-year class today', async () => {
+    const today = todayInSchoolTz()
+    // Bob's stay in Gamma ends today and Alice's starts tomorrow, so neither
+    // counts; nor does Carol's ended week in Alpha.
+    const stays = await db
+      .insert(studentClasses)
+      .values([
+        {
+          studentId: SEED.students.bob,
+          classId: SEED.classes.gamma,
+          startDate: '2026-09-01',
+          endDate: today,
+        },
+        {
+          studentId: SEED.students.alice,
+          classId: SEED.classes.gamma,
+          startDate: addDays(today, 1),
+        },
+      ])
+      .returning({ id: studentClasses.id })
+    try {
+      const counts = (await getClassesByAcademicYear(SEED.years.current)).map(
+        (c) => [c.name, c.student_count],
+      )
+      expect(counts).toEqual([
+        ['Alpha', 2],
+        ['Beta', 1],
+        ['Gamma', 0],
+      ])
+      expect(
+        (await getClassesByTeacher(SEED.staff.teacher2)).map(
+          (c) => c.student_count,
+        ),
+      ).toEqual([1])
+    } finally {
+      await db.delete(studentClasses).where(
+        inArray(
+          studentClasses.id,
+          stays.map((stay) => stay.id),
+        ),
+      )
+    }
+  })
+
+  it('counts everyone in the class at any point in a past or future year', async () => {
+    const [next] = await db
+      .insert(academicYears)
+      .values({
+        code: '2027-28',
+        startDate: '2027-09-01',
+        endDate: '2028-08-31',
+      })
+      .returning({ id: academicYears.id })
+    const [old, upcoming] = await db
+      .insert(classes)
+      .values([
+        { name: 'Old', yearGroup: 'Year 1', academicYearId: SEED.years.prior },
+        { name: 'Next', yearGroup: 'Year 2', academicYearId: next.id },
+      ])
+      .returning({ id: classes.id })
+    // Alice left and rejoined Old (counted once); Carol's stay starts after
+    // that year ends. Next's students were moved in ahead of its start.
+    await db.insert(studentClasses).values([
+      {
+        studentId: SEED.students.alice,
+        classId: old.id,
+        startDate: '2025-09-01',
+        endDate: '2025-12-01',
+      },
+      {
+        studentId: SEED.students.alice,
+        classId: old.id,
+        startDate: '2026-01-05',
+        endDate: '2026-07-20',
+      },
+      {
+        studentId: SEED.students.bob,
+        classId: old.id,
+        startDate: '2025-09-01',
+        endDate: '2026-09-01',
+      },
+      {
+        studentId: SEED.students.carol,
+        classId: old.id,
+        startDate: '2026-09-01',
+      },
+      {
+        studentId: SEED.students.alice,
+        classId: upcoming.id,
+        startDate: '2027-09-01',
+      },
+    ])
+    try {
+      expect(
+        (await getClassesByAcademicYear(SEED.years.prior)).map(
+          (c) => c.student_count,
+        ),
+      ).toEqual([2])
+      expect(
+        (await getClassesByAcademicYear(next.id)).map((c) => c.student_count),
+      ).toEqual([1])
+    } finally {
+      await db
+        .delete(studentClasses)
+        .where(inArray(studentClasses.classId, [old.id, upcoming.id]))
+      await db.delete(classes).where(inArray(classes.id, [old.id, upcoming.id]))
+      await db.delete(academicYears).where(eq(academicYears.id, next.id))
+    }
   })
 
   it('builds email rosters for the current year', async () => {

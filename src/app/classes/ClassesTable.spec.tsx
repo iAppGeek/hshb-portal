@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 
 vi.mock('next/link', () => ({
   default: ({
@@ -23,22 +23,22 @@ const mockClasses: ClassRow[] = [
     name: 'Year 1A',
     year_group: '1',
     room_number: 'R1',
-    academic_year: '2024/25',
     academic_year_id: 'year-1',
     active: true,
     editable: true,
     teacher: { first_name: 'Jane', last_name: 'Smith' },
+    student_count: 12,
   },
   {
     id: 'class-2',
     name: 'Year 2B',
     year_group: '2',
     room_number: null,
-    academic_year: null,
     academic_year_id: 'year-0',
     active: false,
     editable: false,
     teacher: null,
+    student_count: 0,
   },
 ]
 
@@ -53,10 +53,58 @@ describe('ClassesTable', () => {
 
   it('renders teacher name', () => {
     render(<ClassesTable classes={mockClasses} canEdit={false} role="admin" />)
-    // The desktop Teacher column is the only cell whose full text is exactly
-    // "Smith, Jane" — the mobile details line joins it with " · " into a
-    // sibling text node, so it doesn't match an exact-text query.
-    expect(screen.getAllByText('Smith, Jane')).toHaveLength(1)
+    // Once in the desktop Teacher column, once as the first item of the
+    // mobile details line (the only one without a " · " prefix).
+    expect(screen.getAllByText('Smith, Jane')).toHaveLength(2)
+  })
+
+  it('orders the columns Name, Teacher, Students, Year Group, Room, Status', () => {
+    render(<ClassesTable classes={mockClasses} canEdit={false} role="admin" />)
+    const headers = screen
+      .getAllByRole('columnheader')
+      .map((th) => th.textContent)
+    expect(headers.slice(0, 6)).toEqual([
+      'Name',
+      'Teacher',
+      'Students',
+      'Year Group',
+      'Room',
+      'Status',
+    ])
+    expect(
+      screen.queryByRole('columnheader', { name: 'Academic Year' }),
+    ).toBeNull()
+  })
+
+  it('renders each count, right-aligned, in the desktop Students column', () => {
+    render(<ClassesTable classes={mockClasses} canEdit={false} role="admin" />)
+    const headers = screen.getAllByRole('columnheader')
+    const column = headers.findIndex((th) => th.textContent === 'Students')
+    // Each stacked row starts with the mobile summary cell, then one cell per
+    // desktop column.
+    const cells = screen
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => within(row).getAllByRole('cell')[column + 1])
+    expect(cells.map((cell) => cell.textContent)).toEqual(['12', '0'])
+    expect(cells[0].className).toContain('text-right')
+  })
+
+  it('renders the count in the mobile details, singular for one student', () => {
+    const { rerender } = render(
+      <ClassesTable classes={mockClasses} canEdit={false} role="admin" />,
+    )
+    expect(screen.getByText(/12 students/)).toBeTruthy()
+    expect(screen.getByText(/0 students/)).toBeTruthy()
+    rerender(
+      <ClassesTable
+        classes={[{ ...mockClasses[0], student_count: 1 }]}
+        canEdit={false}
+        role="admin"
+      />,
+    )
+    expect(screen.getByText(/1 student\b/)).toBeTruthy()
+    expect(screen.queryByText(/1 students/)).toBeNull()
   })
 
   it('renders active status badge', () => {
@@ -124,7 +172,7 @@ describe('ClassesTable', () => {
 
   it('shows dash when no teacher assigned', () => {
     render(<ClassesTable classes={mockClasses} canEdit={false} role="admin" />)
-    // Desktop-only "—" cells for class-2 (room, teacher, academic year); the
+    // Desktop-only "—" cells for class-2 (teacher, room); the
     // mobile details line renders its own "—" text nodes joined with " · ".
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
   })

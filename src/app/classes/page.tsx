@@ -53,12 +53,10 @@ export default async function ClassesPage({
     ? await getClassesByAcademicYear(selectedYearId)
     : await getClassesByTeacher(actor.staffId)
 
-  const classRows: ClassRow[] = (classes as Omit<ClassRow, 'editable'>[]).map(
-    (cls) => ({
-      ...cls,
-      editable: currentYear ? isClassOpen(cls, currentYear) : false,
-    }),
-  )
+  const classRows: ClassRow[] = classes.map((cls) => ({
+    ...cls,
+    editable: currentYear ? isClassOpen(cls, currentYear) : false,
+  }))
 
   return (
     <>

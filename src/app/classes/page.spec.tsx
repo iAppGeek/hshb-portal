@@ -23,11 +23,16 @@ vi.mock('./ClassesTable', () => ({
   default: ({
     classes,
   }: {
-    classes: { id: string; name: string; editable: boolean }[]
+    classes: {
+      id: string
+      name: string
+      editable: boolean
+      student_count: number
+    }[]
   }) => (
     <div data-testid="classes-table">
       {classes.map((c) => (
-        <span key={c.id}>
+        <span key={c.id} data-student-count={c.student_count}>
           {c.name}
           {c.editable ? '' : ' (read-only)'}
         </span>
@@ -59,6 +64,8 @@ import {
 } from '@/db'
 
 import ClassesPage from './page'
+
+type ClassListRow = Awaited<ReturnType<typeof getClassesByAcademicYear>>[number]
 
 const mockClasses = [
   {
@@ -179,6 +186,37 @@ describe('ClassesPage', () => {
     render(await ClassesPage(noSearchParams()))
     expect(screen.getByTestId('classes-table')).toBeTruthy()
     expect(screen.getByText('Year 1A')).toBeTruthy()
+  })
+
+  it('passes each class its student count from the class list', async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { role: 'admin', staffId: 'staff-1' },
+    } as unknown as Awaited<ReturnType<typeof auth>>)
+    const listed: ClassListRow = {
+      ...mockClasses[0],
+      teacher_id: 'staff-2',
+      created_at: '2026-09-01T00:00:00.000Z',
+      teacher: {
+        id: 'staff-2',
+        first_name: 'Jane',
+        last_name: 'Smith',
+        display_name: null,
+        email: 'jane@example.com',
+      },
+      student_count: 7,
+    }
+    vi.mocked(getClassesByAcademicYear).mockResolvedValue([
+      listed,
+      { ...listed, id: 'class-2', name: 'Year 2B', student_count: 0 },
+    ])
+
+    render(await ClassesPage(noSearchParams()))
+    expect(screen.getByText('Year 1A').getAttribute('data-student-count')).toBe(
+      '7',
+    )
+    expect(screen.getByText('Year 2B').getAttribute('data-student-count')).toBe(
+      '0',
+    )
   })
 
   it('fetches all classes for secretary role, defaulting to the current year', async () => {
