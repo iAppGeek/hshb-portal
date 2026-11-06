@@ -32,7 +32,10 @@ trap 'rm -f "$RAW" "$TMP"' EXIT
 
 echo "Reading people from Supabase..."
 # --agent no gives a plain JSON array; supabase's own progress goes to stderr.
-supabase db query --linked --agent no --output json \
+# --read-only: newer CLIs refuse to run against a production project without
+# confirmation unless the query is marked read-only, and --output json cannot
+# ask. It also guarantees this fetch never writes.
+supabase db query --linked --read-only --agent no --output json \
   --workdir "$WORKDIR" --file "$SCRIPT_DIR/contacts.sql" > "$RAW" ||
   fail "Supabase query failed."
 
