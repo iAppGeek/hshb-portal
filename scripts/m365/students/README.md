@@ -257,9 +257,8 @@ anything. It shows on screen, for every student in Year 3 and up:
 followed by a summary of counts, and it saves two reports (see
 [Reading the reports](#reading-the-reports)).
 
-Names are shown on screen only; usernames are masked (`a***@hshb.org.uk`)
-unless you pass `-ShowEmails`, which prints a warning first. The log file
-holds student codes and masked usernames, never names.
+Names and full usernames are shown on screen only. The log file holds
+student codes and masked usernames (`a***@hshb.org.uk`), never names.
 
 **Usernames and email addresses are never changed.** They are set once,
 when an account is created. If a student's name changes in the portal,
@@ -316,7 +315,6 @@ never linked to a student.
 | `-KeepData`                 | Keep `data/students.json` after `-ApplyTeamChanges`                  |
 | `-Only <code>`              | Plan for one student only (useful for a first test)                  |
 | `-Device`                   | Sign in with a device code                                           |
-| `-ShowEmails`               | Show full usernames on screen (never written to the log)             |
 | `-DataPath <file>`          | Use a different data file                                            |
 
 Exit codes: `0` success, `1` fatal error or refused (nothing changed), `2`

@@ -21,10 +21,6 @@
 .PARAMETER Device
   Sign in with a device code instead of a browser window.
 
-.PARAMETER ShowEmails
-  Show full email addresses in the detailed plan on screen. They are never
-  written to the log file.
-
 .PARAMETER KeepData
   Don't delete the contact data file after a successful -Apply.
 
@@ -39,7 +35,6 @@ param(
     [switch]$Apply,
     [switch]$Force,
     [switch]$Device,
-    [switch]$ShowEmails,
     [switch]$KeepData,
     [string]$DataPath = (Join-Path $PSScriptRoot 'data/contacts.json'),
     [string]$ConfigPath = (Join-Path $PSScriptRoot 'config.psd1')
@@ -53,13 +48,6 @@ Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'lib/Exchange.ps1')
 
 if ($DryRun -and $Apply) { throw 'Use either -DryRun or -Apply, not both.' }
-
-function Format-Email {
-    [OutputType([string])]
-    param([AllowNull()][string]$Email)
-    if ($ShowEmails) { return $Email }
-    return Protect-Email $Email
-}
 
 function Format-Changes {
     [OutputType([string])]
@@ -75,38 +63,33 @@ function Write-PlanDetails {
     param([Parameter(Mandatory)][hashtable]$Plan)
 
     Write-Host ''
-    if ($ShowEmails) {
-        Write-Host '*** DETAILED PLAN BELOW CONTAINS FULL EMAIL ADDRESSES (personal data). Do not copy or share it. ***' -ForegroundColor Magenta
-    }
-    else {
-        Write-Host 'Detailed plan (names shown on screen only; emails masked - use -ShowEmails to see them in full):' -ForegroundColor Cyan
-    }
+    Write-Host 'Detailed plan (names and emails are shown on screen only; the log masks emails):' -ForegroundColor Cyan
 
     foreach ($i in $Plan.Adds) {
         Write-SyncLog "PLAN ADD    $(Protect-Email $i.Email) [$($i.PrimaryTag)]" `
-            -ConsoleMessage "  + ADD     $($i.DisplayName) <$(Format-Email $i.Email)> [$($i.PrimaryTag)]"
+            -ConsoleMessage "  + ADD     $($i.DisplayName) <$($i.Email)> [$($i.PrimaryTag)]"
     }
     foreach ($i in $Plan.Updates) {
         $adopt = if ($i.Adopted) { ' (adopting existing contact)' } else { '' }
         $fields = (@($i.ContactChanges.Keys) + @($i.MailContactChanges.Keys)) -join ', '
         Write-SyncLog "PLAN UPDATE $(Protect-Email $i.Email) [$($i.PrimaryTag)]$adopt fields: $fields" `
-            -ConsoleMessage "  ~ UPDATE  $($i.DisplayName) <$(Format-Email $i.Email)>$adopt : $(Format-Changes @($i.ContactChanges, $i.MailContactChanges))"
+            -ConsoleMessage "  ~ UPDATE  $($i.DisplayName) <$($i.Email)>$adopt : $(Format-Changes @($i.ContactChanges, $i.MailContactChanges))"
     }
     foreach ($i in $Plan.Removals) {
         Write-SyncLog "PLAN REMOVE $(Protect-Email $i.Email) [$($i.PrimaryTag)]" `
-            -ConsoleMessage "  - REMOVE  $($i.DisplayName) <$(Format-Email $i.Email)> [$($i.PrimaryTag)]"
+            -ConsoleMessage "  - REMOVE  $($i.DisplayName) <$($i.Email)> [$($i.PrimaryTag)]"
     }
     foreach ($i in $Plan.AccountChanges) {
         Write-SyncLog "PLAN ACCOUNT $(Protect-Email $i.Email) [$($i.Tags -join ', ')] $(Format-Changes @($i.Changes))" `
-            -ConsoleMessage "  * ACCOUNT $($i.DisplayName) <$(Format-Email $i.Email)> ($($i.RecipientTypeDetails)): $(Format-Changes @($i.Changes))"
+            -ConsoleMessage "  * ACCOUNT $($i.DisplayName) <$($i.Email)> ($($i.RecipientTypeDetails)): $(Format-Changes @($i.Changes))"
     }
     foreach ($i in $Plan.Conflicts) {
         Write-SyncLog -Level WARN "CONFLICT $(Protect-Email $i.Email) [$($i.PrimaryTag)]: $($i.Reason)" `
-            -ConsoleMessage "  ! SKIP    $($i.DisplayName) <$(Format-Email $i.Email)> [$($i.PrimaryTag)]: $($i.Reason)"
+            -ConsoleMessage "  ! SKIP    $($i.DisplayName) <$($i.Email)> [$($i.PrimaryTag)]: $($i.Reason)"
     }
     foreach ($i in $Plan.AccountSkips) {
         Write-SyncLog -Level WARN "ACCOUNT SKIP $(Protect-Email $i.Email) [$($i.Tags -join ', ')]: $($i.Reason)" `
-            -ConsoleMessage "  ! SKIP    account <$(Format-Email $i.Email)> [$($i.Tags -join ', ')]: $($i.Reason)"
+            -ConsoleMessage "  ! SKIP    account <$($i.Email)> [$($i.Tags -join ', ')]: $($i.Reason)"
     }
     Write-Host ''
 }

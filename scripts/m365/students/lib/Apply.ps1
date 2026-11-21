@@ -132,7 +132,7 @@ function Invoke-AccountPlan {
         }
         catch {
             $result.Failed++
-            Write-SyncLog -Level ERROR "FAILED create [$($item.Code)] $(Protect-Email $item.Upn): $($_.Exception.Message)"
+            Write-SyncLog -Level ERROR "FAILED create [$($item.Code)] {email}: $($_.Exception.Message)" -Email $item.Upn
             continue
         }
         # Record the password as soon as the account exists, even if the licence fails.
@@ -140,7 +140,7 @@ function Invoke-AccountPlan {
                 StudentCode = $item.Code; Name = $item.DisplayName; Upn = $item.Upn; InitialPassword = $password
             })
         $result.Created++
-        Write-SyncLog "CREATED [$($item.Code)] $(Protect-Email $item.Upn)"
+        Write-SyncLog "CREATED [$($item.Code)] {email}" -Email $item.Upn
         if ($item.SkuId) {
             try {
                 Add-GraphLicence -UserId ([string]$created['id']) -SkuId $item.SkuId -RetryDelaySeconds $RetryDelaySeconds
@@ -148,7 +148,7 @@ function Invoke-AccountPlan {
             }
             catch {
                 $result.Failed++
-                Write-SyncLog -Level ERROR "FAILED licence [$($item.Code)] $(Protect-Email $item.Upn): $($_.Exception.Message). Re-run to retry."
+                Write-SyncLog -Level ERROR "FAILED licence [$($item.Code)] {email}: $($_.Exception.Message). Re-run to retry." -Email $item.Upn
             }
         }
     }
@@ -158,11 +158,11 @@ function Invoke-AccountPlan {
             try {
                 Invoke-StudentGraph -Method PATCH -Uri "v1.0/users/$($item.UserId)" -Body (ConvertTo-GraphUserPatch -Changes $item.Changes) | Out-Null
                 if ($kind -eq 'Links') { $result.Linked++ } else { $result.Updated++ }
-                Write-SyncLog "$(if ($kind -eq 'Links') { 'LINKED ' } else { 'UPDATED' }) [$($item.Code)] $(Protect-Email $item.Upn) $(@($item.Changes.Keys) -join ', ')"
+                Write-SyncLog "$(if ($kind -eq 'Links') { 'LINKED ' } else { 'UPDATED' }) [$($item.Code)] {email} $(@($item.Changes.Keys) -join ', ')" -Email $item.Upn
             }
             catch {
                 $result.Failed++
-                Write-SyncLog -Level ERROR "FAILED $($kind.TrimEnd('s').ToLowerInvariant()) [$($item.Code)] $(Protect-Email $item.Upn): $($_.Exception.Message)"
+                Write-SyncLog -Level ERROR "FAILED $($kind.TrimEnd('s').ToLowerInvariant()) [$($item.Code)] {email}: $($_.Exception.Message)" -Email $item.Upn
             }
         }
     }
@@ -171,11 +171,11 @@ function Invoke-AccountPlan {
         try {
             Add-GraphLicence -UserId $item.UserId -SkuId $item.SkuId -RetryDelaySeconds $RetryDelaySeconds
             $result.Licensed++
-            Write-SyncLog "LICENSED [$($item.Code)] $(Protect-Email $item.Upn)"
+            Write-SyncLog "LICENSED [$($item.Code)] {email}" -Email $item.Upn
         }
         catch {
             $result.Failed++
-            Write-SyncLog -Level ERROR "FAILED licence [$($item.Code)] $(Protect-Email $item.Upn): $($_.Exception.Message)"
+            Write-SyncLog -Level ERROR "FAILED licence [$($item.Code)] {email}: $($_.Exception.Message)" -Email $item.Upn
         }
     }
 
