@@ -81,11 +81,11 @@ function Invoke-SignInBlocks {
         try {
             Invoke-StudentGraph -Method PATCH -Uri "v1.0/users/$($b.UserId)" -Body @{ accountEnabled = $false } | Out-Null
             $result.Blocked++
-            Write-SyncLog "BLOCKED SIGN-IN $(Protect-Email $b.Upn)"
+            Write-SyncLog "BLOCKED SIGN-IN {email}" -Email $b.Upn
         }
         catch {
             $result.Failed++
-            Write-SyncLog -Level ERROR "FAILED block sign-in $(Protect-Email $b.Upn): $($_.Exception.Message)"
+            Write-SyncLog -Level ERROR "FAILED block sign-in {email}: $($_.Exception.Message)" -Email $b.Upn
         }
     }
     return $result

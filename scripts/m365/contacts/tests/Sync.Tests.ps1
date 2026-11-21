@@ -113,6 +113,29 @@ Describe 'Get-NormalisedEmail / Test-EmailAddress / Protect-Email' {
     }
 }
 
+Describe 'Write-SyncLog -Email' {
+    BeforeEach {
+        $script:SyncLogPath = Join-Path $TestDrive 'test.log'
+        Set-Content -LiteralPath $script:SyncLogPath -Value $null
+        Mock Write-Host {}
+    }
+    It 'shows the full address on screen and masks it in the log' {
+        Write-SyncLog 'ADDED   {email} [Parent]' -Email 'jane@example.com'
+        Should -Invoke Write-Host -Times 1 -ParameterFilter { $Object -eq 'ADDED   jane@example.com [Parent]' }
+        Get-Content -LiteralPath $script:SyncLogPath | Should -BeLike '*ADDED   j***@example.com `[Parent`]'
+    }
+    It 'fills the placeholder in a separate console message too' {
+        Write-SyncLog -Level WARN 'SKIP {email}' -ConsoleMessage 'SKIP Jane <{email}>' -Email 'jane@example.com'
+        Should -Invoke Write-Host -Times 1 -ParameterFilter { $Object -eq 'SKIP Jane <jane@example.com>' }
+        Get-Content -LiteralPath $script:SyncLogPath | Should -BeLike '*`[WARN`] SKIP j***@example.com'
+    }
+    It 'handles a missing address' {
+        Write-SyncLog 'BLOCKED {email}' -Email $null
+        Should -Invoke Write-Host -Times 1 -ParameterFilter { $Object -eq 'BLOCKED -' }
+        Get-Content -LiteralPath $script:SyncLogPath | Should -BeLike '*BLOCKED `*`*`*'
+    }
+}
+
 Describe 'Assert-SyncConfig' {
     It 'accepts the committed config' {
         $example = Import-PowerShellDataFile (Join-Path (Split-Path -Parent $PSScriptRoot) 'config.psd1')
