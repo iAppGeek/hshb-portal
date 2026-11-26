@@ -117,7 +117,7 @@ function ConvertTo-CleanString {
 
 # --- Logging -----------------------------------------------------------------
 # The log file never contains names or full email addresses: only counts,
-# masked addresses and error messages.
+# masked addresses and error messages. The screen shows full addresses.
 
 $script:SyncLogPath = $null
 
@@ -146,10 +146,16 @@ function Write-SyncLog {
         [Parameter(Mandatory)][AllowEmptyString()][string]$Message,
         [ValidateSet('INFO', 'WARN', 'ERROR')][string]$Level = 'INFO',
         # Text shown on screen instead of $Message (may include names/emails).
-        [string]$ConsoleMessage
+        [string]$ConsoleMessage,
+        # Replaces the {email} placeholder: in full on screen, masked in the log.
+        [AllowNull()][AllowEmptyString()][string]$Email
     )
 
     $screen = if ($PSBoundParameters.ContainsKey('ConsoleMessage')) { $ConsoleMessage } else { $Message }
+    if ($PSBoundParameters.ContainsKey('Email')) {
+        $screen = $screen.Replace('{email}', $(if ($Email) { $Email } else { '-' }))
+        $Message = $Message.Replace('{email}', (Protect-Email $Email))
+    }
     switch ($Level) {
         'WARN' { Write-Host $screen -ForegroundColor Yellow }
         'ERROR' { Write-Host $screen -ForegroundColor Red }

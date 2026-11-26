@@ -333,11 +333,11 @@ function Invoke-SyncPlan {
             # A new object can take a moment to become writable.
             Invoke-WithRetry { Set-MailContact @params } | Out-Null
             $result.Added++
-            Write-SyncLog "ADDED   $(Protect-Email $item.Email) [$($item.PrimaryTag)]"
+            Write-SyncLog "ADDED   {email} [$($item.PrimaryTag)]" -Email $item.Email
         }
         catch {
             $result.Failed++
-            Write-SyncLog -Level ERROR "FAILED add $(Protect-Email $item.Email): $($_.Exception.Message)"
+            Write-SyncLog -Level ERROR "FAILED add {email}: $($_.Exception.Message)" -Email $item.Email
         }
     }
 
@@ -354,11 +354,11 @@ function Invoke-SyncPlan {
                 Set-MailContact @params
             }
             $result.Updated++
-            Write-SyncLog "UPDATED $(Protect-Email $item.Email) [$($item.PrimaryTag)]"
+            Write-SyncLog "UPDATED {email} [$($item.PrimaryTag)]" -Email $item.Email
         }
         catch {
             $result.Failed++
-            Write-SyncLog -Level ERROR "FAILED update $(Protect-Email $item.Email): $($_.Exception.Message)"
+            Write-SyncLog -Level ERROR "FAILED update {email}: $($_.Exception.Message)" -Email $item.Email
         }
     }
 
@@ -366,11 +366,11 @@ function Invoke-SyncPlan {
         try {
             Remove-MailContact -Identity $item.Id -Confirm:$false -ErrorAction Stop
             $result.Removed++
-            Write-SyncLog "REMOVED $(Protect-Email $item.Email) [$($item.PrimaryTag)]"
+            Write-SyncLog "REMOVED {email} [$($item.PrimaryTag)]" -Email $item.Email
         }
         catch {
             $result.Failed++
-            Write-SyncLog -Level ERROR "FAILED remove $(Protect-Email $item.Email): $($_.Exception.Message)"
+            Write-SyncLog -Level ERROR "FAILED remove {email}: $($_.Exception.Message)" -Email $item.Email
         }
     }
 
@@ -380,11 +380,11 @@ function Invoke-SyncPlan {
             foreach ($field in $item.Changes.Keys) { $params[$field] = ConvertTo-CmdletValue $item.Changes[$field].To }
             if ($item.RecipientTypeDetails -eq 'MailUser') { Set-MailUser @params } else { Set-Mailbox @params }
             $result.AccountsUpdated++
-            Write-SyncLog "ACCOUNT $(Protect-Email $item.Email) [$($item.Tags -join ', ')] $(@($item.Changes.Keys) -join ', ')"
+            Write-SyncLog "ACCOUNT {email} [$($item.Tags -join ', ')] $(@($item.Changes.Keys) -join ', ')" -Email $item.Email
         }
         catch {
             $result.Failed++
-            Write-SyncLog -Level ERROR "FAILED account $(Protect-Email $item.Email): $($_.Exception.Message)"
+            Write-SyncLog -Level ERROR "FAILED account {email}: $($_.Exception.Message)" -Email $item.Email
         }
     }
 

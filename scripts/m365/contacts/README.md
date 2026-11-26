@@ -190,8 +190,8 @@ Run everything from `scripts/m365/contacts`.
    - `SKIP account …` for any teacher whose `staff.email` isn't a Microsoft
      365 account
 
-   Emails are masked. Use `pwsh ./sync-contacts.ps1 -ShowEmails` to see them
-   in full, but don't copy or share that output.
+   Names and emails are shown in full on screen. Don't copy or share that
+   output.
 
 4. **Apply**:
 
@@ -230,15 +230,14 @@ Allow **up to about 24 hours** for dynamic lists to pick up changes.
 
 ### Options
 
-| `sync-contacts.ps1`  | Effect                                                   |
-| -------------------- | -------------------------------------------------------- |
-| _(none)_ / `-DryRun` | Plan only                                                |
-| `-Apply`             | Make the changes                                         |
-| `-Force`             | Allow removals above `MaxRemovalPercent`                 |
-| `-Device`            | Sign in with a device code                               |
-| `-ShowEmails`        | Show full addresses on screen (never written to the log) |
-| `-KeepData`          | Keep `data/contacts.json` after a successful apply       |
-| `-DataPath <file>`   | Use a different data file                                |
+| `sync-contacts.ps1`  | Effect                                             |
+| -------------------- | -------------------------------------------------- |
+| _(none)_ / `-DryRun` | Plan only                                          |
+| `-Apply`             | Make the changes                                   |
+| `-Force`             | Allow removals above `MaxRemovalPercent`           |
+| `-Device`            | Sign in with a device code                         |
+| `-KeepData`          | Keep `data/contacts.json` after a successful apply |
+| `-DataPath <file>`   | Use a different data file                          |
 
 Exit codes: `0` success, `1` fatal error, `2` stopped by the removal limit,
 `3` finished with some failed changes.
@@ -362,10 +361,9 @@ it. The sync overwrites the role attributes on every contact it manages.
   nothing else.
 - `data/contacts.json` holds personal data. It is gitignored, readable only by
   you, and deleted after a successful apply. Don't copy it anywhere else.
-- Summaries print **counts only**. The detailed plan shows names on screen
-  and masks emails (`j***@example.com`) unless you pass `-ShowEmails`, which
-  prints a clear warning first.
-- Log files (`logs/`, gitignored) contain counts, masked addresses and error
+- Summaries print **counts only**. The detailed plan and the apply step show
+  names and full email addresses on screen only.
+- Log files (`logs/`, gitignored) contain counts, masked addresses (`j***@example.com`) and error
   messages, but no names. Logs older than 30 days are deleted automatically
   (`LogRetentionDays`).
 - Contacts are hidden from the address book, so staff can't browse parents'

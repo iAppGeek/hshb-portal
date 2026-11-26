@@ -48,9 +48,6 @@
 .PARAMETER Device
   Sign in with a device code instead of a browser window.
 
-.PARAMETER ShowEmails
-  Show full usernames on screen. They are never written to the log file.
-
 .EXAMPLE
   ./fetch-students.sh
   pwsh ./sync-students.ps1
@@ -66,7 +63,6 @@ param(
     [switch]$KeepData,
     [string]$Only,
     [switch]$Device,
-    [switch]$ShowEmails,
     [string]$DataPath = (Join-Path $PSScriptRoot 'data/students.json'),
     [string]$ReportDirectory = (Join-Path $PSScriptRoot 'reports'),
     [string]$LogDirectory = (Join-Path $PSScriptRoot 'logs'),
@@ -94,8 +90,7 @@ function Format-Upn {
     [OutputType([string])]
     param([AllowNull()][AllowEmptyString()][string]$Upn)
     if (-not $Upn) { return '-' }
-    if ($ShowEmails) { return $Upn }
-    return Protect-Email $Upn
+    return $Upn
 }
 
 function Format-Changes {
@@ -109,12 +104,7 @@ function Write-PlanDetails {
     param([Parameter(Mandatory)][hashtable]$Plan)
 
     Write-Host ''
-    if ($ShowEmails) {
-        Write-Host '*** DETAILED PLAN BELOW CONTAINS FULL USERNAMES (personal data). Do not copy or share it. ***' -ForegroundColor Magenta
-    }
-    else {
-        Write-Host 'Detailed plan (names shown on screen only; usernames masked - use -ShowEmails to see them in full):' -ForegroundColor Cyan
-    }
+    Write-Host 'Detailed plan (names and usernames are shown on screen only; the log masks usernames):' -ForegroundColor Cyan
 
     foreach ($i in $Plan.Creates) {
         Write-SyncLog "PLAN CREATE  [$($i.Code)] $(Protect-Email $i.Upn)" `

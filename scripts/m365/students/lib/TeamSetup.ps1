@@ -184,7 +184,7 @@ function Invoke-TeamSetupPlan {
             Invoke-StudentGraph -Method POST -Uri "v1.0/groups/$($item.GroupId)/owners/`$ref" `
                 -Body @{ '@odata.id' = "https://graph.microsoft.com/v1.0/users/$($item.UserId)" } | Out-Null
             $result.OwnersAdded++
-            Write-SyncLog "OWNER ADDED $($item.Nickname) $(Protect-Email $item.Email)"
+            Write-SyncLog "OWNER ADDED $($item.Nickname) {email}" -Email $item.Email
         }
         catch { $result.Failed++; Write-SyncLog -Level ERROR "FAILED add owner to $($item.Nickname): $($_.Exception.Message)" }
     }

@@ -84,7 +84,7 @@ try {
         Write-SyncLog "PLAN RENAME $($i.Nickname)" -ConsoleMessage "  ~ RENAME  '$($i.From)' -> '$($i.To)'"
     }
     foreach ($i in $plan.OwnerAdds) {
-        Write-SyncLog "PLAN OWNER $($i.Nickname) $(Protect-Email $i.Email)" -ConsoleMessage "  + OWNER   $($i.Team): $(Protect-Email $i.Email)"
+        Write-SyncLog "PLAN OWNER $($i.Nickname) $(Protect-Email $i.Email)" -ConsoleMessage "  + OWNER   $($i.Team): $($i.Email)"
     }
     foreach ($i in $plan.Issues) {
         Write-SyncLog -Level WARN "$($i.Type): $($i.Team): $($i.Detail)"
