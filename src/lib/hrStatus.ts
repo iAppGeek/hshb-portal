@@ -27,6 +27,7 @@ export type SchoolYear = { start_date: string; end_date: string }
 /** The payroll fields the rules read; a full payroll row satisfies it. */
 export type ComplianceRecord = {
   job_role: string
+  payment_funding: string
   /** The database stores line 1, city and postcode together or not at all. */
   address_line_1: string | null
   id_verified: boolean
@@ -203,7 +204,7 @@ function dbsIssues(
   const issues: [StatusLevel, string][] = []
   if (regulated && record.dbs_level !== 'enhanced') {
     issues.push([
-      'warning',
+      'error',
       'Basic DBS held; an enhanced DBS is required for this role',
     ])
   }
@@ -227,13 +228,13 @@ export function staffComplianceStatus(
   if (!record) return { level: 'error', reasons: ['No HR record'] }
 
   const issues = dbsIssues(record, year, today)
-  if (isRegulatedRole(record.job_role)) {
-    if (!record.id_verified) {
-      issues.push(['error', 'ID has not been verified'])
-    }
-    if (!record.right_to_work_checked) {
-      issues.push(['error', 'Right to work has not been checked'])
-    }
+  // Everyone on the system has their ID checked; right to work applies to
+  // anyone employed, whatever the role, so only volunteers are exempt.
+  if (!record.id_verified) {
+    issues.push(['error', 'ID has not been verified'])
+  }
+  if (record.payment_funding !== 'volunteer' && !record.right_to_work_checked) {
+    issues.push(['error', 'Right to work has not been checked'])
   }
   if (!record.address_line_1) {
     issues.push(['warning', 'No address recorded'])

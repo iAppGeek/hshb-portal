@@ -334,7 +334,6 @@ export default function StaffPayrollForm({
             }
             name="dbs_renewal_due"
             type="date"
-            required={dbsUpdateService}
             value={dbsRenewalDue}
             onChange={setDbsRenewalDue}
             hint={

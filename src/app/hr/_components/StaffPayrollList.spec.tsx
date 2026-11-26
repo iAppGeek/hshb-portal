@@ -174,7 +174,7 @@ describe('StaffPayrollList', () => {
       '/hr/staff/s1',
     )
     expect(summary.getByText('5 Sept 2026')).toBeTruthy()
-    fireEvent.click(summary.getByRole('button', { name: 'Warning' }))
+    fireEvent.click(summary.getByRole('button', { name: 'Action needed' }))
     expect(screen.getByRole('tooltip')).toHaveTextContent('Basic DBS held')
   })
 
@@ -206,13 +206,15 @@ describe('StaffPayrollList', () => {
     )
   })
 
-  it('explains a warning status', async () => {
+  it('explains an action needed status', async () => {
     vi.mocked(getStaffPayrollList).mockResolvedValue([
       member(makePayroll({ ...compliant, dbs_level: 'basic' })),
     ])
     render(await StaffPayrollList())
 
-    const status = cell('status').getByRole('button', { name: 'Warning' })
+    const status = cell('status').getByRole('button', {
+      name: 'Action needed',
+    })
     fireEvent.click(status)
     expect(screen.getByRole('tooltip')).toHaveTextContent(
       'Basic DBS held; an enhanced DBS is required for this role',

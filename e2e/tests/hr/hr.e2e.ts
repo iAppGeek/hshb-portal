@@ -127,6 +127,7 @@ test.describe('HR', () => {
     // On it, that guess is cleared and the subscription's date is asked for
     const renews = page.getByLabel(/^Update Service renews on/)
     await expect(renews).toHaveValue('')
+    await expect(renews).not.toHaveAttribute('required')
     await renews.fill('2099-05-01')
     await page.getByLabel('Update Service subscription number').fill('C0001')
     await page.getByRole('button', { name: 'Save payroll record' }).click()
@@ -178,13 +179,12 @@ test.describe('HR', () => {
   test('explains why a status is not green', async ({ page }) => {
     await insertPayroll(staffId, { ...COMPLIANT, dbs_level: 'basic' })
     const row = page.getByTestId(`payroll-row-${staffId}`)
+    const status = row.getByRole('button', { name: 'Action needed' })
     await loadWithFreshData(page, '/hr', async () => {
-      await expect(row.getByRole('button', { name: 'Warning' })).toBeVisible({
-        timeout: 3_000,
-      })
+      await expect(status).toBeVisible({ timeout: 3_000 })
     })
 
-    await row.getByRole('button', { name: 'Warning' }).click()
+    await status.click()
     await expect(page.getByRole('tooltip')).toContainText(
       'Basic DBS held; an enhanced DBS is required for this role',
     )

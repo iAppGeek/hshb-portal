@@ -100,7 +100,7 @@ describe('StaffPayrollForm', () => {
     expect(screen.getByText('Verified by Bob Admin')).toBeTruthy()
     // On the Update Service the date is the subscription's renewal
     expect(input('Update Service renews on').value).toBe('2027-06-01')
-    expect(input('Update Service renews on').required).toBe(true)
+    expect(input('Update Service renews on').required).toBe(false)
     expect(input('First aid expiry date').value).toBe('2027-01-01')
   })
 
@@ -203,7 +203,7 @@ describe('StaffPayrollForm', () => {
     fireEvent.click(input('Enrolled in the DBS Update Service'))
     const renews = input('Update Service renews on')
     expect(renews.value).toBe('')
-    expect(renews.required).toBe(true)
+    expect(renews.required).toBe(false)
     expect(
       screen.getByText('The date the Update Service subscription runs to.'),
     ).toBeTruthy()

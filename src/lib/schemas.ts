@@ -610,11 +610,6 @@ export const staffPayrollSchema = z
         'dbs_update_service_number',
         'Enter the Update Service subscription number',
       ],
-      [
-        d.dbs_renewal_due,
-        'dbs_renewal_due',
-        'Enter the date the Update Service subscription renews',
-      ],
     ])
     const hasAnyBank = Boolean(
       d.bank_account_name || d.bank_sort_code || d.bank_account_number,

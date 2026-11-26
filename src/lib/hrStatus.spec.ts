@@ -25,6 +25,7 @@ function makeRecord(
 ): ComplianceRecord {
   return {
     job_role: 'teacher',
+    payment_funding: 'school',
     address_line_1: '1 High Street',
     id_verified: true,
     right_to_work_checked: true,
@@ -364,11 +365,11 @@ describe('staffComplianceStatus', () => {
       expect(status.reasons).toEqual(['DBS has not been verified'])
     })
 
-    it('is a warning with a valid basic DBS', () => {
+    it('is an error with a valid basic DBS', () => {
       expect(
         staffComplianceStatus(makeRecord({ dbs_level: 'basic' }), YEAR, TODAY),
       ).toEqual({
-        level: 'warning',
+        level: 'error',
         reasons: ['Basic DBS held; an enhanced DBS is required for this role'],
       })
     })
@@ -411,14 +412,14 @@ describe('staffComplianceStatus', () => {
 
     it('lists errors before warnings', () => {
       const status = staffComplianceStatus(
-        makeRecord({ dbs_level: 'basic', id_verified: false }),
+        makeRecord({ dbs_issue_date: '2024-01-20', id_verified: false }),
         YEAR,
         TODAY,
       )
       expect(status.level).toBe('error')
       expect(status.reasons).toEqual([
         'ID has not been verified',
-        'Basic DBS held; an enhanced DBS is required for this role',
+        'DBS lapses on 20 Jan 2027 (within 60 days)',
       ])
     })
 
@@ -468,20 +469,52 @@ describe('staffComplianceStatus', () => {
         ).level,
       ).toBe('error')
     })
+  })
 
-    it('does not require ID or right to work', () => {
-      expect(
-        staffComplianceStatus(
-          makeRecord({
-            job_role: 'admin_assistant',
-            id_verified: false,
-            right_to_work_checked: false,
-          }),
-          YEAR,
-          TODAY,
-        ).level,
-      ).toBe('ok')
-    })
+  describe('ID and right to work', () => {
+    it.each(['admin_assistant', 'committee'])(
+      'requires both for a paid %s',
+      (job_role) => {
+        expect(
+          staffComplianceStatus(
+            makeRecord({
+              job_role,
+              id_verified: false,
+              right_to_work_checked: false,
+            }),
+            YEAR,
+            TODAY,
+          ),
+        ).toEqual({
+          level: 'error',
+          reasons: [
+            'ID has not been verified',
+            'Right to work has not been checked',
+          ],
+        })
+      },
+    )
+
+    it.each(['teacher', 'committee'])(
+      'requires only ID for a volunteer %s',
+      (job_role) => {
+        const volunteer = {
+          job_role,
+          payment_funding: 'volunteer',
+          right_to_work_checked: false,
+        }
+        expect(
+          staffComplianceStatus(makeRecord(volunteer), YEAR, TODAY),
+        ).toEqual({ level: 'ok', reasons: [] })
+        expect(
+          staffComplianceStatus(
+            makeRecord({ ...volunteer, id_verified: false }),
+            YEAR,
+            TODAY,
+          ),
+        ).toEqual({ level: 'error', reasons: ['ID has not been verified'] })
+      },
+    )
   })
 
   describe('with no current school year', () => {
@@ -583,7 +616,7 @@ describe('complianceSummary', () => {
   it('counts staff by status and reports the worst overall', () => {
     const records = [
       makeRecord({ ...firstAider, ...fireWarden }),
-      makeRecord({ ...firstAider, ...fireWarden, dbs_level: 'basic' }),
+      makeRecord({ ...firstAider, ...fireWarden, address_line_1: null }),
       makeRecord(firstAider),
       makeRecord(firstAider),
       null,
