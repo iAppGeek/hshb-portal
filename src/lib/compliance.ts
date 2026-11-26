@@ -45,14 +45,25 @@ export function expiryState(
 // ─── Labels ──────────────────────────────────────────────────────────────────
 // Keys mirror the CHECK constraints in the finance_payments migration.
 
-export type PaymentFunding = 'kea' | 'school'
+export type PaymentFunding = 'kea' | 'school' | 'volunteer'
+export type JobRole =
+  'teacher' | 'classroom_assistant' | 'admin' | 'admin_assistant' | 'committee'
 export type IdType =
   'passport' | 'driving_licence' | 'brp' | 'birth_certificate' | 'other'
-export type DbsLevel = 'enhanced' | 'standard' | 'basic'
+export type DbsLevel = 'enhanced' | 'basic'
 
 export const PAYMENT_FUNDING_LABELS: Record<PaymentFunding, string> = {
   kea: 'KEA',
   school: 'School',
+  volunteer: 'Volunteer',
+}
+
+export const JOB_ROLE_LABELS: Record<JobRole, string> = {
+  teacher: 'Teacher',
+  classroom_assistant: 'Classroom Assistant',
+  admin: 'Admin',
+  admin_assistant: 'Admin Assistant',
+  committee: 'Committee',
 }
 
 export const ID_TYPE_LABELS: Record<IdType, string> = {
@@ -65,7 +76,6 @@ export const ID_TYPE_LABELS: Record<IdType, string> = {
 
 export const DBS_LEVEL_LABELS: Record<DbsLevel, string> = {
   enhanced: 'Enhanced',
-  standard: 'Standard',
   basic: 'Basic',
 }
 
@@ -74,9 +84,4 @@ export function labelFor<K extends string>(
   value: string | null,
 ): string {
   return value !== null && value in labels ? labels[value as K] : '—'
-}
-
-/** Bank details are only ever shown in full on the edit page. */
-export function maskLastFour(value: string | null): string | null {
-  return value ? `••••${value.slice(-4)}` : null
 }

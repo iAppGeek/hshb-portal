@@ -32,6 +32,14 @@ vi.mock('./LinktreeTile', () => ({
   ),
 }))
 
+// The tile is tested in HrComplianceTile.spec.tsx; here we only check who
+// sees it.
+vi.mock('./HrComplianceTile', () => ({
+  default: ({ today }: { today: string }) => (
+    <p data-testid="hr-compliance-tile">{today}</p>
+  ),
+}))
+
 import { getDashboardStats, type DashboardStats as Stats } from '@/db'
 import { todayInSchoolTz } from '@/lib/datetime'
 
@@ -194,6 +202,19 @@ describe('DashboardStats', () => {
       expect(screen.getByTestId('linktree-tile')).toHaveTextContent(
         'https://www.hshb.org.uk/linktree?t=jsmith',
       )
+    },
+  )
+
+  it('shows the HR compliance tile to admins for today', async () => {
+    await renderStats('admin', adminStats)
+    expect(screen.getByTestId('hr-compliance-tile')).toBeInTheDocument()
+  })
+
+  it.each(['teacher', 'headteacher', 'secretary'] as const)(
+    'hides the HR compliance tile from %s',
+    async (role) => {
+      await renderStats(role, role === 'teacher' ? teacherStats : adminStats)
+      expect(screen.queryByTestId('hr-compliance-tile')).toBeNull()
     },
   )
 })

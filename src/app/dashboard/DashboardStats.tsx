@@ -10,9 +10,10 @@ import {
 
 import { getDashboardStats } from '@/db'
 import { linktreeUrlFor } from '@/lib/linktree'
-import { isTeacher } from '@/lib/permissions'
+import { canManageHr, isTeacher } from '@/lib/permissions'
 import type { StaffRole } from '@/types/next-auth'
 
+import HrComplianceTile from './HrComplianceTile'
 import LinktreeTile from './LinktreeTile'
 
 const pct = (n: number, total: number) =>
@@ -217,6 +218,8 @@ export default async function DashboardStats({
           </div>
         </Link>
       )}
+
+      {canManageHr(role) && <HrComplianceTile today={today} />}
 
       <LinktreeTile url={linktreeUrlFor(email)} />
     </div>

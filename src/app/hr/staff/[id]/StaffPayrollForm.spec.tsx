@@ -25,11 +25,29 @@ function renderForm(
   )
 }
 
+// Fills the fields every record needs so the browser lets the form submit.
+function fillRequired(): void {
+  fireEvent.change(input('Role'), { target: { value: 'teacher' } })
+  fireEvent.change(input('Date of birth'), { target: { value: '1985-04-12' } })
+  fireEvent.change(input('Payment funding'), { target: { value: 'school' } })
+  fireEvent.change(input('Payroll reference'), { target: { value: 'PR-1' } })
+}
+
 describe('StaffPayrollForm', () => {
   it('renders an empty form for a staff member without a record', () => {
     renderForm()
 
     expect(input('Payment funding').value).toBe('')
+    expect(input('Role').value).toBe('')
+    expect(input('Role').required).toBe(true)
+    expect(input('Date of birth').value).toBe('')
+    expect(input('Date of birth').required).toBe(true)
+    expect(screen.getByText('Personal details')).toBeTruthy()
+    expect(screen.queryByText('Home address')).toBeNull()
+    expect(screen.queryByLabelText(/Barred list/)).toBeNull()
+    expect(
+      screen.queryByLabelText(/Update Service subscription number/),
+    ).toBeNull()
     // Bank details are visible while first entered
     expect(input('Sort code').type).toBe('text')
     expect(input('Account number').type).toBe('text')
@@ -45,6 +63,8 @@ describe('StaffPayrollForm', () => {
     renderForm({
       payroll: {
         payment_funding: 'kea',
+        job_role: 'classroom_assistant',
+        date_of_birth: '1990-02-03',
         bank_sort_code: '123456',
         national_insurance_number: 'AB123456C',
         address_line_1: '1 High Street',
@@ -55,7 +75,8 @@ describe('StaffPayrollForm', () => {
         dbs_verified: true,
         dbs_issue_date: '2025-01-01',
         dbs_renewal_due: '2027-06-01',
-        dbs_barred_list_checked: true,
+        dbs_update_service: true,
+        dbs_update_service_number: 'C0001',
         first_aid_certified: true,
         first_aid_expiry_date: '2027-01-01',
       } as StaffPayrollRow,
@@ -64,13 +85,17 @@ describe('StaffPayrollForm', () => {
     })
 
     expect(input('Payment funding').value).toBe('kea')
+    expect(input('Role').value).toBe('classroom_assistant')
+    expect(input('Date of birth').value).toBe('1990-02-03')
+    expect(input('DBS issue date').value).toBe('2025-01-01')
+    expect(input('Enrolled in the DBS Update Service').checked).toBe(true)
+    expect(input('Update Service subscription number').value).toBe('C0001')
     expect(input('Sort code').value).toBe('123456')
     expect(input('Sort code').type).toBe('password')
     expect(input('National Insurance number').value).toBe('AB123456C')
     expect(input('Address line 1').value).toBe('1 High Street')
     expect(input('Postcode').value).toBe('N1 1AA')
     expect(input('ID verified').checked).toBe(true)
-    expect(input('Barred list checked').checked).toBe(true)
     expect(screen.getByText('Verified by Ann Admin')).toBeTruthy()
     expect(screen.getByText('Verified by Bob Admin')).toBeTruthy()
     expect(input('DBS renewal due').value).toBe('2027-06-01')
@@ -125,9 +150,7 @@ describe('StaffPayrollForm', () => {
     const action = vi.fn().mockResolvedValue({ error: 'Nope' })
     renderForm({ action })
 
-    fireEvent.change(input('Payment funding'), {
-      target: { value: 'school' },
-    })
+    fillRequired()
     fireEvent.change(input('Address line 1'), {
       target: { value: '1 High Street' },
     })
@@ -152,6 +175,50 @@ describe('StaffPayrollForm', () => {
       payroll: { first_aid_certified: true } as StaffPayrollRow,
     })
     expect(input('First aid issue date').required).toBe(true)
+  })
+
+  it('requires the payroll reference unless the person is a volunteer', () => {
+    renderForm()
+
+    expect(input('Payroll reference').required).toBe(true)
+    fireEvent.change(input('Payment funding'), {
+      target: { value: 'volunteer' },
+    })
+    expect(input('Payroll reference').required).toBe(false)
+    fireEvent.change(input('Payment funding'), { target: { value: 'kea' } })
+    expect(input('Payroll reference').required).toBe(true)
+  })
+
+  it('asks for the subscription number while on the Update Service', () => {
+    renderForm()
+
+    fireEvent.click(input('Enrolled in the DBS Update Service'))
+    expect(input('Update Service subscription number').required).toBe(true)
+    fireEvent.click(input('Enrolled in the DBS Update Service'))
+    expect(
+      screen.queryByLabelText(/Update Service subscription number/),
+    ).toBeNull()
+  })
+
+  it('submits the personal details for a volunteer without a payroll reference', async () => {
+    const action = vi.fn().mockResolvedValue({ error: 'Nope' })
+    renderForm({ action })
+
+    fireEvent.change(input('Role'), { target: { value: 'committee' } })
+    fireEvent.change(input('Date of birth'), {
+      target: { value: '1970-01-31' },
+    })
+    fireEvent.change(input('Payment funding'), {
+      target: { value: 'volunteer' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save payroll record' }))
+
+    await waitFor(() => expect(action).toHaveBeenCalled())
+    const fd = action.mock.calls[0][0] as FormData
+    expect(fd.get('job_role')).toBe('committee')
+    expect(fd.get('date_of_birth')).toBe('1970-01-31')
+    expect(fd.get('payment_funding')).toBe('volunteer')
+    expect(fd.get('payroll_ref')).toBe('')
   })
 
   it('defaults the DBS renewal to three years after issue until edited', () => {
@@ -182,9 +249,7 @@ describe('StaffPayrollForm', () => {
     const action = vi.fn().mockResolvedValue({ error: 'Enter the sort code' })
     renderForm({ action })
 
-    fireEvent.change(input('Payment funding'), {
-      target: { value: 'school' },
-    })
+    fillRequired()
     fireEvent.click(input('Right to work checked'))
     fireEvent.change(input('Right to work checked on'), {
       target: { value: '2026-09-01' },
@@ -208,9 +273,7 @@ describe('StaffPayrollForm', () => {
     })
     renderForm({ action })
 
-    fireEvent.change(input('Payment funding'), {
-      target: { value: 'school' },
-    })
+    fillRequired()
     fireEvent.click(screen.getByRole('button', { name: 'Save payroll record' }))
 
     await waitFor(() =>
@@ -230,9 +293,7 @@ describe('StaffPayrollForm', () => {
     const action = vi.fn()
     renderForm({ action })
 
-    fireEvent.change(input('Payment funding'), {
-      target: { value: 'school' },
-    })
+    fillRequired()
     fireEvent.click(input('DBS verified'))
     fireEvent.click(screen.getByRole('button', { name: 'Save payroll record' }))
 
@@ -245,9 +306,7 @@ describe('StaffPayrollForm', () => {
       .mockResolvedValueOnce({ error: 'Nope' })
       .mockResolvedValueOnce(undefined)
     renderForm({ action })
-    fireEvent.change(input('Payment funding'), {
-      target: { value: 'school' },
-    })
+    fillRequired()
     const save = screen.getByRole('button', { name: 'Save payroll record' })
 
     fireEvent.click(save)

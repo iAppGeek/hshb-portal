@@ -7,7 +7,6 @@ import {
   EXPIRY_WARNING_DAYS,
   DBS_RENEWAL_YEARS,
   labelFor,
-  maskLastFour,
   PAYMENT_FUNDING_LABELS,
 } from './compliance'
 
@@ -75,16 +74,5 @@ describe('labelFor', () => {
   it('returns a dash for null or unknown values', () => {
     expect(labelFor(PAYMENT_FUNDING_LABELS, null)).toBe('—')
     expect(labelFor(PAYMENT_FUNDING_LABELS, 'grant')).toBe('—')
-  })
-})
-
-describe('maskLastFour', () => {
-  it('shows only the last four characters', () => {
-    expect(maskLastFour('12345678')).toBe('••••5678')
-  })
-
-  it('returns null when there is no value', () => {
-    expect(maskLastFour(null)).toBeNull()
-    expect(maskLastFour('')).toBeNull()
   })
 })

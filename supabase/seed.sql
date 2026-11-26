@@ -112,5 +112,5 @@ INSERT INTO student_fee_accounts (id, student_id, academic_year_id, payment_plan
 INSERT INTO student_payments (id, student_id, amount, payment_date, reference, method, recorded_by, academic_year_id) VALUES
   ('93000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', 100.00, '2026-09-01', 'SEED-001', 'bank_transfer', '00000000-0000-0000-0000-000000000001', '05000000-0000-4000-8000-000000000001');
 
-INSERT INTO staff_payroll (id, staff_id, payment_funding, payroll_ref) VALUES
-  ('94000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002', 'school', 'PR-002');
+INSERT INTO staff_payroll (id, staff_id, payment_funding, payroll_ref, job_role, date_of_birth) VALUES
+  ('94000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002', 'school', 'PR-002', 'teacher', '1985-04-12');

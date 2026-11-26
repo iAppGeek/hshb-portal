@@ -33,10 +33,12 @@ function makeFormData(fields: Record<string, string>): FormData {
 
 const blank: Record<string, string> = {
   payment_funding: 'school',
+  job_role: 'teacher',
+  date_of_birth: '1985-04-12',
   bank_account_name: '',
   bank_sort_code: '',
   bank_account_number: '',
-  payroll_ref: '',
+  payroll_ref: 'PR-1',
   address_line_1: '',
   address_line_2: '',
   city: '',
@@ -50,6 +52,7 @@ const blank: Record<string, string> = {
   dbs_issue_date: '',
   dbs_verified_at: '',
   dbs_renewal_due: '',
+  dbs_update_service_number: '',
   first_aid_reference: '',
   first_aid_issue_date: '',
   first_aid_verified_at: '',

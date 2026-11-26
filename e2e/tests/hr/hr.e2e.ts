@@ -1,3 +1,5 @@
+import type { Page } from '@playwright/test'
+
 import { test, expect } from '../../fixtures/index'
 import { loadWithFreshData } from '../../fixtures/loadWithFreshData'
 import { deleteStaffByEmail, insertRow, sql } from '../../fixtures/seed'
@@ -34,18 +36,21 @@ test.describe('HR', () => {
     await deleteStaffByEmail(staffEmail)
   })
 
-  test('creates a staff payroll record with NI number, address and bank details', async ({
+  test('creates a staff payroll record with personal details and bank details', async ({
     page,
   }) => {
     const row = page.getByTestId(`payroll-row-${staffId}`)
     await loadWithFreshData(page, '/hr', async () => {
-      await expect(row).toContainText('No record', { timeout: 3_000 })
+      await expect(row).toContainText('Not checked', { timeout: 3_000 })
     })
 
     await row.getByRole('link', { name: 'Add record' }).click()
     await expect(page).toHaveURL(`/hr/staff/${staffId}`)
 
+    await page.getByLabel('Role').selectOption('teacher')
+    await page.getByLabel('Date of birth').fill('1985-04-12')
     await page.getByLabel('Payment funding').selectOption('school')
+    await page.getByLabel('Payroll reference').fill('PR-E2E')
     await page.getByLabel('Account holder name').fill('Dr Hr')
     // Empty bank fields are visible while first entered
     const sortCode = page.getByLabel('Sort code', { exact: true })
@@ -61,13 +66,20 @@ test.describe('HR', () => {
     await page.getByRole('button', { name: 'Save payroll record' }).click()
 
     await expect(page).toHaveURL('/hr')
-    await expect(row).toContainText('School')
-    await expect(row).toContainText('••••5678')
+    // A teacher with no DBS, ID or right to work check needs action
+    await expect(row).toContainText('Not checked')
+    await row.getByRole('button', { name: 'Action needed' }).click()
+    await expect(page.getByRole('tooltip')).toContainText(
+      'an enhanced DBS is required for this role',
+    )
     await expect(row).not.toContainText('12345678')
 
     const [payroll] =
-      await sql`select national_insurance_number, address_line_1, city, postcode from staff_payroll where staff_id = ${staffId}`
+      await sql`select job_role, date_of_birth::text, payroll_ref, national_insurance_number, address_line_1, city, postcode from staff_payroll where staff_id = ${staffId}`
     expect(payroll).toEqual({
+      job_role: 'teacher',
+      date_of_birth: '1985-04-12',
+      payroll_ref: 'PR-E2E',
       national_insurance_number: 'AB 12 34 56 C',
       address_line_1: '1 High Street',
       city: 'London',
@@ -81,4 +93,189 @@ test.describe('HR', () => {
       'password',
     )
   })
+
+  test('records a compliant volunteer on the Update Service', async ({
+    page,
+  }) => {
+    const today = isoToday()
+    const row = page.getByTestId(`payroll-row-${staffId}`)
+    await page.goto(`/hr/staff/${staffId}`)
+
+    await page.getByLabel('Role').selectOption('admin')
+    await page.getByLabel('Date of birth').fill('1970-01-31')
+    await page.getByLabel('Payment funding').selectOption('volunteer')
+    await page.getByLabel('ID verified', { exact: true }).check()
+    await page.getByLabel('ID type').selectOption('passport')
+    await page.getByLabel(/^ID verified on/).fill(today)
+    await page.getByLabel('Right to work checked', { exact: true }).check()
+    await page.getByLabel('Right to work checked on').fill(today)
+    await page.getByLabel('DBS verified', { exact: true }).check()
+    await page.getByLabel('DBS level').selectOption('enhanced')
+    await page.getByLabel('DBS certificate reference').fill('001234567890')
+    // Older than three years, but kept current by the Update Service
+    await page.getByLabel('DBS issue date').fill('2019-05-01')
+    await page.getByLabel('DBS verified on').fill(today)
+    await page.getByLabel('DBS renewal due').fill('2099-05-01')
+    await expect(
+      page.getByLabel('Update Service subscription number'),
+    ).toHaveCount(0)
+    await page.getByLabel('Enrolled in the DBS Update Service').check()
+    await page.getByLabel('Update Service subscription number').fill('C0001')
+    await page.getByRole('button', { name: 'Save payroll record' }).click()
+
+    await expect(page).toHaveURL('/hr')
+    await expect(
+      row.getByText('OK', { exact: true }).filter({ visible: true }),
+    ).toBeVisible()
+    await expect(row.getByRole('button')).toHaveCount(0)
+
+    const [payroll] = await sql`
+      select job_role, payment_funding, payroll_ref, dbs_update_service,
+             dbs_update_service_number, dbs_renewal_due::text
+      from staff_payroll where staff_id = ${staffId}`
+    expect(payroll).toEqual({
+      job_role: 'admin',
+      payment_funding: 'volunteer',
+      payroll_ref: null,
+      dbs_update_service: true,
+      dbs_update_service_number: 'C0001',
+      dbs_renewal_due: '2099-05-01',
+    })
+  })
+
+  test('requires a payroll reference unless the person volunteers', async ({
+    page,
+  }) => {
+    await page.goto(`/hr/staff/${staffId}`)
+    await page.getByLabel('Role').selectOption('committee')
+    await page.getByLabel('Date of birth').fill('1970-01-31')
+    await page.getByLabel('Payment funding').selectOption('school')
+    await page.getByRole('button', { name: 'Save payroll record' }).click()
+
+    const payrollRef = page.getByLabel('Payroll reference')
+    await expect(page).toHaveURL(`/hr/staff/${staffId}`)
+    expect(
+      await payrollRef.evaluate(
+        (el) => (el as HTMLInputElement).validity.valid,
+      ),
+    ).toBe(false)
+
+    await page.getByLabel('Payment funding').selectOption('volunteer')
+    await expect(payrollRef).not.toHaveAttribute('required')
+  })
+
+  test('explains why a status is not green', async ({ page }) => {
+    await insertPayroll(staffId, { ...COMPLIANT, dbs_level: 'basic' })
+    const row = page.getByTestId(`payroll-row-${staffId}`)
+    await loadWithFreshData(page, '/hr', async () => {
+      await expect(row.getByRole('button', { name: 'Warning' })).toBeVisible({
+        timeout: 3_000,
+      })
+    })
+
+    await row.getByRole('button', { name: 'Warning' }).click()
+    await expect(page.getByRole('tooltip')).toContainText(
+      'Basic DBS held; an enhanced DBS is required for this role',
+    )
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('tooltip')).toHaveCount(0)
+  })
+
+  test('flags a DBS not checked this school year', async ({ page }) => {
+    await insertPayroll(staffId, {
+      ...COMPLIANT,
+      dbs_verified_at: '2025-10-01',
+    })
+    const row = page.getByTestId(`payroll-row-${staffId}`)
+    await loadWithFreshData(page, '/hr', async () => {
+      await expect(row).toContainText('1 Oct 2025', { timeout: 3_000 })
+    })
+
+    await row.getByRole('button', { name: '1 Oct 2025' }).click()
+    await expect(page.getByRole('tooltip')).toContainText(
+      'DBS has not been verified this school year',
+    )
+  })
+
+  test('shows the compliance summary', async ({ page }) => {
+    await page.goto('/hr')
+    const summary = page.getByRole('region', { name: 'HR compliance' })
+    await expect(summary).toBeVisible()
+    await expect(summary).toContainText('First aiders')
+    await expect(summary).toContainText(/\d+ of 4/)
+    await expect(summary).toContainText('Fire wardens')
+    await expect(summary).toContainText(/\d+ of 2/)
+  })
+
+  test('shows Edit without scrolling on a phone', async ({
+    page,
+    isMobile,
+  }) => {
+    test.skip(!isMobile, 'Mobile layout only')
+    await insertPayroll(staffId, COMPLIANT)
+    // One unbroken long name must not widen the table for every row
+    const longNameEmail = staffEmail.replace('e2e.hr.', 'e2e.hr.long.')
+    await insertRow('staff', {
+      title: 'Mx',
+      first_name: 'Long',
+      last_name: `E2EHrLongName${'x'.repeat(60)}`,
+      email: longNameEmail,
+      role: 'teacher',
+    })
+    try {
+      await expectEditOnScreen(page, staffId)
+    } finally {
+      await deleteStaffByEmail(longNameEmail)
+    }
+  })
 })
+
+async function expectEditOnScreen(page: Page, staffId: string): Promise<void> {
+  const row = page.getByTestId(`payroll-row-${staffId}`)
+  await loadWithFreshData(page, '/hr', async () => {
+    await expect(row.getByRole('link', { name: 'Edit' })).toBeVisible({
+      timeout: 3_000,
+    })
+  })
+
+  // The row may sit below the fold; only the horizontal fit matters.
+  const box = await row.getByRole('link', { name: 'Edit' }).boundingBox()
+  const viewportWidth = page.viewportSize()?.width ?? 0
+  expect(box).not.toBeNull()
+  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(viewportWidth)
+  const overflow = await page.getByRole('table').evaluate((table) => {
+    const scroller = table.parentElement as HTMLElement
+    return scroller.scrollWidth - scroller.clientWidth
+  })
+  expect(overflow).toBeLessThanOrEqual(0)
+}
+
+function isoToday(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+}
+
+// Valid for a Teacher: enhanced DBS checked today, ID and right to work done.
+const COMPLIANT = {
+  payment_funding: 'school',
+  payroll_ref: 'PR-E2E',
+  job_role: 'teacher',
+  date_of_birth: '1985-04-12',
+  id_verified: true,
+  id_type: 'passport',
+  id_verified_at: '2026-09-01',
+  right_to_work_checked: true,
+  right_to_work_checked_at: '2026-09-01',
+  dbs_verified: true,
+  dbs_level: 'enhanced',
+  dbs_reference: 'DBS-E2E',
+  dbs_issue_date: '2025-06-01',
+  dbs_verified_at: isoToday(),
+  dbs_renewal_due: '2028-06-01',
+}
+
+async function insertPayroll(
+  staffId: string,
+  values: Record<string, unknown>,
+): Promise<void> {
+  await insertRow('staff_payroll', { staff_id: staffId, ...values })
+}

@@ -8,6 +8,7 @@ import {
   DBS_LEVEL_LABELS,
   DBS_RENEWAL_YEARS,
   ID_TYPE_LABELS,
+  JOB_ROLE_LABELS,
   PAYMENT_FUNDING_LABELS,
 } from '@/lib/compliance'
 import type { ActionResult } from '@/lib/action'
@@ -51,6 +52,12 @@ export default function StaffPayrollForm({
   const [dbsRenewalDue, setDbsRenewalDue] = useState(
     payroll?.dbs_renewal_due ?? '',
   )
+  const [paymentFunding, setPaymentFunding] = useState(
+    payroll?.payment_funding ?? '',
+  )
+  const [dbsUpdateService, setDbsUpdateService] = useState(
+    payroll?.dbs_update_service ?? false,
+  )
   // A ticked check makes its supporting details required, mirroring the
   // schema and the DB CHECK constraints so the browser catches gaps first.
   const [idVerified, setIdVerified] = useState(payroll?.id_verified ?? false)
@@ -87,31 +94,39 @@ export default function StaffPayrollForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <FormSection title="Payment">
-        <FormGrid>
-          <SelectField
-            label="Payment funding"
-            name="payment_funding"
-            required
-            defaultValue={payroll?.payment_funding}
-            placeholder="Select…"
-            options={optionsFromLabels(PAYMENT_FUNDING_LABELS)}
-            error={fieldError('payment_funding')}
-          />
-          <TextField
-            label="Payroll reference"
-            name="payroll_ref"
-            defaultValue={payroll?.payroll_ref}
-            error={fieldError('payroll_ref')}
-          />
-        </FormGrid>
-      </FormSection>
-
       <FormSection
-        title="Home address"
-        description="Optional. Line 1, city and postcode are needed once any part is entered."
+        title="Personal details"
+        description="The address is optional. Line 1, city and postcode are needed once any part of it is entered."
       >
         <FormGrid>
+          <SelectField
+            label="Role"
+            name="job_role"
+            required
+            defaultValue={payroll?.job_role}
+            placeholder="Select…"
+            options={optionsFromLabels(JOB_ROLE_LABELS)}
+            error={fieldError('job_role')}
+          />
+          <TextField
+            label="Date of birth"
+            name="date_of_birth"
+            type="date"
+            required
+            defaultValue={payroll?.date_of_birth}
+            autoComplete="bday"
+            error={fieldError('date_of_birth')}
+          />
+          <TextField
+            label="National Insurance number"
+            name="national_insurance_number"
+            defaultValue={payroll?.national_insurance_number}
+            maxLength={13}
+            autoComplete="off"
+            hint="For example AB 12 34 56 C."
+            error={fieldError('national_insurance_number')}
+          />
+          <div className="hidden sm:block" />
           <TextField
             label="Address line 1"
             name="address_line_1"
@@ -146,6 +161,29 @@ export default function StaffPayrollForm({
             onChange={(v) => setAddressPart('postcode', v)}
             autoComplete="postal-code"
             error={fieldError('postcode')}
+          />
+        </FormGrid>
+      </FormSection>
+
+      <FormSection title="Payment">
+        <FormGrid>
+          <SelectField
+            label="Payment funding"
+            name="payment_funding"
+            required
+            value={paymentFunding}
+            onChange={setPaymentFunding}
+            placeholder="Select…"
+            options={optionsFromLabels(PAYMENT_FUNDING_LABELS)}
+            error={fieldError('payment_funding')}
+          />
+          <TextField
+            label="Payroll reference"
+            name="payroll_ref"
+            required={paymentFunding !== 'volunteer'}
+            defaultValue={payroll?.payroll_ref}
+            hint="Not needed for volunteers."
+            error={fieldError('payroll_ref')}
           />
         </FormGrid>
       </FormSection>
@@ -217,15 +255,6 @@ export default function StaffPayrollForm({
             />
           </div>
           <TextField
-            label="National Insurance number"
-            name="national_insurance_number"
-            defaultValue={payroll?.national_insurance_number}
-            maxLength={13}
-            autoComplete="off"
-            hint="For example AB 12 34 56 C."
-            error={fieldError('national_insurance_number')}
-          />
-          <TextField
             label="Right to work checked on"
             name="right_to_work_checked_at"
             type="date"
@@ -289,16 +318,23 @@ export default function StaffPayrollForm({
             hint={`Defaults to ${DBS_RENEWAL_YEARS} years after the issue date.`}
             error={fieldError('dbs_renewal_due')}
           />
-          <CheckboxField
-            label="Barred list checked"
-            name="dbs_barred_list_checked"
-            defaultChecked={payroll?.dbs_barred_list_checked ?? false}
-          />
-          <CheckboxField
-            label="Enrolled in the DBS Update Service"
-            name="dbs_update_service"
-            defaultChecked={payroll?.dbs_update_service ?? false}
-          />
+          <div className="sm:col-span-2">
+            <CheckboxField
+              label="Enrolled in the DBS Update Service"
+              name="dbs_update_service"
+              checked={dbsUpdateService}
+              onChange={setDbsUpdateService}
+            />
+          </div>
+          {dbsUpdateService && (
+            <TextField
+              label="Update Service subscription number"
+              name="dbs_update_service_number"
+              required
+              defaultValue={payroll?.dbs_update_service_number}
+              error={fieldError('dbs_update_service_number')}
+            />
+          )}
         </FormGrid>
       </FormSection>
 

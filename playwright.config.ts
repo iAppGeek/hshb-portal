@@ -103,6 +103,8 @@ export default defineConfig({
       name: 'global',
       testMatch: 'global/**/*.e2e.ts',
       testIgnore: [],
+      // One file at a time: each one changes state the others read.
+      workers: 1,
       dependencies: [
         'desktop:admin',
         'desktop:teacher',

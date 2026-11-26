@@ -1,0 +1,1 @@
+ALTER TABLE "staff_payroll" DROP COLUMN "dbs_barred_list_checked";
