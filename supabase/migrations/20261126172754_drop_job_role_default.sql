@@ -1,0 +1,1 @@
+ALTER TABLE "staff_payroll" ALTER COLUMN "job_role" DROP DEFAULT;

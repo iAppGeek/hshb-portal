@@ -98,7 +98,9 @@ describe('StaffPayrollForm', () => {
     expect(input('ID verified').checked).toBe(true)
     expect(screen.getByText('Verified by Ann Admin')).toBeTruthy()
     expect(screen.getByText('Verified by Bob Admin')).toBeTruthy()
-    expect(input('DBS renewal due').value).toBe('2027-06-01')
+    // On the Update Service the date is the subscription's renewal
+    expect(input('Update Service renews on').value).toBe('2027-06-01')
+    expect(input('Update Service renews on').required).toBe(true)
     expect(input('First aid expiry date').value).toBe('2027-01-01')
   })
 
@@ -187,6 +189,46 @@ describe('StaffPayrollForm', () => {
     expect(input('Payroll reference').required).toBe(false)
     fireEvent.change(input('Payment funding'), { target: { value: 'kea' } })
     expect(input('Payroll reference').required).toBe(true)
+  })
+
+  it('swaps the three-year default for the subscription renewal date on the Update Service', () => {
+    renderForm()
+
+    fireEvent.change(input('DBS issue date'), {
+      target: { value: '2026-03-01' },
+    })
+    expect(input('DBS renewal due').value).toBe('2029-03-01')
+    expect(input('DBS renewal due').required).toBe(false)
+
+    fireEvent.click(input('Enrolled in the DBS Update Service'))
+    const renews = input('Update Service renews on')
+    expect(renews.value).toBe('')
+    expect(renews.required).toBe(true)
+    expect(
+      screen.getByText('The date the Update Service subscription runs to.'),
+    ).toBeTruthy()
+
+    // The issue date no longer fills it in
+    fireEvent.change(input('DBS issue date'), {
+      target: { value: '2026-04-01' },
+    })
+    expect(input('Update Service renews on').value).toBe('')
+
+    fireEvent.click(input('Enrolled in the DBS Update Service'))
+    expect(input('DBS renewal due').value).toBe('2029-04-01')
+  })
+
+  it('keeps a renewal date the admin entered when the Update Service is ticked', () => {
+    renderForm()
+
+    fireEvent.change(input('DBS issue date'), {
+      target: { value: '2026-03-01' },
+    })
+    fireEvent.change(input('DBS renewal due'), {
+      target: { value: '2027-01-01' },
+    })
+    fireEvent.click(input('Enrolled in the DBS Update Service'))
+    expect(input('Update Service renews on').value).toBe('2027-01-01')
   })
 
   it('asks for the subscription number while on the Update Service', () => {

@@ -3,13 +3,12 @@ import Link from 'next/link'
 import ComplianceSummaryCard from '@/components/ComplianceSummaryCard'
 import SimpleGrid from '@/components/grid/SimpleGrid'
 import StatusBadge from '@/components/StatusBadge'
-import type { StaffPayrollRow } from '@/db'
-import { expiryState } from '@/lib/compliance'
 import { formatCalendarDate, todayInSchoolTz } from '@/lib/datetime'
 import type { GridColumn } from '@/lib/grid/columns'
 import { rowLink } from '@/lib/grid/styles'
 import {
   dbsCheckedStatus,
+  hasLapsedCertificate,
   NO_CURRENT_YEAR_MESSAGE,
   STATUS_LABELS,
   staffComplianceStatus,
@@ -26,17 +25,6 @@ function formatDate(date: string): string {
     month: 'short',
     year: 'numeric',
   })
-}
-
-function hasLapsed(payroll: StaffPayrollRow, today: string): boolean {
-  return (
-    (payroll.dbs_verified &&
-      expiryState(payroll.dbs_renewal_due, today) === 'expired') ||
-    (payroll.first_aid_certified &&
-      expiryState(payroll.first_aid_expiry_date, today) === 'expired') ||
-    (payroll.fire_warden_certified &&
-      expiryState(payroll.fire_warden_expiry_date, today) === 'expired')
-  )
 }
 
 export default async function StaffPayrollList(): Promise<React.ReactElement> {
@@ -145,7 +133,7 @@ export default async function StaffPayrollList(): Promise<React.ReactElement> {
           ],
         }}
         rowClassName={(member) =>
-          member.payroll && hasLapsed(member.payroll, today)
+          member.payroll && hasLapsedCertificate(member.payroll, today)
             ? 'bg-red-50'
             : undefined
         }

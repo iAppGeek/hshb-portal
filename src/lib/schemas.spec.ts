@@ -1787,16 +1787,30 @@ describe('staffPayrollSchema', () => {
     expect(result.payroll_ref).toBeNull()
   })
 
-  it('requires the subscription number on the Update Service', () => {
+  it('requires the subscription number and renewal date on the Update Service', () => {
     expect(messages({ ...blank, dbs_update_service: 'on' })).toEqual([
       'Enter the Update Service subscription number',
+      'Enter the date the Update Service subscription renews',
     ])
     const result = staffPayrollSchema.parse({
       ...blank,
       dbs_update_service: 'on',
       dbs_update_service_number: ' C001234567 ',
+      dbs_renewal_due: '2027-03-01',
     })
     expect(result.dbs_update_service_number).toBe('C001234567')
+    expect(result.dbs_renewal_due).toBe('2027-03-01')
+  })
+
+  it('does not default the renewal date on the Update Service', () => {
+    expect(
+      messages({
+        ...blank,
+        dbs_update_service: 'on',
+        dbs_update_service_number: 'C0001',
+        dbs_issue_date: '2025-09-01',
+      }),
+    ).toEqual(['Enter the date the Update Service subscription renews'])
   })
 
   it('accepts a form with no subscription number field', () => {
@@ -1804,9 +1818,13 @@ describe('staffPayrollSchema', () => {
     expect(
       staffPayrollSchema.parse(withoutField).dbs_update_service_number,
     ).toBeNull()
-    expect(messages({ ...withoutField, dbs_update_service: 'on' })).toEqual([
-      'Enter the Update Service subscription number',
-    ])
+    expect(
+      messages({
+        ...withoutField,
+        dbs_update_service: 'on',
+        dbs_renewal_due: '2027-03-01',
+      }),
+    ).toEqual(['Enter the Update Service subscription number'])
   })
 
   it('drops the subscription number when not on the Update Service', () => {

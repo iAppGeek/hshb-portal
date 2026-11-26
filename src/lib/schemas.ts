@@ -610,6 +610,11 @@ export const staffPayrollSchema = z
         'dbs_update_service_number',
         'Enter the Update Service subscription number',
       ],
+      [
+        d.dbs_renewal_due,
+        'dbs_renewal_due',
+        'Enter the date the Update Service subscription renews',
+      ],
     ])
     const hasAnyBank = Boolean(
       d.bank_account_name || d.bank_sort_code || d.bank_account_number,
@@ -693,9 +698,12 @@ export const staffPayrollSchema = z
   })
   .transform((d) => ({
     ...d,
+    // Only a certificate's renewal is defaulted; a subscription's is entered.
     dbs_renewal_due:
       d.dbs_renewal_due ??
-      (d.dbs_issue_date ? addYears(d.dbs_issue_date, DBS_RENEWAL_YEARS) : null),
+      (d.dbs_issue_date && !d.dbs_update_service
+        ? addYears(d.dbs_issue_date, DBS_RENEWAL_YEARS)
+        : null),
     dbs_update_service_number: d.dbs_update_service
       ? (d.dbs_update_service_number ?? null)
       : null,

@@ -115,11 +115,16 @@ test.describe('HR', () => {
     // Older than three years, but kept current by the Update Service
     await page.getByLabel('DBS issue date').fill('2019-05-01')
     await page.getByLabel('DBS verified on').fill(today)
-    await page.getByLabel('DBS renewal due').fill('2099-05-01')
+    // Off the Update Service the renewal defaults to three years after issue
+    await expect(page.getByLabel(/^DBS renewal due/)).toHaveValue('2022-05-01')
     await expect(
       page.getByLabel('Update Service subscription number'),
     ).toHaveCount(0)
     await page.getByLabel('Enrolled in the DBS Update Service').check()
+    // On it, that guess is cleared and the subscription's date is asked for
+    const renews = page.getByLabel(/^Update Service renews on/)
+    await expect(renews).toHaveValue('')
+    await renews.fill('2099-05-01')
     await page.getByLabel('Update Service subscription number').fill('C0001')
     await page.getByRole('button', { name: 'Save payroll record' }).click()
 
@@ -195,6 +200,30 @@ test.describe('HR', () => {
     await expect(page.getByRole('tooltip')).toContainText(
       'DBS has not been verified this school year',
     )
+  })
+
+  test('only highlights a row when the DBS has lapsed under the status rules', async ({
+    page,
+  }) => {
+    // Issued within three years, so a passed renewal date off the Update
+    // Service does not make it lapse.
+    await insertPayroll(staffId, {
+      ...COMPLIANT,
+      dbs_renewal_due: '2025-01-01',
+    })
+    const row = page.getByTestId(`payroll-row-${staffId}`)
+    await loadWithFreshData(page, '/hr', async () => {
+      await expect(row).toContainText('OK', { timeout: 3_000 })
+    })
+    await expect(row).not.toHaveClass(/bg-red-50/)
+
+    await sql`update staff_payroll set dbs_update_service = true,
+      dbs_update_service_number = 'C0001' where staff_id = ${staffId}`
+    await page.reload()
+    await expect(row).toHaveClass(/bg-red-50/)
+    await expect(
+      row.getByRole('button', { name: 'Action needed' }),
+    ).toBeVisible()
   })
 
   test('shows the compliance summary', async ({ page }) => {

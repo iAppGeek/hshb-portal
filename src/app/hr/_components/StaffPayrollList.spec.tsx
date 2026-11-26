@@ -253,15 +253,53 @@ describe('StaffPayrollList', () => {
     expect(screen.queryByRole('alert')).toBeNull()
   })
 
-  it('highlights a row with a lapsed DBS renewal', async () => {
+  it('highlights a row whose Update Service subscription has lapsed', async () => {
     vi.mocked(getStaffPayrollList).mockResolvedValue([
-      member(makePayroll({ ...compliant, dbs_renewal_due: '2026-09-01' })),
+      member(
+        makePayroll({
+          ...compliant,
+          dbs_update_service: true,
+          dbs_update_service_number: 'C0001',
+          dbs_renewal_due: '2026-09-01',
+        }),
+      ),
     ])
     render(await StaffPayrollList())
 
     expect(screen.getByTestId('payroll-row-s1').className).toContain(
       'bg-red-50',
     )
+  })
+
+  it('matches the row highlight to the status for a certificate DBS', async () => {
+    vi.mocked(getStaffPayrollList).mockResolvedValue([
+      // A passed renewal date is ignored off the Update Service
+      member(
+        makePayroll({ ...compliant, dbs_renewal_due: '2026-09-01' }),
+        's1',
+      ),
+      // Over three years old, whatever the renewal date says
+      member(
+        makePayroll({
+          ...compliant,
+          dbs_issue_date: '2023-06-01',
+          dbs_renewal_due: '2030-01-01',
+        }),
+        's2',
+      ),
+    ])
+    render(await StaffPayrollList())
+
+    expect(screen.getByTestId('payroll-row-s1').className).not.toContain(
+      'bg-red-50',
+    )
+    expect(cell('status', 's1').getByText('OK')).toBeTruthy()
+    expect(screen.getByTestId('payroll-row-s2').className).toContain(
+      'bg-red-50',
+    )
+    expect(
+      cell('status', 's2').getByRole('button', { name: 'Action needed' }),
+    ).toBeTruthy()
   })
 
   it('highlights a row with an expired first aid or fire warden certificate', async () => {

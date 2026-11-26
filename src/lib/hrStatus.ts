@@ -146,22 +146,40 @@ function dbsValidityIssues(
   const issues: string[] = []
   const checked = dbsCheckedStatus(record, year)
   issues.push(...checked.reasons)
-  const expiry = dbsExpiryDate(record)
-  if (record.dbs_update_service) {
-    // Valid through the subscription's last day, red the day after. A check
-    // made after the subscription lapsed is caught here too, since it was
-    // verified on or before today.
-    if (expiry && expiry < today) {
-      issues.push(
-        `Update Service subscription expired on ${formatDate(expiry)}`,
-      )
-    }
-  } else if (expiry && expiry <= today) {
+  if (isDbsExpired(record, today)) {
+    const expiry = dbsExpiryDate(record) ?? ''
     issues.push(
-      `DBS was issued more than ${DBS_RENEWAL_YEARS} years ago and is not on the Update Service`,
+      record.dbs_update_service
+        ? `Update Service subscription expired on ${formatDate(expiry)}`
+        : `DBS was issued more than ${DBS_RENEWAL_YEARS} years ago and is not on the Update Service`,
     )
   }
   return issues
+}
+
+/**
+ * Whether the DBS has stopped counting: the Update Service is valid through
+ * its renewal date (a check made after it lapsed is caught too, since it was
+ * verified on or before today); a certificate stops on its third anniversary.
+ */
+export function isDbsExpired(record: ComplianceRecord, today: string): boolean {
+  const expiry = dbsExpiryDate(record)
+  if (!expiry) return false
+  return record.dbs_update_service ? expiry < today : expiry <= today
+}
+
+/** Highlights a row whose DBS, first aid or fire warden certificate lapsed. */
+export function hasLapsedCertificate(
+  record: ComplianceRecord,
+  today: string,
+): boolean {
+  return (
+    (record.dbs_verified && isDbsExpired(record, today)) ||
+    (record.first_aid_certified &&
+      expiryState(record.first_aid_expiry_date, today) === 'expired') ||
+    (record.fire_warden_certified &&
+      expiryState(record.fire_warden_expiry_date, today) === 'expired')
+  )
 }
 
 function dbsIssues(

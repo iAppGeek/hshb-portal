@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { afterAll, describe, expect, it } from 'vitest'
 
 import { asDbError } from '@/lib/db-error'
@@ -43,6 +43,7 @@ describe('staff payroll', () => {
 
   it('creates a record, then updates it in place', async () => {
     const created = await upsertStaffPayroll(SEED.staff.secretary, {
+      job_role: 'teacher',
       payment_funding: 'kea',
       bank_sort_code: '112233',
       bank_account_number: '12345678',
@@ -55,6 +56,7 @@ describe('staff payroll', () => {
     })
 
     const updated = await upsertStaffPayroll(SEED.staff.secretary, {
+      job_role: 'teacher',
       payment_funding: 'school',
       id_verified: true,
       id_verified_at: '2026-09-10',
@@ -72,6 +74,7 @@ describe('staff payroll', () => {
 
   it('enforces the CHECK constraints', async () => {
     const err = await upsertStaffPayroll(SEED.staff.secretary, {
+      job_role: 'teacher',
       payment_funding: 'school',
       bank_sort_code: '12-34-56',
     }).catch((e: unknown) => e)
@@ -83,6 +86,7 @@ describe('staff payroll', () => {
 
   it('stores the NI number and home address', async () => {
     await upsertStaffPayroll(SEED.staff.secretary, {
+      job_role: 'teacher',
       payment_funding: 'school',
       national_insurance_number: 'QQ123456C',
       address_line_1: '1 High Street',
@@ -101,6 +105,7 @@ describe('staff payroll', () => {
 
   it('rejects a partial address', async () => {
     const err = await upsertStaffPayroll(SEED.staff.secretary, {
+      job_role: 'teacher',
       payment_funding: 'school',
       address_line_1: '1 High Street',
       city: null,
@@ -112,12 +117,22 @@ describe('staff payroll', () => {
     })
   })
 
-  it('stores the role, date of birth and Update Service number, defaulting the role', async () => {
+  it('requires a role, with no default to fall back on', async () => {
     await db
       .delete(staffPayroll)
       .where(eq(staffPayroll.staffId, SEED.staff.secretary))
+    const err = await db
+      .execute(
+        sql`insert into staff_payroll (staff_id, payment_funding) values (${SEED.staff.secretary}, 'volunteer')`,
+      )
+      .catch((e: unknown) => e)
+    expect(asDbError(err)).toMatchObject({ code: '23502' })
+  })
+
+  it('stores the role, date of birth and Update Service number', async () => {
     const created = await upsertStaffPayroll(SEED.staff.secretary, {
       payment_funding: 'volunteer',
+      job_role: 'admin_assistant',
     })
     expect(created).toMatchObject({
       job_role: 'admin_assistant',
@@ -148,6 +163,7 @@ describe('staff payroll', () => {
     [{ payment_funding: 'grant' }, 'staff_payroll_payment_funding_check'],
   ])('rejects %o', async (values, constraint) => {
     const err = await upsertStaffPayroll(SEED.staff.secretary, {
+      job_role: 'teacher',
       payment_funding: 'school',
       ...values,
     }).catch((e: unknown) => e)

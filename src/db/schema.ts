@@ -783,7 +783,7 @@ export const staffPayroll = pgTable(
     id: uuid().defaultRandom().primaryKey(),
     staffId: uuid().notNull(),
     paymentFunding: text().notNull(),
-    jobRole: text().default('admin_assistant').notNull(),
+    jobRole: text().notNull(),
     dateOfBirth: date(),
     bankAccountName: text(),
     bankSortCode: text(),

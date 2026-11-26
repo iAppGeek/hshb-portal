@@ -5,6 +5,8 @@ import {
   coverStatus,
   dbsCheckedStatus,
   dbsExpiryDate,
+  hasLapsedCertificate,
+  isDbsExpired,
   isRegulatedRole,
   isValidFireWarden,
   isValidFirstAider,
@@ -101,6 +103,106 @@ describe('dbsExpiryDate', () => {
 
   it('is null without an issue date when not on the Update Service', () => {
     expect(dbsExpiryDate(makeRecord({ dbs_issue_date: null }))).toBeNull()
+  })
+})
+
+describe('isDbsExpired', () => {
+  it('expires a certificate on its third anniversary', () => {
+    expect(
+      isDbsExpired(makeRecord({ dbs_issue_date: '2023-11-27' }), TODAY),
+    ).toBe(false)
+    expect(
+      isDbsExpired(makeRecord({ dbs_issue_date: '2023-11-26' }), TODAY),
+    ).toBe(true)
+  })
+
+  it('keeps the Update Service valid through its renewal date', () => {
+    const onUpdateService = { dbs_update_service: true }
+    expect(
+      isDbsExpired(
+        makeRecord({ ...onUpdateService, dbs_renewal_due: TODAY }),
+        TODAY,
+      ),
+    ).toBe(false)
+    expect(
+      isDbsExpired(
+        makeRecord({ ...onUpdateService, dbs_renewal_due: '2026-11-25' }),
+        TODAY,
+      ),
+    ).toBe(true)
+    expect(isDbsExpired(makeRecord(onUpdateService), TODAY)).toBe(false)
+  })
+})
+
+describe('hasLapsedCertificate', () => {
+  it('ignores a passed renewal date when not on the Update Service', () => {
+    const record = makeRecord({
+      dbs_issue_date: '2024-06-01',
+      dbs_renewal_due: '2025-01-01',
+    })
+    expect(hasLapsedCertificate(record, TODAY)).toBe(false)
+    expect(staffComplianceStatus(record, YEAR, TODAY).level).toBe('ok')
+  })
+
+  it('flags a certificate over three years old despite a later renewal date', () => {
+    const record = makeRecord({
+      dbs_issue_date: '2022-06-01',
+      dbs_renewal_due: '2030-01-01',
+    })
+    expect(hasLapsedCertificate(record, TODAY)).toBe(true)
+    expect(staffComplianceStatus(record, YEAR, TODAY).level).toBe('error')
+  })
+
+  it('flags a lapsed Update Service subscription', () => {
+    expect(
+      hasLapsedCertificate(
+        makeRecord({ dbs_update_service: true, dbs_renewal_due: '2026-10-01' }),
+        TODAY,
+      ),
+    ).toBe(true)
+  })
+
+  it('ignores an expired DBS that was never verified', () => {
+    expect(
+      hasLapsedCertificate(
+        makeRecord({ dbs_verified: false, dbs_issue_date: '2020-01-01' }),
+        TODAY,
+      ),
+    ).toBe(false)
+  })
+
+  it('flags an expired first aid or fire warden certificate', () => {
+    expect(
+      hasLapsedCertificate(
+        makeRecord({
+          first_aid_certified: true,
+          first_aid_expiry_date: '2026-01-01',
+        }),
+        TODAY,
+      ),
+    ).toBe(true)
+    expect(
+      hasLapsedCertificate(
+        makeRecord({
+          fire_warden_certified: true,
+          fire_warden_expiry_date: '2026-01-01',
+        }),
+        TODAY,
+      ),
+    ).toBe(true)
+    expect(
+      hasLapsedCertificate(
+        makeRecord({
+          first_aid_certified: true,
+          first_aid_expiry_date: '2027-01-01',
+        }),
+        TODAY,
+      ),
+    ).toBe(false)
+  })
+
+  it('is false for a compliant record', () => {
+    expect(hasLapsedCertificate(makeRecord(), TODAY)).toBe(false)
   })
 })
 

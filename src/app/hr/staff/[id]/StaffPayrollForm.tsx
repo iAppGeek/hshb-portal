@@ -87,8 +87,27 @@ export default function StaffPayrollForm({
       : ''
     setDbsIssueDate(value)
     // Follow the issue date until the admin picks a renewal date of their own.
-    if (value && (!dbsRenewalDue || dbsRenewalDue === previousDefault)) {
+    // On the Update Service the date is the subscription's, so never guess it.
+    if (
+      !dbsUpdateService &&
+      value &&
+      (!dbsRenewalDue || dbsRenewalDue === previousDefault)
+    ) {
       setDbsRenewalDue(addYears(value, DBS_RENEWAL_YEARS))
+    }
+  }
+
+  function handleDbsUpdateServiceChange(checked: boolean): void {
+    setDbsUpdateService(checked)
+    const issueDefault = dbsIssueDate
+      ? addYears(dbsIssueDate, DBS_RENEWAL_YEARS)
+      : ''
+    // The three-year default is wrong for a subscription, so clear it and
+    // ask for the real renewal date; put it back if the box is unticked.
+    if (checked && dbsRenewalDue === issueDefault) {
+      setDbsRenewalDue('')
+    } else if (!checked && !dbsRenewalDue && issueDefault) {
+      setDbsRenewalDue(issueDefault)
     }
   }
 
@@ -310,12 +329,19 @@ export default function StaffPayrollForm({
             error={fieldError('dbs_verified_at')}
           />
           <TextField
-            label="DBS renewal due"
+            label={
+              dbsUpdateService ? 'Update Service renews on' : 'DBS renewal due'
+            }
             name="dbs_renewal_due"
             type="date"
+            required={dbsUpdateService}
             value={dbsRenewalDue}
             onChange={setDbsRenewalDue}
-            hint={`Defaults to ${DBS_RENEWAL_YEARS} years after the issue date.`}
+            hint={
+              dbsUpdateService
+                ? 'The date the Update Service subscription runs to.'
+                : `Defaults to ${DBS_RENEWAL_YEARS} years after the issue date.`
+            }
             error={fieldError('dbs_renewal_due')}
           />
           <div className="sm:col-span-2">
@@ -323,7 +349,7 @@ export default function StaffPayrollForm({
               label="Enrolled in the DBS Update Service"
               name="dbs_update_service"
               checked={dbsUpdateService}
-              onChange={setDbsUpdateService}
+              onChange={handleDbsUpdateServiceChange}
             />
           </div>
           {dbsUpdateService && (
