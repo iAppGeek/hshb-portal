@@ -103,6 +103,9 @@ test.describe('HR', () => {
 
     await page.getByLabel('Role').selectOption('admin')
     await page.getByLabel('Date of birth').fill('1970-01-31')
+    await page.getByLabel('Address line 1').fill('2 Low Road')
+    await page.getByLabel('City').fill('Leeds')
+    await page.getByLabel('Postcode').fill('LS1 1AA')
     await page.getByLabel('Payment funding').selectOption('volunteer')
     await page.getByLabel('ID verified', { exact: true }).check()
     await page.getByLabel('ID type').selectOption('passport')
@@ -154,6 +157,9 @@ test.describe('HR', () => {
     await page.goto(`/hr/staff/${staffId}`)
     await page.getByLabel('Role').selectOption('committee')
     await page.getByLabel('Date of birth').fill('1970-01-31')
+    await page.getByLabel('Address line 1').fill('2 Low Road')
+    await page.getByLabel('City').fill('Leeds')
+    await page.getByLabel('Postcode').fill('LS1 1AA')
     await page.getByLabel('Payment funding').selectOption('school')
     await page.getByRole('button', { name: 'Save payroll record' }).click()
 
@@ -186,6 +192,24 @@ test.describe('HR', () => {
     await expect(page.getByRole('tooltip')).toHaveCount(0)
   })
 
+  test('warns when no address is recorded', async ({ page }) => {
+    await insertPayroll(staffId, {
+      ...COMPLIANT,
+      address_line_1: null,
+      city: null,
+      postcode: null,
+    })
+    const row = page.getByTestId(`payroll-row-${staffId}`)
+    await loadWithFreshData(page, '/hr', async () => {
+      await expect(row.getByRole('button', { name: 'Warning' })).toBeVisible({
+        timeout: 3_000,
+      })
+    })
+
+    await row.getByRole('button', { name: 'Warning' }).click()
+    await expect(page.getByRole('tooltip')).toHaveText(/No address recorded/)
+  })
+
   test('flags a DBS not checked this school year', async ({ page }) => {
     await insertPayroll(staffId, {
       ...COMPLIANT,
@@ -202,7 +226,7 @@ test.describe('HR', () => {
     )
   })
 
-  test('only highlights a row when the DBS has lapsed under the status rules', async ({
+  test('ignores a passed renewal date, on or off the Update Service', async ({
     page,
   }) => {
     // Issued within three years, so a passed renewal date off the Update
@@ -217,10 +241,27 @@ test.describe('HR', () => {
     })
     await expect(row).not.toHaveClass(/bg-red-50/)
 
+    // On the Update Service only this school year's check matters.
     await sql`update staff_payroll set dbs_update_service = true,
       dbs_update_service_number = 'C0001' where staff_id = ${staffId}`
     await page.reload()
-    await expect(row).toHaveClass(/bg-red-50/)
+    await expect(
+      row.getByText('OK', { exact: true }).filter({ visible: true }),
+    ).toBeVisible()
+    await expect(row).not.toHaveClass(/bg-red-50/)
+  })
+
+  test('highlights a certificate DBS over three years old', async ({
+    page,
+  }) => {
+    await insertPayroll(staffId, {
+      ...COMPLIANT,
+      dbs_issue_date: '2020-01-01',
+    })
+    const row = page.getByTestId(`payroll-row-${staffId}`)
+    await loadWithFreshData(page, '/hr', async () => {
+      await expect(row).toHaveClass(/bg-red-50/, { timeout: 3_000 })
+    })
     await expect(
       row.getByRole('button', { name: 'Action needed' }),
     ).toBeVisible()
@@ -289,6 +330,9 @@ const COMPLIANT = {
   payroll_ref: 'PR-E2E',
   job_role: 'teacher',
   date_of_birth: '1985-04-12',
+  address_line_1: '1 High Street',
+  city: 'London',
+  postcode: 'N1 1AA',
   id_verified: true,
   id_type: 'passport',
   id_verified_at: '2026-09-01',

@@ -27,6 +27,8 @@ export type SchoolYear = { start_date: string; end_date: string }
 /** The payroll fields the rules read; a full payroll row satisfies it. */
 export type ComplianceRecord = {
   job_role: string
+  /** The database stores line 1, city and postcode together or not at all. */
+  address_line_1: string | null
   id_verified: boolean
   right_to_work_checked: boolean
   dbs_verified: boolean
@@ -35,7 +37,7 @@ export type ComplianceRecord = {
   dbs_reference: string | null
   dbs_issue_date: string | null
   dbs_verified_at: string | null
-  /** On the Update Service, the subscription's expiry; otherwise unused. */
+  /** Recorded for reference; the status rules do not read it. */
   dbs_renewal_due: string | null
   first_aid_certified: boolean
   first_aid_expiry_date: string | null
@@ -95,13 +97,11 @@ function inYear(date: string | null, year: SchoolYear | null): boolean {
 }
 
 /**
- * The last day the DBS counts. On the Update Service it is the subscription
- * expiry (the renewal due date), whatever the certificate's age; otherwise it
- * is three years after issue.
+ * The day a certificate DBS stops counting: three years after issue. On the
+ * Update Service it has none; only the check this school year matters.
  */
 export function dbsExpiryDate(record: ComplianceRecord): string | null {
-  if (record.dbs_update_service) return record.dbs_renewal_due
-  if (!record.dbs_issue_date) return null
+  if (record.dbs_update_service || !record.dbs_issue_date) return null
   return addYears(record.dbs_issue_date, DBS_RENEWAL_YEARS)
 }
 
@@ -134,9 +134,9 @@ export function dbsCheckedStatus(
 }
 
 /**
- * Whether the DBS counts: verified this school year, and either issued within
- * the last three years or kept current by the Update Service. Returns the
- * reasons it does not.
+ * Whether the DBS counts: verified this school year, and either on the Update
+ * Service or issued within the last three years. Returns the reasons it does
+ * not.
  */
 function dbsValidityIssues(
   record: ComplianceRecord,
@@ -147,25 +147,20 @@ function dbsValidityIssues(
   const checked = dbsCheckedStatus(record, year)
   issues.push(...checked.reasons)
   if (isDbsExpired(record, today)) {
-    const expiry = dbsExpiryDate(record) ?? ''
     issues.push(
-      record.dbs_update_service
-        ? `Update Service subscription expired on ${formatDate(expiry)}`
-        : `DBS was issued more than ${DBS_RENEWAL_YEARS} years ago and is not on the Update Service`,
+      `DBS was issued more than ${DBS_RENEWAL_YEARS} years ago and is not on the Update Service`,
     )
   }
   return issues
 }
 
 /**
- * Whether the DBS has stopped counting: the Update Service is valid through
- * its renewal date (a check made after it lapsed is caught too, since it was
- * verified on or before today); a certificate stops on its third anniversary.
+ * Whether a certificate DBS has reached its third anniversary. Never true on
+ * the Update Service.
  */
 export function isDbsExpired(record: ComplianceRecord, today: string): boolean {
   const expiry = dbsExpiryDate(record)
-  if (!expiry) return false
-  return record.dbs_update_service ? expiry < today : expiry <= today
+  return expiry !== null && expiry <= today
 }
 
 /** Highlights a row whose DBS, first aid or fire warden certificate lapsed. */
@@ -212,14 +207,9 @@ function dbsIssues(
       'Basic DBS held; an enhanced DBS is required for this role',
     ])
   }
-  // The Update Service stays green until its expiry passes; only a
-  // certificate's three-year lapse is warned about in advance.
+  // Only a certificate DBS lapses, so only it is warned about in advance.
   const expiry = dbsExpiryDate(record)
-  if (
-    !record.dbs_update_service &&
-    expiry &&
-    expiryState(expiry, today) === 'expiring'
-  ) {
+  if (expiry && expiryState(expiry, today) === 'expiring') {
     issues.push([
       'warning',
       `DBS lapses on ${formatDate(expiry)} (within ${EXPIRY_WARNING_DAYS} days)`,
@@ -244,6 +234,9 @@ export function staffComplianceStatus(
     if (!record.right_to_work_checked) {
       issues.push(['error', 'Right to work has not been checked'])
     }
+  }
+  if (!record.address_line_1) {
+    issues.push(['warning', 'No address recorded'])
   }
   return statusFrom(issues)
 }

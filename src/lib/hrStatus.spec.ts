@@ -25,6 +25,7 @@ function makeRecord(
 ): ComplianceRecord {
   return {
     job_role: 'teacher',
+    address_line_1: '1 High Street',
     id_verified: true,
     right_to_work_checked: true,
     dbs_verified: true,
@@ -81,13 +82,16 @@ describe('dbsExpiryDate', () => {
     )
   })
 
-  it('is the subscription expiry on the Update Service', () => {
+  it('is null on the Update Service, whatever the dates', () => {
     expect(
       dbsExpiryDate(
-        makeRecord({ dbs_update_service: true, dbs_renewal_due: '2027-02-01' }),
+        makeRecord({
+          dbs_update_service: true,
+          dbs_issue_date: '2015-01-01',
+          dbs_renewal_due: '2025-02-01',
+        }),
       ),
-    ).toBe('2027-02-01')
-    expect(dbsExpiryDate(makeRecord({ dbs_update_service: true }))).toBeNull()
+    ).toBeNull()
   })
 
   it('ignores the renewal due date when not on the Update Service', () => {
@@ -116,21 +120,17 @@ describe('isDbsExpired', () => {
     ).toBe(true)
   })
 
-  it('keeps the Update Service valid through its renewal date', () => {
-    const onUpdateService = { dbs_update_service: true }
+  it('never expires on the Update Service', () => {
     expect(
       isDbsExpired(
-        makeRecord({ ...onUpdateService, dbs_renewal_due: TODAY }),
+        makeRecord({
+          dbs_update_service: true,
+          dbs_issue_date: '2015-01-01',
+          dbs_renewal_due: '2026-11-25',
+        }),
         TODAY,
       ),
     ).toBe(false)
-    expect(
-      isDbsExpired(
-        makeRecord({ ...onUpdateService, dbs_renewal_due: '2026-11-25' }),
-        TODAY,
-      ),
-    ).toBe(true)
-    expect(isDbsExpired(makeRecord(onUpdateService), TODAY)).toBe(false)
   })
 })
 
@@ -153,13 +153,13 @@ describe('hasLapsedCertificate', () => {
     expect(staffComplianceStatus(record, YEAR, TODAY).level).toBe('error')
   })
 
-  it('flags a lapsed Update Service subscription', () => {
+  it('ignores a passed renewal date on the Update Service', () => {
     expect(
       hasLapsedCertificate(
         makeRecord({ dbs_update_service: true, dbs_renewal_due: '2026-10-01' }),
         TODAY,
       ),
-    ).toBe(true)
+    ).toBe(false)
   })
 
   it('ignores an expired DBS that was never verified', () => {
@@ -275,67 +275,41 @@ describe('staffComplianceStatus', () => {
       expect(staffComplianceStatus(record, YEAR, TODAY).level).toBe('ok')
     })
 
-    describe('on the Update Service with a subscription expiry', () => {
+    describe('on the Update Service', () => {
       const onUpdateService = {
         dbs_update_service: true,
         dbs_issue_date: '2015-01-01',
       }
 
-      it('is ok when the subscription expires later this school year', () => {
+      it.each([
+        ['later this school year', '2026-12-01'],
+        ['today', TODAY],
+        ['in the past', '2026-11-25'],
+      ])('is ok when the renewal date is %s', (_when, dbs_renewal_due) => {
         expect(
           staffComplianceStatus(
-            makeRecord({ ...onUpdateService, dbs_renewal_due: '2026-12-01' }),
+            makeRecord({ ...onUpdateService, dbs_renewal_due }),
             YEAR,
             TODAY,
           ),
         ).toEqual({ level: 'ok', reasons: [] })
       })
 
-      it('is still ok on the expiry date itself', () => {
+      it('is an error when not verified this school year', () => {
         expect(
           staffComplianceStatus(
-            makeRecord({ ...onUpdateService, dbs_renewal_due: TODAY }),
-            YEAR,
-            TODAY,
-          ).level,
-        ).toBe('ok')
-      })
-
-      it('is an error once the subscription expiry has passed', () => {
-        expect(
-          staffComplianceStatus(
-            makeRecord({ ...onUpdateService, dbs_renewal_due: '2026-11-25' }),
+            makeRecord({
+              ...onUpdateService,
+              dbs_verified_at: '2026-08-31',
+              dbs_renewal_due: '2099-01-01',
+            }),
             YEAR,
             TODAY,
           ),
         ).toEqual({
           level: 'error',
-          reasons: ['Update Service subscription expired on 25 Nov 2026'],
+          reasons: ['DBS has not been verified this school year'],
         })
-      })
-
-      it('is ok when verified on the expiry date', () => {
-        expect(
-          staffComplianceStatus(
-            makeRecord({
-              ...onUpdateService,
-              dbs_verified_at: '2026-12-01',
-              dbs_renewal_due: '2026-12-01',
-            }),
-            YEAR,
-            '2026-12-01',
-          ).level,
-        ).toBe('ok')
-      })
-
-      it('gives no advance warning before the subscription expires', () => {
-        expect(
-          staffComplianceStatus(
-            makeRecord({ ...onUpdateService, dbs_renewal_due: '2026-12-10' }),
-            YEAR,
-            TODAY,
-          ).level,
-        ).toBe('ok')
       })
     })
 
@@ -655,5 +629,42 @@ describe('complianceSummary', () => {
     expect(summary.noCurrentYear).toBe(true)
     expect(summary.overall.level).toBe('error')
     expect(summary.overall.reasons[0]).toBe(NO_CURRENT_YEAR_MESSAGE)
+  })
+})
+
+describe('staffComplianceStatus without an address', () => {
+  it.each(['teacher', 'committee'])(
+    'is a warning for an otherwise compliant %s',
+    (job_role) => {
+      expect(
+        staffComplianceStatus(
+          makeRecord({ job_role, address_line_1: null }),
+          YEAR,
+          TODAY,
+        ),
+      ).toEqual({ level: 'warning', reasons: ['No address recorded'] })
+    },
+  )
+
+  it('lists the missing address after the errors', () => {
+    expect(
+      staffComplianceStatus(
+        makeRecord({ address_line_1: null, id_verified: false }),
+        YEAR,
+        TODAY,
+      ),
+    ).toEqual({
+      level: 'error',
+      reasons: ['ID has not been verified', 'No address recorded'],
+    })
+  })
+
+  it('counts towards the staff warnings in the summary', () => {
+    const summary = complianceSummary(
+      [makeRecord(), makeRecord({ address_line_1: null })],
+      YEAR,
+      TODAY,
+    )
+    expect(summary.staff).toEqual({ ok: 1, warning: 1, error: 0 })
   })
 })

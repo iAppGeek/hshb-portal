@@ -76,6 +76,9 @@ function makePayroll(overrides: Partial<StaffPayrollRow>): StaffPayrollRow {
 }
 
 const compliant: Partial<StaffPayrollRow> = {
+  address_line_1: '1 High Street',
+  city: 'London',
+  postcode: 'N1 1AA',
   id_verified: true,
   right_to_work_checked: true,
   dbs_verified: true,
@@ -216,6 +219,23 @@ describe('StaffPayrollList', () => {
     )
   })
 
+  it('warns when no address is recorded', async () => {
+    vi.mocked(getStaffPayrollList).mockResolvedValue([
+      member(
+        makePayroll({
+          ...compliant,
+          address_line_1: null,
+          city: null,
+          postcode: null,
+        }),
+      ),
+    ])
+    render(await StaffPayrollList())
+
+    fireEvent.click(cell('status').getByRole('button', { name: 'Warning' }))
+    expect(screen.getByRole('tooltip')).toHaveTextContent('No address recorded')
+  })
+
   it('shows the compliance summary', async () => {
     vi.mocked(getStaffPayrollList).mockResolvedValue([
       member(makePayroll({ ...compliant, first_aid_certified: true })),
@@ -253,7 +273,7 @@ describe('StaffPayrollList', () => {
     expect(screen.queryByRole('alert')).toBeNull()
   })
 
-  it('highlights a row whose Update Service subscription has lapsed', async () => {
+  it('ignores a passed renewal date on the Update Service', async () => {
     vi.mocked(getStaffPayrollList).mockResolvedValue([
       member(
         makePayroll({
@@ -266,9 +286,10 @@ describe('StaffPayrollList', () => {
     ])
     render(await StaffPayrollList())
 
-    expect(screen.getByTestId('payroll-row-s1').className).toContain(
+    expect(screen.getByTestId('payroll-row-s1').className).not.toContain(
       'bg-red-50',
     )
+    expect(cell('status').getByText('OK')).toBeTruthy()
   })
 
   it('matches the row highlight to the status for a certificate DBS', async () => {
