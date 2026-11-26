@@ -57,6 +57,13 @@
       "when": 1791620302067,
       "tag": "20261010081822_backfill_attendance_registers",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795709904209,
+      "tag": "20261126161824_student_collection_permissions",
+      "breakpoints": true
     }
   ]
 }

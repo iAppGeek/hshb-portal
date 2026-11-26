@@ -33,6 +33,7 @@ import {
   studentClasses,
   students,
   type Class,
+  type CollectionAdult,
   type Guardian,
   type Student,
 } from './schema'
@@ -453,6 +454,11 @@ type StudentInsert = {
   additional_contact_1_relationship?: string | null
   additional_contact_2_id?: string | null
   additional_contact_2_relationship?: string | null
+  primary_guardian_collection_allowed?: boolean
+  secondary_guardian_collection_allowed?: boolean
+  additional_contact_1_collection_allowed?: boolean
+  additional_contact_2_collection_allowed?: boolean
+  collection_adults?: CollectionAdult[]
   allergies?: string | null
   medical_details?: string | null
   sen_details?: string | null

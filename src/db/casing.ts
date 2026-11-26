@@ -18,6 +18,10 @@ const DIGIT_KEYS = {
   additionalContact2Id: 'additional_contact_2_id',
   additionalContact1Relationship: 'additional_contact_1_relationship',
   additionalContact2Relationship: 'additional_contact_2_relationship',
+  additionalContact1CollectionAllowed:
+    'additional_contact_1_collection_allowed',
+  additionalContact2CollectionAllowed:
+    'additional_contact_2_collection_allowed',
 } as const
 
 type DigitKeys = typeof DIGIT_KEYS

@@ -11,6 +11,8 @@ type Props = {
   phone: string
   id: string | null
   relationship: string | null
+  /** Whether this guardian may collect the student. */
+  collectionAllowed: boolean
   role: StaffRole
   email?: string | null
   occupation?: string | null
@@ -26,6 +28,7 @@ export default function GuardianCard({
   phone,
   id,
   relationship,
+  collectionAllowed,
   role,
   email,
   occupation,
@@ -45,6 +48,15 @@ export default function GuardianCard({
             </span>
           )}
         </p>
+        {collectionAllowed ? (
+          <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+            Collection allowed
+          </span>
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+            Collection not allowed
+          </span>
+        )}
         {canEditGuardians(role) && id && (
           <Link
             href={`/guardians/${id}/edit`}

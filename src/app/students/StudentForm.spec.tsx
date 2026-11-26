@@ -64,6 +64,11 @@ const baseStudent: StudentFormData = {
   additional_contact_1_relationship: null,
   additional_contact_2_id: null,
   additional_contact_2_relationship: null,
+  primary_guardian_collection_allowed: true,
+  secondary_guardian_collection_allowed: true,
+  additional_contact_1_collection_allowed: false,
+  additional_contact_2_collection_allowed: false,
+  collection_adults: [],
   privacy_notice_read: false,
   first_aid_consent: false,
   photo_video_consent: false,
@@ -105,6 +110,15 @@ function occupationRequired(container: HTMLElement, prefix: string): boolean {
     `input[name="${prefix}_occupation"]`,
   ) as HTMLInputElement
   return input.required
+}
+
+function collectionBox(
+  container: HTMLElement,
+  prefix: string,
+): HTMLInputElement {
+  return container.querySelector(
+    `input[name="${prefix}_collection_allowed"]`,
+  ) as HTMLInputElement
 }
 
 describe('StudentForm without initial (new student)', () => {
@@ -194,6 +208,29 @@ describe('StudentForm without initial (new student)', () => {
     expect(screen.getByText('Additional Contact 1')).toBeTruthy()
     fireEvent.click(screen.getByText('+ Add second additional contact'))
     expect(screen.getByText('Additional Contact 2')).toBeTruthy()
+  })
+
+  it('allows guardians to collect by default, but not additional contacts', () => {
+    const { container } = renderNew()
+    fireEvent.click(screen.getByText('+ Add secondary guardian'))
+    fireEvent.click(screen.getByText('+ Add additional contact'))
+    fireEvent.click(screen.getByText('+ Add second additional contact'))
+
+    expect(screen.getAllByLabelText('Collection Allowed')).toHaveLength(4)
+    expect(collectionBox(container, 'primary')).toBeChecked()
+    expect(collectionBox(container, 'secondary')).toBeChecked()
+    expect(collectionBox(container, 'contact1')).not.toBeChecked()
+    expect(collectionBox(container, 'contact2')).not.toBeChecked()
+  })
+
+  it('starts with no other adults allowed to collect', () => {
+    renderNew()
+    expect(
+      screen.getByText('Other adults allowed to collect'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('No other adults are allowed to collect this student.'),
+    ).toBeInTheDocument()
   })
 
   it('hides the guardian mode toggle when there are no guardians', () => {
@@ -442,6 +479,33 @@ describe('StudentForm with initial (editing)', () => {
       expect(box()).toBeEnabled()
       expect(box()).not.toBeChecked()
     })
+  })
+
+  it("pre-ticks each slot's Collection Allowed from the student record", () => {
+    const { container } = renderEdit({
+      ...baseStudent,
+      primary_guardian_collection_allowed: false,
+      secondary_guardian_id: 'guardian-2',
+      secondary_guardian_collection_allowed: true,
+      additional_contact_1_id: 'guardian-2',
+      additional_contact_1_collection_allowed: true,
+    })
+
+    expect(collectionBox(container, 'primary')).not.toBeChecked()
+    expect(collectionBox(container, 'secondary')).toBeChecked()
+    expect(collectionBox(container, 'contact1')).toBeChecked()
+  })
+
+  it('lists the adults already allowed to collect', () => {
+    renderEdit({
+      ...baseStudent,
+      collection_adults: [
+        { name: 'Eleni Georgiou', relationship: 'Aunt', phone: null },
+      ],
+    })
+
+    expect(screen.getByLabelText(/Full name/)).toHaveValue('Eleni Georgiou')
+    expect(screen.getByLabelText('Relationship to student')).toHaveValue('Aunt')
   })
 
   it('edits the SEN details', () => {

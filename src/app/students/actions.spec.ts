@@ -521,6 +521,126 @@ describe('saveStudentAction (create)', () => {
   })
 })
 
+// ─── saveStudentAction: collection ──────────────────────────────────────────
+
+describe('saveStudentAction (collection)', () => {
+  const contact1Fields = {
+    has_contact1: 'true',
+    contact1_first_name: 'Uncle',
+    contact1_last_name: 'Bob',
+    contact1_phone: '07700 900002',
+  }
+
+  it("saves each linked slot's Collection Allowed box", async () => {
+    await saveStudentAction(
+      null,
+      makeFormData({
+        ...createFields,
+        ...contact1Fields,
+        contact1_collection_allowed: 'on',
+      }),
+    )
+
+    expect(saved().data).toMatchObject({
+      primary_guardian_collection_allowed: false,
+      additional_contact_1_collection_allowed: true,
+    })
+  })
+
+  it('resets empty slots to their defaults', async () => {
+    await saveStudentAction(
+      null,
+      makeFormData({
+        ...createFields,
+        primary_collection_allowed: 'on',
+        // Left over from a section the admin removed.
+        secondary_collection_allowed: '',
+        contact2_collection_allowed: 'on',
+      }),
+    )
+
+    expect(saved().data).toMatchObject({
+      primary_guardian_collection_allowed: true,
+      secondary_guardian_collection_allowed: true,
+      additional_contact_1_collection_allowed: false,
+      additional_contact_2_collection_allowed: false,
+    })
+  })
+
+  it('saves the other adults in order, dropping blank rows', async () => {
+    await saveStudentAction(
+      null,
+      makeFormData({
+        ...createFields,
+        collection_adult_0_name: ' Eleni Georgiou ',
+        collection_adult_0_relationship: 'Aunt',
+        collection_adult_0_phone: '07700 900003',
+        collection_adult_1_name: '',
+        collection_adult_1_relationship: '',
+        collection_adult_1_phone: '',
+        collection_adult_2_name: 'Kostas Ioannou',
+        collection_adult_2_relationship: '',
+        collection_adult_2_phone: '',
+      }),
+    )
+
+    expect(saved().data.collection_adults).toEqual([
+      { name: 'Eleni Georgiou', relationship: 'Aunt', phone: '07700 900003' },
+      { name: 'Kostas Ioannou', relationship: null, phone: null },
+    ])
+  })
+
+  it('records the other adults in the audit log', async () => {
+    await saveStudentAction(
+      null,
+      makeFormData({ ...createFields, collection_adult_0_name: 'Eleni' }),
+    )
+
+    expect(logAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: expect.objectContaining({
+          collection_adults: [
+            { name: 'Eleni', relationship: null, phone: null },
+          ],
+        }),
+      }),
+    )
+  })
+
+  it('refuses an adult without a name before writing anything', async () => {
+    const result = await saveStudentAction(
+      null,
+      makeFormData({
+        ...createFields,
+        collection_adult_0_name: '',
+        collection_adult_0_phone: '07700 900003',
+      }),
+    )
+
+    expect(result).toMatchObject({
+      fieldErrors: { collection_adult_0_name: 'Required' },
+    })
+    expect(saveStudent).not.toHaveBeenCalled()
+  })
+
+  it('saves Collection Allowed and the adults on an update too', async () => {
+    await saveStudentAction(
+      STUDENT_ID,
+      makeFormData({
+        ...updateFields,
+        collection_adult_0_name: 'Eleni Georgiou',
+      }),
+    )
+
+    expect(saved().data).toMatchObject({
+      primary_guardian_collection_allowed: false,
+      collection_adults: [
+        { name: 'Eleni Georgiou', relationship: null, phone: null },
+      ],
+    })
+  })
+})
+
 // ─── saveStudentAction: update ──────────────────────────────────────────────
 
 describe('saveStudentAction (update)', () => {
