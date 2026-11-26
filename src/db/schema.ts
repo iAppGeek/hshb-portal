@@ -41,6 +41,13 @@ const money = () => numeric({ precision: 10, scale: 2, mode: 'number' })
 /** `updatedAt` on every Drizzle update and upsert (was the set_updated_at trigger). */
 const stamp = (): string => new Date().toISOString()
 
+/** An adult, other than a guardian, allowed to collect a student. */
+export type CollectionAdult = {
+  name: string
+  relationship: string | null
+  phone: string | null
+}
+
 // ─── Enums ──────────────────────────────────────────────────────────────────
 
 export const contactRole = pgEnum('contact_role', [
@@ -185,6 +192,25 @@ export const students = pgTable(
     // Set when photo/video consent is withdrawn; cleared if it is given again.
     photoVideoConsentWithdrawnAt: timestamptz(),
     photoVideoConsentWithdrawnBy: uuid(),
+    // Whether each linked guardian may collect the child. Guardians default
+    // to allowed, additional contacts to not.
+    primaryGuardianCollectionAllowed: boolean().default(true).notNull(),
+    secondaryGuardianCollectionAllowed: boolean().default(true).notNull(),
+    additionalContact1CollectionAllowed: boolean(
+      'additional_contact_1_collection_allowed',
+    )
+      .default(false)
+      .notNull(),
+    additionalContact2CollectionAllowed: boolean(
+      'additional_contact_2_collection_allowed',
+    )
+      .default(false)
+      .notNull(),
+    // Other adults allowed to collect the child, who are not guardians.
+    collectionAdults: jsonb()
+      .$type<CollectionAdult[]>()
+      .default(sql`'[]'::jsonb`)
+      .notNull(),
   },
   (t) => [
     unique('students_student_code_key').on(t.studentCode),

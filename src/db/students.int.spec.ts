@@ -423,6 +423,70 @@ describe('saveStudent', () => {
     })
   })
 
+  it('defaults guardians to allowed to collect and contacts to not', async () => {
+    const { id } = await saveStudent(
+      null,
+      { first_name: 'Cara', last_name: 'Collect', student_code: 'SV-3' },
+      {
+        primary: { id: SEED.guardians.grace },
+        secondary: null,
+        contact1: null,
+        contact2: null,
+      },
+      true,
+    )
+    expect(await getStudentById(id)).toMatchObject({
+      primary_guardian_collection_allowed: true,
+      secondary_guardian_collection_allowed: true,
+      additional_contact_1_collection_allowed: false,
+      additional_contact_2_collection_allowed: false,
+      collection_adults: [],
+    })
+  })
+
+  it('saves who may collect, keeping the other adults in order', async () => {
+    const adults = [
+      { name: 'Eleni Georgiou', relationship: 'Aunt', phone: '07700900003' },
+      { name: 'Kostas Ioannou', relationship: null, phone: null },
+    ]
+    const { id } = await saveStudent(
+      null,
+      {
+        first_name: 'Cody',
+        last_name: 'Collect',
+        student_code: 'SV-4',
+        primary_guardian_collection_allowed: false,
+        additional_contact_1_collection_allowed: true,
+        collection_adults: adults,
+      },
+      {
+        primary: { id: SEED.guardians.grace },
+        secondary: null,
+        contact1: { id: SEED.guardians.greg },
+        contact2: null,
+      },
+      true,
+    )
+    expect(await getStudentById(id)).toMatchObject({
+      primary_guardian_collection_allowed: false,
+      additional_contact_1_collection_allowed: true,
+      collection_adults: adults,
+    })
+
+    await saveStudent(
+      id,
+      { first_name: 'Cody', last_name: 'Collect', collection_adults: [] },
+      {
+        primary: { id: SEED.guardians.grace },
+        secondary: null,
+        contact1: null,
+        contact2: null,
+      },
+      true,
+    )
+    expect((await getStudentById(id))?.collection_adults).toEqual([])
+  })
+
   it('creates no guardians when the student write is refused', async () => {
     const err = await saveStudent(
       null,

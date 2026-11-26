@@ -157,6 +157,7 @@ export default async function StudentPage({
                 phone={student.primary_guardian.phone}
                 id={student.primary_guardian_id}
                 relationship={student.primary_guardian_relationship}
+                collectionAllowed={student.primary_guardian_collection_allowed}
                 role={role}
                 email={student.primary_guardian.email}
                 occupation={student.primary_guardian.occupation}
@@ -181,6 +182,9 @@ export default async function StudentPage({
                 phone={student.secondary_guardian.phone}
                 id={student.secondary_guardian_id}
                 relationship={student.secondary_guardian_relationship}
+                collectionAllowed={
+                  student.secondary_guardian_collection_allowed
+                }
                 role={role}
                 email={student.secondary_guardian.email}
                 occupation={student.secondary_guardian.occupation}
@@ -203,6 +207,9 @@ export default async function StudentPage({
                 phone={student.additional_contact_1.phone}
                 id={student.additional_contact_1_id}
                 relationship={student.additional_contact_1_relationship}
+                collectionAllowed={
+                  student.additional_contact_1_collection_allowed
+                }
                 role={role}
               />
             </div>
@@ -219,11 +226,43 @@ export default async function StudentPage({
                 phone={student.additional_contact_2.phone}
                 id={student.additional_contact_2_id}
                 relationship={student.additional_contact_2_relationship}
+                collectionAllowed={
+                  student.additional_contact_2_collection_allowed
+                }
                 role={role}
               />
             </div>
           )}
         </div>
+      </SectionCard>
+
+      <SectionCard title="Other adults allowed to collect">
+        {student.collection_adults.length > 0 ? (
+          <ul className="divide-y divide-gray-100">
+            {student.collection_adults.map((adult, index) => (
+              <li key={index} className="space-y-0.5 px-6 py-4">
+                <p className="text-sm font-medium text-gray-900">
+                  {adult.name}
+                  {adult.relationship && (
+                    <span className="ml-1 font-normal text-gray-500">
+                      ({adult.relationship})
+                    </span>
+                  )}
+                </p>
+                {adult.phone && (
+                  <a
+                    href={`tel:${adult.phone}`}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    {adult.phone}
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="p-6 text-sm text-gray-400">None recorded.</p>
+        )}
       </SectionCard>
 
       {canSeeStudentMedical(role) && (

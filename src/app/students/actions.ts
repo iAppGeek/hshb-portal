@@ -17,6 +17,7 @@ import {
   runAction,
   type ActionResult,
 } from '@/lib/action'
+import { parseCollectionAdults } from '@/lib/collection/parseCollectionAdults'
 import { isOldEnoughToLeaveAlone } from '@/lib/consents'
 import { parseGuardianSlot, toGuardianSlot } from '@/lib/guardians/guardianSlot'
 import { canCreateStudents, canEditStudents } from '@/lib/permissions'
@@ -90,6 +91,8 @@ async function parseStudentForm(
     ? parseGuardianSlot(formData, 'contact2', guardianSchema)
     : null
 
+  const collectionAdults = parseCollectionAdults(formData)
+
   const sharesPrimaryAddress = d.address_guardian_id === 'primary'
 
   if (sharesPrimaryAddress) {
@@ -129,6 +132,18 @@ async function parseStudentForm(
       additional_contact_2_relationship: contact2
         ? (d.contact2_relationship ?? null)
         : null,
+      // An empty slot goes back to its default, for whoever is linked there next.
+      primary_guardian_collection_allowed: d.primary_collection_allowed,
+      secondary_guardian_collection_allowed: secondary
+        ? d.secondary_collection_allowed
+        : true,
+      additional_contact_1_collection_allowed: contact1
+        ? d.contact1_collection_allowed
+        : false,
+      additional_contact_2_collection_allowed: contact2
+        ? d.contact2_collection_allowed
+        : false,
+      collection_adults: collectionAdults,
     },
     slots: {
       primary: toGuardianSlot(primary),
@@ -165,7 +180,10 @@ export async function saveStudentAction(
           d.student_code,
           saveStudent(null, data, slots, addressFromPrimary),
         )
-        return { id: student.id, details: d as Record<string, unknown> }
+        return {
+          id: student.id,
+          details: { ...d, collection_adults: data.collection_adults },
+        }
       }
 
       const d = parseOrThrow(updateStudentSchema, fields)
@@ -206,7 +224,10 @@ export async function saveStudentAction(
         await updateStudentClasses(id, d.class_ids)
       }
 
-      return { id, details: d as Record<string, unknown> }
+      return {
+        id,
+        details: { ...d, collection_adults: data.collection_adults },
+      }
     },
     audit: {
       entity: 'student',

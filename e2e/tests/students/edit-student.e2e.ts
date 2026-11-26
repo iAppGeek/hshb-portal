@@ -24,6 +24,8 @@ test.describe('Edit student', () => {
     studentId = await insertRow('students', {
       first_name: 'Before',
       last_name: lastName,
+      // Its own code, so parallel saves don't all take the suggested one.
+      student_code: `E2E-${suffix}`.toUpperCase(),
       address_line_1: '1 Test St',
       city: 'London',
       postcode: 'N1 1AA',
@@ -57,6 +59,46 @@ test.describe('Edit student', () => {
     await expect(page.locator('input[name="student_first_name"]')).toHaveValue(
       'After',
     )
+  })
+
+  test('records who may collect the student', async ({ page }) => {
+    await page.goto(`/students/${studentId}/edit`)
+
+    const primaryCollects = page.locator(
+      'input[name="primary_collection_allowed"]',
+    )
+    await expect(primaryCollects).toBeChecked()
+    await primaryCollects.uncheck()
+
+    await page.getByRole('button', { name: '+ Add adult' }).click()
+    await page.getByRole('button', { name: '+ Add adult' }).click()
+    const first = page.getByRole('group', { name: 'Adult 1' })
+    await first.getByLabel('Full name').fill('Eleni Georgiou')
+    await first.getByLabel('Relationship to student').fill('Aunt')
+    await first.getByLabel('Phone').fill('07700 900003')
+    await page
+      .getByRole('group', { name: 'Adult 2' })
+      .getByLabel('Full name')
+      .fill('Kostas Ioannou')
+
+    await page.getByRole('button', { name: 'Save changes' }).click()
+    await expect(page).toHaveURL('/students')
+
+    await page.goto(`/students/${studentId}`)
+    await expect(page.getByText('Collection not allowed')).toBeVisible()
+    await expect(page.getByText('Eleni Georgiou')).toBeVisible()
+    await expect(page.getByText('(Aunt)')).toBeVisible()
+    await expect(page.getByText('Kostas Ioannou')).toBeVisible()
+
+    await page.goto(`/students/${studentId}/edit`)
+    await expect(primaryCollects).not.toBeChecked()
+    await page.getByRole('button', { name: 'Remove adult 1' }).click()
+    await page.getByRole('button', { name: 'Save changes' }).click()
+    await expect(page).toHaveURL('/students')
+
+    await page.goto(`/students/${studentId}`)
+    await expect(page.getByText('Eleni Georgiou')).toHaveCount(0)
+    await expect(page.getByText('Kostas Ioannou')).toBeVisible()
   })
 
   test('shows the not-found page for a student that does not exist', async ({

@@ -319,6 +319,16 @@ export const guardianSchemaWithOccupation = z.discriminatedUnion('mode', [
   guardianExistingSchema,
 ])
 
+/** One adult, other than a guardian, allowed to collect a student. */
+export const collectionAdultSchema = z.object({
+  name: shortText,
+  relationship: optionalShortText,
+  phone: optionalUkPhone.refine(
+    (v) => v === null || v.length <= PHONE_MAX,
+    tooLong(PHONE_MAX),
+  ),
+})
+
 /** Upper-cased, so `gk-1006` and `GK-1006` are saved as the same code. */
 const studentCode = shortText.transform((code) => code.toUpperCase())
 
@@ -347,6 +357,10 @@ const studentBaseSchema = z
     contact1_relationship: optionalString.optional(),
     has_contact2: booleanFromString,
     contact2_relationship: optionalString.optional(),
+    primary_collection_allowed: checkbox,
+    secondary_collection_allowed: checkbox,
+    contact1_collection_allowed: checkbox,
+    contact2_collection_allowed: checkbox,
   })
   .superRefine((data, ctx) => {
     const hasGuardianRef = data.address_guardian_id != null

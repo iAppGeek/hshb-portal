@@ -95,6 +95,11 @@ const baseStudent = {
   additional_contact_2_id: null,
   additional_contact_2: null,
   additional_contact_2_relationship: null,
+  primary_guardian_collection_allowed: true,
+  secondary_guardian_collection_allowed: true,
+  additional_contact_1_collection_allowed: false,
+  additional_contact_2_collection_allowed: false,
+  collection_adults: [],
   privacy_notice_read: true,
   first_aid_consent: false,
   photo_video_consent: true,
@@ -156,6 +161,69 @@ describe('StudentPage', () => {
 
     expect(screen.queryByText('Consents')).toBeNull()
     expect(screen.queryByText('Medical')).toBeNull()
+  })
+
+  describe('collection', () => {
+    beforeEach(() => {
+      vi.mocked(auth).mockResolvedValue({
+        user: { role: 'teacher', staffId: 'staff-1' },
+      } as any)
+      vi.mocked(getStudentIdsByTeacher).mockResolvedValue(['student-1'])
+    })
+
+    it('shows whether each guardian and contact may collect', async () => {
+      vi.mocked(getStudentById).mockResolvedValue({
+        ...baseStudent,
+        additional_contact_1_id: 'guardian-2',
+        additional_contact_1: {
+          first_name: 'Nikos',
+          last_name: 'Papadopoulos',
+          phone: '07700 900001',
+        },
+        additional_contact_1_relationship: 'Uncle',
+      } as any)
+
+      render(await renderPage())
+
+      expect(screen.getByText('Collection allowed')).toBeInTheDocument()
+      expect(screen.getByText('Collection not allowed')).toBeInTheDocument()
+    })
+
+    it('lists the other adults allowed to collect, for a teacher too', async () => {
+      vi.mocked(getStudentById).mockResolvedValue({
+        ...baseStudent,
+        collection_adults: [
+          {
+            name: 'Eleni Georgiou',
+            relationship: 'Aunt',
+            phone: '07700 900002',
+          },
+          { name: 'Kostas Ioannou', relationship: null, phone: null },
+        ],
+      } as any)
+
+      render(await renderPage())
+
+      expect(
+        screen.getByRole('heading', {
+          name: 'Other adults allowed to collect',
+        }),
+      ).toBeInTheDocument()
+      expect(screen.getByText('Eleni Georgiou')).toBeInTheDocument()
+      expect(screen.getByText('(Aunt)')).toBeInTheDocument()
+      expect(
+        screen.getByRole('link', { name: '07700 900002' }),
+      ).toHaveAttribute('href', 'tel:07700 900002')
+      expect(screen.getByText('Kostas Ioannou')).toBeInTheDocument()
+    })
+
+    it('says when no other adults are recorded', async () => {
+      vi.mocked(getStudentById).mockResolvedValue(baseStudent as any)
+
+      render(await renderPage())
+
+      expect(screen.getByText('None recorded.')).toBeInTheDocument()
+    })
   })
 
   describe('consents', () => {

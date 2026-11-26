@@ -14,7 +14,10 @@ import {
   useServerForm,
 } from '@/components/form'
 import type { ActionResult } from '@/lib/action'
+import type { CollectionAdult } from '@/db/schema'
 import { isOldEnoughToLeaveAlone, LEAVE_ALONE_AGE_HINT } from '@/lib/consents'
+
+import CollectionAdultsField from './CollectionAdultsField'
 
 export type StudentFormData = {
   id: string
@@ -41,6 +44,11 @@ export type StudentFormData = {
   additional_contact_1_relationship: string | null
   additional_contact_2_id: string | null
   additional_contact_2_relationship: string | null
+  primary_guardian_collection_allowed: boolean
+  secondary_guardian_collection_allowed: boolean
+  additional_contact_1_collection_allowed: boolean
+  additional_contact_2_collection_allowed: boolean
+  collection_adults: CollectionAdult[]
   privacy_notice_read: boolean
   first_aid_consent: boolean
   photo_video_consent: boolean
@@ -260,6 +268,15 @@ export default function StudentForm({
           }
           fieldError={fieldError}
         />
+        <div className="mt-4">
+          <CheckboxField
+            name="primary_collection_allowed"
+            label="Collection Allowed"
+            defaultChecked={
+              initial?.primary_guardian_collection_allowed ?? true
+            }
+          />
+        </div>
       </FormSection>
 
       {/* ── Secondary Guardian ──────────────────────────────────────── */}
@@ -279,6 +296,15 @@ export default function StudentForm({
             }
             fieldError={fieldError}
           />
+          <div className="mt-4">
+            <CheckboxField
+              name="secondary_collection_allowed"
+              label="Collection Allowed"
+              defaultChecked={
+                initial?.secondary_guardian_collection_allowed ?? true
+              }
+            />
+          </div>
         </FormSection>
       ) : (
         <button
@@ -308,6 +334,15 @@ export default function StudentForm({
             }
             fieldError={fieldError}
           />
+          <div className="mt-4">
+            <CheckboxField
+              name="contact1_collection_allowed"
+              label="Collection Allowed"
+              defaultChecked={
+                initial?.additional_contact_1_collection_allowed ?? false
+              }
+            />
+          </div>
         </FormSection>
       ) : (
         <button
@@ -334,6 +369,15 @@ export default function StudentForm({
               }
               fieldError={fieldError}
             />
+            <div className="mt-4">
+              <CheckboxField
+                name="contact2_collection_allowed"
+                label="Collection Allowed"
+                defaultChecked={
+                  initial?.additional_contact_2_collection_allowed ?? false
+                }
+              />
+            </div>
           </FormSection>
         ) : (
           <button
@@ -344,6 +388,17 @@ export default function StudentForm({
             + Add second additional contact
           </button>
         ))}
+
+      {/* ── Collection ──────────────────────────────────────────────── */}
+      <FormSection
+        title="Other adults allowed to collect"
+        description="People who are not guardians or contacts above but may collect this student."
+      >
+        <CollectionAdultsField
+          initial={initial?.collection_adults}
+          fieldError={fieldError}
+        />
+      </FormSection>
 
       {/* ── Classes ─────────────────────────────────────────────────── */}
       {initial?.active && classes.length > 0 && (
