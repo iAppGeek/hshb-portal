@@ -18,7 +18,7 @@ Internal staff portal for the Hellenic School of High Barnet, deployed at [porta
 
 ### Prerequisites
 
-- Node.js 24.14+ and npm 11.9+ (enforced via `engines` in `package.json`)
+- Node.js 24.15+ and npm 11.9+ (declared in `engines` in `package.json`)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) running — Supabase local stack uses it
 
 ### Install
