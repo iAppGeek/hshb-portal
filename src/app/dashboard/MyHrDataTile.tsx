@@ -32,16 +32,17 @@ export default async function MyHrDataTile({
   return (
     <section
       aria-label="HR Data"
-      className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 sm:gap-4 sm:p-6"
+      className="xs:flex-row xs:items-center xs:gap-3 flex flex-col items-start gap-2 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 sm:gap-4 sm:p-6"
     >
-      <div className="rounded-lg bg-blue-50 p-3">
-        <IdentificationIcon className="h-6 w-6 text-blue-600" />
+      <div className="rounded-lg bg-blue-50 p-2 sm:p-3">
+        <IdentificationIcon className="h-5 w-5 text-blue-600 sm:h-6 sm:w-6" />
       </div>
       <div className="min-w-0">
         <p className="text-sm font-medium text-gray-500">HR Data</p>
         <StatusBadge
           level={status.level}
           label={STATUS_LABELS[status.level]}
+          wrap
           className="mt-0.5 text-base"
         />
         {categories.length > 0 && (
@@ -51,6 +52,7 @@ export default async function MyHrDataTile({
                 <StatusBadge
                   level={level}
                   label={ISSUE_CATEGORY_LABELS[category]}
+                  wrap
                   className="font-normal [&_svg]:h-4 [&_svg]:w-4"
                 />
               </li>

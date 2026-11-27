@@ -4,6 +4,9 @@
 @plugin '@tailwindcss/typography';
 
 @theme {
+  /* Wide phones and small tablets: room for a tile's icon beside its text. */
+  --breakpoint-xs: 30rem;
+
   --shadow-*: initial;
   --shadow-sm: 0 2px 6px rgb(15 23 42 / 0.08);
   --shadow-md: 0 8px 8px rgb(15 23 42 / 0.05), 0 3px 6px rgb(15 23 42 / 0.05);

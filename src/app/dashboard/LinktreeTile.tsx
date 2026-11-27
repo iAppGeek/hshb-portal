@@ -48,10 +48,10 @@ export default function LinktreeTile({
         onClick={() => void open()}
         onPointerEnter={prefetch}
         onFocus={prefetch}
-        className="group flex items-center gap-3 rounded-xl bg-white p-4 text-left shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
+        className="group xs:flex-row xs:items-center xs:gap-3 flex flex-col items-start gap-2 rounded-xl bg-white p-4 text-left shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
       >
-        <div className="rounded-lg bg-blue-50 p-3 transition group-hover:bg-blue-100">
-          <QrCodeIcon className="h-6 w-6 text-blue-600" />
+        <div className="rounded-lg bg-blue-50 p-2 transition group-hover:bg-blue-100 sm:p-3">
+          <QrCodeIcon className="h-5 w-5 text-blue-600 sm:h-6 sm:w-6" />
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-gray-500">Linktree</p>
