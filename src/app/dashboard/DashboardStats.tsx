@@ -29,9 +29,9 @@ export function StatCardsSkeleton(): ReactElement {
       {[1, 2, 3, 4].map((i) => (
         <div
           key={i}
-          className="flex items-center gap-4 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 sm:p-6"
+          className="xs:flex-row xs:items-center xs:gap-3 flex flex-col items-start gap-2 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 sm:gap-4 sm:p-6"
         >
-          <div className="h-12 w-12 rounded-lg bg-gray-200" />
+          <div className="h-9 w-9 rounded-lg bg-gray-200 sm:h-12 sm:w-12" />
           <div className="flex-1">
             <div className="h-3 w-20 rounded bg-gray-200" />
             <div className="mt-2 h-6 w-10 rounded bg-gray-200" />
@@ -88,10 +88,10 @@ export default async function DashboardStats({
 
       <Link
         href="/students"
-        className="group flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
+        className="group xs:flex-row xs:items-center xs:gap-3 flex flex-col items-start gap-2 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
       >
-        <div className="rounded-lg bg-blue-50 p-3 transition group-hover:bg-blue-100">
-          <UsersIcon className="h-6 w-6 text-blue-600" />
+        <div className="rounded-lg bg-blue-50 p-2 transition group-hover:bg-blue-100 sm:p-3">
+          <UsersIcon className="h-5 w-5 text-blue-600 sm:h-6 sm:w-6" />
         </div>
         <div>
           <p className="text-sm font-medium text-gray-500">
@@ -123,10 +123,10 @@ export default async function DashboardStats({
 
       <Link
         href="/classes"
-        className="group flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
+        className="group xs:flex-row xs:items-center xs:gap-3 flex flex-col items-start gap-2 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
       >
-        <div className="rounded-lg bg-blue-50 p-3 transition group-hover:bg-blue-100">
-          <CalendarDaysIcon className="h-6 w-6 text-blue-600" />
+        <div className="rounded-lg bg-blue-50 p-2 transition group-hover:bg-blue-100 sm:p-3">
+          <CalendarDaysIcon className="h-5 w-5 text-blue-600 sm:h-6 sm:w-6" />
         </div>
         <div>
           <p className="text-sm font-medium text-gray-500">
@@ -142,10 +142,10 @@ export default async function DashboardStats({
       {!teacherOnly && (
         <Link
           href="/staff"
-          className="group flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
+          className="group xs:flex-row xs:items-center xs:gap-3 flex flex-col items-start gap-2 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
         >
-          <div className="rounded-lg bg-blue-50 p-3 transition group-hover:bg-blue-100">
-            <AcademicCapIcon className="h-6 w-6 text-blue-600" />
+          <div className="rounded-lg bg-blue-50 p-2 transition group-hover:bg-blue-100 sm:p-3">
+            <AcademicCapIcon className="h-5 w-5 text-blue-600 sm:h-6 sm:w-6" />
           </div>
           <div>
             <p className="text-sm font-medium text-gray-500">Total Teachers</p>
@@ -184,10 +184,10 @@ export default async function DashboardStats({
 
           <Link
             href="/incidents"
-            className="group flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
+            className="group xs:flex-row xs:items-center xs:gap-3 flex flex-col items-start gap-2 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
           >
-            <div className="rounded-lg bg-blue-50 p-3 transition group-hover:bg-blue-100">
-              <ExclamationTriangleIcon className="h-6 w-6 text-blue-600" />
+            <div className="rounded-lg bg-blue-50 p-2 transition group-hover:bg-blue-100 sm:p-3">
+              <ExclamationTriangleIcon className="h-5 w-5 text-blue-600 sm:h-6 sm:w-6" />
             </div>
             <div>
               <p className="text-sm font-medium text-gray-500">
@@ -204,10 +204,10 @@ export default async function DashboardStats({
       {pendingRegistrationCount !== null && (
         <Link
           href="/registrations"
-          className="group flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
+          className="group xs:flex-row xs:items-center xs:gap-3 flex flex-col items-start gap-2 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md sm:gap-4 sm:p-6"
         >
-          <div className="rounded-lg bg-blue-50 p-3 transition group-hover:bg-blue-100">
-            <InboxIcon className="h-6 w-6 text-blue-600" />
+          <div className="rounded-lg bg-blue-50 p-2 transition group-hover:bg-blue-100 sm:p-3">
+            <InboxIcon className="h-5 w-5 text-blue-600 sm:h-6 sm:w-6" />
           </div>
           <div>
             <p className="text-sm font-medium text-gray-500">

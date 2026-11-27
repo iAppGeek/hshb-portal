@@ -15,6 +15,8 @@ type Props = {
   label: string
   /** Shown in a popover when the status is not ok. */
   reasons?: string[]
+  /** Let the label wrap onto more lines instead of overflowing a narrow box. */
+  wrap?: boolean
   className?: string
 }
 
@@ -37,17 +39,25 @@ export default function StatusBadge({
   level,
   label,
   reasons = [],
+  wrap = false,
   className,
 }: Props): React.ReactElement {
   const Icon = ICONS[level]
   const content = (
     <>
-      <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+      <Icon
+        className={clsx('h-5 w-5 shrink-0', wrap && 'mt-px')}
+        aria-hidden="true"
+      />
       <span>{label}</span>
     </>
   )
   const classes = clsx(
-    'inline-flex items-center gap-1 font-medium whitespace-nowrap',
+    'inline-flex gap-1 font-medium',
+    // Wrapped lines keep the icon beside the first line, not the middle.
+    wrap
+      ? 'items-start text-left leading-snug'
+      : 'items-center whitespace-nowrap',
     COLOURS[level],
     className,
   )

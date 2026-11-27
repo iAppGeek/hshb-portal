@@ -11,6 +11,20 @@ describe('StatusBadge', () => {
     expect(screen.queryByRole('button')).toBeNull()
   })
 
+  it('keeps the label on one line unless told it may wrap', () => {
+    const { rerender } = render(
+      <StatusBadge level="error" label="Action needed" />,
+    )
+    expect(screen.getByText('Action needed').parentElement).toHaveClass(
+      'whitespace-nowrap',
+    )
+
+    rerender(<StatusBadge level="error" label="Action needed" wrap />)
+    expect(screen.getByText('Action needed').parentElement).not.toHaveClass(
+      'whitespace-nowrap',
+    )
+  })
+
   it('renders a status without reasons as plain text', () => {
     render(<StatusBadge level="error" label="Action needed" />)
     expect(screen.queryByRole('button')).toBeNull()
