@@ -1,6 +1,6 @@
 import 'server-only'
 
-import webpush from 'web-push'
+import { sendNotification } from 'web-push'
 
 import type { PushSubscriptionRow } from '@/db'
 import { env } from '@/env'
@@ -16,7 +16,7 @@ export async function sendPushNotification(
   subscription: PushSubscriptionRow,
   payload: AttendancePushPayload,
 ): Promise<void> {
-  await webpush.sendNotification(
+  await sendNotification(
     {
       endpoint: subscription.endpoint,
       keys: { p256dh: subscription.p256dh, auth: subscription.auth },

@@ -20,6 +20,10 @@ const sql =
     // query with parameters can be stranded half-sent: the request then hangs
     // until the function times out. Connections open only when needed.
     max: 10,
+    // max only makes that pipelining unlikely. With one query in flight per
+    // connection, queries beyond max wait for a free connection instead, so
+    // the hang cannot happen. Up to max queries still run in parallel.
+    max_pipeline: 1,
     idle_timeout: 20,
     connect_timeout: 10,
   })

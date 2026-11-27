@@ -1,4 +1,4 @@
-import '@testing-library/jest-dom'
+import '@testing-library/jest-dom/vitest'
 
 // src/env.ts and src/env.server.ts parse process.env at import time — set
 // dummy values so any test that transitively imports them doesn't fail.
