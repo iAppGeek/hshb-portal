@@ -104,6 +104,11 @@ describe('StaffPayrollForm', () => {
     expect(input('First aid expiry date').value).toBe('2027-01-01')
   })
 
+  it('stops the date of birth picker at today', () => {
+    renderForm()
+    expect(input('Date of birth').max).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
   it('makes supporting details required while a check is ticked', () => {
     renderForm()
 

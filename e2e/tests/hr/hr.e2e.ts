@@ -176,6 +176,54 @@ test.describe('HR', () => {
     await expect(payrollRef).not.toHaveAttribute('required')
   })
 
+  test('does not accept a date of birth in the future', async ({ page }) => {
+    await page.goto(`/hr/staff/${staffId}`)
+    await page.getByLabel('Role').selectOption('committee')
+    await page.getByLabel('Payment funding').selectOption('volunteer')
+    const dob = page.getByLabel('Date of birth')
+    await dob.fill(addDays(isoToday(), 1))
+    await page.getByRole('button', { name: 'Save payroll record' }).click()
+
+    await expect(page).toHaveURL(`/hr/staff/${staffId}`)
+    expect(
+      await dob.evaluate(
+        (el) => (el as HTMLInputElement).validity.rangeOverflow,
+      ),
+    ).toBe(true)
+    const [{ count }] =
+      await sql`select count(*)::int as count from staff_payroll where staff_id = ${staffId}`
+    expect(count).toBe(0)
+  })
+
+  test('warns as a first aid certificate nears expiry and flags it once passed', async ({
+    page,
+  }) => {
+    await insertPayroll(staffId, {
+      ...COMPLIANT,
+      first_aid_certified: true,
+      first_aid_expiry_date: addDays(isoToday(), 10),
+    })
+    const row = page.getByTestId(`payroll-row-${staffId}`)
+    const warning = row.getByRole('button', { name: 'Warning' })
+    await loadWithFreshData(page, '/hr', async () => {
+      await expect(warning).toBeVisible({ timeout: 3_000 })
+    })
+    await warning.click()
+    await expect(page.getByRole('tooltip')).toContainText(
+      'First aid certificate expires on',
+    )
+    await expect(row).not.toHaveClass(/bg-red-50/)
+
+    await sql`update staff_payroll set first_aid_expiry_date = ${addDays(isoToday(), -1)}
+      where staff_id = ${staffId}`
+    await page.reload()
+    await expect(row).toHaveClass(/bg-red-50/)
+    await row.getByRole('button', { name: 'Action needed' }).click()
+    await expect(page.getByRole('tooltip')).toContainText(
+      'First aid certificate expired on',
+    )
+  })
+
   test('explains why a status is not green', async ({ page }) => {
     await insertPayroll(staffId, { ...COMPLIANT, dbs_level: 'basic' })
     const row = page.getByTestId(`payroll-row-${staffId}`)
@@ -318,6 +366,12 @@ async function expectEditOnScreen(page: Page, staffId: string): Promise<void> {
     return scroller.scrollWidth - scroller.clientWidth
   })
   expect(overflow).toBeLessThanOrEqual(0)
+}
+
+function addDays(iso: string, days: number): string {
+  const date = new Date(`${iso}T12:00:00Z`)
+  date.setUTCDate(date.getUTCDate() + days)
+  return date.toISOString().slice(0, 10)
 }
 
 function isoToday(): string {

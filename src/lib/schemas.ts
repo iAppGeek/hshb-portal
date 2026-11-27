@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { addYears, DBS_RENEWAL_YEARS } from './compliance'
 import { REQUIRED_CONSENT_MESSAGE } from './consents'
+import { todayInSchoolTz } from './datetime'
 
 // ─── Reusable field schemas ──────────────────────────────────────────────────
 
@@ -601,6 +602,13 @@ export const staffPayrollSchema = z
     requireDetails(ctx, true, [
       [d.date_of_birth, 'date_of_birth', 'Enter the date of birth'],
     ])
+    if (d.date_of_birth && d.date_of_birth > todayInSchoolTz()) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['date_of_birth'],
+        message: 'Date of birth cannot be in the future',
+      })
+    }
     requireDetails(ctx, d.payment_funding !== 'volunteer', [
       [d.payroll_ref, 'payroll_ref', 'Enter the payroll reference'],
     ])

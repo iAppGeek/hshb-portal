@@ -12,6 +12,7 @@ import {
   PAYMENT_FUNDING_LABELS,
 } from '@/lib/compliance'
 import type { ActionResult } from '@/lib/action'
+import { todayInSchoolTz } from '@/lib/datetime'
 import {
   CheckboxField,
   FormActions,
@@ -132,6 +133,7 @@ export default function StaffPayrollForm({
             name="date_of_birth"
             type="date"
             required
+            max={todayInSchoolTz()}
             defaultValue={payroll?.date_of_birth}
             autoComplete="bday"
             error={fieldError('date_of_birth')}

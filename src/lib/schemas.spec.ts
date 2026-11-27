@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   uuid,
@@ -1766,6 +1766,29 @@ describe('staffPayrollSchema', () => {
     expect(messages({ ...blank, date_of_birth: '' })).toEqual([
       'Enter the date of birth',
     ])
+  })
+
+  describe('date of birth in the future', () => {
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('rejects a date after today in the school timezone', () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-11-27T12:00:00Z'))
+      expect(messages({ ...blank, date_of_birth: '2026-11-28' })).toEqual([
+        'Date of birth cannot be in the future',
+      ])
+      expect(messages({ ...blank, date_of_birth: '2062-04-12' })).toEqual([
+        'Date of birth cannot be in the future',
+      ])
+    })
+
+    it('accepts today', () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-11-27T12:00:00Z'))
+      expect(messages({ ...blank, date_of_birth: '2026-11-27' })).toEqual([])
+    })
   })
 
   it.each(['kea', 'school'])(

@@ -221,6 +221,24 @@ describe('StaffPayrollList', () => {
     )
   })
 
+  it('explains a first aid certificate close to expiry', async () => {
+    vi.mocked(getStaffPayrollList).mockResolvedValue([
+      member(
+        makePayroll({
+          ...compliant,
+          first_aid_certified: true,
+          first_aid_expiry_date: '2026-10-01',
+        }),
+      ),
+    ])
+    render(await StaffPayrollList())
+
+    fireEvent.click(cell('status').getByRole('button', { name: 'Warning' }))
+    expect(screen.getByRole('tooltip')).toHaveTextContent(
+      'First aid certificate expires on 1 Oct 2026 (within 60 days)',
+    )
+  })
+
   it('warns when no address is recorded', async () => {
     vi.mocked(getStaffPayrollList).mockResolvedValue([
       member(

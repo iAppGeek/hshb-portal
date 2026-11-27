@@ -665,6 +665,53 @@ describe('complianceSummary', () => {
   })
 })
 
+describe('staffComplianceStatus for first aid and fire warden certificates', () => {
+  const certificates = [
+    ['First aid', 'first_aid_certified', 'first_aid_expiry_date'],
+    ['Fire warden', 'fire_warden_certified', 'fire_warden_expiry_date'],
+  ] as const
+
+  describe.each(certificates)('%s', (name, held, expiry) => {
+    function status(
+      overrides: Partial<ComplianceRecord>,
+    ): ReturnType<typeof staffComplianceStatus> {
+      return staffComplianceStatus(makeRecord(overrides), YEAR, TODAY)
+    }
+
+    it('is ok when it expires more than 60 days away', () => {
+      expect(status({ [held]: true, [expiry]: '2027-01-26' })).toEqual({
+        level: 'ok',
+        reasons: [],
+      })
+    })
+
+    it('is ok with no expiry date', () => {
+      expect(status({ [held]: true, [expiry]: null }).level).toBe('ok')
+    })
+
+    it('is a warning when it expires within 60 days, today included', () => {
+      expect(status({ [held]: true, [expiry]: '2027-01-25' })).toEqual({
+        level: 'warning',
+        reasons: [
+          `${name} certificate expires on 25 Jan 2027 (within 60 days)`,
+        ],
+      })
+      expect(status({ [held]: true, [expiry]: TODAY }).level).toBe('warning')
+    })
+
+    it('is an error once the expiry date has passed', () => {
+      expect(status({ [held]: true, [expiry]: '2026-11-25' })).toEqual({
+        level: 'error',
+        reasons: [`${name} certificate expired on 25 Nov 2026`],
+      })
+    })
+
+    it('ignores the date when the certificate is not held', () => {
+      expect(status({ [held]: false, [expiry]: '2026-11-25' }).level).toBe('ok')
+    })
+  })
+})
+
 describe('staffComplianceStatus without an address', () => {
   it.each(['teacher', 'committee'])(
     'is a warning for an otherwise compliant %s',

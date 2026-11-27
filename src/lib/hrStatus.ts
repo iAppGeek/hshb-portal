@@ -219,6 +219,33 @@ function dbsIssues(
   return issues
 }
 
+/**
+ * A held first aid or fire warden certificate: amber within the warning
+ * window, red once its expiry date has passed. No expiry date means it does
+ * not lapse.
+ */
+function certificateIssues(
+  held: boolean,
+  expiry: string | null,
+  name: string,
+  today: string,
+): [StatusLevel, string][] {
+  if (!held || !expiry) return []
+  const state = expiryState(expiry, today)
+  if (state === 'expired') {
+    return [['error', `${name} certificate expired on ${formatDate(expiry)}`]]
+  }
+  if (state === 'expiring') {
+    return [
+      [
+        'warning',
+        `${name} certificate expires on ${formatDate(expiry)} (within ${EXPIRY_WARNING_DAYS} days)`,
+      ],
+    ]
+  }
+  return []
+}
+
 /** A person's overall compliance status; `null` means no HR record. */
 export function staffComplianceStatus(
   record: ComplianceRecord | null,
@@ -236,6 +263,20 @@ export function staffComplianceStatus(
   if (record.payment_funding !== 'volunteer' && !record.right_to_work_checked) {
     issues.push(['error', 'Right to work has not been checked'])
   }
+  issues.push(
+    ...certificateIssues(
+      record.first_aid_certified,
+      record.first_aid_expiry_date,
+      'First aid',
+      today,
+    ),
+    ...certificateIssues(
+      record.fire_warden_certified,
+      record.fire_warden_expiry_date,
+      'Fire warden',
+      today,
+    ),
+  )
   if (!record.address_line_1) {
     issues.push(['warning', 'No address recorded'])
   }
