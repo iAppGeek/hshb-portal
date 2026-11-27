@@ -34,7 +34,7 @@ export default async function globalSetup(): Promise<void> {
   await waitForDatabase()
 
   // Reset DB to clean seed state before the full test suite
-  execSync('npx supabase db reset', { stdio: 'inherit' })
+  execSync('npx supabase db reset --local', { stdio: 'inherit' })
 
   // db reset restarts containers — wait for the database to be ready again
   await waitForDatabase()
