@@ -2,10 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockSendNotification = vi.hoisted(() => vi.fn())
 
+// web-push 4 has named exports only, so there is no default to mock.
 vi.mock('web-push', () => ({
-  default: {
-    sendNotification: mockSendNotification,
-  },
+  sendNotification: mockSendNotification,
 }))
 
 vi.mock('@/db', () => ({}))
