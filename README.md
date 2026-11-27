@@ -71,7 +71,7 @@ Supabase is only the Postgres host and the CLI that applies migrations — no Su
 `npm run db:check` validates the migration history. Rules:
 
 - Never hand-write DDL for something `schema.ts` can express, and never edit a migration that has been applied to production — add a new one.
-- Never run `drizzle-kit push` or `drizzle-kit migrate`; migrations are applied only by the Supabase CLI (`supabase db reset` locally, `supabase db push` for production).
+- Never run `drizzle-kit push` or `drizzle-kit migrate`; migrations are applied only by the Supabase CLI (`supabase db reset` locally, `supabase db push --remote` for production). Since Supabase CLI 3, `db` commands target the local database unless given `--remote`, so a plain `supabase db push` never reaches production.
 - Never edit files in `supabase/migrations/meta/`; drizzle-kit owns them.
 - For the few things Drizzle cannot model (such as the `academic_years_no_overlap` `EXCLUDE` constraint, or grants), create an empty migration with `npx drizzle-kit generate --custom --name=<name>` and write the SQL there.
 - Do not add new PL/pgSQL functions or triggers. Multi-statement writes are TypeScript functions in `src/db/*.ts` using `db.transaction(async (tx) => …)`.
