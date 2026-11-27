@@ -201,6 +201,9 @@ test.describe('HR', () => {
     await insertPayroll(staffId, {
       ...COMPLIANT,
       first_aid_certified: true,
+      first_aid_reference: 'FA-E2E',
+      first_aid_issue_date: '2024-01-01',
+      first_aid_verified_at: '2026-09-01',
       first_aid_expiry_date: addDays(isoToday(), 10),
     })
     const row = page.getByTestId(`payroll-row-${staffId}`)
