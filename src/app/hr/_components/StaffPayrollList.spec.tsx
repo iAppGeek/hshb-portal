@@ -1,25 +1,44 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 
-import { getStaffPayrollList, type StaffPayrollRow } from '@/db'
+import {
+  getAcademicYears,
+  getStaffPayrollList,
+  type StaffPayrollListItem,
+  type StaffPayrollRow,
+} from '@/db'
+import { NO_CURRENT_YEAR_MESSAGE } from '@/lib/hrStatus'
 
 import StaffPayrollList from './StaffPayrollList'
 
-vi.mock('@/db', () => ({ getStaffPayrollList: vi.fn() }))
+vi.mock('@/db', () => ({
+  getStaffPayrollList: vi.fn(),
+  getAcademicYears: vi.fn(),
+}))
 vi.mock('@/lib/datetime', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/datetime')>()),
   todayInSchoolTz: () => '2026-09-13',
 }))
+
+const CURRENT_YEAR = {
+  id: 'y1',
+  code: '2026-27',
+  start_date: '2026-09-01',
+  end_date: '2027-08-31',
+  is_current: true,
+}
 
 function makePayroll(overrides: Partial<StaffPayrollRow>): StaffPayrollRow {
   return {
     id: 'p1',
     staff_id: 's1',
     payment_funding: 'school',
+    job_role: 'teacher',
+    date_of_birth: '1985-04-12',
     bank_account_name: null,
     bank_sort_code: null,
     bank_account_number: null,
-    payroll_ref: null,
+    payroll_ref: 'PR-1',
     address_line_1: null,
     address_line_2: null,
     city: null,
@@ -33,8 +52,8 @@ function makePayroll(overrides: Partial<StaffPayrollRow>): StaffPayrollRow {
     right_to_work_checked_at: null,
     dbs_verified: false,
     dbs_level: null,
-    dbs_barred_list_checked: false,
     dbs_update_service: false,
+    dbs_update_service_number: null,
     dbs_reference: null,
     dbs_issue_date: null,
     dbs_verified_at: null,
@@ -56,10 +75,49 @@ function makePayroll(overrides: Partial<StaffPayrollRow>): StaffPayrollRow {
   }
 }
 
-const base = { role: 'teacher', title: 'Ms' }
+const compliant: Partial<StaffPayrollRow> = {
+  address_line_1: '1 High Street',
+  city: 'London',
+  postcode: 'N1 1AA',
+  id_verified: true,
+  right_to_work_checked: true,
+  dbs_verified: true,
+  dbs_level: 'enhanced',
+  dbs_reference: 'DBS-1',
+  dbs_issue_date: '2025-06-01',
+  dbs_verified_at: '2026-09-05',
+  dbs_renewal_due: '2028-06-01',
+}
+
+function member(
+  payroll: StaffPayrollRow | null,
+  id = 's1',
+): StaffPayrollListItem {
+  return {
+    id,
+    title: 'Ms',
+    first_name: 'Ann',
+    last_name: 'Lee',
+    role: 'teacher',
+    payroll,
+  }
+}
+
+// Each row holds a stacked summary cell for phones, then the desktop cells;
+// jsdom applies no CSS, so tests pick the cell they mean.
+const CELL = { stacked: 0, name: 1, dbs: 2, status: 3, actions: 4 } as const
+
+function cell(
+  column: keyof typeof CELL,
+  rowId = 's1',
+): ReturnType<typeof within> {
+  const row = screen.getByTestId(`payroll-row-${rowId}`)
+  return within(row.querySelectorAll('td')[CELL[column]] as HTMLElement)
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(getAcademicYears).mockResolvedValue([CURRENT_YEAR] as never)
 })
 
 describe('StaffPayrollList', () => {
@@ -69,99 +127,246 @@ describe('StaffPayrollList', () => {
     expect(screen.getByText('No staff found.')).toBeTruthy()
   })
 
-  it('shows staff without a record and links to add one', async () => {
+  it('shows only the name, DBS checked, status and edit columns', async () => {
     vi.mocked(getStaffPayrollList).mockResolvedValue([
-      { ...base, id: 's1', first_name: 'Ann', last_name: 'Lee', payroll: null },
+      member(makePayroll(compliant)),
     ])
     render(await StaffPayrollList())
 
-    const row = within(screen.getByTestId('payroll-row-s1'))
-    expect(row.getByText('Ms Ann Lee')).toBeTruthy()
-    expect(row.getByText('No record')).toBeTruthy()
-    expect(
-      row.getByRole('link', { name: 'Add record' }).getAttribute('href'),
-    ).toBe('/hr/staff/s1')
+    const headers = screen
+      .getAllByRole('columnheader')
+      .map((th) => th.textContent)
+    expect(headers).toEqual([
+      'Staff member',
+      'DBS checked',
+      'Status',
+      'Actions',
+    ])
   })
 
-  it('shows funding, masked bank details and compliance ticks', async () => {
+  it('shows a compliant member as OK with the DBS check date', async () => {
     vi.mocked(getStaffPayrollList).mockResolvedValue([
-      {
-        ...base,
-        id: 's1',
-        first_name: 'Ann',
-        last_name: 'Lee',
-        payroll: makePayroll({
-          payment_funding: 'kea',
-          bank_account_number: '12345678',
-          id_verified: true,
-          dbs_verified: true,
-          dbs_renewal_due: '2028-09-01',
-        }),
-      },
+      member(makePayroll(compliant)),
     ])
     render(await StaffPayrollList())
 
     const rowEl = screen.getByTestId('payroll-row-s1')
-    const row = within(rowEl)
-    expect(row.getByText('KEA')).toBeTruthy()
-    expect(row.getByText('••••5678')).toBeTruthy()
-    expect(rowEl.textContent).not.toContain('12345678')
-    expect(row.getByText('✓ ID')).toBeTruthy()
-    expect(row.getByText('✗ Right to work')).toBeTruthy()
-    expect(row.getByText('Renew by 1 Sept 2028')).toBeTruthy()
-    expect(row.getByRole('link', { name: 'Edit' })).toBeTruthy()
+    expect(cell('name').getByText('Ms Ann Lee')).toBeTruthy()
+    expect(cell('dbs').getByText('5 Sept 2026')).toBeTruthy()
+    expect(cell('status').getByText('OK')).toBeTruthy()
+    expect(within(rowEl).queryByRole('button')).toBeNull()
+    expect(
+      cell('actions').getByRole('link', { name: 'Edit' }).getAttribute('href'),
+    ).toBe('/hr/staff/s1')
     expect(rowEl.className).not.toContain('bg-red-50')
   })
 
-  it('highlights lapsed DBS and flags expiring certificates', async () => {
+  it('stacks the name, Edit and both statuses for phones', async () => {
     vi.mocked(getStaffPayrollList).mockResolvedValue([
-      {
-        ...base,
-        id: 's1',
-        first_name: 'Ann',
-        last_name: 'Lee',
-        payroll: makePayroll({
-          dbs_verified: true,
-          dbs_renewal_due: '2026-09-01',
-          first_aid_certified: true,
-          first_aid_expiry_date: '2026-10-01',
-          fire_warden_certified: true,
-        }),
-      },
+      member(makePayroll({ ...compliant, dbs_level: 'basic' })),
     ])
     render(await StaffPayrollList())
 
-    const rowEl = screen.getByTestId('payroll-row-s1')
-    const row = within(rowEl)
-    expect(rowEl.className).toContain('bg-red-50')
-    expect(
-      row.getByText('Renewal overdue since 1 Sept 2026').className,
-    ).toContain('text-red-700')
-    expect(row.getByText('Expires 1 Oct 2026').className).toContain(
-      'text-amber-700',
+    const summary = cell('stacked')
+    expect(summary.getByText('Ms Ann Lee')).toBeTruthy()
+    expect(summary.getByRole('link', { name: 'Edit' })).toHaveAttribute(
+      'href',
+      '/hr/staff/s1',
     )
-    expect(row.getByText('✓ Held')).toBeTruthy()
+    expect(summary.getByText('5 Sept 2026')).toBeTruthy()
+    fireEvent.click(summary.getByRole('button', { name: 'Action needed' }))
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Basic DBS held')
   })
 
-  it('highlights an expired fire warden certificate', async () => {
+  it('flags staff without a record and links to add one', async () => {
+    vi.mocked(getStaffPayrollList).mockResolvedValue([member(null)])
+    render(await StaffPayrollList())
+
+    expect(cell('dbs').getByText('Not checked')).toBeTruthy()
+    fireEvent.click(
+      cell('status').getByRole('button', { name: 'Action needed' }),
+    )
+    expect(screen.getByRole('tooltip')).toHaveTextContent('No HR record')
+    expect(
+      cell('actions').getByRole('link', { name: 'Add record' }),
+    ).toBeTruthy()
+  })
+
+  it('marks a DBS checked in a previous school year as an error', async () => {
     vi.mocked(getStaffPayrollList).mockResolvedValue([
-      {
-        ...base,
-        id: 's1',
-        first_name: 'Ann',
-        last_name: 'Lee',
-        payroll: makePayroll({
+      member(makePayroll({ ...compliant, dbs_verified_at: '2026-06-01' })),
+    ])
+    render(await StaffPayrollList())
+
+    const checked = cell('dbs').getByRole('button', { name: '1 Jun 2026' })
+    expect(checked).toHaveAttribute('data-level', 'error')
+    fireEvent.click(checked)
+    expect(screen.getByRole('tooltip')).toHaveTextContent(
+      'DBS has not been verified this school year',
+    )
+  })
+
+  it('explains an action needed status', async () => {
+    vi.mocked(getStaffPayrollList).mockResolvedValue([
+      member(makePayroll({ ...compliant, dbs_level: 'basic' })),
+    ])
+    render(await StaffPayrollList())
+
+    const status = cell('status').getByRole('button', {
+      name: 'Action needed',
+    })
+    fireEvent.click(status)
+    expect(screen.getByRole('tooltip')).toHaveTextContent(
+      'Basic DBS held; an enhanced DBS is required for this role',
+    )
+  })
+
+  it('explains a first aid certificate close to expiry', async () => {
+    vi.mocked(getStaffPayrollList).mockResolvedValue([
+      member(
+        makePayroll({
+          ...compliant,
+          first_aid_certified: true,
+          first_aid_expiry_date: '2026-10-01',
+        }),
+      ),
+    ])
+    render(await StaffPayrollList())
+
+    fireEvent.click(cell('status').getByRole('button', { name: 'Warning' }))
+    expect(screen.getByRole('tooltip')).toHaveTextContent(
+      'First aid certificate expires on 1 Oct 2026 (within 60 days)',
+    )
+  })
+
+  it('warns when no address is recorded', async () => {
+    vi.mocked(getStaffPayrollList).mockResolvedValue([
+      member(
+        makePayroll({
+          ...compliant,
+          address_line_1: null,
+          city: null,
+          postcode: null,
+        }),
+      ),
+    ])
+    render(await StaffPayrollList())
+
+    fireEvent.click(cell('status').getByRole('button', { name: 'Warning' }))
+    expect(screen.getByRole('tooltip')).toHaveTextContent('No address recorded')
+  })
+
+  it('shows the compliance summary', async () => {
+    vi.mocked(getStaffPayrollList).mockResolvedValue([
+      member(makePayroll({ ...compliant, first_aid_certified: true })),
+    ])
+    render(await StaffPayrollList())
+
+    const summary = within(
+      screen.getByRole('region', { name: 'HR compliance' }),
+    )
+    expect(summary.getByText('1 OK · 0 warning · 0 action')).toBeTruthy()
+    expect(summary.getByText('1 of 4')).toBeTruthy()
+    expect(summary.getByText('0 of 2')).toBeTruthy()
+  })
+
+  it('warns when no academic year is current and shows DBS checks as errors', async () => {
+    vi.mocked(getAcademicYears).mockResolvedValue([
+      { ...CURRENT_YEAR, is_current: false },
+    ] as never)
+    vi.mocked(getStaffPayrollList).mockResolvedValue([
+      member(makePayroll(compliant)),
+    ])
+    render(await StaffPayrollList())
+
+    expect(screen.getByRole('alert')).toHaveTextContent(NO_CURRENT_YEAR_MESSAGE)
+    expect(
+      cell('dbs').getByRole('button', { name: '5 Sept 2026' }),
+    ).toHaveAttribute('data-level', 'error')
+  })
+
+  it('has no year banner when a year is current', async () => {
+    vi.mocked(getStaffPayrollList).mockResolvedValue([
+      member(makePayroll(compliant)),
+    ])
+    render(await StaffPayrollList())
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('ignores a passed renewal date on the Update Service', async () => {
+    vi.mocked(getStaffPayrollList).mockResolvedValue([
+      member(
+        makePayroll({
+          ...compliant,
+          dbs_update_service: true,
+          dbs_update_service_number: 'C0001',
+          dbs_renewal_due: '2026-09-01',
+        }),
+      ),
+    ])
+    render(await StaffPayrollList())
+
+    expect(screen.getByTestId('payroll-row-s1').className).not.toContain(
+      'bg-red-50',
+    )
+    expect(cell('status').getByText('OK')).toBeTruthy()
+  })
+
+  it('matches the row highlight to the status for a certificate DBS', async () => {
+    vi.mocked(getStaffPayrollList).mockResolvedValue([
+      // A passed renewal date is ignored off the Update Service
+      member(
+        makePayroll({ ...compliant, dbs_renewal_due: '2026-09-01' }),
+        's1',
+      ),
+      // Over three years old, whatever the renewal date says
+      member(
+        makePayroll({
+          ...compliant,
+          dbs_issue_date: '2023-06-01',
+          dbs_renewal_due: '2030-01-01',
+        }),
+        's2',
+      ),
+    ])
+    render(await StaffPayrollList())
+
+    expect(screen.getByTestId('payroll-row-s1').className).not.toContain(
+      'bg-red-50',
+    )
+    expect(cell('status', 's1').getByText('OK')).toBeTruthy()
+    expect(screen.getByTestId('payroll-row-s2').className).toContain(
+      'bg-red-50',
+    )
+    expect(
+      cell('status', 's2').getByRole('button', { name: 'Action needed' }),
+    ).toBeTruthy()
+  })
+
+  it('highlights a row with an expired first aid or fire warden certificate', async () => {
+    vi.mocked(getStaffPayrollList).mockResolvedValue([
+      member(
+        makePayroll({
+          first_aid_certified: true,
+          first_aid_expiry_date: '2026-01-01',
+        }),
+        's1',
+      ),
+      member(
+        makePayroll({
           fire_warden_certified: true,
           fire_warden_expiry_date: '2025-01-01',
         }),
-      },
+        's2',
+      ),
     ])
     render(await StaffPayrollList())
 
     expect(screen.getByTestId('payroll-row-s1').className).toContain(
       'bg-red-50',
     )
-    expect(screen.getByText('Expired 1 Jan 2025')).toBeTruthy()
-    expect(screen.getAllByText('Not recorded')).toHaveLength(2)
+    expect(screen.getByTestId('payroll-row-s2').className).toContain(
+      'bg-red-50',
+    )
   })
 })

@@ -79,7 +79,9 @@ describe('StaffPayrollPage', () => {
     render(await StaffPayrollPage({ params }))
 
     expect(screen.getByRole('heading', { name: 'Dr Ann Lee' })).toBeTruthy()
-    expect(screen.getByText(/Payment funding is required/)).toBeTruthy()
+    expect(
+      screen.getByText(/Role, date of birth and payment funding are required/),
+    ).toBeTruthy()
     expect(screen.getByTestId('form').textContent).toBe(
       'no-record|-|-|function',
     )

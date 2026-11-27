@@ -57,6 +57,41 @@
       "when": 1791620302067,
       "tag": "20261010081822_backfill_attendance_registers",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795705645668,
+      "tag": "20261126150725_dbs_standard_to_basic",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795705652325,
+      "tag": "20261126150732_hr_job_role_dob_volunteer",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795705671206,
+      "tag": "20261126150751_backfill_job_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795705904098,
+      "tag": "20261126151144_drop_dbs_barred_list_checked",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795714074772,
+      "tag": "20261126172754_drop_job_role_default",
+      "breakpoints": true
     }
   ]
 }

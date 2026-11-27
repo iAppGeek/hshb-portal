@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { addYears, DBS_RENEWAL_YEARS } from './compliance'
 import { REQUIRED_CONSENT_MESSAGE } from './consents'
+import { todayInSchoolTz } from './datetime'
 
 // ─── Reusable field schemas ──────────────────────────────────────────────────
 
@@ -460,9 +461,13 @@ export const applyPhotoOptOutSchema = z.object({
 // ─── Finance ─────────────────────────────────────────────────────────────────
 // Enum values mirror the CHECK constraints in the finance_payments migration.
 
-export const paymentFunding = z.enum(['kea', 'school'], {
+export const paymentFunding = z.enum(['kea', 'school', 'volunteer'], {
   message: 'Select how this staff member is paid',
 })
+export const jobRole = z.enum(
+  ['teacher', 'classroom_assistant', 'admin', 'admin_assistant', 'committee'],
+  { message: 'Select the role' },
+)
 export const idType = z.enum([
   'passport',
   'driving_licence',
@@ -470,7 +475,7 @@ export const idType = z.enum([
   'birth_certificate',
   'other',
 ])
-export const dbsLevel = z.enum(['enhanced', 'standard', 'basic'])
+export const dbsLevel = z.enum(['enhanced', 'basic'])
 export const paymentPlan = z.enum(['monthly', 'termly', 'yearly', 'custom'])
 export const paymentMethod = z.enum(['bank_transfer', 'cash', 'card', 'other'])
 
@@ -556,6 +561,8 @@ function requireDetails(
 export const staffPayrollSchema = z
   .object({
     payment_funding: paymentFunding,
+    job_role: jobRole,
+    date_of_birth: optionalIsoDate,
     bank_account_name: optionalShortText,
     bank_sort_code: optionalSortCode,
     bank_account_number: optionalAccountNumber,
@@ -572,8 +579,9 @@ export const staffPayrollSchema = z
     right_to_work_checked_at: optionalIsoDate,
     dbs_verified: checkbox,
     dbs_level: optionalString.pipe(dbsLevel.nullable()),
-    dbs_barred_list_checked: checkbox,
     dbs_update_service: checkbox,
+    // Only rendered while the Update Service box is ticked.
+    dbs_update_service_number: optionalShortText.optional(),
     dbs_reference: optionalShortText,
     dbs_issue_date: optionalIsoDate,
     dbs_verified_at: optionalIsoDate,
@@ -590,6 +598,27 @@ export const staffPayrollSchema = z
     fire_warden_expiry_date: optionalIsoDate,
   })
   .superRefine((d, ctx) => {
+    // Optional in the DB so records made before it was asked for still load.
+    requireDetails(ctx, true, [
+      [d.date_of_birth, 'date_of_birth', 'Enter the date of birth'],
+    ])
+    if (d.date_of_birth && d.date_of_birth > todayInSchoolTz()) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['date_of_birth'],
+        message: 'Date of birth cannot be in the future',
+      })
+    }
+    requireDetails(ctx, d.payment_funding !== 'volunteer', [
+      [d.payroll_ref, 'payroll_ref', 'Enter the payroll reference'],
+    ])
+    requireDetails(ctx, d.dbs_update_service, [
+      [
+        d.dbs_update_service_number,
+        'dbs_update_service_number',
+        'Enter the Update Service subscription number',
+      ],
+    ])
     const hasAnyBank = Boolean(
       d.bank_account_name || d.bank_sort_code || d.bank_account_number,
     )
@@ -672,9 +701,15 @@ export const staffPayrollSchema = z
   })
   .transform((d) => ({
     ...d,
+    // Only a certificate's renewal is defaulted; a subscription's is entered.
     dbs_renewal_due:
       d.dbs_renewal_due ??
-      (d.dbs_issue_date ? addYears(d.dbs_issue_date, DBS_RENEWAL_YEARS) : null),
+      (d.dbs_issue_date && !d.dbs_update_service
+        ? addYears(d.dbs_issue_date, DBS_RENEWAL_YEARS)
+        : null),
+    dbs_update_service_number: d.dbs_update_service
+      ? (d.dbs_update_service_number ?? null)
+      : null,
   }))
 
 export const feePlanSchema = z.object({

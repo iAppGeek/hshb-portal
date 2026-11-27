@@ -41,7 +41,7 @@ export default async function StaffPayrollPage({
         subtitle={
           payroll
             ? 'Payroll and compliance record.'
-            : 'No payroll record yet. Payment funding is required to create one.'
+            : 'No payroll record yet. Role, date of birth and payment funding are required to create one.'
         }
         backHref="/hr"
         backLabel="HR"

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   uuid,
@@ -1703,10 +1703,12 @@ describe('academicYearDatesSchema', () => {
 describe('staffPayrollSchema', () => {
   const blank = {
     payment_funding: 'school',
+    job_role: 'teacher',
+    date_of_birth: '1985-04-12',
     bank_account_name: '',
     bank_sort_code: '',
     bank_account_number: '',
-    payroll_ref: '',
+    payroll_ref: 'PR-001',
     address_line_1: '',
     address_line_2: '',
     city: '',
@@ -1720,6 +1722,7 @@ describe('staffPayrollSchema', () => {
     dbs_issue_date: '',
     dbs_verified_at: '',
     dbs_renewal_due: '',
+    dbs_update_service_number: '',
     first_aid_reference: '',
     first_aid_issue_date: '',
     first_aid_verified_at: '',
@@ -1735,11 +1738,14 @@ describe('staffPayrollSchema', () => {
     return result.success ? [] : result.error.issues.map((i) => i.message)
   }
 
-  it('accepts a minimal record with only payment funding', () => {
+  it('accepts a minimal record with funding, payroll reference, role and date of birth', () => {
     const result = staffPayrollSchema.parse(blank)
     expect(result.payment_funding).toBe('school')
+    expect(result.job_role).toBe('teacher')
+    expect(result.date_of_birth).toBe('1985-04-12')
     expect(result.id_verified).toBe(false)
     expect(result.bank_sort_code).toBeNull()
+    expect(result.dbs_update_service_number).toBeNull()
     expect(result.dbs_renewal_due).toBeNull()
   })
 
@@ -1747,6 +1753,116 @@ describe('staffPayrollSchema', () => {
     expect(messages({ ...blank, payment_funding: '' })).toEqual([
       'Select how this staff member is paid',
     ])
+  })
+
+  it('requires the role and rejects an unknown one', () => {
+    expect(messages({ ...blank, job_role: '' })).toEqual(['Select the role'])
+    expect(messages({ ...blank, job_role: 'headteacher' })).toEqual([
+      'Select the role',
+    ])
+  })
+
+  it('requires the date of birth', () => {
+    expect(messages({ ...blank, date_of_birth: '' })).toEqual([
+      'Enter the date of birth',
+    ])
+  })
+
+  describe('date of birth in the future', () => {
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('rejects a date after today in the school timezone', () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-11-27T12:00:00Z'))
+      expect(messages({ ...blank, date_of_birth: '2026-11-28' })).toEqual([
+        'Date of birth cannot be in the future',
+      ])
+      expect(messages({ ...blank, date_of_birth: '2062-04-12' })).toEqual([
+        'Date of birth cannot be in the future',
+      ])
+    })
+
+    it('accepts today', () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-11-27T12:00:00Z'))
+      expect(messages({ ...blank, date_of_birth: '2026-11-27' })).toEqual([])
+    })
+  })
+
+  it.each(['kea', 'school'])(
+    'requires the payroll reference when funded by %s',
+    (payment_funding) => {
+      expect(messages({ ...blank, payment_funding, payroll_ref: '' })).toEqual([
+        'Enter the payroll reference',
+      ])
+    },
+  )
+
+  it('does not require the payroll reference for a volunteer', () => {
+    const result = staffPayrollSchema.parse({
+      ...blank,
+      payment_funding: 'volunteer',
+      payroll_ref: '',
+    })
+    expect(result.payment_funding).toBe('volunteer')
+    expect(result.payroll_ref).toBeNull()
+  })
+
+  it('requires the subscription number, not the renewal date, on the Update Service', () => {
+    expect(messages({ ...blank, dbs_update_service: 'on' })).toEqual([
+      'Enter the Update Service subscription number',
+    ])
+    const result = staffPayrollSchema.parse({
+      ...blank,
+      dbs_update_service: 'on',
+      dbs_update_service_number: ' C001234567 ',
+      dbs_renewal_due: '2027-03-01',
+    })
+    expect(result.dbs_update_service_number).toBe('C001234567')
+    expect(result.dbs_renewal_due).toBe('2027-03-01')
+  })
+
+  it('does not default the renewal date on the Update Service', () => {
+    const result = staffPayrollSchema.parse({
+      ...blank,
+      dbs_update_service: 'on',
+      dbs_update_service_number: 'C0001',
+      dbs_issue_date: '2025-09-01',
+    })
+    expect(result.dbs_renewal_due).toBeNull()
+  })
+
+  it('accepts a form with no subscription number field', () => {
+    const { dbs_update_service_number: _omitted, ...withoutField } = blank
+    expect(
+      staffPayrollSchema.parse(withoutField).dbs_update_service_number,
+    ).toBeNull()
+    expect(
+      messages({
+        ...withoutField,
+        dbs_update_service: 'on',
+        dbs_renewal_due: '2027-03-01',
+      }),
+    ).toEqual(['Enter the Update Service subscription number'])
+  })
+
+  it('drops the subscription number when not on the Update Service', () => {
+    const result = staffPayrollSchema.parse({
+      ...blank,
+      dbs_update_service_number: 'C001234567',
+    })
+    expect(result.dbs_update_service_number).toBeNull()
+  })
+
+  it('accepts enhanced and basic DBS levels only', () => {
+    expect(
+      staffPayrollSchema.parse({ ...blank, dbs_level: 'basic' }).dbs_level,
+    ).toBe('basic')
+    expect(
+      staffPayrollSchema.safeParse({ ...blank, dbs_level: 'standard' }).success,
+    ).toBe(false)
   })
 
   it('requires all bank fields once one is entered', () => {

@@ -783,6 +783,8 @@ export const staffPayroll = pgTable(
     id: uuid().defaultRandom().primaryKey(),
     staffId: uuid().notNull(),
     paymentFunding: text().notNull(),
+    jobRole: text().notNull(),
+    dateOfBirth: date(),
     bankAccountName: text(),
     bankSortCode: text(),
     bankAccountNumber: text(),
@@ -800,8 +802,8 @@ export const staffPayroll = pgTable(
     rightToWorkCheckedAt: date(),
     dbsVerified: boolean().default(false).notNull(),
     dbsLevel: text(),
-    dbsBarredListChecked: boolean().default(false).notNull(),
     dbsUpdateService: boolean().default(false).notNull(),
+    dbsUpdateServiceNumber: text(),
     dbsReference: text(),
     dbsIssueDate: date(),
     dbsVerifiedAt: date(),
@@ -857,7 +859,7 @@ export const staffPayroll = pgTable(
     ),
     check(
       'staff_payroll_dbs_level_check',
-      sql`(${t.dbsLevel} IS NULL) OR (${t.dbsLevel} = ANY (ARRAY['enhanced'::text, 'standard'::text, 'basic'::text]))`,
+      sql`(${t.dbsLevel} IS NULL) OR (${t.dbsLevel} = ANY (ARRAY['enhanced'::text, 'basic'::text]))`,
     ),
     check(
       'staff_payroll_dbs_verified_details_check',
@@ -881,7 +883,11 @@ export const staffPayroll = pgTable(
     ),
     check(
       'staff_payroll_payment_funding_check',
-      sql`${t.paymentFunding} = ANY (ARRAY['kea'::text, 'school'::text])`,
+      sql`${t.paymentFunding} = ANY (ARRAY['kea'::text, 'school'::text, 'volunteer'::text])`,
+    ),
+    check(
+      'staff_payroll_job_role_check',
+      sql`${t.jobRole} = ANY (ARRAY['teacher'::text, 'classroom_assistant'::text, 'admin'::text, 'admin_assistant'::text, 'committee'::text])`,
     ),
   ],
 ).enableRLS()
