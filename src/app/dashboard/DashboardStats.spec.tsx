@@ -40,6 +40,16 @@ vi.mock('./HrComplianceTile', () => ({
   ),
 }))
 
+// The tile is tested in MyHrDataTile.spec.tsx; here we only check that
+// everyone sees their own.
+vi.mock('./MyHrDataTile', () => ({
+  default: ({ staffId, today }: { staffId: string; today: string }) => (
+    <p data-testid="my-hr-data-tile">
+      {staffId}|{today}
+    </p>
+  ),
+}))
+
 import { getDashboardStats, type DashboardStats as Stats } from '@/db'
 import { todayInSchoolTz } from '@/lib/datetime'
 
@@ -215,6 +225,16 @@ describe('DashboardStats', () => {
     async (role) => {
       await renderStats(role, role === 'teacher' ? teacherStats : adminStats)
       expect(screen.queryByTestId('hr-compliance-tile')).toBeNull()
+    },
+  )
+
+  it.each(['admin', 'teacher', 'headteacher', 'secretary'] as const)(
+    'shows %s their own HR Data tile',
+    async (role) => {
+      await renderStats(role, role === 'teacher' ? teacherStats : adminStats)
+      expect(screen.getByTestId('my-hr-data-tile')).toHaveTextContent(
+        `staff-1|${today}`,
+      )
     },
   )
 })

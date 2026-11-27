@@ -192,6 +192,28 @@ describe('StaffPayrollList', () => {
     ).toBeTruthy()
   })
 
+  it('shows an admin assistant with no DBS as not compulsory and OK', async () => {
+    vi.mocked(getStaffPayrollList).mockResolvedValue([
+      member(
+        makePayroll({
+          ...compliant,
+          job_role: 'admin_assistant',
+          dbs_verified: false,
+          dbs_level: null,
+          dbs_reference: null,
+          dbs_issue_date: null,
+          dbs_verified_at: null,
+          dbs_renewal_due: null,
+        }),
+      ),
+    ])
+    render(await StaffPayrollList())
+
+    const dbs = cell('dbs').getByText('Not compulsory')
+    expect(dbs.closest('[data-level]')).toHaveAttribute('data-level', 'ok')
+    expect(cell('status').getByText('OK')).toBeTruthy()
+  })
+
   it('marks a DBS checked in a previous school year as an error', async () => {
     vi.mocked(getStaffPayrollList).mockResolvedValue([
       member(makePayroll({ ...compliant, dbs_verified_at: '2026-06-01' })),

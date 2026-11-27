@@ -23,6 +23,7 @@ import {
   useServerForm,
 } from '@/components/form'
 
+import RegulatedRolesHelp from '../../_components/RegulatedRolesHelp'
 import SecretField from '../../_components/SecretField'
 
 type Props = {
@@ -119,15 +120,20 @@ export default function StaffPayrollForm({
         description="The address is optional. Line 1, city and postcode are needed once any part of it is entered."
       >
         <FormGrid>
-          <SelectField
-            label="Role"
-            name="job_role"
-            required
-            defaultValue={payroll?.job_role}
-            placeholder="Select…"
-            options={optionsFromLabels(JOB_ROLE_LABELS)}
-            error={fieldError('job_role')}
-          />
+          <div>
+            <SelectField
+              label="Role"
+              name="job_role"
+              required
+              defaultValue={payroll?.job_role}
+              placeholder="Select…"
+              options={optionsFromLabels(JOB_ROLE_LABELS)}
+              error={fieldError('job_role')}
+            />
+            <div className="mt-1">
+              <RegulatedRolesHelp />
+            </div>
+          </div>
           <TextField
             label="Date of birth"
             name="date_of_birth"

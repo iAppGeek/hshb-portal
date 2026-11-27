@@ -15,6 +15,7 @@ import type { StaffRole } from '@/types/next-auth'
 
 import HrComplianceTile from './HrComplianceTile'
 import LinktreeTile from './LinktreeTile'
+import MyHrDataTile from './MyHrDataTile'
 
 const pct = (n: number, total: number) =>
   total > 0 ? `${Math.round((n / total) * 100)}%` : '—'
@@ -220,6 +221,8 @@ export default async function DashboardStats({
       )}
 
       {canManageHr(role) && <HrComplianceTile today={today} />}
+
+      <MyHrDataTile staffId={staffId} today={today} />
 
       <LinktreeTile url={linktreeUrlFor(email)} />
     </div>

@@ -1,5 +1,3 @@
-import Link from 'next/link'
-
 import {
   MIN_FIRE_WARDENS,
   MIN_FIRST_AIDERS,
@@ -11,14 +9,11 @@ import StatusBadge from './StatusBadge'
 
 type Props = {
   summary: ComplianceSummary
-  /** Links the title, e.g. from the dashboard to the HR page. */
-  href?: string
 }
 
-/** The HR compliance summary, shared by the HR page and the dashboard. */
+/** The HR compliance summary at the top of the HR page. */
 export default function ComplianceSummaryCard({
   summary,
-  href,
 }: Props): React.ReactElement {
   const { overall, staff, staffStatus, firstAiders, fireWardens } = summary
   const title = 'HR compliance'
@@ -29,15 +24,7 @@ export default function ComplianceSummaryCard({
       className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 sm:p-6"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-medium text-gray-500">
-          {href ? (
-            <Link href={href} className="hover:text-gray-700 hover:underline">
-              {title}
-            </Link>
-          ) : (
-            title
-          )}
-        </h2>
+        <h2 className="text-sm font-medium text-gray-500">{title}</h2>
         <StatusBadge
           level={overall.level}
           label={STATUS_LABELS[overall.level]}

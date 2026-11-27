@@ -12,6 +12,7 @@ import {
   isValidFirstAider,
   NO_CURRENT_YEAR_MESSAGE,
   staffComplianceStatus,
+  staffIssueCategories,
   worstLevel,
   type ComplianceRecord,
   type SchoolYear,
@@ -431,45 +432,65 @@ describe('staffComplianceStatus', () => {
     })
   })
 
-  describe('non-regulated roles', () => {
-    const base = { job_role: 'committee' }
+  describe.each(['admin_assistant', 'committee'])(
+    'non-regulated role %s',
+    (job_role) => {
+      it('is ok with no DBS', () => {
+        expect(
+          staffComplianceStatus(
+            makeRecord({ job_role, ...NO_DBS }),
+            YEAR,
+            TODAY,
+          ),
+        ).toEqual({ level: 'ok', reasons: [] })
+      })
 
-    it('is ok with any valid DBS, including basic', () => {
-      expect(
-        staffComplianceStatus(
-          makeRecord({ ...base, dbs_level: 'basic' }),
-          YEAR,
-          TODAY,
-        ).level,
-      ).toBe('ok')
-    })
+      it('is ok with a basic DBS', () => {
+        expect(
+          staffComplianceStatus(
+            makeRecord({ job_role, dbs_level: 'basic' }),
+            YEAR,
+            TODAY,
+          ).level,
+        ).toBe('ok')
+      })
 
-    it('is a warning with no DBS', () => {
-      expect(
-        staffComplianceStatus(makeRecord({ ...base, ...NO_DBS }), YEAR, TODAY),
-      ).toEqual({ level: 'warning', reasons: ['No DBS recorded'] })
-    })
+      it('ignores an expired DBS or one not verified this school year', () => {
+        expect(
+          staffComplianceStatus(
+            makeRecord({ job_role, dbs_issue_date: '2022-01-01' }),
+            YEAR,
+            TODAY,
+          ).level,
+        ).toBe('ok')
+        expect(
+          staffComplianceStatus(
+            makeRecord({ job_role, dbs_verified_at: '2025-10-01' }),
+            YEAR,
+            TODAY,
+          ).level,
+        ).toBe('ok')
+      })
 
-    it('is an error with an expired DBS', () => {
-      expect(
-        staffComplianceStatus(
-          makeRecord({ ...base, dbs_issue_date: '2022-01-01' }),
-          YEAR,
-          TODAY,
-        ).level,
-      ).toBe('error')
-    })
+      it('does not highlight an expired DBS', () => {
+        expect(
+          hasLapsedCertificate(
+            makeRecord({ job_role, dbs_issue_date: '2022-01-01' }),
+            TODAY,
+          ),
+        ).toBe(false)
+      })
 
-    it('is an error with a DBS not verified this school year', () => {
-      expect(
-        staffComplianceStatus(
-          makeRecord({ ...base, dbs_verified_at: '2025-10-01' }),
-          YEAR,
-          TODAY,
-        ).level,
-      ).toBe('error')
-    })
-  })
+      it('shows the DBS column as ok', () => {
+        expect(
+          dbsCheckedStatus(makeRecord({ job_role, ...NO_DBS }), YEAR),
+        ).toEqual({ level: 'ok', reasons: [] })
+        expect(
+          dbsCheckedStatus(makeRecord({ job_role, ...NO_DBS }), null),
+        ).toEqual({ level: 'ok', reasons: [] })
+      })
+    },
+  )
 
   describe('ID and right to work', () => {
     it.each(['admin_assistant', 'committee'])(
@@ -518,24 +539,21 @@ describe('staffComplianceStatus', () => {
   })
 
   describe('with no current school year', () => {
-    it('is an error for anyone with a DBS', () => {
+    it('is an error for a regulated role', () => {
+      expect(staffComplianceStatus(makeRecord(), null, TODAY)).toEqual({
+        level: 'error',
+        reasons: [NO_CURRENT_YEAR_MESSAGE],
+      })
+    })
+
+    it('stays ok for a non-regulated role', () => {
       expect(
         staffComplianceStatus(
           makeRecord({ job_role: 'committee' }),
           null,
           TODAY,
-        ),
-      ).toEqual({ level: 'error', reasons: [NO_CURRENT_YEAR_MESSAGE] })
-    })
-
-    it('stays a warning for a non-regulated role with no DBS', () => {
-      expect(
-        staffComplianceStatus(
-          makeRecord({ job_role: 'committee', ...NO_DBS }),
-          null,
-          TODAY,
         ).level,
-      ).toBe('warning')
+      ).toBe('ok')
     })
   })
 })
@@ -611,6 +629,7 @@ describe('complianceSummary', () => {
     expect(summary.firstAiders.count).toBe(4)
     expect(summary.fireWardens.count).toBe(2)
     expect(summary.noCurrentYear).toBe(false)
+    expect(summary.pendingActions).toBe(0)
   })
 
   it('counts staff by status and reports the worst overall', () => {
@@ -628,6 +647,7 @@ describe('complianceSummary', () => {
       reasons: ['1 staff need action', '1 staff have warnings'],
     })
     expect(summary.overall.level).toBe('error')
+    expect(summary.pendingActions).toBe(2)
   })
 
   it('warns when one first aider and one fire warden short', () => {
@@ -646,6 +666,7 @@ describe('complianceSummary', () => {
         '1 valid fire wardens; at least 2 are needed',
       ],
     })
+    expect(summary.pendingActions).toBe(2)
   })
 
   it('counts first aiders and fire wardens from people without a green status', () => {
@@ -662,6 +683,8 @@ describe('complianceSummary', () => {
     expect(summary.noCurrentYear).toBe(true)
     expect(summary.overall.level).toBe('error')
     expect(summary.overall.reasons[0]).toBe(NO_CURRENT_YEAR_MESSAGE)
+    // No year, no first aiders, no fire wardens.
+    expect(summary.pendingActions).toBe(3)
   })
 })
 
@@ -746,5 +769,51 @@ describe('staffComplianceStatus without an address', () => {
       TODAY,
     )
     expect(summary.staff).toEqual({ ok: 1, warning: 1, error: 0 })
+  })
+})
+
+describe('staffIssueCategories', () => {
+  it('is empty for a compliant record', () => {
+    expect(staffIssueCategories(makeRecord(), YEAR, TODAY)).toEqual([])
+  })
+
+  it('reports a missing record on its own', () => {
+    expect(staffIssueCategories(null, YEAR, TODAY)).toEqual([
+      { category: 'record', level: 'error' },
+    ])
+  })
+
+  it('groups issues by area with the worst level in each, in a fixed order', () => {
+    expect(
+      staffIssueCategories(
+        makeRecord({
+          address_line_1: null,
+          right_to_work_checked: false,
+          id_verified: false,
+          dbs_verified_at: '2025-10-01',
+          first_aid_certified: true,
+          first_aid_expiry_date: '2026-12-01',
+          fire_warden_certified: true,
+          fire_warden_expiry_date: '2026-01-01',
+        }),
+        YEAR,
+        TODAY,
+      ),
+    ).toEqual([
+      { category: 'dbs', level: 'error' },
+      { category: 'identity', level: 'error' },
+      { category: 'certificates', level: 'error' },
+      { category: 'personal_details', level: 'warning' },
+    ])
+  })
+
+  it('has no DBS issue for a role that does not need one', () => {
+    expect(
+      staffIssueCategories(
+        makeRecord({ job_role: 'admin_assistant', ...NO_DBS }),
+        YEAR,
+        TODAY,
+      ),
+    ).toEqual([])
   })
 })
