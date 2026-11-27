@@ -318,6 +318,55 @@ test.describe('HR', () => {
     ).toBeVisible()
   })
 
+  test('does not require a DBS for an admin assistant', async ({ page }) => {
+    await insertPayroll(staffId, {
+      ...COMPLIANT,
+      job_role: 'admin_assistant',
+      dbs_verified: false,
+      dbs_level: null,
+      dbs_reference: null,
+      dbs_issue_date: null,
+      dbs_verified_at: null,
+      dbs_renewal_due: null,
+    })
+    const row = page.getByTestId(`payroll-row-${staffId}`)
+    await loadWithFreshData(page, '/hr', async () => {
+      await expect(
+        row.getByText('Not compulsory').filter({ visible: true }),
+      ).toBeVisible({ timeout: 3_000 })
+    })
+    await expect(
+      row.getByText('OK', { exact: true }).filter({ visible: true }),
+    ).toBeVisible()
+  })
+
+  test('explains which roles need a DBS beside the role field', async ({
+    page,
+  }) => {
+    await page.goto(`/hr/staff/${staffId}`)
+    await page.getByRole('button', { name: 'Which roles need a DBS?' }).click()
+
+    const help = page.getByRole('tooltip')
+    await expect(help).toContainText('Teacher, Classroom Assistant, Admin')
+    await expect(help).toContainText('Admin Assistant, Committee')
+  })
+
+  test('lists the open issues at the top of a record', async ({ page }) => {
+    await insertPayroll(staffId, {
+      ...COMPLIANT,
+      id_verified: false,
+      address_line_1: null,
+      city: null,
+      postcode: null,
+    })
+    await page.goto(`/hr/staff/${staffId}`)
+
+    const status = page.getByRole('region', { name: 'HR status' })
+    await expect(status).toContainText('Action needed: 2 open issues')
+    await expect(status).toContainText('ID has not been verified')
+    await expect(status).toContainText('No address recorded')
+  })
+
   test('shows the compliance summary', async ({ page }) => {
     await page.goto('/hr')
     const summary = page.getByRole('region', { name: 'HR compliance' })

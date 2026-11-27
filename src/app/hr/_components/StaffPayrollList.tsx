@@ -7,8 +7,10 @@ import { formatCalendarDate, todayInSchoolTz } from '@/lib/datetime'
 import type { GridColumn } from '@/lib/grid/columns'
 import { rowLink } from '@/lib/grid/styles'
 import {
+  DBS_NOT_COMPULSORY_LABEL,
   dbsCheckedStatus,
   hasLapsedCertificate,
+  isDbsCompulsory,
   NO_CURRENT_YEAR_MESSAGE,
   STATUS_LABELS,
   staffComplianceStatus,
@@ -38,10 +40,18 @@ export default async function StaffPayrollList(): Promise<React.ReactElement> {
     const checkedOn = member.payroll?.dbs_verified
       ? member.payroll.dbs_verified_at
       : null
+    const notCompulsory =
+      member.payroll !== null && !isDbsCompulsory(member.payroll)
     return (
       <StatusBadge
         level={status.level}
-        label={checkedOn ? formatDate(checkedOn) : 'Not checked'}
+        label={
+          notCompulsory
+            ? DBS_NOT_COMPULSORY_LABEL
+            : checkedOn
+              ? formatDate(checkedOn)
+              : 'Not checked'
+        }
         reasons={status.reasons}
       />
     )

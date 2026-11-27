@@ -3,7 +3,12 @@ import { render, screen } from '@testing-library/react'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { getAllStaff, getStaffById, getStaffPayrollByStaffId } from '@/db'
+import {
+  getAcademicYears,
+  getAllStaff,
+  getStaffById,
+  getStaffPayrollByStaffId,
+} from '@/db'
 
 import StaffPayrollPage from './page'
 
@@ -18,6 +23,11 @@ vi.mock('@/db', () => ({
   getStaffById: vi.fn(),
   getStaffPayrollByStaffId: vi.fn(),
   getAllStaff: vi.fn(),
+  getAcademicYears: vi.fn(),
+}))
+vi.mock('@/lib/datetime', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/datetime')>()),
+  todayInSchoolTz: () => '2026-11-26',
 }))
 vi.mock('./actions', () => ({ saveStaffPayrollAction: vi.fn() }))
 vi.mock('./StaffPayrollForm', () => ({
@@ -52,6 +62,9 @@ beforeEach(() => {
     { id: 'a1', first_name: 'Ada', last_name: 'Admin' },
   ] as never)
   vi.mocked(getStaffPayrollByStaffId).mockResolvedValue(null)
+  vi.mocked(getAcademicYears).mockResolvedValue([
+    { start_date: '2026-09-01', end_date: '2027-08-31', is_current: true },
+  ] as never)
 })
 
 describe('StaffPayrollPage', () => {
@@ -85,6 +98,37 @@ describe('StaffPayrollPage', () => {
     expect(screen.getByTestId('form').textContent).toBe(
       'no-record|-|-|function',
     )
+    expect(screen.queryByRole('region', { name: 'HR status' })).toBeNull()
+  })
+
+  it('lists the open issues above the form', async () => {
+    vi.mocked(getStaffPayrollByStaffId).mockResolvedValue({
+      id: 'p1',
+      job_role: 'admin_assistant',
+      payment_funding: 'volunteer',
+      address_line_1: '1 High Street',
+      id_verified: false,
+      right_to_work_checked: false,
+      dbs_verified: false,
+      dbs_level: null,
+      dbs_update_service: false,
+      dbs_reference: null,
+      dbs_issue_date: null,
+      dbs_verified_at: null,
+      dbs_renewal_due: null,
+      first_aid_certified: false,
+      first_aid_expiry_date: null,
+      fire_warden_certified: false,
+      fire_warden_expiry_date: null,
+      id_verified_by: null,
+      dbs_verified_by: null,
+    } as never)
+
+    render(await StaffPayrollPage({ params }))
+
+    const panel = screen.getByRole('region', { name: 'HR status' })
+    expect(panel).toHaveTextContent('Action needed: 1 open issue')
+    expect(panel).toHaveTextContent('ID has not been verified')
   })
 
   it('passes verifier names for an existing record', async () => {

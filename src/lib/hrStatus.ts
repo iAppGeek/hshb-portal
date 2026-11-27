@@ -88,6 +88,16 @@ export function isRegulatedRole(role: string): boolean {
   return (REGULATED_ROLES as readonly string[]).includes(role)
 }
 
+/**
+ * Only regulated roles need a DBS. For anyone else it is not compulsory, so
+ * whatever DBS is recorded never affects their status.
+ */
+export function isDbsCompulsory(record: ComplianceRecord): boolean {
+  return isRegulatedRole(record.job_role)
+}
+
+export const DBS_NOT_COMPULSORY_LABEL = 'Not compulsory'
+
 function inYear(date: string | null, year: SchoolYear | null): boolean {
   return (
     date !== null &&
@@ -116,11 +126,15 @@ export function hasDbsOnRecord(record: ComplianceRecord): boolean {
   )
 }
 
-/** The HR list's DBS column: verified during the current school year. */
+/**
+ * The HR list's DBS column: verified during the current school year. Always
+ * ok for a role that does not need a DBS.
+ */
 export function dbsCheckedStatus(
   record: ComplianceRecord | null,
   year: SchoolYear | null,
 ): Status {
+  if (record && !isDbsCompulsory(record)) return { level: 'ok', reasons: [] }
   if (!record || !record.dbs_verified || !record.dbs_verified_at) {
     return { level: 'error', reasons: ['DBS has not been verified'] }
   }
@@ -170,7 +184,9 @@ export function hasLapsedCertificate(
   today: string,
 ): boolean {
   return (
-    (record.dbs_verified && isDbsExpired(record, today)) ||
+    (isDbsCompulsory(record) &&
+      record.dbs_verified &&
+      isDbsExpired(record, today)) ||
     (record.first_aid_certified &&
       expiryState(record.first_aid_expiry_date, today) === 'expired') ||
     (record.fire_warden_certified &&
@@ -183,17 +199,12 @@ function dbsIssues(
   year: SchoolYear | null,
   today: string,
 ): [StatusLevel, string][] {
-  const regulated = isRegulatedRole(record.job_role)
+  if (!isDbsCompulsory(record)) return []
 
   if (!hasDbsOnRecord(record)) {
-    return regulated
-      ? [
-          [
-            'error',
-            'No DBS recorded; an enhanced DBS is required for this role',
-          ],
-        ]
-      : [['warning', 'No DBS recorded']]
+    return [
+      ['error', 'No DBS recorded; an enhanced DBS is required for this role'],
+    ]
   }
 
   const invalid = dbsValidityIssues(record, year, today)
@@ -202,7 +213,7 @@ function dbsIssues(
   }
 
   const issues: [StatusLevel, string][] = []
-  if (regulated && record.dbs_level !== 'enhanced') {
+  if (record.dbs_level !== 'enhanced') {
     issues.push([
       'error',
       'Basic DBS held; an enhanced DBS is required for this role',
@@ -246,41 +257,100 @@ function certificateIssues(
   return []
 }
 
+/** The area of a person's HR record an issue belongs to. */
+export type IssueCategory =
+  'record' | 'dbs' | 'identity' | 'certificates' | 'personal_details'
+
+export const ISSUE_CATEGORY_LABELS: Record<IssueCategory, string> = {
+  record: 'No HR record',
+  dbs: 'DBS issue',
+  identity: 'ID or right to work issue',
+  certificates: 'First aid or fire warden issue',
+  personal_details: 'Personal data issue',
+}
+
+type Issue = [StatusLevel, string, IssueCategory]
+
+function tag(
+  issues: [StatusLevel, string][],
+  category: IssueCategory,
+): Issue[] {
+  return issues.map(([level, reason]) => [level, reason, category])
+}
+
+function staffIssues(
+  record: ComplianceRecord | null,
+  year: SchoolYear | null,
+  today: string,
+): Issue[] {
+  if (!record) return [['error', 'No HR record', 'record']]
+
+  const issues: Issue[] = tag(dbsIssues(record, year, today), 'dbs')
+  // Everyone on the system has their ID checked; right to work applies to
+  // anyone employed, whatever the role, so only volunteers are exempt.
+  if (!record.id_verified) {
+    issues.push(['error', 'ID has not been verified', 'identity'])
+  }
+  if (record.payment_funding !== 'volunteer' && !record.right_to_work_checked) {
+    issues.push(['error', 'Right to work has not been checked', 'identity'])
+  }
+  issues.push(
+    ...tag(
+      certificateIssues(
+        record.first_aid_certified,
+        record.first_aid_expiry_date,
+        'First aid',
+        today,
+      ),
+      'certificates',
+    ),
+    ...tag(
+      certificateIssues(
+        record.fire_warden_certified,
+        record.fire_warden_expiry_date,
+        'Fire warden',
+        today,
+      ),
+      'certificates',
+    ),
+  )
+  if (!record.address_line_1) {
+    issues.push(['warning', 'No address recorded', 'personal_details'])
+  }
+  return issues
+}
+
 /** A person's overall compliance status; `null` means no HR record. */
 export function staffComplianceStatus(
   record: ComplianceRecord | null,
   year: SchoolYear | null,
   today: string,
 ): Status {
-  if (!record) return { level: 'error', reasons: ['No HR record'] }
-
-  const issues = dbsIssues(record, year, today)
-  // Everyone on the system has their ID checked; right to work applies to
-  // anyone employed, whatever the role, so only volunteers are exempt.
-  if (!record.id_verified) {
-    issues.push(['error', 'ID has not been verified'])
-  }
-  if (record.payment_funding !== 'volunteer' && !record.right_to_work_checked) {
-    issues.push(['error', 'Right to work has not been checked'])
-  }
-  issues.push(
-    ...certificateIssues(
-      record.first_aid_certified,
-      record.first_aid_expiry_date,
-      'First aid',
-      today,
-    ),
-    ...certificateIssues(
-      record.fire_warden_certified,
-      record.fire_warden_expiry_date,
-      'Fire warden',
-      today,
-    ),
+  return statusFrom(
+    staffIssues(record, year, today).map(([level, reason]) => [level, reason]),
   )
-  if (!record.address_line_1) {
-    issues.push(['warning', 'No address recorded'])
-  }
-  return statusFrom(issues)
+}
+
+export type CategoryStatus = { category: IssueCategory; level: StatusLevel }
+
+/**
+ * The areas of a person's record with open issues and the worst level in
+ * each, in a fixed order, without the detail of what is wrong.
+ */
+export function staffIssueCategories(
+  record: ComplianceRecord | null,
+  year: SchoolYear | null,
+  today: string,
+): CategoryStatus[] {
+  const issues = staffIssues(record, year, today)
+  return (Object.keys(ISSUE_CATEGORY_LABELS) as IssueCategory[]).flatMap(
+    (category) => {
+      const levels = issues
+        .filter(([, , c]) => c === category)
+        .map(([level]) => level)
+      return levels.length > 0 ? [{ category, level: worstLevel(levels) }] : []
+    },
+  )
 }
 
 function hasValidCertificate(
@@ -335,6 +405,11 @@ export function coverStatus(
 
 export type ComplianceSummary = {
   overall: Status
+  /**
+   * Things to sort out: each person without an OK status, each cover
+   * shortfall and a missing current school year.
+   */
+  pendingActions: number
   staff: Record<StatusLevel, number>
   staffStatus: Status
   firstAiders: { count: number; status: Status }
@@ -391,8 +466,16 @@ export function complianceSummary(
     ]),
   ]
 
+  const pendingActions =
+    staff.error +
+    staff.warning +
+    (firstAiders.status.level === 'ok' ? 0 : 1) +
+    (fireWardens.status.level === 'ok' ? 0 : 1) +
+    (year ? 0 : 1)
+
   return {
     overall: statusFrom(overallIssues),
+    pendingActions,
     staff,
     staffStatus,
     firstAiders,

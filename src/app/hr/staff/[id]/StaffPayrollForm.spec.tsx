@@ -59,6 +59,18 @@ describe('StaffPayrollForm', () => {
     expect(screen.queryByText(/Verified by/)).toBeNull()
   })
 
+  it('explains which roles need a DBS beside the role field', () => {
+    renderForm()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Which roles need a DBS?' }),
+    )
+
+    expect(screen.getByRole('tooltip')).toHaveTextContent(
+      'Admin Assistant, Committee',
+    )
+  })
+
   it('prefills an existing record and shows who verified it', () => {
     renderForm({
       payroll: {

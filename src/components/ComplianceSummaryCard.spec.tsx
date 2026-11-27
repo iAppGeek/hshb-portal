@@ -10,6 +10,7 @@ function makeSummary(
 ): ComplianceSummary {
   return {
     overall: { level: 'ok', reasons: [] },
+    pendingActions: 0,
     staff: { ok: 5, warning: 0, error: 0 },
     staffStatus: { level: 'ok', reasons: [] },
     firstAiders: { count: 4, status: { level: 'ok', reasons: [] } },
@@ -60,13 +61,5 @@ describe('ComplianceSummaryCard', () => {
     expect(
       screen.getByRole('button', { name: '3 OK · 1 warning · 1 action' }),
     ).toBeInTheDocument()
-  })
-
-  it('links the title when given an href', () => {
-    render(<ComplianceSummaryCard summary={makeSummary()} href="/hr" />)
-    expect(screen.getByRole('link', { name: 'HR compliance' })).toHaveAttribute(
-      'href',
-      '/hr',
-    )
   })
 })

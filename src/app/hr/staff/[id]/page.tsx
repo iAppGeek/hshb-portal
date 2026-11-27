@@ -2,10 +2,18 @@ import { type Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
 import { requireRouteAccess } from '@/auth/require'
-import { getAllStaff, getStaffById, getStaffPayrollByStaffId } from '@/db'
+import {
+  getAcademicYears,
+  getAllStaff,
+  getStaffById,
+  getStaffPayrollByStaffId,
+} from '@/db'
+import { todayInSchoolTz } from '@/lib/datetime'
+import { staffComplianceStatus } from '@/lib/hrStatus'
 
 import PageHeader from '../../../_components/PageHeader'
 
+import HrRecordStatus from './HrRecordStatus'
 import StaffPayrollForm from './StaffPayrollForm'
 import { saveStaffPayrollAction } from './actions'
 
@@ -19,10 +27,11 @@ export default async function StaffPayrollPage({
   await requireRouteAccess('/hr')
 
   const { id } = await params
-  const [staff, payroll, allStaff] = await Promise.all([
+  const [staff, payroll, allStaff, years] = await Promise.all([
     getStaffById(id),
     getStaffPayrollByStaffId(id),
     getAllStaff(),
+    getAcademicYears(),
   ])
 
   if (!staff) {
@@ -46,6 +55,16 @@ export default async function StaffPayrollPage({
         backHref="/hr"
         backLabel="HR"
       />
+
+      {payroll && (
+        <HrRecordStatus
+          status={staffComplianceStatus(
+            payroll,
+            years.find((y) => y.is_current) ?? null,
+            todayInSchoolTz(),
+          )}
+        />
+      )}
 
       <StaffPayrollForm
         payroll={payroll}
